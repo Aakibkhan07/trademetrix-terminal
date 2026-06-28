@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from './providers'
+import Header from '@/components/header'
+import MarketTicker from '@/components/market-ticker'
 
 export const metadata: Metadata = {
   title: 'Trade Metrix Terminal',
@@ -18,7 +20,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body><Providers>{children}</Providers></body>
+      <body>
+        <Providers>
+          <Header />
+          <MarketTicker />
+          {children}
+        </Providers>
+      </body>
     </html>
   )
 }
