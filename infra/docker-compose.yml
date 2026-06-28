@@ -1,0 +1,149 @@
+version: "3.8"
+
+services:
+  supabase-db:
+    image: supabase/postgres:17.1.0.147
+    container_name: supabase_db_trademetrix-terminal
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ./db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  supabase-kong:
+    image: kong:2.8.1
+    container_name: supabase_kong_trademetrix-terminal
+    ports:
+      - "54321:8000"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong.yml
+      KONG_DNS_ORDER: A,CNAME
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+    volumes:
+      - ./kong.yml:/kong.yml
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  supabase-auth:
+    image: supabase/gotrue:v2.191.0
+    container_name: supabase_auth_trademetrix-terminal
+    ports:
+      - "9999:9999"
+    environment:
+      GOTRUE_API_HOST: "0.0.0.0"
+      GOTRUE_API_PORT: 9999
+      GOTRUE_SITE_URL: http://localhost:3000
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_LOG_LEVEL: info
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:root@supabase-db:5432/postgres
+      GOTRUE_JWT_SECRET: super-secret-jwt-token-for-local-dev
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_ADMIN_GROUP_NAME: service_role
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  supabase-rest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: supabase_rest_trademetrix-terminal
+    ports:
+      - "54325:3000"
+    environment:
+      PGRST_DB_URI: postgres://authenticator:root@supabase-db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_ROOT_SPEC: root
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://127.0.0.1:54321
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  supabase-realtime:
+    image: supabase/realtime:v2.34.8
+    container_name: supabase_realtime_trademetrix-terminal
+    ports:
+      - "54326:4000"
+    environment:
+      DB_HOST: supabase-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: postgres
+      PORT: 4000
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  supabase-studio:
+    image: supabase/studio:20250219-9b6b0b3
+    container_name: supabase_studio_trademetrix-terminal
+    ports:
+      - "54323:3000"
+    environment:
+      STUDIO_PG_META_URL: http://supabase-pgmeta:8080
+    depends_on:
+      supabase-pgmeta:
+        condition: service_started
+
+  supabase-pgmeta:
+    image: supabase/pgmeta:v2.11.1
+    container_name: supabase_pg_meta_trademetrix-terminal
+    ports:
+      - "54327:8080"
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: supabase-db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: postgres
+      PG_META_DB_NAME: postgres
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  supabase-storage:
+    image: supabase/storage-api:v1.14.4
+    container_name: supabase_storage_trademetrix-terminal
+    ports:
+      - "54328:5000"
+    environment:
+      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdEDwNJo5bZqkKJhC1V0aI
+      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZqLgF6YiqM7sJ0e3Fzk1vM6-XmSdDgePkfQ
+      PROJECT_REF: trademetrix-terminal
+      REGION: us-east-1
+      GLOBAL_S3_BUCKET: local
+      STORAGE_BACKEND: file
+      FILE_SIZE_LIMIT: 52428800
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: local
+    volumes:
+      - ./storage-data:/var/lib/storage
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  supabase-inbucket:
+    image: inbucket/inbucket:3.0.4
+    container_name: supabase_inbucket_trademetrix-terminal
+    ports:
+      - "54324:9000"
+      - "54329:2500"
+
+volumes:
+  db-data:
+  storage-data:
