@@ -1,28 +1,29 @@
 import time
-
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from core.config import settings
-from core.logging import setup_logging, record_request_duration
-from core.ratelimit import RateLimitMiddleware
 from core.cache import cache
-from core.vault import init_vault
+from core.config import settings
+from core.logging import record_request_duration, setup_logging
+from core.prometheus import record_metrics
+from core.prometheus import router as prometheus_router
+from core.ratelimit import RateLimitMiddleware
 from core.sentry import init_sentry
-from core.prometheus import record_metrics, router as prometheus_router
+from core.vault import init_vault
+from market.simulator import market_simulator
 from middleware.validation import InputValidationMiddleware
-from routes.v1_health import router as health_router
+from routes.v1_ai import router as ai_router
 from routes.v1_auth import router as auth_router
+from routes.v1_backtest import router as backtest_router
 from routes.v1_brokers import router as brokers_router
+from routes.v1_engine import router as engine_router
+from routes.v1_health import router as health_router
+from routes.v1_marketdata import router as marketdata_router
 from routes.v1_risk import router as risk_router
 from routes.v1_strategies import router as strategies_router
-from routes.v1_engine import router as engine_router
-from routes.v1_ai import router as ai_router
-from routes.v1_marketdata import router as marketdata_router
-from routes.v1_backtest import router as backtest_router
-from market.simulator import market_simulator
 
 
 @asynccontextmanager

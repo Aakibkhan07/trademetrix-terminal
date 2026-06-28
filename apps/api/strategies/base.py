@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
 
 from pydantic import BaseModel
 
-from core.models import NormalizedOrder, Candle, Tick
+from core.models import Candle, NormalizedOrder, Tick
 
 
 class SignalResult(BaseModel):
-    orders: List[NormalizedOrder]
+    orders: list[NormalizedOrder]
     reason: str = ""
 
 
@@ -20,11 +19,11 @@ class BaseStrategy(ABC):
         self._position: dict = {}
 
     @abstractmethod
-    async def on_tick(self, tick: Tick) -> Optional[SignalResult]:
+    async def on_tick(self, tick: Tick) -> SignalResult | None:
         ...
 
     @abstractmethod
-    async def on_candle(self, candle: Candle) -> Optional[SignalResult]:
+    async def on_candle(self, candle: Candle) -> SignalResult | None:
         ...
 
     @abstractmethod

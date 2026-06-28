@@ -1,10 +1,9 @@
 import asyncio
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
+from datetime import UTC
 
 import pytest
 from pytest_asyncio import fixture as async_fixture
-
-from core.config import settings
 
 
 @pytest.fixture(scope="session")
@@ -17,6 +16,7 @@ def event_loop() -> Generator:
 @async_fixture
 async def client() -> AsyncGenerator:
     from httpx import ASGITransport, AsyncClient
+
     from main import app
 
     transport = ASGITransport(app=app)
@@ -33,13 +33,14 @@ async def auth_headers() -> dict:
     if _SESSION_AUTH is not None:
         return _SESSION_AUTH
 
-    from core.security import create_access_token
-    from datetime import datetime, timezone
     import subprocess
     import uuid
+    from datetime import datetime
+
+    from core.security import create_access_token
 
     user_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S+00")
     email = f"ses_{user_id[:8]}@test.example.com"
 
     try:

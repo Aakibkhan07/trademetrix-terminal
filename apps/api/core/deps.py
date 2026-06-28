@@ -1,9 +1,9 @@
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError
-from core.security import decode_access_token
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from core.db import get_supabase
 from core.models import UserProfile
+from core.security import decode_access_token
 
 _bearer = HTTPBearer(auto_error=False)
 

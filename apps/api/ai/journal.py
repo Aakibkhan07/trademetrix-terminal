@@ -32,7 +32,7 @@ class AIJournal:
         if not trades_data:
             return {"analysis": "No trades found in the selected period.", "stats": {}}
 
-        stats = self._compute_stats(trades_data)
+        stats = self._compute_stats(trades_data, lookback_days)
 
         prompt = f"""You are the AI Trade Journal for Trade Metrix Terminal.
 You provide psychological and statistical feedback on trading behaviour.
@@ -78,7 +78,7 @@ Important guidelines:
         ).limit(100).execute()
         return result.data or []
 
-    def _compute_stats(self, trades: list) -> dict:
+    def _compute_stats(self, trades: list, lookback_days: int = 7) -> dict:
         total = len(trades)
         if total == 0:
             return {}

@@ -2,8 +2,8 @@ import os
 import time
 from typing import Any
 
-from core.resilience import get_circuit_breaker_stats
 from core.logging import get_request_stats
+from core.resilience import get_circuit_breaker_stats
 
 _start_time = time.time()
 

@@ -1,16 +1,15 @@
 from datetime import datetime, timedelta
-from typing import Optional
 
+from brokers import get_broker
 from core.db import get_supabase
 from core.security import decrypt_broker_credentials, encrypt_broker_credentials
-from brokers import get_broker
 
 
 class TokenManager:
     def __init__(self, user_id: str, broker: str):
         self.user_id = user_id
         self.broker = broker
-        self._session: Optional[dict] = None
+        self._session: dict | None = None
 
     async def get_session(self) -> dict:
         if self._session and self._is_valid():

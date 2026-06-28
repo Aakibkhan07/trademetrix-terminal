@@ -5,7 +5,6 @@ Usage:
     python scripts/encrypt_vault.py <dotenv_key>
 """
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -34,8 +33,10 @@ def main():
         print(f"ERROR: {env_path} not found")
         sys.exit(1)
 
+    import base64
+    import hashlib
+
     from cryptography.fernet import Fernet
-    import base64, hashlib
 
     key_bytes = base64.urlsafe_b64encode(hashlib.sha256(dotenv_key.encode()).digest())
     fernet = Fernet(key_bytes)

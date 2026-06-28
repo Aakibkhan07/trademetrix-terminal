@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from core.deps import get_current_user
-from core.models import UserProfile
 from ai.desk import AIDesk
 from ai.journal import AIJournal
+from core.deps import get_current_user
+from core.models import UserProfile
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 

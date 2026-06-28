@@ -1,9 +1,9 @@
-from fastapi import APIRouter
-import asyncio
 
+from fastapi import APIRouter
+
+from core.cache import cache
 from core.config import settings
 from core.metrics import get_metrics, get_uptime
-from core.cache import cache
 
 router = APIRouter(tags=["health"])
 
@@ -31,7 +31,7 @@ async def readiness():
     try:
         from core.db import get_supabase
         sb = get_supabase()
-        resp = sb.table("users").select("id").limit(1).execute()
+        sb.table("users").select("id").limit(1).execute()
         deps["database"] = True
     except Exception as e:
         messages.append(f"database: {e}")

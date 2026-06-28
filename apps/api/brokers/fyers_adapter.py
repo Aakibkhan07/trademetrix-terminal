@@ -1,32 +1,28 @@
 import asyncio
-import hmac
-import hashlib
 import json
 import logging
-import time
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable, List
-from urllib.parse import urlencode
 
 import httpx
 
 from brokers.base import BaseBroker
 from core.http_client import get_http_client
 from core.models import (
+    Candle,
+    Exchange,
+    Funds,
+    Holding,
     NormalizedOrder,
     OrderResult,
-    Position,
-    Holding,
-    Funds,
-    Quote,
-    Candle,
-    Tick,
-    Session,
     OrderSide,
-    OrderType,
-    ProductType,
     OrderStatus,
-    Exchange,
+    OrderType,
+    Position,
+    ProductType,
+    Quote,
+    Session,
+    Tick,
 )
 
 logger = logging.getLogger(__name__)
@@ -124,7 +120,7 @@ class FyersAdapter(BaseBroker):
             message=data.get("message", ""),
         )
 
-    async def get_orderbook(self) -> List[NormalizedOrder]:
+    async def get_orderbook(self) -> list[NormalizedOrder]:
         client = await self._get_client()
         resp = await client.get(f"{self._base_url}/orders", headers=self._headers())
         data = resp.json()
@@ -133,7 +129,7 @@ class FyersAdapter(BaseBroker):
             orders.append(self._normalize_order(item))
         return orders
 
-    async def get_positions(self) -> List[Position]:
+    async def get_positions(self) -> list[Position]:
         client = await self._get_client()
         resp = await client.get(f"{self._base_url}/positions", headers=self._headers())
         data = resp.json()
@@ -142,7 +138,7 @@ class FyersAdapter(BaseBroker):
             positions.append(self._normalize_position(item))
         return positions
 
-    async def get_holdings(self) -> List[Holding]:
+    async def get_holdings(self) -> list[Holding]:
         client = await self._get_client()
         resp = await client.get(f"{self._base_url}/holdings", headers=self._headers())
         data = resp.json()
@@ -163,7 +159,7 @@ class FyersAdapter(BaseBroker):
             broker=self.broker_name,
         )
 
-    async def get_quotes(self, symbols: List[str]) -> List[Quote]:
+    async def get_quotes(self, symbols: list[str]) -> list[Quote]:
         client = await self._get_client()
         resp = await client.post(
             f"{self._base_url}/quotes",
@@ -178,7 +174,7 @@ class FyersAdapter(BaseBroker):
 
     async def get_historical(
         self, symbol: str, interval: str, start: str | None = None, end: str | None = None, range: str | None = None
-    ) -> List[Candle]:
+    ) -> list[Candle]:
         client = await self._get_client()
         params = {"symbol": symbol, "resolution": interval, "date_format": "0"}
         if start:
@@ -206,7 +202,7 @@ class FyersAdapter(BaseBroker):
             )
         return candles
 
-    async def stream(self, symbols: List[str], on_tick: Callable[[Tick], None]) -> None:
+    async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
         if not self._access_token:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
 

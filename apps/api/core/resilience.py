@@ -2,7 +2,8 @@ import asyncio
 import functools
 import logging
 import time
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -52,7 +53,7 @@ class CircuitBreaker:
                     self.failure_count = 0
             return result
 
-        except Exception as e:
+        except Exception:
             async with self._lock:
                 self.failure_count += 1
                 self.last_failure_time = time.monotonic()
@@ -86,10 +87,10 @@ def retry(max_attempts: int = 3, base_delay: float = 0.5, max_delay: float = 10.
     return decorator
 
 
-async def safe_external_call(fn: Callable[..., T], *args: Any,
-                               fallback: T = None,
-                               retries: int = 2, cb_name: str = "default",
-                               **kwargs: Any) -> T:
+async def safe_external_call[T](fn: Callable[..., T], *args: Any,
+                                  fallback: T = None,
+                                  retries: int = 2, cb_name: str = "default",
+                                  **kwargs: Any) -> T:
     breaker = _get_breaker(cb_name)
 
     @retry(max_attempts=retries + 1)

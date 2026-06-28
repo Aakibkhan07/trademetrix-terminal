@@ -1,10 +1,14 @@
-from typing import Optional
 
-from strategies.base import BaseStrategy, SignalResult
 from core.models import (
-    NormalizedOrder, Candle, Tick,
-    OrderSide, OrderType, ProductType, Exchange,
+    Candle,
+    Exchange,
+    NormalizedOrder,
+    OrderSide,
+    OrderType,
+    ProductType,
+    Tick,
 )
+from strategies.base import BaseStrategy, SignalResult
 
 
 class SMCSniper(BaseStrategy):
@@ -24,10 +28,10 @@ class SMCSniper(BaseStrategy):
     async def on_stop(self) -> None:
         pass
 
-    async def on_tick(self, tick: Tick) -> Optional[SignalResult]:
+    async def on_tick(self, tick: Tick) -> SignalResult | None:
         return None
 
-    async def on_candle(self, candle: Candle) -> Optional[SignalResult]:
+    async def on_candle(self, candle: Candle) -> SignalResult | None:
         self._candles.append(candle)
         if len(self._candles) < self.lookback:
             return None
@@ -45,7 +49,7 @@ class SMCSniper(BaseStrategy):
 
         return None
 
-    def _detect_order_block(self) -> Optional[SignalResult]:
+    def _detect_order_block(self) -> SignalResult | None:
         if len(self._candles) < 5:
             return None
 
@@ -98,7 +102,7 @@ class SMCSniper(BaseStrategy):
 
         return None
 
-    def _detect_liquidity_grab(self) -> Optional[SignalResult]:
+    def _detect_liquidity_grab(self) -> SignalResult | None:
         if len(self._candles) < 6:
             return None
 

@@ -1,11 +1,15 @@
-from datetime import time, datetime, timezone, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
 
-from strategies.base import BaseStrategy, SignalResult
 from core.models import (
-    NormalizedOrder, Candle, Tick,
-    OrderSide, OrderType, ProductType, Exchange,
+    Candle,
+    Exchange,
+    NormalizedOrder,
+    OrderSide,
+    OrderType,
+    ProductType,
+    Tick,
 )
+from strategies.base import BaseStrategy, SignalResult
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -23,7 +27,7 @@ class ORBPro(BaseStrategy):
         self._range_high: float = 0.0
         self._range_low: float = 0.0
         self._range_set = False
-        self._range_start: Optional[datetime] = None
+        self._range_start: datetime | None = None
         self._entry_done = False
 
     async def on_start(self) -> None:
@@ -36,10 +40,10 @@ class ORBPro(BaseStrategy):
     async def on_stop(self) -> None:
         pass
 
-    async def on_tick(self, tick: Tick) -> Optional[SignalResult]:
+    async def on_tick(self, tick: Tick) -> SignalResult | None:
         return None
 
-    async def on_candle(self, candle: Candle) -> Optional[SignalResult]:
+    async def on_candle(self, candle: Candle) -> SignalResult | None:
         if self._entry_done:
             return None
 

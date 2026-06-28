@@ -1,10 +1,8 @@
 import asyncio
-import json
 import logging
-from datetime import datetime
-from typing import Callable, Dict, List, Set
+from collections.abc import Callable
 
-from core.models import Tick, Exchange
+from core.models import Tick
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +20,8 @@ class SharedDataSocket:
         if self._initialized:
             return
         self._initialized = True
-        self._subscribers: Dict[str, List[Callable]] = {}
-        self._broker_feeds: Dict[str, asyncio.Task] = {}
+        self._subscribers: dict[str, list[Callable]] = {}
+        self._broker_feeds: dict[str, asyncio.Task] = {}
         self._running = False
 
     async def start(self):
@@ -95,7 +93,7 @@ class SharedDataSocket:
             logger.info(f"Broker feed stopped for {broker_type}")
 
     @property
-    def subscribed_symbols(self) -> Set[str]:
+    def subscribed_symbols(self) -> set[str]:
         return set(self._subscribers.keys()) - {"*"}
 
 

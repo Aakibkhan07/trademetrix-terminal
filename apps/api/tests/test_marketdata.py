@@ -1,6 +1,7 @@
 import pytest
-from market.simulator import MarketSimulator
+
 from market.data_socket import SharedDataSocket
+from market.simulator import MarketSimulator
 
 
 @pytest.mark.asyncio

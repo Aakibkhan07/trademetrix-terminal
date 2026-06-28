@@ -1,4 +1,5 @@
 import pytest
+
 from engine.backtest import BacktestEngine, BacktestResult, _synthesize_candles
 
 

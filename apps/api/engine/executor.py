@@ -1,25 +1,19 @@
-import asyncio
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
-from core.db import get_supabase
-from core.models import (
-    NormalizedOrder,
-    OrderResult,
-    OrderSide,
-    OrderType,
-    OrderStatus,
-    Exchange,
-    ProductType,
-    AuditLogEntry,
-)
-from core.audit import record_audit
 from brokers import get_broker
 from brokers.token_manager import TokenManager
-from risk.riskguard import RiskGuard
+from core.audit import record_audit
+from core.db import get_supabase
+from core.models import (
+    AuditLogEntry,
+    NormalizedOrder,
+    OrderResult,
+    OrderStatus,
+)
 from market.symbol_master import symbol_master
+from risk.riskguard import RiskGuard
 
 logger = logging.getLogger(__name__)
 
@@ -52,12 +46,12 @@ class ExecutionEngine:
         if not self._adapter:
             return OrderResult(success=False, message="Engine not started")
 
-        signal.signal_at = datetime.now(timezone.utc)
+        signal.signal_at = datetime.now(UTC)
         signal.user_id = self.user_id
         signal.broker = self.broker
 
         risk_check = await self._riskguard.check_order(signal)
-        signal.risk_checked_at = datetime.now(timezone.utc)
+        signal.risk_checked_at = datetime.now(UTC)
 
         if not risk_check["allowed"]:
             signal.status = OrderStatus.REJECTED
@@ -71,7 +65,7 @@ class ExecutionEngine:
             return await self._live_execute(signal)
 
     async def _live_execute(self, signal: NormalizedOrder) -> OrderResult:
-        signal.sent_at = datetime.now(timezone.utc)
+        signal.sent_at = datetime.now(UTC)
         send_start = time.monotonic()
 
         broker_symbol = await symbol_master.resolve_symbol(signal.symbol, self.broker)
@@ -85,7 +79,7 @@ class ExecutionEngine:
         if result.success and result.broker_order_id:
             signal.broker_order_id = result.broker_order_id
             signal.status = OrderStatus.OPEN
-            signal.filled_at = datetime.now(timezone.utc)
+            signal.filled_at = datetime.now(UTC)
             signal.message = "Order placed successfully"
 
         self._log_order(signal)
@@ -93,8 +87,8 @@ class ExecutionEngine:
         return result
 
     async def _paper_execute(self, signal: NormalizedOrder) -> OrderResult:
-        signal.sent_at = datetime.now(timezone.utc)
-        signal.filled_at = datetime.now(timezone.utc)
+        signal.sent_at = datetime.now(UTC)
+        signal.filled_at = datetime.now(UTC)
         signal.status = OrderStatus.FILLED
         signal.filled_quantity = signal.quantity
         signal.average_price = signal.price or 100.0
@@ -140,7 +134,7 @@ class ExecutionEngine:
         except Exception as e:
             logger.error(f"Failed to log order: {e}")
 
-    def _log_audit(self, action: str, order: Optional[NormalizedOrder] = None, extra: Optional[dict] = None) -> None:
+    def _log_audit(self, action: str, order: NormalizedOrder | None = None, extra: dict | None = None) -> None:
         details = extra or {}
         if order:
             details.update({"symbol": order.symbol, "side": order.side.value, "quantity": order.quantity})

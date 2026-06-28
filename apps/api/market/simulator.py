@@ -3,7 +3,7 @@ import logging
 import random
 from datetime import datetime
 
-from core.models import Tick, Exchange
+from core.models import Exchange, Tick
 from market.data_socket import shared_socket
 
 logger = logging.getLogger(__name__)

@@ -1,21 +1,17 @@
-from datetime import date, datetime
-from typing import List, Optional, Tuple
+from datetime import date
 
 import httpx
-import pandas as pd
 
 from core.db import get_supabase
-from core.config import settings
 
 
 class SymbolMaster:
     def __init__(self):
         self._cache: dict[str, dict] = {}
 
-    async def sync_nse_bhavcopy(self, trade_date: Optional[date] = None) -> int:
+    async def sync_nse_bhavcopy(self, trade_date: date | None = None) -> int:
         trade_date = trade_date or date.today()
-        date_str = trade_date.strftime("%d%m%Y")
-        url = f"https://nseindia.com/api/equity-stockIndices?index=NIFTY%2050"
+        url = "https://nseindia.com/api/equity-stockIndices?index=NIFTY%2050"
         count = 0
 
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -151,7 +147,7 @@ class SymbolMaster:
                 count += 1
         return count
 
-    async def resolve_symbol(self, canonical: str, broker: str) -> Optional[str]:
+    async def resolve_symbol(self, canonical: str, broker: str) -> str | None:
         supabase = get_supabase()
         result = (
             supabase.table("symbol_master")
@@ -165,7 +161,7 @@ class SymbolMaster:
             return result.data["broker_symbol"]
         return canonical
 
-    async def resolve_to_canonical(self, broker_symbol: str, broker: str) -> Optional[str]:
+    async def resolve_to_canonical(self, broker_symbol: str, broker: str) -> str | None:
         supabase = get_supabase()
         result = (
             supabase.table("symbol_master")

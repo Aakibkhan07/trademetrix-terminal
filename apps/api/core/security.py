@@ -1,10 +1,10 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 from argon2 import PasswordHasher
 from cryptography.fernet import Fernet
-from jose import jwt, JWTError
+from jose import JWTError, jwt
+
 from core.config import settings
-import base64
-import os
 
 _ph = PasswordHasher()
 _fernet = Fernet(settings.encryption_key.encode() if len(settings.encryption_key) == 44 else Fernet.generate_key())
@@ -30,8 +30,8 @@ def decrypt_broker_credentials(ciphertext: str) -> str:
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=24))
-    to_encode = {"sub": subject, "exp": expire, "iat": datetime.now(timezone.utc)}
+    expire = datetime.now(UTC) + (expires_delta or timedelta(hours=24))
+    to_encode = {"sub": subject, "exp": expire, "iat": datetime.now(UTC)}
     return jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
 
 

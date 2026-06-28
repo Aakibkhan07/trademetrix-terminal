@@ -1,5 +1,11 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
+let _token: string | null = null
+
+export function setApiToken(t: string | null) {
+  _token = t
+}
+
 interface ApiOptions {
   method?: string
   body?: unknown
@@ -9,11 +15,16 @@ interface ApiOptions {
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {} } = options
 
+  const authHeaders: Record<string, string> = { ...headers }
+  if (_token) {
+    authHeaders['Authorization'] = `Bearer ${_token}`
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...headers,
+      ...authHeaders,
     },
     credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
@@ -31,6 +42,8 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
 }
 
 export const api = {
+  setToken: setApiToken,
+
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
@@ -38,64 +51,64 @@ export const api = {
 
   auth: {
     signup: (data: { email: string; password: string; full_name?: string }) =>
-      api.post('/auth/signup', data),
+      request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signup', { method: 'POST', body: data }),
     signin: (data: { email: string; password: string }) =>
-      api.post('/auth/signin', data),
-    signout: () => api.post('/auth/signout'),
-    me: () => api.get('/auth/me'),
+      request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signin', { method: 'POST', body: data }),
+    signout: () => request('/auth/signout', { method: 'POST' }),
+    me: () => request('/auth/me'),
   },
 
   brokers: {
-    list: () => api.get('/brokers/list'),
-    credentials: () => api.get('/brokers/credentials'),
+    list: () => request('/brokers/list'),
+    credentials: () => request('/brokers/credentials'),
     saveCredentials: (data: { broker: string; api_key: string; secret_key: string }) =>
-      api.post('/brokers/credentials', data),
-    deleteCredentials: (broker: string) => api.delete(`/brokers/credentials/${broker}`),
+      request('/brokers/credentials', { method: 'POST', body: data }),
+    deleteCredentials: (broker: string) => request(`/brokers/credentials/${broker}`, { method: 'DELETE' }),
   },
 
   risk: {
-    settings: () => api.get('/risk/settings'),
-    update: (data: Record<string, unknown>) => api.post('/risk/settings', data),
-    enableKillSwitch: () => api.post('/risk/kill-switch/enable'),
-    disableKillSwitch: () => api.post('/risk/kill-switch/disable'),
-    killSwitchStatus: () => api.get('/risk/kill-switch'),
-    enableLive: () => api.post('/risk/live/enable'),
-    disableLive: () => api.post('/risk/live/disable'),
-    liveStatus: () => api.get('/risk/live/status'),
+    settings: () => request('/risk/settings'),
+    update: (data: Record<string, unknown>) => request('/risk/settings', { method: 'POST', body: data }),
+    enableKillSwitch: () => request('/risk/kill-switch/enable', { method: 'POST' }),
+    disableKillSwitch: () => request('/risk/kill-switch/disable', { method: 'POST' }),
+    killSwitchStatus: () => request('/risk/kill-switch'),
+    enableLive: () => request('/risk/live/enable'),
+    disableLive: () => request('/risk/live/disable'),
+    liveStatus: () => request('/risk/live/status'),
   },
 
   strategies: {
-    list: () => api.get('/strategies/'),
-    listBuiltin: () => api.get('/strategies/list-builtin'),
+    list: () => request('/strategies/'),
+    listBuiltin: () => request('/strategies/list-builtin'),
     create: (data: { name: string; type: string; config: Record<string, unknown> }) =>
-      api.post('/strategies/', data),
-    update: (id: string, data: Record<string, unknown>) => api.put(`/strategies/${id}`, data),
-    delete: (id: string) => api.delete(`/strategies/${id}`),
+      request('/strategies/', { method: 'POST', body: data }),
+    update: (id: string, data: Record<string, unknown>) => request(`/strategies/${id}`, { method: 'PUT', body: data }),
+    delete: (id: string) => request(`/strategies/${id}`, { method: 'DELETE' }),
   },
 
   engine: {
     start: (data: { strategy_id: string; broker: string; mode?: string; symbols?: string[] }) =>
-      api.post('/engine/start', data),
-    stop: (runId: string) => api.post(`/engine/stop/${runId}`),
+      request('/engine/start', { method: 'POST', body: data }),
+    stop: (runId: string) => request(`/engine/stop/${runId}`, { method: 'POST' }),
     trade: (data: { symbol: string; side: string; quantity: number; price?: number; strategy_id?: string }) =>
-      api.post('/engine/trade', data),
-    runs: () => api.get('/engine/runs'),
+      request('/engine/trade', { method: 'POST', body: data }),
+    runs: () => request('/engine/runs'),
   },
 
   ai: {
-    desk: (command: string) => api.post('/ai/desk', { command }),
-    journal: (lookbackDays = 7) => api.get(`/ai/journal?lookback_days=${lookbackDays}`),
-    journalEntries: () => api.get('/ai/journal/entries'),
+    desk: (command: string) => request('/ai/desk', { method: 'POST', body: { command } }),
+    journal: (lookbackDays = 7) => request(`/ai/journal?lookback_days=${lookbackDays}`),
+    journalEntries: () => request('/ai/journal/entries'),
   },
 
   marketdata: {
-    startSimulator: () => api.post('/marketdata/simulator/start'),
-    stopSimulator: () => api.post('/marketdata/simulator/stop'),
-    symbols: () => api.get('/marketdata/symbols'),
+    startSimulator: () => request('/marketdata/simulator/start', { method: 'POST' }),
+    stopSimulator: () => request('/marketdata/simulator/stop', { method: 'POST' }),
+    symbols: () => request('/marketdata/symbols'),
   },
 
   backtest: {
-    run: (data: Record<string, unknown>) => api.post('/backtest/run', data),
-    strategies: () => api.get('/backtest/strategies'),
+    run: (data: Record<string, unknown>) => request('/backtest/run', { method: 'POST', body: data }),
+    strategies: () => request('/backtest/strategies'),
   },
 }

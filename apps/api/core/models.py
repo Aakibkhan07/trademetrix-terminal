@@ -1,29 +1,29 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
+
+from pydantic import BaseModel, Field
 
 
-class OrderSide(str, Enum):
+class OrderSide(StrEnum):
     BUY = "BUY"
     SELL = "SELL"
 
 
-class OrderType(str, Enum):
+class OrderType(StrEnum):
     MARKET = "MARKET"
     LIMIT = "LIMIT"
     SL = "SL"
     SLM = "SLM"
 
 
-class ProductType(str, Enum):
+class ProductType(StrEnum):
     DELIVERY = "DELIVERY"
     INTRADAY = "INTRADAY"
     MIS = "MIS"
     NRML = "NRML"
 
 
-class OrderStatus(str, Enum):
+class OrderStatus(StrEnum):
     PENDING = "PENDING"
     OPEN = "OPEN"
     PARTIALLY_FILLED = "PARTIALLY_FILLED"
@@ -33,7 +33,7 @@ class OrderStatus(str, Enum):
     EXPIRED = "EXPIRED"
 
 
-class Exchange(str, Enum):
+class Exchange(StrEnum):
     NSE = "NSE"
     BSE = "BSE"
     NFO = "NFO"

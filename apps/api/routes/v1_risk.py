@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core.deps import get_current_user
 from core.db import get_supabase
-from core.models import UserProfile, RiskSettings
+from core.deps import get_current_user
+from core.models import RiskSettings, UserProfile
 from risk.riskguard import RiskGuard
 
 router = APIRouter(prefix="/risk", tags=["risk"])
@@ -20,7 +20,6 @@ class UpdateRiskRequest(BaseModel):
 
 @router.get("/settings")
 async def get_risk_settings(current_user: UserProfile = Depends(get_current_user)):
-    rg = RiskGuard(current_user.id)
     supabase = get_supabase()
     result = supabase.table("risk_settings").select("*").eq("user_id", current_user.id).execute()
     return {"settings": result.data or []}

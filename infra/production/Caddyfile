@@ -1,0 +1,15 @@
+{
+    email aakibkhan0797@gmail.com
+}
+
+ai.trademetrix.tech {
+    reverse_proxy web:3000
+}
+
+api.ai.trademetrix.tech {
+    reverse_proxy api:8000
+}
+
+monitor.ai.trademetrix.tech {
+    reverse_proxy grafana:3000
+}

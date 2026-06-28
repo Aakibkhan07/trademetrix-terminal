@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 
 const NAV_ITEMS = [
@@ -19,18 +20,29 @@ const NAV_ITEMS = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { token, signout, loading } = useAuth()
   const [killSwitchActive, setKillSwitchActive] = useState(false)
 
   useEffect(() => {
+    if (!loading && !token) {
+      router.push('/auth')
+    }
+  }, [token, loading, router])
+
+  useEffect(() => {
+    if (!token) return
     api.risk.killSwitchStatus().then((d: unknown) => {
       const data = d as { kill_switch_enabled: boolean }
       setKillSwitchActive(data.kill_switch_enabled)
     }).catch(() => {})
-  }, [])
+  }, [token])
 
-  const handleSignOut = async () => {
-    await api.auth.signout()
-    router.push('/auth')
+  if (loading || !token) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#000', color: '#8888a0' }}>
+        <p>Loading...</p>
+      </div>
+    )
   }
 
   return (
@@ -87,7 +99,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             className="btn btn-ghost"
             style={{ width: '100%', marginTop: 8 }}
-            onClick={handleSignOut}
+            onClick={signout}
           >
             Sign Out
           </button>

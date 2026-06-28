@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { api } from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
 
 export default function AuthPage() {
   const router = useRouter()
+  const { signin, signup } = useAuth()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -20,9 +21,9 @@ export default function AuthPage() {
 
     try {
       if (isSignUp) {
-        await api.auth.signup({ email, password, full_name: fullName })
+        await signup(email, password, fullName)
       } else {
-        await api.auth.signin({ email, password })
+        await signin(email, password)
       }
       router.push('/dashboard')
     } catch (err: unknown) {
