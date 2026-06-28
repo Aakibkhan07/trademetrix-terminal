@@ -92,3 +92,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose -f infra/docker-compose.yml build --dry-run
+
+  backup-verify:
+    name: Verify Backup Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n apps/api/scripts/backup.sh
+      - run: bash -n apps/api/scripts/restore.sh
+
+  load-test:
+    name: Load Test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+      - name: Start API server
+        run: |
+          cd apps/api
+          pip install -r requirements.txt
+          SUPABASE_URL=http://localhost:54321 \
+          SUPABASE_SERVICE_KEY=test-key \
+          SUPABASE_ANON_KEY=test-key \
+          SECRET_KEY=test-secret-key \
+          ENCRYPTION_KEY=ZTtsuGQCgigNHKjnANV_FyTsMqZuRKPOCyYK8nps7x0= \
+          uvicorn main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+      - name: Run API load tests
+        run: |
+          API_URL=http://localhost:8000 k6 run load-tests/api.js \
+            --vus 10 --duration 30s
+      - name: Cleanup
+        run: kill %1 || true

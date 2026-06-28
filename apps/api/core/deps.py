@@ -38,15 +38,24 @@ async def get_current_user(
             detail="Invalid token payload",
         )
 
-    supabase = get_supabase()
-    result = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-    if not result.data:
+    try:
+        supabase = get_supabase()
+        result = supabase.table("profiles").select("*").eq("id", user_id).maybe_single().execute()
+        if not result or not result.data:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User profile not found",
+            )
+        return UserProfile(**result.data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger = __import__("logging").getLogger(__name__)
+        logger.warning("Profile lookup failed for user=%s: %s", user_id, e)
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed",
         )
-
-    return UserProfile(**result.data)
 
 
 async def require_admin(user: UserProfile = Depends(get_current_user)) -> UserProfile:

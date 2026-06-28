@@ -167,13 +167,31 @@ async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: st
     return _synthesize_candles(symbol, days, interval)
 
 
+def _parse_interval_minutes(interval: str) -> int:
+    interval = interval.lower().strip()
+    if interval.endswith("min"):
+        return int(interval.replace("min", ""))
+    if interval.endswith("h"):
+        return int(interval.replace("h", "")) * 60
+    if interval.endswith("d"):
+        return int(interval.replace("d", "")) * 1440
+    if interval.endswith("m"):
+        return int(interval.replace("m", ""))
+    if interval.endswith("s"):
+        return max(1, int(interval.replace("s", "")) // 60)
+    try:
+        return int(interval)
+    except ValueError:
+        return 15
+
+
 def _synthesize_candles(symbol: str, days: int, interval: str) -> list[dict]:
     import random
     import math
     candles = []
     base_price = random.uniform(500, 5000)
     now = datetime.utcnow()
-    interval_min = int(interval.replace("m", "").replace("min", "")) if interval.endswith("m") else 15
+    interval_min = _parse_interval_minutes(interval)
     total = days * 24 * 60 // interval_min
     price = base_price
     for i in range(total):

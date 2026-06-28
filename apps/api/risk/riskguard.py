@@ -62,10 +62,25 @@ class RiskGuard:
 
     async def enable_kill_switch(self, strategy_id: Optional[str] = None) -> None:
         supabase = get_supabase()
-        query = supabase.table("risk_settings").update({"kill_switch_enabled": True}).eq("user_id", self.user_id)
+        query = supabase.table("risk_settings").select("id").eq("user_id", self.user_id)
         if strategy_id:
             query = query.eq("strategy_id", strategy_id)
-        query.execute()
+        else:
+            query = query.is_("strategy_id", "null")
+        result = query.maybe_single().execute()
+        if not result or not result.data:
+            supabase.table("risk_settings").insert({
+                "user_id": self.user_id,
+                "strategy_id": strategy_id,
+                "kill_switch_enabled": True,
+            }).execute()
+        else:
+            update = supabase.table("risk_settings").update({"kill_switch_enabled": True}).eq("user_id", self.user_id)
+            if strategy_id:
+                update = update.eq("strategy_id", strategy_id)
+            else:
+                update = update.is_("strategy_id", "null")
+            update.execute()
         logger.warning(f"Kill switch enabled for user={self.user_id} strategy={strategy_id}")
 
     async def disable_kill_switch(self, strategy_id: Optional[str] = None) -> None:
@@ -73,6 +88,8 @@ class RiskGuard:
         query = supabase.table("risk_settings").update({"kill_switch_enabled": False}).eq("user_id", self.user_id)
         if strategy_id:
             query = query.eq("strategy_id", strategy_id)
+        else:
+            query = query.is_("strategy_id", "null")
         query.execute()
         logger.info(f"Kill switch disabled for user={self.user_id} strategy={strategy_id}")
 
@@ -95,14 +112,14 @@ class RiskGuard:
     async def get_kill_switch_status(self) -> bool:
         supabase = get_supabase()
         result = supabase.table("risk_settings").select("kill_switch_enabled").eq("user_id", self.user_id).maybe_single().execute()
-        if result.data:
+        if result and result.data:
             return result.data.get("kill_switch_enabled", False)
         return False
 
     async def get_live_status(self) -> bool:
         supabase = get_supabase()
         result = supabase.table("risk_settings").select("is_live").eq("user_id", self.user_id).maybe_single().execute()
-        if result.data:
+        if result and result.data:
             return result.data.get("is_live", False)
         return False
 

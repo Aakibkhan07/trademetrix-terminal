@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from postgrest.exceptions import APIError
 
 from core.deps import get_current_user
 from core.db import get_supabase
@@ -45,7 +46,10 @@ async def start_engine(
         "status": "running",
         "started_at": datetime.utcnow().isoformat(),
     }
-    result = supabase.table("strategy_runs").insert(data).execute()
+    try:
+        result = supabase.table("strategy_runs").insert(data).execute()
+    except APIError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"run_id": result.data[0]["id"], "status": "running"}
 
 

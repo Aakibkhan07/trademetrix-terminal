@@ -24,19 +24,47 @@ async def client() -> AsyncGenerator:
         yield ac
 
 
-@async_fixture
-async def auth_headers(client) -> dict:
-    signup_resp = await client.post("/api/v1/auth/signup", json={
-        "email": "test@example.com",
-        "password": "TestPass123!",
-    })
-    if signup_resp.status_code == 409:
-        signin_resp = await client.post("/api/v1/auth/signin", json={
-            "email": "test@example.com",
-            "password": "TestPass123!",
-        })
-        token = signin_resp.json().get("access_token", "")
-    else:
-        token = signup_resp.json().get("access_token", "")
+_SESSION_AUTH: dict | None = None
 
-    return {"Authorization": f"Bearer {token}"}
+
+@async_fixture(scope="session")
+async def auth_headers() -> dict:
+    global _SESSION_AUTH
+    if _SESSION_AUTH is not None:
+        return _SESSION_AUTH
+
+    from core.security import create_access_token
+    from datetime import datetime, timezone
+    import subprocess
+    import uuid
+
+    user_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00")
+    email = f"ses_{user_id[:8]}@test.example.com"
+
+    try:
+        subprocess.run(
+            [
+                "psql",
+                "-h", "127.0.0.1", "-p", "54322",
+                "-U", "postgres", "-d", "postgres",
+                "-c",
+                f"""
+                INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, role)
+                VALUES ('{user_id}', '{email}', '', '{now}', '{now}', '{now}', '{{}}', '{{}}', 'authenticated')
+                ON CONFLICT (id) DO NOTHING;
+
+                INSERT INTO public.profiles (id, email, full_name, subscription_tier, created_at, updated_at)
+                VALUES ('{user_id}', '{email}', 'Test User', 'free', '{now}', '{now}')
+                ON CONFLICT (id) DO NOTHING;
+                """
+            ],
+            env={**__import__("os").environ, "PGPASSWORD": "postgres"},
+            capture_output=True, text=True, timeout=10,
+        )
+    except Exception:
+        pass
+
+    token = create_access_token(subject=user_id)
+    _SESSION_AUTH = {"Authorization": f"Bearer {token}"}
+    return _SESSION_AUTH

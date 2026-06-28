@@ -1,3 +1,6 @@
+import asyncio
+import json
+import logging
 from datetime import datetime
 from typing import Callable, List
 
@@ -22,6 +25,8 @@ from core.models import (
     Exchange,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class DhanAdapter(BaseBroker):
     broker_name = "dhan"
@@ -31,6 +36,8 @@ class DhanAdapter(BaseBroker):
         self._access_token: str = ""
         self._client_id: str = ""
         self._base_url = "https://api.dhan.co/v2"
+        self._ws_url = "wss://api.dhan.co/v2/ws"
+        self._running = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -171,10 +178,93 @@ class DhanAdapter(BaseBroker):
         return candles
 
     async def stream(self, symbols: List[str], on_tick: Callable[[Tick], None]) -> None:
-        raise NotImplementedError("Dhan WebSocket streaming not yet implemented")
+        if not self._access_token:
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
+        self._running = True
+        retry_delay = 1
+
+        while self._running:
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream(
+                        "GET",
+                        self._ws_url,
+                        headers={
+                            "access-token": self._access_token,
+                            "client-id": self._client_id,
+                        },
+                    ) as resp:
+                        if resp.status_code != 200:
+                            logger.error("Dhan WS connect failed: %s", resp.status_code)
+                            await asyncio.sleep(retry_delay)
+                            retry_delay = min(retry_delay * 2, 30)
+                            continue
+
+                        retry_delay = 1
+                        subscribe_payload = {
+                            "RequestCode": 1,
+                            "ClientId": self._client_id,
+                            "AuthToken": self._access_token,
+                            "SymbolCount": len(symbols),
+                            "SymbolList": [
+                                {
+                                    "ExchangeSegment": "NSE_EQ",
+                                    "SecurityToken": sym,
+                                }
+                                for sym in symbols
+                            ],
+                        }
+
+                        async with client.stream(
+                            "POST",
+                            f"{self._base_url}/feeds/ws",
+                            json=subscribe_payload,
+                            headers=self._headers(),
+                        ) as ws:
+                            async for line in ws.aiter_lines():
+                                if not self._running:
+                                    break
+                                if not line.strip():
+                                    continue
+                                try:
+                                    data = json.loads(line)
+                                    tick = self._parse_tick(data)
+                                    if tick:
+                                        if asyncio.iscoroutinefunction(on_tick):
+                                            await on_tick(tick)
+                                        else:
+                                            on_tick(tick)
+                                except json.JSONDecodeError:
+                                    continue
+
+            except Exception as e:
+                logger.error("Dhan WS error: %s, reconnecting in %ds", e, retry_delay)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30)
 
     async def disconnect(self) -> None:
+        self._running = False
         self._client = None
+
+    def _parse_tick(self, data: dict) -> Tick | None:
+        try:
+            return Tick(
+                symbol=data.get("securityId", ""),
+                exchange=Exchange.NSE,
+                last_price=float(data.get("lastPrice", 0)),
+                bid=float(data.get("bidPrice", 0)),
+                ask=float(data.get("askPrice", 0)),
+                bid_qty=int(data.get("bidQty", 0)),
+                ask_qty=int(data.get("askQty", 0)),
+                volume=int(data.get("volume", 0)),
+                oi=int(data.get("openInterest", 0)),
+                timestamp=datetime.utcnow(),
+                broker=self.broker_name,
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning("Failed to parse Dhan tick: %s", e)
+            return None
 
     @staticmethod
     def _map_side(side: OrderSide) -> str:
