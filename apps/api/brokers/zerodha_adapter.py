@@ -4,6 +4,7 @@ from typing import Callable, List
 import httpx
 
 from brokers.base import BaseBroker
+from core.http_client import get_http_client
 from core.models import (
     NormalizedOrder,
     OrderResult,
@@ -33,7 +34,7 @@ class ZerodhaAdapter(BaseBroker):
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
+            self._client = await get_http_client()
         return self._client
 
     async def authenticate(self, credentials: dict) -> Session:
@@ -44,9 +45,9 @@ class ZerodhaAdapter(BaseBroker):
             request_token = credentials.get("request_token", "")
             secret_key = credentials.get("secret_key", "")
             if request_token and secret_key:
-                async with httpx.AsyncClient() as client:
-                    resp = await client.post(
-                        "https://api.kite.trade/session/token",
+                client = await get_http_client()
+                resp = await client.post(
+                    "https://api.kite.trade/session/token",
                         data={
                             "api_key": self._api_key,
                             "request_token": request_token,
@@ -208,9 +209,7 @@ class ZerodhaAdapter(BaseBroker):
         raise NotImplementedError("Zerodha WebSocket streaming not yet implemented")
 
     async def disconnect(self) -> None:
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        self._client = None
 
     @staticmethod
     def _map_side(side: OrderSide) -> str:

@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 import httpx
 
 from brokers.base import BaseBroker
+from core.http_client import get_http_client
 from core.models import (
     NormalizedOrder,
     OrderResult,
@@ -38,7 +39,7 @@ class FyersAdapter(BaseBroker):
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
+            self._client = await get_http_client()
         return self._client
 
     async def authenticate(self, credentials: dict) -> Session:
@@ -49,11 +50,11 @@ class FyersAdapter(BaseBroker):
         if not auth_code:
             raise ValueError("auth_code required for Fyers authentication")
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self._base_url}/validate-authcode",
-                json={"client_id": client_id, "secret_key": app_secret, "auth_code": auth_code},
-            )
+        client = await get_http_client()
+        resp = await client.post(
+            f"{self._base_url}/validate-authcode",
+            json={"client_id": client_id, "secret_key": app_secret, "auth_code": auth_code},
+        )
             data = resp.json()
             if data.get("s") != "ok":
                 raise ValueError(f"Fyers auth failed: {data.get('message', '')}")
@@ -203,9 +204,7 @@ class FyersAdapter(BaseBroker):
         raise NotImplementedError("Fyers WebSocket streaming not yet implemented")
 
     async def disconnect(self) -> None:
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        self._client = None
 
     def _map_order_type(self, ot: OrderType) -> int:
         mapping = {OrderType.MARKET: 1, OrderType.LIMIT: 2, OrderType.SL: 3, OrderType.SLM: 4}

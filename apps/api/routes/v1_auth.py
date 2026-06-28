@@ -1,5 +1,3 @@
-import asyncio
-import httpx
 from fastapi import APIRouter, HTTPException, status, Response, Depends
 from pydantic import BaseModel, EmailStr
 from core.db import get_supabase
@@ -8,6 +6,7 @@ from core.deps import get_current_user
 from core.audit import record_audit
 from core.models import UserProfile, AuditLogEntry
 from core.config import settings
+from core.http_client import get_http_client
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -33,18 +32,16 @@ async def signup(req: SignUpRequest, response: Response):
     supabase = get_supabase()
 
     try:
-        def _signup():
-            with httpx.Client() as client:
-                return client.post(
-                    f"{settings.supabase_url}/auth/v1/admin/users",
-                    headers={
-                        "apikey": settings.supabase_service_key,
-                        "Authorization": f"Bearer {settings.supabase_service_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={"email": req.email, "password": req.password, "email_confirm": True},
-                )
-        resp = await asyncio.to_thread(_signup)
+        client = await get_http_client()
+        resp = await client.post(
+            f"{settings.supabase_url}/auth/v1/admin/users",
+            headers={
+                "apikey": settings.supabase_service_key,
+                "Authorization": f"Bearer {settings.supabase_service_key}",
+                "Content-Type": "application/json",
+            },
+            json={"email": req.email, "password": req.password, "email_confirm": True},
+        )
         if resp.status_code == 409:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
         if resp.status_code != 200:
@@ -58,19 +55,17 @@ async def signup(req: SignUpRequest, response: Response):
     user_id = user_data["id"]
 
     try:
-        def _upsert_profile():
-            with httpx.Client() as client:
-                return client.post(
-                    f"{settings.supabase_url}/rest/v1/profiles",
-                    headers={
-                        "apikey": settings.supabase_service_key,
-                        "Authorization": f"Bearer {settings.supabase_service_key}",
-                        "Content-Type": "application/json",
-                        "Prefer": "resolution=merge-duplicates",
-                    },
-                    json={"id": user_id, "full_name": req.full_name, "email": req.email},
-                )
-        await asyncio.to_thread(_upsert_profile)
+        client = await get_http_client()
+        await client.post(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={
+                "apikey": settings.supabase_service_key,
+                "Authorization": f"Bearer {settings.supabase_service_key}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates",
+            },
+            json={"id": user_id, "full_name": req.full_name, "email": req.email},
+        )
     except Exception:
         pass
 
@@ -105,17 +100,15 @@ async def signin(req: SignInRequest, response: Response):
     supabase = get_supabase()
 
     try:
-        def _signin():
-            with httpx.Client() as client:
-                return client.post(
-                    f"{settings.supabase_url}/auth/v1/token?grant_type=password",
-                    headers={
-                        "apikey": settings.supabase_anon_key,
-                        "Content-Type": "application/json",
-                    },
-                    json={"email": req.email, "password": req.password},
-                )
-        resp = await asyncio.to_thread(_signin)
+        client = await get_http_client()
+        resp = await client.post(
+            f"{settings.supabase_url}/auth/v1/token?grant_type=password",
+            headers={
+                "apikey": settings.supabase_anon_key,
+                "Content-Type": "application/json",
+            },
+            json={"email": req.email, "password": req.password},
+        )
         if resp.status_code != 200:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         token_data = resp.json()
@@ -137,16 +130,14 @@ async def signin(req: SignInRequest, response: Response):
     )
 
     try:
-        def _get_profile():
-            with httpx.Client() as client:
-                return client.get(
-                    f"{settings.supabase_url}/rest/v1/profiles?id=eq.{user_id}&select=*",
-                    headers={
-                        "apikey": settings.supabase_service_key,
-                        "Authorization": f"Bearer {settings.supabase_service_key}",
-                    },
-                )
-        resp = await asyncio.to_thread(_get_profile)
+        client = await get_http_client()
+        resp = await client.get(
+            f"{settings.supabase_url}/rest/v1/profiles?id=eq.{user_id}&select=*",
+            headers={
+                "apikey": settings.supabase_service_key,
+                "Authorization": f"Bearer {settings.supabase_service_key}",
+            },
+        )
         if resp.status_code == 200 and resp.json():
             user = UserProfile(**resp.json()[0])
         else:

@@ -4,6 +4,7 @@ from typing import Callable, List
 import httpx
 
 from brokers.base import BaseBroker
+from core.http_client import get_http_client
 from core.models import (
     NormalizedOrder,
     OrderResult,
@@ -33,7 +34,7 @@ class DhanAdapter(BaseBroker):
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
+            self._client = await get_http_client()
         return self._client
 
     async def authenticate(self, credentials: dict) -> Session:
@@ -173,9 +174,7 @@ class DhanAdapter(BaseBroker):
         raise NotImplementedError("Dhan WebSocket streaming not yet implemented")
 
     async def disconnect(self) -> None:
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        self._client = None
 
     @staticmethod
     def _map_side(side: OrderSide) -> str:

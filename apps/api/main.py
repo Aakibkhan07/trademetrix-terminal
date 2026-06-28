@@ -9,6 +9,7 @@ from core.config import settings
 from core.logging import setup_logging, record_request_duration
 from core.ratelimit import RateLimitMiddleware
 from core.cache import cache
+from core.vault import init_vault
 from middleware.validation import InputValidationMiddleware
 from routes.v1_health import router as health_router
 from routes.v1_auth import router as auth_router
@@ -25,6 +26,7 @@ from market.simulator import market_simulator
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    init_vault()
     await cache.init()
     await market_simulator.start()
     yield
