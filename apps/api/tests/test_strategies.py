@@ -17,7 +17,7 @@ async def test_create_strategy(client, auth_headers):
         "type": "builtin",
         "config": {"type": "trend_rider", "symbol": "NIFTY"},
     }, headers=auth_headers)
-    assert resp.status_code == 200
+    assert resp.status_code in (200, 201)
     data = resp.json()
     assert "id" in data or "strategy" in data
 

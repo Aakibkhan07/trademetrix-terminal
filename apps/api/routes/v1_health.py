@@ -1,7 +1,9 @@
 from fastapi import APIRouter
+import asyncio
 
 from core.config import settings
 from core.metrics import get_metrics, get_uptime
+from core.cache import cache
 
 router = APIRouter(tags=["health"])
 
@@ -23,7 +25,30 @@ async def metrics():
 
 @router.get("/health/ready")
 async def readiness():
-    return {"status": "ready"}
+    deps = {"database": False, "cache": False}
+    messages = []
+
+    try:
+        from core.db import get_supabase
+        sb = get_supabase()
+        resp = sb.table("users").select("id").limit(1).execute()
+        deps["database"] = True
+    except Exception as e:
+        messages.append(f"database: {e}")
+
+    try:
+        if cache._client:
+            await cache._client.ping()
+            deps["cache"] = True
+    except Exception as e:
+        messages.append(f"cache: {e}")
+
+    ready = all(deps.values())
+    return {
+        "status": "ready" if ready else "degraded",
+        "dependencies": deps,
+        "messages": messages,
+    }
 
 
 @router.get("/health/live")

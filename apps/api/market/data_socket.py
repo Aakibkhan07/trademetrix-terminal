@@ -59,6 +59,41 @@ class SharedDataSocket:
             except Exception as e:
                 logger.error(f"Tick callback error: {e}", exc_info=True)
 
+    async def start_broker_feed(self, user_id: str, broker_type: str, symbols: list[str]) -> None:
+        if broker_type in self._broker_feeds:
+            logger.warning(f"Broker feed already running for {broker_type}")
+            return
+
+        from brokers import get_broker
+        from brokers.token_manager import TokenManager
+
+        token_manager = TokenManager(user_id, broker_type)
+        session = await token_manager.get_session()
+
+        adapter_cls = get_broker(broker_type)
+        adapter = adapter_cls()
+        await adapter.authenticate(session)
+
+        async def feed_runner():
+            try:
+                await adapter.stream(symbols, self.broadcast_tick)
+            except asyncio.CancelledError:
+                logger.info(f"Broker feed {broker_type} cancelled")
+            except Exception as e:
+                logger.error(f"Broker feed {broker_type} failed: {e}")
+            finally:
+                await adapter.disconnect()
+
+        task = asyncio.create_task(feed_runner())
+        self._broker_feeds[broker_type] = task
+        logger.info(f"Broker feed started for {broker_type} with {len(symbols)} symbols")
+
+    async def stop_broker_feed(self, broker_type: str) -> None:
+        task = self._broker_feeds.pop(broker_type, None)
+        if task:
+            task.cancel()
+            logger.info(f"Broker feed stopped for {broker_type}")
+
     @property
     def subscribed_symbols(self) -> Set[str]:
         return set(self._subscribers.keys()) - {"*"}

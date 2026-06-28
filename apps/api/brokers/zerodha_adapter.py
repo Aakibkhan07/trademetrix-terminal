@@ -1,3 +1,6 @@
+import asyncio
+import logging
+import struct
 from datetime import datetime
 from typing import Callable, List
 
@@ -22,15 +25,20 @@ from core.models import (
     Exchange,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class ZerodhaAdapter(BaseBroker):
     broker_name = "zerodha"
+
+    KITE_WS_URL = "wss://ws.kite.trade"
 
     def __init__(self):
         self._client: httpx.AsyncClient | None = None
         self._access_token: str = ""
         self._api_key: str = ""
         self._base_url = "https://api.kite.trade"
+        self._running = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -48,17 +56,17 @@ class ZerodhaAdapter(BaseBroker):
                 client = await get_http_client()
                 resp = await client.post(
                     "https://api.kite.trade/session/token",
-                        data={
-                            "api_key": self._api_key,
-                            "request_token": request_token,
-                            "checksum": self._api_key + request_token + secret_key,
-                        },
-                        headers={"X-Kite-Version": "3"},
-                    )
-                    data = resp.json()
-                    if data.get("status") == "error":
-                        raise ValueError(f"Zerodha auth failed: {data.get('error_type', '')}")
-                    self._access_token = data.get("data", {}).get("access_token", "")
+                    data={
+                        "api_key": self._api_key,
+                        "request_token": request_token,
+                        "checksum": self._api_key + request_token + secret_key,
+                    },
+                    headers={"X-Kite-Version": "3"},
+                )
+                data = resp.json()
+                if data.get("status") == "error":
+                    raise ValueError(f"Zerodha auth failed: {data.get('error_type', '')}")
+                self._access_token = data.get("data", {}).get("access_token", "")
 
         if not self._access_token:
             raise ValueError("access_token required for Zerodha authentication")
@@ -206,10 +214,84 @@ class ZerodhaAdapter(BaseBroker):
         return candles
 
     async def stream(self, symbols: List[str], on_tick: Callable[[Tick], None]) -> None:
-        raise NotImplementedError("Zerodha WebSocket streaming not yet implemented")
+        if not self._access_token:
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
+        self._running = True
+        retry_delay = 1
+
+        while self._running:
+            try:
+                async with httpx.AsyncClient() as client:
+                    ws_url = f"{self.KITE_WS_URL}?api_key={self._api_key}&access_token={self._access_token}"
+                    async with client.stream("GET", ws_url) as resp:
+                        if resp.status_code != 101:
+                            logger.error("Zerodha WS connect failed: %s", resp.status_code)
+                            await asyncio.sleep(retry_delay)
+                            retry_delay = min(retry_delay * 2, 30)
+                            continue
+
+                        retry_delay = 1
+
+                        async for chunk in resp.aiter_bytes():
+                            if not self._running:
+                                break
+                            if len(chunk) < 4:
+                                continue
+
+                            ticks = self._parse_binary(chunk)
+                            for tick in ticks:
+                                if asyncio.iscoroutinefunction(on_tick):
+                                    await on_tick(tick)
+                                else:
+                                    on_tick(tick)
+
+            except Exception as e:
+                logger.error("Zerodha WS error: %s, reconnecting in %ds", e, retry_delay)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30)
 
     async def disconnect(self) -> None:
+        self._running = False
         self._client = None
+
+    def _parse_binary(self, data: bytes) -> List[Tick]:
+        ticks = []
+        try:
+            offset = 0
+            while offset + 4 <= len(data):
+                token = struct.unpack(">I", data[offset : offset + 4])[0]
+                offset += 4
+                if offset + 28 > len(data):
+                    break
+
+                ltp = struct.unpack(">I", data[offset + 4 : offset + 8])[0] / 100.0
+                ltt = struct.unpack(">I", data[offset + 8 : offset + 12])[0]
+                oi = struct.unpack(">I", data[offset + 12 : offset + 16])[0]
+                volume = struct.unpack(">I", data[offset + 16 : offset + 20])[0]
+                bp = struct.unpack(">H", data[offset + 20 : offset + 22])[0] / 100.0
+                bq = struct.unpack(">H", data[offset + 22 : offset + 24])[0]
+                ap = struct.unpack(">H", data[offset + 24 : offset + 26])[0] / 100.0
+                aq = struct.unpack(">H", data[offset + 26 : offset + 28])[0]
+                offset += 28
+
+                tick = Tick(
+                    symbol=str(token),
+                    exchange=Exchange.NSE,
+                    last_price=ltp,
+                    bid=bp,
+                    ask=ap,
+                    bid_qty=bq,
+                    ask_qty=aq,
+                    volume=volume,
+                    oi=oi,
+                    timestamp=datetime.fromtimestamp(ltt) if ltt else datetime.utcnow(),
+                    broker=self.broker_name,
+                )
+                ticks.append(tick)
+        except struct.error as e:
+            logger.warning("Failed to parse Zerodha binary tick: %s", e)
+        return ticks
 
     @staticmethod
     def _map_side(side: OrderSide) -> str:

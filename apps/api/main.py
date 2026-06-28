@@ -10,6 +10,8 @@ from core.logging import setup_logging, record_request_duration
 from core.ratelimit import RateLimitMiddleware
 from core.cache import cache
 from core.vault import init_vault
+from core.sentry import init_sentry
+from core.prometheus import record_metrics, router as prometheus_router
 from middleware.validation import InputValidationMiddleware
 from routes.v1_health import router as health_router
 from routes.v1_auth import router as auth_router
@@ -26,6 +28,7 @@ from market.simulator import market_simulator
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    init_sentry()
     init_vault()
     await cache.init()
     await market_simulator.start()
@@ -57,7 +60,9 @@ async def timing_middleware(request: Request, call_next):
     start = time.monotonic()
     response = await call_next(request)
     duration_ms = (time.monotonic() - start) * 1000
+    duration_s = duration_ms / 1000
     record_request_duration(request.url.path, duration_ms)
+    record_metrics(request.method, request.url.path, response.status_code, duration_s)
     response.headers["X-Request-Time-MS"] = str(round(duration_ms, 1))
     return response
 
@@ -71,6 +76,7 @@ app.include_router(engine_router, prefix="/api/v1")
 app.include_router(ai_router, prefix="/api/v1")
 app.include_router(marketdata_router, prefix="/api/v1")
 app.include_router(backtest_router, prefix="/api/v1")
+app.include_router(prometheus_router)
 
 
 @app.exception_handler(Exception)

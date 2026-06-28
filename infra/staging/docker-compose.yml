@@ -1,0 +1,115 @@
+version: "3.8"
+
+x-healthcheck: &healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 15s
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: trademetrix_staging_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-trademetrix_staging}
+      POSTGRES_DB: trademetrix
+    volumes:
+      - pg-staging-data:/var/lib/postgresql/data
+      - ../apps/api/core/supabase_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      <<: *healthcheck
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: trademetrix_staging_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    volumes:
+      - redis-staging-data:/data
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: trademetrix_staging_api
+    ports:
+      - "8000:8000"
+    env_file: ../apps/api/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      SUPABASE_URL: http://kong:8000
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENV: staging
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      <<: *healthcheck
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    container_name: trademetrix_staging_web
+    ports:
+      - "3000:3000"
+    env_file: ../apps/web/.env
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/"]
+      <<: *healthcheck
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: trademetrix_staging_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-staging-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: trademetrix_staging_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - grafana-staging-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  pg-staging-data:
+  redis-staging-data:
+  prometheus-staging-data:
+  grafana-staging-data:

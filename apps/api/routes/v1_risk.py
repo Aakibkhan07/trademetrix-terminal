@@ -67,9 +67,12 @@ async def kill_switch_status(current_user: UserProfile = Depends(get_current_use
 
 
 @router.post("/live/enable")
-async def enable_live(current_user: UserProfile = Depends(get_current_user)):
+async def enable_live(
+    confirm: bool = False,
+    current_user: UserProfile = Depends(get_current_user),
+):
     rg = RiskGuard(current_user.id)
-    success = await rg.enable_live(multi_step_confirm=True)
+    success = await rg.enable_live(multi_step_confirm=confirm)
     if not success:
         raise HTTPException(status_code=400, detail="Multi-step confirmation required")
     return {"message": "LIVE trading enabled"}

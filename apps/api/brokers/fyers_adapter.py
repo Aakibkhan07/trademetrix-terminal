@@ -1,6 +1,8 @@
+import asyncio
 import hmac
 import hashlib
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Callable, List
@@ -27,6 +29,8 @@ from core.models import (
     Exchange,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class FyersAdapter(BaseBroker):
     broker_name = "fyers"
@@ -36,6 +40,8 @@ class FyersAdapter(BaseBroker):
         self._access_token: str = ""
         self._user_id: str = ""
         self._base_url = "https://api.fyers.in/api/v2"
+        self._ws_url = "wss://socket.fyers.in/v2"
+        self._running = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -55,11 +61,11 @@ class FyersAdapter(BaseBroker):
             f"{self._base_url}/validate-authcode",
             json={"client_id": client_id, "secret_key": app_secret, "auth_code": auth_code},
         )
-            data = resp.json()
-            if data.get("s") != "ok":
-                raise ValueError(f"Fyers auth failed: {data.get('message', '')}")
-            self._access_token = f"{client_id}:{data['access_token']}"
-            self._user_id = data.get("user_profile", {}).get("fy_id", "")
+        data = resp.json()
+        if data.get("s") != "ok":
+            raise ValueError(f"Fyers auth failed: {data.get('message', '')}")
+        self._access_token = f"{client_id}:{data['access_token']}"
+        self._user_id = data.get("user_profile", {}).get("fy_id", "")
 
         return Session(
             access_token=self._access_token,
@@ -201,10 +207,79 @@ class FyersAdapter(BaseBroker):
         return candles
 
     async def stream(self, symbols: List[str], on_tick: Callable[[Tick], None]) -> None:
-        raise NotImplementedError("Fyers WebSocket streaming not yet implemented")
+        if not self._access_token:
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
+        self._running = True
+        retry_delay = 1
+
+        while self._running:
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream(
+                        "GET",
+                        self._ws_url,
+                        headers={"Authorization": f"{self._access_token}"},
+                    ) as resp:
+                        if resp.status_code != 200:
+                            logger.error("Fyers WS connect failed: %s", resp.status_code)
+                            await asyncio.sleep(retry_delay)
+                            retry_delay = min(retry_delay * 2, 30)
+                            continue
+
+                        retry_delay = 1
+
+                        subscribe_msg = {
+                            "type": "subscribe",
+                            "symbols": symbols,
+                            "dataType": "symbolUpdate",
+                        }
+                        async with client.stream(
+                            "POST",
+                            f"{self._base_url}/data/ws",
+                            json=subscribe_msg,
+                            headers=self._headers(),
+                        ) as ws:
+                            async for line in ws.aiter_lines():
+                                if not self._running:
+                                    break
+                                if not line.strip():
+                                    continue
+                                try:
+                                    data = json.loads(line)
+                                    tick = self._parse_tick(data)
+                                    if tick:
+                                        await on_tick(tick) if asyncio.iscoroutinefunction(on_tick) else on_tick(tick)
+                                except json.JSONDecodeError:
+                                    continue
+
+            except Exception as e:
+                logger.error("Fyers WS error: %s, reconnecting in %ds", e, retry_delay)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30)
 
     async def disconnect(self) -> None:
+        self._running = False
         self._client = None
+
+    def _parse_tick(self, data: dict) -> Tick | None:
+        try:
+            return Tick(
+                symbol=data.get("symbol", ""),
+                exchange=Exchange.NSE,
+                last_price=float(data.get("ltp", 0)),
+                bid=float(data.get("bid", 0)),
+                ask=float(data.get("ask", 0)),
+                bid_qty=int(data.get("bid_size", 0)),
+                ask_qty=int(data.get("ask_size", 0)),
+                volume=int(data.get("volume", 0)),
+                oi=int(data.get("oi", 0)),
+                timestamp=datetime.fromtimestamp(float(data.get("timestamp", datetime.utcnow().timestamp()))),
+                broker=self.broker_name,
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning("Failed to parse Fyers tick: %s", e)
+            return None
 
     def _map_order_type(self, ot: OrderType) -> int:
         mapping = {OrderType.MARKET: 1, OrderType.LIMIT: 2, OrderType.SL: 3, OrderType.SLM: 4}

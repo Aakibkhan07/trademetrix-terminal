@@ -18,7 +18,7 @@ async def test_backtest_engine_run():
 
 @pytest.mark.asyncio
 async def test_backtest_synthesize_candles():
-    candles = _synthesize_candles("NIFTY", days=7, interval="1h")
+    candles = _synthesize_candles("NIFTY", days=7, interval="60m")
     assert len(candles) == 7 * 24
     for c in candles:
         assert c["symbol"] == "NIFTY"
