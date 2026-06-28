@@ -18,7 +18,6 @@ export default function AuthPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     try {
       if (isSignUp) {
         await signup(email, password, fullName)
@@ -36,77 +35,101 @@ export default function AuthPage() {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh', background: '#000',
+      minHeight: '100vh',
+      background: 'radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.08) 0%, transparent 60%), #000',
+      padding: 16,
     }}>
-      <div className="panel" style={{ width: 400, padding: 32 }}>
+      <div style={{ width: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h1 style={{ fontFamily: 'Outfit', fontSize: 24, color: '#8b5cf6', margin: 0 }}>
-            Trade Metrix
+          <h1 style={{
+            fontFamily: 'Outfit', fontSize: 28, margin: '0 0 8px',
+            background: 'linear-gradient(135deg, #8b5cf6, #22d3ee)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}>
+            TradeMetrixTech
           </h1>
-          <p style={{ color: '#8888a0', marginTop: 8, fontSize: 14 }}>
-            {isSignUp ? 'Create your account' : 'Sign in to your terminal'}
+          <p style={{ color: '#8888a0', margin: 0, fontSize: 14 }}>
+            {isSignUp ? 'Create your algorithmic trading account' : 'Sign in to your terminal'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {isSignUp && (
+        <div className="panel" style={{ padding: '32px', border: '1px solid rgba(139,92,246,0.15)' }}>
+          <form onSubmit={handleSubmit}>
+            {isSignUp && (
+              <div style={{ marginBottom: 16 }}>
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="Full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+            )}
             <div style={{ marginBottom: 16 }}>
               <input
                 className="input"
-                type="text"
-                placeholder="Full name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                type="email"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
             </div>
-          )}
-          <div style={{ marginBottom: 16 }}>
-            <input
-              className="input"
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <div style={{ marginBottom: 24 }}>
+              <input
+                className="input"
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+
+            {error && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>
+                <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="btn btn-primary btn-lg"
+              style={{ width: '100%', padding: '12px 24px' }}
+              disabled={loading}
+            >
+              {loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}
+            </button>
+          </form>
+
+          <div style={{
+            textAlign: 'center', marginTop: 24, paddingTop: 24,
+            borderTop: '1px solid rgba(139,92,246,0.1)',
+          }}>
+            <p style={{ color: '#8888a0', margin: 0, fontSize: 13 }}>
+              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+              <button
+                onClick={() => { setIsSignUp(!isSignUp); setError('') }}
+                style={{
+                  background: 'none', border: 'none',
+                  backgroundImage: 'linear-gradient(135deg, #8b5cf6, #22d3ee)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  cursor: 'pointer', fontSize: 13, fontFamily: 'inherit',
+                  fontWeight: 600,
+                }}
+              >
+                {isSignUp ? 'Sign in' : 'Sign up'}
+              </button>
+            </p>
           </div>
-          <div style={{ marginBottom: 24 }}>
-            <input
-              className="input"
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
-          </div>
+        </div>
 
-          {error && (
-            <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{error}</p>
-          )}
-
-          <button
-            type="submit"
-            className="btn btn-primary btn-lg"
-            style={{ width: '100%' }}
-            disabled={loading}
-          >
-            {loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}
-          </button>
-        </form>
-
-        <p style={{ textAlign: 'center', marginTop: 24, color: '#8888a0', fontSize: 13 }}>
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button
-            onClick={() => { setIsSignUp(!isSignUp); setError('') }}
-            style={{
-              background: 'none', border: 'none', color: '#22d3ee',
-              cursor: 'pointer', fontSize: 13, fontFamily: 'inherit',
-            }}
-          >
-            {isSignUp ? 'Sign in' : 'Sign up'}
-          </button>
+        <p style={{ textAlign: 'center', marginTop: 24, color: '#555570', fontSize: 12 }}>
+          Multi-broker algorithmic trading platform
         </p>
       </div>
     </div>

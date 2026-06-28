@@ -6,15 +6,30 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: 'D' },
-  { href: '/strategies', label: 'Strategies', icon: 'S' },
-  { href: '/brokers', label: 'Brokers', icon: 'B' },
-  { href: '/marketdata', label: 'Market Data', icon: 'M' },
-  { href: '/backtest', label: 'Backtest', icon: 'T' },
-  { href: '/risk', label: 'Risk Control', icon: 'R' },
-  { href: '/ai', label: 'AI Desk', icon: 'A' },
-  { href: '/transparency', label: 'Transparency', icon: 'T' },
+const NAV_SECTIONS = [
+  {
+    label: 'Core',
+    items: [
+      { href: '/dashboard', label: 'Dashboard', icon: 'D' },
+      { href: '/strategies', label: 'Strategies', icon: 'S' },
+      { href: '/brokers', label: 'Brokers', icon: 'B' },
+    ],
+  },
+  {
+    label: 'Trading',
+    items: [
+      { href: '/marketdata', label: 'Market Data', icon: 'M' },
+      { href: '/backtest', label: 'Backtest', icon: 'T' },
+      { href: '/risk', label: 'Risk Control', icon: 'R' },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { href: '/ai', label: 'AI Desk', icon: 'A' },
+      { href: '/transparency', label: 'Reports', icon: 'R' },
+    ],
+  },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -48,37 +63,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="app-layout">
       <aside className="sidebar">
-        <div style={{ padding: '16px 24px', marginBottom: 16 }}>
-          <h2 style={{
-            fontFamily: 'Outfit', fontSize: 18, color: '#8b5cf6', margin: 0,
-            textShadow: '0 0 10px rgba(139, 92, 246, 0.3)',
-          }}>
-            Trade Metrix
-          </h2>
-        </div>
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.label}>
+            <div className="nav-section-label">{section.label}</div>
+            {section.items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-item ${pathname === item.href ? 'active' : ''}`}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        ))}
 
-        <nav>
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item ${pathname === item.href ? 'active' : ''}`}
-            >
-              <span style={{
-                width: 24, height: 24, display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: 12, fontWeight: 600,
-                border: '1px solid currentColor', borderRadius: 4,
-              }}>
-                {item.icon}
-              </span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-
-        <div style={{ marginTop: 'auto', padding: '16px 24px' }}>
+        <div style={{ marginTop: 'auto', padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', marginLeft: 16, marginRight: 16, paddingLeft: 0, paddingRight: 0 }}>
           <div
             className={`kill-switch ${killSwitchActive ? 'active' : 'inactive'}`}
+            style={{ width: '100%', justifyContent: 'center' }}
             onClick={async () => {
               if (killSwitchActive) {
                 await api.risk.disableKillSwitch()
@@ -89,16 +93,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }
             }}
           >
-            <span style={{ width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
               background: killSwitchActive ? '#ef4444' : '#555570',
-              boxShadow: killSwitchActive ? '0 0 8px #ef4444' : 'none' }}
-            />
+              boxShadow: killSwitchActive ? '0 0 8px #ef4444' : 'none',
+            }} />
             {killSwitchActive ? 'KILL SWITCH ON' : 'Kill Switch'}
           </div>
 
           <button
             className="btn btn-ghost"
-            style={{ width: '100%', marginTop: 8 }}
+            style={{ width: '100%', marginTop: 8, fontSize: 12 }}
             onClick={signout}
           >
             Sign Out
