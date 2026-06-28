@@ -1,10 +1,8 @@
-import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Any
 
 from core.db import get_supabase
-from core.models import Candle, Tick, NormalizedOrder, OrderSide, OrderType, ProductType, Exchange
+from core.models import Candle, NormalizedOrder, OrderSide, OrderType
 from strategies import get_strategy
 
 logger = logging.getLogger(__name__)
@@ -140,7 +138,6 @@ class BacktestEngine:
             pos = self._open_positions.pop(order.symbol, None)
             if pos:
                 entry_price = pos["entry_price"]
-                pnl = (price - entry_price) * order.quantity
                 self.capital += price * order.quantity
                 self.result.record_trade(
                     symbol=order.symbol, side=pos["side"],
@@ -154,7 +151,6 @@ class BacktestEngine:
 async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: str = "15m",
                                  days: int = 60) -> list[dict]:
     supabase = get_supabase()
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
     result = supabase.table("symbol_master") \
         .select("*") \
         .eq("symbol", symbol) \
@@ -187,7 +183,6 @@ def _parse_interval_minutes(interval: str) -> int:
 
 def _synthesize_candles(symbol: str, days: int, interval: str) -> list[dict]:
     import random
-    import math
     candles = []
     base_price = random.uniform(500, 5000)
     now = datetime.utcnow()
@@ -199,7 +194,7 @@ def _synthesize_candles(symbol: str, days: int, interval: str) -> list[dict]:
         change = price * random.uniform(-0.015, 0.015)
         o = price
         h = o + abs(change) * random.uniform(0.5, 1.5)
-        l = o - abs(change) * random.uniform(0.5, 1.5)
+        low = o - abs(change) * random.uniform(0.5, 1.5)
         c = o + change
         price = c
         candles.append({
@@ -208,7 +203,7 @@ def _synthesize_candles(symbol: str, days: int, interval: str) -> list[dict]:
             "interval": interval,
             "open": round(o, 2),
             "high": round(h, 2),
-            "low": round(l, 2),
+            "low": round(low, 2),
             "close": round(c, 2),
             "volume": random.randint(10000, 500000),
             "timestamp": ts.isoformat(),

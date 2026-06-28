@@ -2,7 +2,6 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +10,7 @@ class EnvVault:
     DOTENV_KEY_ENV = "DOTENV_KEY"
     VAULT_FILE = ".env.vault"
 
-    def __init__(self, vault_path: Optional[str] = None):
+    def __init__(self, vault_path: str | None = None):
         self.vault_path = vault_path or os.environ.get(
             "ENV_VAULT_PATH",
             str(Path(__file__).resolve().parent.parent / self.VAULT_FILE),
@@ -30,7 +29,6 @@ class EnvVault:
             return False
 
         try:
-            import base64
             from cryptography.fernet import Fernet
 
             with open(vault_file) as f:
@@ -64,7 +62,8 @@ class EnvVault:
 
 
 def _derive_key(raw: str) -> bytes:
-    import base64, hashlib
+    import base64
+    import hashlib
     return base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
 
 

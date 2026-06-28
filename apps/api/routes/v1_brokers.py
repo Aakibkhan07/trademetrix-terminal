@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from brokers import list_brokers, get_broker
-from core.deps import get_current_user
-from core.db import get_supabase
-from core.security import encrypt_broker_credentials
-from core.models import UserProfile
+from brokers import list_brokers
 from core.audit import record_audit
-from core.models import AuditLogEntry
+from core.db import get_supabase
+from core.deps import get_current_user
+from core.models import AuditLogEntry, UserProfile
+from core.security import encrypt_broker_credentials
 
 router = APIRouter(prefix="/brokers", tags=["brokers"])
 

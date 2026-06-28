@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core.deps import get_current_user
-from core.db import get_supabase
-from core.models import UserProfile
 from core.audit import record_audit
-from core.models import AuditLogEntry
-from strategies import list_strategies, get_strategy
+from core.db import get_supabase
+from core.deps import get_current_user
+from core.models import AuditLogEntry, UserProfile
+from strategies import list_strategies
 
 router = APIRouter(prefix="/strategies", tags=["strategies"])
 

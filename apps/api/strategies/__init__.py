@@ -1,8 +1,8 @@
 from strategies.base import BaseStrategy, SignalResult
-from strategies.trend_rider import TrendRider
+from strategies.expiry_hunter import ExpiryHunter
 from strategies.orb_pro import ORBPro
 from strategies.smc_sniper import SMCSniper
-from strategies.expiry_hunter import ExpiryHunter
+from strategies.trend_rider import TrendRider
 
 _strategy_registry: dict[str, type[BaseStrategy]] = {}
 

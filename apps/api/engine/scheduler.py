@@ -1,7 +1,7 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, time, timedelta, timezone
-from typing import Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -10,9 +10,9 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 class ISTScheduler:
     def __init__(self):
-        self._tasks: Dict[str, dict] = {}
+        self._tasks: dict[str, dict] = {}
         self._running = False
-        self._loop_task: Optional[asyncio.Task] = None
+        self._loop_task: asyncio.Task | None = None
 
     def add_strategy(
         self,
@@ -77,7 +77,6 @@ class ISTScheduler:
             config["active"] = False
 
     async def square_off_all(self, executor_getter: Callable):
-        now = datetime.now(IST)
         market_close = time(15, 30)
         square_off_time = time(15, 15)
 

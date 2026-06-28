@@ -1,6 +1,6 @@
-from pydantic_settings import BaseSettings
-from typing import List
 import ast
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     sentry_env: str = "development"
 
     @property
-    def cors_origin_list(self) -> List[str]:
+    def cors_origin_list(self) -> list[str]:
         raw = self.cors_origins
         try:
             parsed = ast.literal_eval(raw)

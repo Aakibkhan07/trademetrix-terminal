@@ -3,12 +3,10 @@ from typing import Optional
 
 import httpx
 
-from core.config import settings
-
 
 class SharedHttpClient:
     _instance: Optional["SharedHttpClient"] = None
-    _client: Optional[httpx.AsyncClient] = None
+    _client: httpx.AsyncClient | None = None
     _lock = asyncio.Lock()
 
     def __new__(cls):

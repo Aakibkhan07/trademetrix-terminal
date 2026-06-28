@@ -1,28 +1,28 @@
 import asyncio
 import logging
 import struct
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable, List
 
 import httpx
 
 from brokers.base import BaseBroker
 from core.http_client import get_http_client
 from core.models import (
+    Candle,
+    Exchange,
+    Funds,
+    Holding,
     NormalizedOrder,
     OrderResult,
-    Position,
-    Holding,
-    Funds,
-    Quote,
-    Candle,
-    Tick,
-    Session,
     OrderSide,
-    OrderType,
-    ProductType,
     OrderStatus,
-    Exchange,
+    OrderType,
+    Position,
+    ProductType,
+    Quote,
+    Session,
+    Tick,
 )
 
 logger = logging.getLogger(__name__)
@@ -139,13 +139,13 @@ class ZerodhaAdapter(BaseBroker):
             message=data.get("message", ""),
         )
 
-    async def get_orderbook(self) -> List[NormalizedOrder]:
+    async def get_orderbook(self) -> list[NormalizedOrder]:
         client = await self._get_client()
         resp = await client.get(f"{self._base_url}/orders", headers=self._headers())
         data = resp.json()
         return [self._normalize_order(o) for o in data.get("data", [])]
 
-    async def get_positions(self) -> List[Position]:
+    async def get_positions(self) -> list[Position]:
         client = await self._get_client()
         resp = await client.get(f"{self._base_url}/portfolio/positions", headers=self._headers())
         data = resp.json()
@@ -154,7 +154,7 @@ class ZerodhaAdapter(BaseBroker):
             positions.append(self._normalize_position(item))
         return positions
 
-    async def get_holdings(self) -> List[Holding]:
+    async def get_holdings(self) -> list[Holding]:
         client = await self._get_client()
         resp = await client.get(f"{self._base_url}/portfolio/holdings", headers=self._headers())
         data = resp.json()
@@ -172,7 +172,7 @@ class ZerodhaAdapter(BaseBroker):
             broker=self.broker_name,
         )
 
-    async def get_quotes(self, symbols: List[str]) -> List[Quote]:
+    async def get_quotes(self, symbols: list[str]) -> list[Quote]:
         client = await self._get_client()
         resp = await client.get(
             f"{self._base_url}/quote",
@@ -187,9 +187,8 @@ class ZerodhaAdapter(BaseBroker):
 
     async def get_historical(
         self, symbol: str, interval: str, start: str | None = None, end: str | None = None, range: str | None = None
-    ) -> List[Candle]:
+    ) -> list[Candle]:
         client = await self._get_client()
-        params = {"from": start, "to": end, "interval": interval}
         resp = await client.get(
             f"{self._base_url}/instruments/historical/{symbol}/{interval}",
             params={"from": start, "to": end} if start and end else {},
@@ -213,7 +212,7 @@ class ZerodhaAdapter(BaseBroker):
             )
         return candles
 
-    async def stream(self, symbols: List[str], on_tick: Callable[[Tick], None]) -> None:
+    async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
         if not self._access_token:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
 
@@ -255,7 +254,7 @@ class ZerodhaAdapter(BaseBroker):
         self._running = False
         self._client = None
 
-    def _parse_binary(self, data: bytes) -> List[Tick]:
+    def _parse_binary(self, data: bytes) -> list[Tick]:
         ticks = []
         try:
             offset = 0

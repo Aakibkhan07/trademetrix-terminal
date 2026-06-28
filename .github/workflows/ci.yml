@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose -f infra/docker-compose.yml build --dry-run
+      - run: docker compose -f infra/docker-compose.yml build api web
 
   backup-verify:
     name: Verify Backup Scripts

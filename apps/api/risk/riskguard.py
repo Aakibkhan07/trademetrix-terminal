@@ -1,9 +1,8 @@
 import logging
-from datetime import date, datetime, timezone
-from typing import Dict, Optional
+from datetime import UTC, date, datetime
 
 from core.db import get_supabase
-from core.models import NormalizedOrder, OrderSide, RiskSettings
+from core.models import NormalizedOrder, RiskSettings
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ class RiskGuard:
 
         return {"allowed": True, "reason": ""}
 
-    async def _load_settings(self, strategy_id: Optional[str] = None) -> Optional[RiskSettings]:
+    async def _load_settings(self, strategy_id: str | None = None) -> RiskSettings | None:
         supabase = get_supabase()
         query = supabase.table("risk_settings").select("*").eq("user_id", self.user_id)
 
@@ -53,14 +52,14 @@ class RiskGuard:
         supabase = get_supabase()
         data = settings.model_dump(exclude={"user_id"}, exclude_none=True)
         data["user_id"] = self.user_id
-        data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        data["updated_at"] = datetime.now(UTC).isoformat()
 
         supabase.table("risk_settings").upsert(
             data,
             on_conflict=["user_id", "strategy_id"],
         ).execute()
 
-    async def enable_kill_switch(self, strategy_id: Optional[str] = None) -> None:
+    async def enable_kill_switch(self, strategy_id: str | None = None) -> None:
         supabase = get_supabase()
         query = supabase.table("risk_settings").select("id").eq("user_id", self.user_id)
         if strategy_id:
@@ -83,7 +82,7 @@ class RiskGuard:
             update.execute()
         logger.warning(f"Kill switch enabled for user={self.user_id} strategy={strategy_id}")
 
-    async def disable_kill_switch(self, strategy_id: Optional[str] = None) -> None:
+    async def disable_kill_switch(self, strategy_id: str | None = None) -> None:
         supabase = get_supabase()
         query = supabase.table("risk_settings").update({"kill_switch_enabled": False}).eq("user_id", self.user_id)
         if strategy_id:

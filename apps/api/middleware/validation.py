@@ -1,10 +1,8 @@
-import json
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-
 
 MAX_REQUEST_SIZE = 1024 * 100
 ALLOWED_CONTENT_TYPES = {"application/json", "multipart/form-data", "application/x-www-form-urlencoded", ""}

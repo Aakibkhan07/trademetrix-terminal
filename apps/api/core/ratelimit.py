@@ -1,12 +1,10 @@
 import time
 from collections import defaultdict
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-
-from core.config import settings
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

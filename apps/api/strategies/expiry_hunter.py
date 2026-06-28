@@ -1,11 +1,15 @@
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
 
-from strategies.base import BaseStrategy, SignalResult
 from core.models import (
-    NormalizedOrder, Candle, Tick,
-    OrderSide, OrderType, ProductType, Exchange,
+    Candle,
+    Exchange,
+    NormalizedOrder,
+    OrderSide,
+    OrderType,
+    ProductType,
+    Tick,
 )
+from strategies.base import BaseStrategy, SignalResult
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -34,10 +38,10 @@ class ExpiryHunter(BaseStrategy):
     async def on_stop(self) -> None:
         pass
 
-    async def on_tick(self, tick: Tick) -> Optional[SignalResult]:
+    async def on_tick(self, tick: Tick) -> SignalResult | None:
         return None
 
-    async def on_candle(self, candle: Candle) -> Optional[SignalResult]:
+    async def on_candle(self, candle: Candle) -> SignalResult | None:
         if self._entry_done or not self._is_expiry:
             return None
 

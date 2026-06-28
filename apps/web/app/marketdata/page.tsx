@@ -15,7 +15,7 @@ interface TickData {
   timestamp: string
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/api/v1/marketdata/ws'
+const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/api/v1/marketdata/ws'
 
 const WATCHLIST = ['NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK', 'SBIN', 'BHARTIARTL', 'KOTAKBANK']
 
@@ -25,9 +25,14 @@ export default function MarketDataPage() {
   const [simRunning, setSimRunning] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
 
+  const getWsUrl = () => {
+    const token = localStorage.getItem('trademetrix_token')
+    return token ? `${WS_BASE}?access_token=${token}` : WS_BASE
+  }
+
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return
-    const ws = new WebSocket(WS_URL)
+    const ws = new WebSocket(getWsUrl())
     wsRef.current = ws
 
     ws.onopen = () => {

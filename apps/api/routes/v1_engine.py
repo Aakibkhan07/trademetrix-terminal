@@ -1,14 +1,13 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from postgrest.exceptions import APIError
+from pydantic import BaseModel
 
-from core.deps import get_current_user
 from core.db import get_supabase
+from core.deps import get_current_user
 from core.models import UserProfile
 from engine.executor import ExecutionEngine
-from engine.scheduler import scheduler
 
 router = APIRouter(prefix="/engine", tags=["engine"])
 
@@ -70,7 +69,7 @@ async def execute_trade(
     req: ExecuteSignalRequest,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    from core.models import NormalizedOrder, OrderSide, OrderType, ProductType, Exchange
+    from core.models import Exchange, NormalizedOrder, OrderSide, OrderType, ProductType
 
     supabase = get_supabase()
     creds = supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True).maybe_single().execute()

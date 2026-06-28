@@ -1,13 +1,12 @@
 import asyncio
 import json
 import logging
-from datetime import datetime
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, status
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 
 from core.deps import get_current_user
+from core.models import Tick, UserProfile
 from core.security import decode_access_token
-from core.models import UserProfile, Tick
 from market.data_socket import shared_socket
 from market.simulator import market_simulator
 

@@ -1,6 +1,6 @@
 from brokers.base import BaseBroker
-from brokers.fyers_adapter import FyersAdapter
 from brokers.dhan_adapter import DhanAdapter
+from brokers.fyers_adapter import FyersAdapter
 from brokers.zerodha_adapter import ZerodhaAdapter
 
 _broker_registry: dict[str, type[BaseBroker]] = {}

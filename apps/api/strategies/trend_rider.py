@@ -1,10 +1,14 @@
-from typing import Optional
 
-from strategies.base import BaseStrategy, SignalResult
 from core.models import (
-    NormalizedOrder, Candle, Tick,
-    OrderSide, OrderType, ProductType, Exchange,
+    Candle,
+    Exchange,
+    NormalizedOrder,
+    OrderSide,
+    OrderType,
+    ProductType,
+    Tick,
 )
+from strategies.base import BaseStrategy, SignalResult
 
 
 class TrendRider(BaseStrategy):
@@ -25,10 +29,10 @@ class TrendRider(BaseStrategy):
     async def on_stop(self) -> None:
         pass
 
-    async def on_tick(self, tick: Tick) -> Optional[SignalResult]:
+    async def on_tick(self, tick: Tick) -> SignalResult | None:
         return None
 
-    async def on_candle(self, candle: Candle) -> Optional[SignalResult]:
+    async def on_candle(self, candle: Candle) -> SignalResult | None:
         self._prices.append(candle.close)
         if len(self._prices) < self.slow_period + 1:
             return None

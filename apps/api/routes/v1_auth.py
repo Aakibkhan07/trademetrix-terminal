@@ -1,12 +1,12 @@
-from fastapi import APIRouter, HTTPException, status, Response, Depends
-from pydantic import BaseModel, EmailStr
-from core.db import get_supabase
-from core.security import hash_password, verify_password, create_access_token
-from core.deps import get_current_user
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import BaseModel
+
 from core.audit import record_audit
-from core.models import UserProfile, AuditLogEntry
 from core.config import settings
+from core.deps import get_current_user
 from core.http_client import get_http_client
+from core.models import AuditLogEntry, UserProfile
+from core.security import create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -29,7 +29,6 @@ class AuthResponse(BaseModel):
 
 @router.post("/signup", status_code=201)
 async def signup(req: SignUpRequest, response: Response):
-    supabase = get_supabase()
 
     try:
         client = await get_http_client()
@@ -97,7 +96,6 @@ async def signup(req: SignUpRequest, response: Response):
 
 @router.post("/signin")
 async def signin(req: SignInRequest, response: Response):
-    supabase = get_supabase()
 
     try:
         client = await get_http_client()

@@ -1,10 +1,8 @@
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, REGISTRY
-from prometheus_client.openmetrics.exposition import generate_latest as generate_openmetrics
-from fastapi import APIRouter, Response
-from core.logging import get_request_stats
-from core.metrics import get_uptime
-import psutil
 import os
+
+import psutil
+from fastapi import APIRouter, Response
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
 
 router = APIRouter(tags=["monitoring"])
 

@@ -1,4 +1,5 @@
 from supabase import Client, create_client
+
 from core.config import settings
 
 _supabase: Client | None = None
