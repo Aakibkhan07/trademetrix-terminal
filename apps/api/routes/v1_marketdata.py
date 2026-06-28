@@ -3,9 +3,10 @@ import json
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, status
 
 from core.deps import get_current_user
+from core.security import decode_access_token
 from core.models import UserProfile, Tick
 from market.data_socket import shared_socket
 from market.simulator import market_simulator
@@ -16,7 +17,12 @@ router = APIRouter(prefix="/marketdata", tags=["marketdata"])
 
 
 @router.websocket("/ws")
-async def marketdata_ws(websocket: WebSocket):
+async def marketdata_ws(websocket: WebSocket, token: str | None = None):
+    token = token or websocket.query_params.get("access_token")
+    if not token or decode_access_token(token) is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
+        return
+
     await websocket.accept()
     subscribed_symbols: set[str] = set()
     queue: asyncio.Queue[Tick] = asyncio.Queue()

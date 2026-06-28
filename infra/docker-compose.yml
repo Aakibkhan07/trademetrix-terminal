@@ -10,12 +10,13 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     volumes:
-      - ./db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   supabase-kong:
     image: kong:2.8.1
@@ -36,6 +37,12 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   supabase-auth:
     image: supabase/gotrue:v2.191.0
@@ -57,6 +64,12 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:9999/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   supabase-rest:
     image: postgrest/postgrest:v12.2.3
@@ -72,6 +85,12 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   supabase-realtime:
     image: supabase/realtime:v2.34.8
@@ -88,6 +107,7 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
+    restart: unless-stopped
 
   supabase-studio:
     image: supabase/studio:20250219-9b6b0b3
@@ -99,6 +119,7 @@ services:
     depends_on:
       supabase-pgmeta:
         condition: service_started
+    restart: unless-stopped
 
   supabase-pgmeta:
     image: supabase/pgmeta:v2.11.1
@@ -115,6 +136,7 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
+    restart: unless-stopped
 
   supabase-storage:
     image: supabase/storage-api:v1.14.4
@@ -132,10 +154,11 @@ services:
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
       TENANT_ID: local
     volumes:
-      - ./storage-data:/var/lib/storage
+      - storage-data:/var/lib/storage
     depends_on:
       supabase-db:
         condition: service_healthy
+    restart: unless-stopped
 
   supabase-inbucket:
     image: inbucket/inbucket:3.0.4
@@ -143,7 +166,63 @@ services:
     ports:
       - "54324:9000"
       - "54329:2500"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_trademetrix-terminal
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: trademetrix_api
+    ports:
+      - "8000:8000"
+    env_file: ../apps/api/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    container_name: trademetrix_web
+    ports:
+      - "3000:3000"
+    env_file: ../apps/web/.env
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
 
 volumes:
   db-data:
   storage-data:
+  redis-data:

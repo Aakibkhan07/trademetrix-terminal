@@ -1,10 +1,15 @@
+import time
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from core.config import settings
-from core.logging import setup_logging
+from core.logging import setup_logging, record_request_duration
+from core.ratelimit import RateLimitMiddleware
+from core.cache import cache
+from middleware.validation import InputValidationMiddleware
 from routes.v1_health import router as health_router
 from routes.v1_auth import router as auth_router
 from routes.v1_brokers import router as brokers_router
@@ -20,9 +25,11 @@ from market.simulator import market_simulator
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    await cache.init()
     await market_simulator.start()
     yield
     await market_simulator.stop()
+    await cache.close()
 
 
 app = FastAPI(
@@ -38,6 +45,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
+app.add_middleware(InputValidationMiddleware)
+
+
+@app.middleware("http")
+async def timing_middleware(request: Request, call_next):
+    start = time.monotonic()
+    response = await call_next(request)
+    duration_ms = (time.monotonic() - start) * 1000
+    record_request_duration(request.url.path, duration_ms)
+    response.headers["X-Request-Time-MS"] = str(round(duration_ms, 1))
+    return response
+
 
 app.include_router(health_router)
 app.include_router(auth_router, prefix="/api/v1")
