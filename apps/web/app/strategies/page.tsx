@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import Link from 'next/link'
+import { DEMO_STRATEGIES } from '@/lib/demo-data'
 
 interface Strategy {
   id: string
@@ -22,7 +24,7 @@ export default function StrategiesPage() {
   const load = async () => {
     try {
       const d = await api.strategies.list()
-      setStrategies((d as { strategies: Strategy[] }).strategies)
+      setStrategies((d as { strategies: Strategy[] }).strategies || [])
     } catch {
       setStrategies([])
     } finally {
@@ -53,19 +55,32 @@ export default function StrategiesPage() {
     load()
   }
 
+  const displayStrategies = strategies.length > 0 ? strategies : DEMO_STRATEGIES
+  const isDemo = strategies.length === 0
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: 0 }}>Strategies</h1>
           <p style={{ color: '#8888a0', fontSize: 14, margin: '4px 0 0' }}>
-            Create and manage your trading strategies
+            Create, deploy, and manage your trading strategies
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
           + New Strategy
         </button>
       </div>
+
+      {isDemo && strategies.length === 0 && !loading && (
+        <div style={{ background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.12)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 13, color: '#22d3ee', fontWeight: 500 }}>No strategies yet</p>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#555570' }}>Create your first strategy or explore the built-in ones below.</p>
+          </div>
+          <button className="btn btn-sm btn-cyan" onClick={() => setShowCreate(true)}>Create Strategy</button>
+        </div>
+      )}
 
       {showCreate && (
         <div className="modal-overlay" onClick={() => setShowCreate(false)}>
@@ -98,34 +113,80 @@ export default function StrategiesPage() {
 
       {loading ? (
         <p style={{ color: '#8888a0' }}>Loading strategies...</p>
-      ) : strategies.length === 0 ? (
-        <div className="panel" style={{ textAlign: 'center', padding: 48 }}>
-          <p style={{ color: '#555570', margin: 0 }}>No strategies yet. Create your first one.</p>
-        </div>
       ) : (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {strategies.map((s) => (
-            <div key={s.id} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <>
+          <h2 style={{ fontFamily: 'Outfit', fontSize: 15, margin: '0 0 14px', color: '#f0f0f5' }}>
+            {isDemo ? 'Built-in Strategies' : `Your Strategies (${strategies.length})`}
+          </h2>
+          <div className="grid-auto" style={{ marginBottom: 28 }}>
+            {displayStrategies.map((s) => {
+              const demo = DEMO_STRATEGIES.find(d => d.name === s.name)
+              return (
+                <div key={s.id} className="strategy-card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '18px', flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                      <div>
+                        <h3 style={{ fontFamily: 'Outfit', fontSize: 14, margin: 0 }}>{s.name}</h3>
+                        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#555570' }}>{s.type === 'builtin' ? s.name : s.type}</p>
+                      </div>
+                      <span className={`badge ${s.is_active ? 'badge-green' : 'badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
+                        {s.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    {demo && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                        <div><span style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Returns</span><span className="numeric" style={{ fontSize: 15, fontWeight: 700, color: '#22c55e' }}>{demo.metrics.returns}</span></div>
+                        <div><span style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Win Rate</span><span className="numeric" style={{ fontSize: 15, fontWeight: 700 }}>{demo.metrics.winRate}</span></div>
+                        <div><span style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Max DD</span><span className="numeric" style={{ fontSize: 15, fontWeight: 700, color: '#ef4444' }}>{demo.metrics.drawdown}</span></div>
+                        <div><span style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Sharpe</span><span className="numeric" style={{ fontSize: 15, fontWeight: 700, color: '#22d3ee' }}>{demo.metrics.sharpe}</span></div>
+                      </div>
+                    )}
+                    <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>
+                      Created {new Date(s.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div style={{ borderTop: '1px solid rgba(139,92,246,0.06)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    {!isDemo && (
+                      <>
+                        <button className="btn btn-sm btn-secondary" onClick={() => handleToggle(s)} style={{ fontSize: 11 }}>
+                          {s.is_active ? 'Pause' : 'Start'}
+                        </button>
+                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(s.id)} style={{ fontSize: 11 }}>
+                          Delete
+                        </button>
+                      </>
+                    )}
+                    <Link href="/backtest" className="btn btn-sm btn-cyan" style={{ fontSize: 11 }}>Backtest</Link>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="panel" style={{ padding: '20px' }}>
+            <div className="panel-header" style={{ marginBottom: 12 }}>
+              <h3 className="panel-title" style={{ fontSize: 15 }}>Built-in Strategy Types</h3>
+            </div>
+            <div className="grid-2">
               <div>
-                <h3 style={{ fontFamily: 'Outfit', fontSize: 16, margin: 0 }}>{s.name}</h3>
-                <p style={{ color: '#8888a0', fontSize: 12, margin: '4px 0 0' }}>
-                  {s.type} · Created {new Date(s.created_at).toLocaleDateString()}
-                </p>
+                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Trend Rider</p>
+                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Machine learning trend detection with adaptive position sizing. Best for trending markets.</p>
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span className={`badge ${s.is_active ? 'badge-green' : 'badge-violet'}`}>
-                  {s.is_active ? 'Active' : 'Inactive'}
-                </span>
-                <button className="btn btn-sm btn-secondary" onClick={() => handleToggle(s)}>
-                  {s.is_active ? 'Pause' : 'Start'}
-                </button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(s.id)}>
-                  Delete
-                </button>
+              <div>
+                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>ORB Pro</p>
+                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Opening Range Breakout with volume confirmation. Best for high-volatility openings.</p>
+              </div>
+              <div>
+                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>SMC Sniper</p>
+                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Smart Money Concepts: order blocks, FVG, and liquidity sweep detection.</p>
+              </div>
+              <div>
+                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Expiry Hunter</p>
+                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Options theta decay capture with IV rank analysis. Best for weekly expiry.</p>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        </>
       )}
     </div>
   )
