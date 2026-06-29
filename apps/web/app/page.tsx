@@ -24,7 +24,7 @@ export default function HomePage() {
     }}>
       <div>
         <h1 style={{ fontFamily: 'Outfit', color: '#8b5cf6', textAlign: 'center' }}>
-          Trade Metrix
+          Trade Metrix Trading Terminal
         </h1>
         <p style={{ textAlign: 'center' }}>Loading...</p>
       </div>
