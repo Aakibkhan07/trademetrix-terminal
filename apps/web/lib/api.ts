@@ -66,6 +66,7 @@ export const api = {
     deleteCredentials: (broker: string) => request(`/brokers/credentials/${broker}`, { method: 'DELETE' }),
     fyersAuthUrl: () => request('/brokers/fyers/auth-url'),
     fyersExchangeCode: (authCode: string) => request('/brokers/fyers/exchange-code', { method: 'POST', body: { auth_code: authCode } }),
+    fyersReAuth: () => request('/brokers/fyers/re-auth', { method: 'POST' }),
   },
 
   risk: {

@@ -36,8 +36,8 @@ export default function BrokersPage() {
   const [selectedBroker, setSelectedBroker] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [secretKey, setSecretKey] = useState('')
-  const [successMsg, setSuccessMsg] = useState('')
-  const [fyersAuthUrl, setFyersAuthUrl] = useState('')
+  const [msg, setMsg] = useState('')
+  const [msgType, setMsgType] = useState<'success' | 'error'>('success')
 
   const load = async () => {
     try {
@@ -62,16 +62,16 @@ export default function BrokersPage() {
     const authCode = params.get('auth_code')
     if (authCode) {
       api.brokers.fyersExchangeCode(authCode).then(() => {
-        setSuccessMsg('Fyers authenticated successfully! Market feed will start shortly.')
+        showMsg('Fyers authenticated successfully! Market feed will start shortly.')
         load()
       }).catch(() => {
-        setSuccessMsg('Failed to exchange Fyers auth code. Try again.')
+        showMsg('Failed to exchange Fyers auth code. Try again.', 'error')
       })
     } else if (params.get('auth_success')) {
-      setSuccessMsg('Fyers authenticated successfully! Market feed will start shortly.')
+      showMsg('Fyers authenticated successfully! Market feed will start shortly.')
       load()
     } else if (params.get('auth_error')) {
-      setSuccessMsg(`Fyers auth error: ${params.get('auth_error')}`)
+      showMsg(`Fyers auth error: ${params.get('auth_error')}`, 'error')
     }
     if (authCode || params.get('auth_success') || params.get('auth_error')) {
       const url = new URL(window.location.href)
@@ -92,20 +92,40 @@ export default function BrokersPage() {
       setSecretKey('')
       if (selectedBroker === 'fyers') {
         const authData = await api.brokers.fyersAuthUrl() as { auth_url: string }
-        setFyersAuthUrl(authData.auth_url || '')
-        setSuccessMsg(`Fyers app ID saved! Click the link that opened to login.`)
+        showMsg(`Fyers app ID saved! Click the link that opened to login.`)
         if (authData.auth_url) window.open(authData.auth_url, '_blank')
       } else {
-        setSuccessMsg(`${BROKER_INFO[selectedBroker]?.name || selectedBroker} connected successfully`)
+        showMsg(`${BROKER_INFO[selectedBroker]?.name || selectedBroker} connected successfully`)
       }
       load()
-      setTimeout(() => setSuccessMsg(''), 10000)
-    } catch { /* ignore */ }
+    } catch (e: any) {
+      const detail = e?.detail || e?.message || 'Failed to save credentials'
+      showMsg(detail, 'error')
+    }
+  }
+
+  const handleFyersReAuth = async () => {
+    try {
+      const data = await api.brokers.fyersReAuth() as { auth_url: string }
+      if (data.auth_url) {
+        window.open(data.auth_url, '_blank')
+        showMsg('Fyers re-authentication link opened in new tab.')
+      } else {
+        showMsg('Failed to get Fyers auth URL', 'error')
+      }
+    } catch (e: any) {
+      showMsg(e?.detail || 'Re-authentication failed', 'error')
+    }
   }
 
   const handleDelete = async (broker: string) => {
-    await api.brokers.deleteCredentials(broker)
-    load()
+    try {
+      await api.brokers.deleteCredentials(broker)
+      showMsg(`${BROKER_INFO[broker]?.name || broker} disconnected`)
+      load()
+    } catch {
+      showMsg('Failed to disconnect broker', 'error')
+    }
   }
 
   const connectedBrokers = credentials.map((c) => c.broker)
@@ -125,9 +145,9 @@ export default function BrokersPage() {
         </button>
       </div>
 
-      {successMsg && (
-        <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
-          <p style={{ color: '#22c55e', fontSize: 13, margin: 0 }}>{successMsg}</p>
+      {msg && (
+        <div style={{ background: msgType === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)', border: `1px solid ${msgType === 'error' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+          <p style={{ color: msgType === 'error' ? '#ef4444' : '#22c55e', fontSize: 13, margin: 0 }}>{msg}</p>
         </div>
       )}
 
@@ -205,6 +225,11 @@ export default function BrokersPage() {
                           <span className={`badge ${c.is_active ? 'badge-green' : 'badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
                             {c.is_active ? 'Active' : 'Inactive'}
                           </span>
+                          {c.broker === 'fyers' && (
+                            <button className="btn btn-sm btn-primary" style={{ fontSize: 10, padding: '3px 8px' }} onClick={handleFyersReAuth}>
+                              Re-authenticate
+                            </button>
+                          )}
                           <button className="btn btn-sm btn-danger" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => handleDelete(c.broker)}>
                             Disconnect
                           </button>

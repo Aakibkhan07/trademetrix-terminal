@@ -59,32 +59,38 @@ async def save_credentials(
         .eq("user_id", current_user.id)
         .eq("broker", req.broker)
     )
-    if existing:
-        raise HTTPException(status_code=409, detail="Broker already registered")
-
     payload = {
-        "user_id": current_user.id,
-        "broker": req.broker,
         "encrypted_api_key": encrypt_broker_credentials(req.api_key),
         "encrypted_secret_key": encrypt_broker_credentials(req.secret_key),
-        "encrypted_access_token": encrypt_broker_credentials(req.access_token) if req.access_token else "",
         "additional_params": req.additional_params,
     }
+    if req.access_token:
+        payload["encrypted_access_token"] = encrypt_broker_credentials(req.access_token)
+
     try:
-        result = supabase.table("broker_credentials").insert(payload).execute()
-        inserted = result.data[0]
+        if existing:
+            result = supabase.table("broker_credentials").update(payload).eq("id", existing["id"]).execute()
+            inserted = result.data[0] if result.data else existing
+            action = "update_broker"
+        else:
+            payload["user_id"] = current_user.id
+            payload["broker"] = req.broker
+            payload["encrypted_access_token"] = encrypt_broker_credentials(req.access_token) if req.access_token else ""
+            result = supabase.table("broker_credentials").insert(payload).execute()
+            inserted = result.data[0]
+            action = "add_broker"
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save credentials: {e}")
 
     record_audit(AuditLogEntry(
         user_id=current_user.id,
-        action="add_broker",
+        action=action,
         resource="broker_credentials",
-        resource_id=inserted["id"],
+        resource_id=inserted.get("id", ""),
         details={"broker": req.broker},
     ))
 
-    return BrokerCredentialResponse(id=inserted["id"], broker=req.broker, is_active=inserted["is_active"])
+    return BrokerCredentialResponse(id=inserted.get("id", existing["id"]), broker=req.broker, is_active=inserted.get("is_active", False))
 
 
 @router.delete("/credentials/{broker_name}", status_code=204)
@@ -114,6 +120,35 @@ async def delete_credentials(
 
 
 FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI", "https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback")
+
+
+@router.post("/fyers/re-auth")
+async def fyers_re_auth(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    cred = safe_single(
+        supabase.table("broker_credentials")
+        .select("id, broker")
+        .eq("user_id", current_user.id)
+        .eq("broker", "fyers")
+    )
+    if not cred:
+        raise HTTPException(status_code=400, detail="No Fyers credentials found. Save them first.")
+
+    row = supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute()
+    client_id = decrypt_broker_credentials(row.data["encrypted_api_key"])
+
+    supabase.table("broker_credentials").update(
+        {"is_active": False, "encrypted_access_token": ""}
+    ).eq("id", cred["id"]).execute()
+
+    auth_url = (
+        f"https://api.fyers.in/api/v2/generate-authcode"
+        f"?client_id={client_id}"
+        f"&redirect_uri={FYERS_REDIRECT_URI}"
+        f"&response_type=code"
+        f"&state={current_user.id}"
+    )
+    return {"auth_url": auth_url}
 
 
 @router.get("/fyers/auth-url")
