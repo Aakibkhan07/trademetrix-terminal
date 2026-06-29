@@ -127,7 +127,7 @@ async def webhook_info():
         "example_payload": {
             "symbol": "NIFTY",
             "action": "BUY",
-            "quantity": 75,
+            "quantity": 65,
             "price": 0,
             "exchange": "NSE",
             "order_type": "MARKET",

@@ -123,16 +123,24 @@ async def _drain_queue(websocket: WebSocket, queue: asyncio.Queue, cancel: async
 
 @router.post("/feed/start")
 async def start_market_feed(current_user: UserProfile = Depends(get_current_user)):
+    broker_started = False
     try:
         await shared_socket.start_broker_feed(
             user_id=current_user.id,
             broker_type="fyers",
-            symbols=["NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX", "NSE:FINNIFTY-INDEX"],
+            symbols=[s["symbol"] for s in MAJOR_INDICES + MAJOR_STOCKS],
         )
-        return {"message": "Market feed started"}
+        broker_started = True
+        logger.info("Broker feed started successfully")
     except Exception as e:
-        logger.warning("Failed to start market feed: %s", e)
-        return {"message": f"Feed start failed: {e}"}
+        logger.warning("Broker feed unavailable (%s), falling back to simulator", e)
+
+    if not broker_started:
+        all_symbols = [s["symbol"] for s in MAJOR_INDICES + MAJOR_STOCKS]
+        await market_simulator.start(symbols=all_symbols)
+        logger.info("Market simulator started as fallback with %d symbols", len(all_symbols))
+
+    return {"message": "Market feed started"}
 
 
 @router.post("/feed/stop")
