@@ -390,46 +390,58 @@ async def get_option_chain(
         if data.get("s") == "ok":
             chain = data.get("data", {})
             raw_options = chain.get("optionsChain", []) or chain.get("optionChain", [])
-            raw_expiries = chain.get("expiries", [])
+            raw_expiry_data = chain.get("expiryData", [])
 
             expiries = []
-            for e in raw_expiries:
+            for e in raw_expiry_data:
                 if isinstance(e, dict):
-                    expiries.append(e.get("expiry", ""))
-                elif isinstance(e, str):
-                    expiries.append(e)
+                    date_str = e.get("date", "")
+                    try:
+                        dt = datetime.datetime.strptime(date_str, "%d-%m-%Y")
+                        expiries.append(dt.strftime("%d%b").upper())
+                    except Exception:
+                        expiries.append(date_str.replace("-", "").upper())
+
+            by_strike: dict[int, dict[str, dict]] = {}
+            for row in raw_options:
+                strike = row.get("strike_price", 0)
+                if strike < 0:
+                    continue
+                opt_type = row.get("option_type", "")
+                if opt_type not in ("CE", "PE"):
+                    continue
+                by_strike.setdefault(strike, {})[opt_type] = row
 
             option_chain = []
-            for row in raw_options:
-                strike = row.get("strikePrice", row.get("strike", 0))
-                call = (row.get("call") or row.get("CE")) or {}
-                put = (row.get("put") or row.get("PE")) or {}
+            for strike in sorted(by_strike):
+                ce = by_strike[strike].get("CE", {})
+                pe = by_strike[strike].get("PE", {})
                 option_chain.append({
                     "strike": strike,
                     "call": {
-                        "ltp": call.get("ltp", call.get("last_price", 0)),
-                        "change": call.get("change", 0),
-                        "change_pct": call.get("changePct", call.get("change_pct", 0)),
-                        "bid": call.get("bid", 0),
-                        "ask": call.get("ask", 0),
-                        "volume": call.get("volume", 0),
-                        "oi": call.get("oi", 0),
-                        "iv": call.get("iv", 0),
+                        "ltp": ce.get("ltp", 0),
+                        "change": ce.get("ltpch", 0),
+                        "change_pct": ce.get("ltpchp", 0),
+                        "bid": ce.get("bid", 0),
+                        "ask": ce.get("ask", 0),
+                        "volume": ce.get("volume", 0),
+                        "oi": ce.get("oi", 0),
+                        "iv": ce.get("iv", 0),
                     },
                     "put": {
-                        "ltp": put.get("ltp", put.get("last_price", 0)),
-                        "change": put.get("change", 0),
-                        "change_pct": put.get("changePct", put.get("change_pct", 0)),
-                        "bid": put.get("bid", 0),
-                        "ask": put.get("ask", 0),
-                        "volume": put.get("volume", 0),
-                        "oi": put.get("oi", 0),
-                        "iv": put.get("iv", 0),
+                        "ltp": pe.get("ltp", 0),
+                        "change": pe.get("ltpch", 0),
+                        "change_pct": pe.get("ltpchp", 0),
+                        "bid": pe.get("bid", 0),
+                        "ask": pe.get("ask", 0),
+                        "volume": pe.get("volume", 0),
+                        "oi": pe.get("oi", 0),
+                        "iv": pe.get("iv", 0),
                     },
                 })
 
-            if option_chain and expiries and any(r.get("strike", 0) for r in option_chain):
-                logger.info("Fyers option chain fetched for %s", symbol)
+            if option_chain and expiries:
+                logger.info("Fyers option chain fetched for %s (%d strikes)", symbol, len(option_chain))
                 return {"optionChain": option_chain, "expiries": expiries}
     except Exception as e:
         logger.warning("Fyers option chain unavailable (%s)", e)
