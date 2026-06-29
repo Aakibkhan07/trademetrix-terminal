@@ -28,6 +28,7 @@ export default function TradePage() {
   const [expiries, setExpiries] = useState<string[]>([])
   const [optionChain, setOptionChain] = useState<any[]>([])
   const [chainLoading, setChainLoading] = useState(false)
+  const [chainErr, setChainErr] = useState('')
 
   const [form, setForm] = useState<OrderData>({
     symbol: 'NIFTY', side: 'BUY', quantity: LOT_SIZES.NIFTY, price: 0,
@@ -36,7 +37,7 @@ export default function TradePage() {
   })
 
   const loadChain = useCallback(async (sym: string, expiry?: string) => {
-    setChainLoading(true)
+    setChainLoading(true); setChainErr('')
     try {
       const data = await api.marketdata.optionChain(sym) as any
       const exps = Array.isArray(data.expiries) ? data.expiries : []
@@ -53,7 +54,7 @@ export default function TradePage() {
         const mid = chain[Math.floor(chain.length / 2)]
         if (mid) setForm((prev) => ({ ...prev, strike_price: mid.strike }))
       }
-    } catch { setExpiries([]); setOptionChain([]) }
+    } catch (e) { setChainErr(String(e)); setExpiries([]); setOptionChain([]) }
     finally { setChainLoading(false) }
   }, [])
 
@@ -370,6 +371,13 @@ export default function TradePage() {
         </div>
       </div>
 
+      {form.instrument_type === 'OPT' && (
+        <>
+        {chainErr && <div className="alert alert-error" style={{ marginBottom: 12, fontSize: 11 }}>{chainErr}</div>}
+        {chainErr && <div style={{ marginBottom: 12, padding: 12, background: 'rgba(239,68,68,0.08)', borderRadius: 8, fontSize: 11, color: '#ef4444' }}>
+          {chainErr}
+        </div>}
+        </>)}
       {form.instrument_type === 'OPT' && optionChain.length > 0 && (
         <div className="panel" style={{ padding: 0, marginBottom: 20 }}>
           <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
