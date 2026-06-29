@@ -19,6 +19,7 @@ const NAV_SECTIONS = [
     label: 'Trading',
     items: [
       { href: '/trade', label: 'Trade', icon: 'T' },
+      { href: '/positions', label: 'Positions', icon: 'P' },
       { href: '/marketdata', label: 'Market Data', icon: 'M' },
       { href: '/backtest', label: 'Backtest', icon: 'B' },
       { href: '/risk', label: 'Risk Control', icon: 'R' },
