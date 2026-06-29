@@ -356,7 +356,7 @@ async def get_option_chain(
                     },
                 })
 
-            if option_chain:
+            if option_chain and expiries and any(r.get("strike", 0) for r in option_chain):
                 return {"optionChain": option_chain, "expiries": expiries}
     except Exception as e:
         logger.warning("Fyers option chain unavailable (%s), using fallback", e)
