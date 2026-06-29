@@ -48,6 +48,8 @@ class AngelOneAdapter(BaseBroker):
     async def authenticate(self, credentials: dict) -> Session:
         self._api_key = credentials.get("api_key", credentials.get("client_id", ""))
         self._client_code = credentials.get("client_code", credentials.get("username", ""))
+        if not self._client_code:
+            self._client_code = credentials.get("client_id", credentials.get("api_key", ""))
         access_token = credentials.get("access_token", "")
         feed_token = credentials.get("feed_token", "")
 
