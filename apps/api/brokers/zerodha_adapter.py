@@ -13,7 +13,9 @@ from core.models import (
     Exchange,
     Funds,
     Holding,
+    InstrumentType,
     NormalizedOrder,
+    OptionType,
     OrderResult,
     OrderSide,
     OrderStatus,
@@ -129,7 +131,7 @@ class ZerodhaAdapter(BaseBroker):
     async def cancel_order(self, order_id: str) -> OrderResult:
         client = await self._get_client()
         resp = await client.delete(
-            f"{self._base_url}/orders/NSE/{order_id}",
+            f"{self._base_url}/orders/{order_id}",
             headers=self._headers(),
         )
         data = resp.json()
@@ -307,6 +309,7 @@ class ZerodhaAdapter(BaseBroker):
         return mapping.get(p, "MIS")
 
     def _normalize_order(self, item: dict) -> NormalizedOrder:
+        inst = self._parse_instrument(item.get("tradingsymbol", ""))
         return NormalizedOrder(
             id=item.get("order_id", ""),
             broker_order_id=item.get("order_id", ""),
@@ -322,9 +325,14 @@ class ZerodhaAdapter(BaseBroker):
             filled_quantity=int(item.get("filled_quantity", 0)),
             average_price=float(item.get("average_price", 0)),
             broker=self.broker_name,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
 
     def _normalize_position(self, item: dict) -> Position:
+        inst = self._parse_instrument(item.get("tradingsymbol", ""))
         return Position(
             symbol=item.get("tradingsymbol", ""),
             exchange=Exchange(item.get("exchange", "NSE")),
@@ -337,6 +345,10 @@ class ZerodhaAdapter(BaseBroker):
             m2m=float(item.get("m2m", 0)),
             product=ProductType.INTRADAY,
             broker=self.broker_name,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
 
     def _normalize_holding(self, item: dict) -> Holding:
@@ -353,9 +365,11 @@ class ZerodhaAdapter(BaseBroker):
 
     def _normalize_quote(self, item: dict, symbol: str = "") -> Quote:
         ohlc = item.get("ohlc", {})
+        sym = symbol or item.get("tradingsymbol", "")
+        inst = self._parse_instrument(sym)
         return Quote(
-            symbol=symbol or item.get("tradingsymbol", ""),
-            exchange=Exchange.NSE,
+            symbol=sym,
+            exchange=Exchange(item.get("exchange", "NSE")),
             last_price=float(item.get("last_price", 0)),
             open=float(ohlc.get("open", 0)),
             high=float(ohlc.get("high", 0)),
@@ -366,7 +380,37 @@ class ZerodhaAdapter(BaseBroker):
             ask=float(item.get("depth", {}).get("sell", [{}])[0].get("price", 0)) if item.get("depth") else 0,
             timestamp=datetime.utcnow(),
             broker=self.broker_name,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
+
+    @staticmethod
+    def _parse_instrument(symbol: str) -> dict:
+        import re
+        m = re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$', symbol.upper())
+        if m:
+            yy = int(m.group(2))
+            month_code = m.group(3)
+            months = {'JAN':1,'FEB':2,'MAR':3,'APR':4,'MAY':5,'JUN':6,'JUL':7,'AUG':8,'SEP':9,'OCT':10,'NOV':11,'DEC':12}
+            month_num = months.get(month_code, 1)
+            return {
+                "instrument_type": InstrumentType.OPT,
+                "strike_price": float(m.group(4)),
+                "expiry_date": f"{2000+yy}-{month_num:02d}",
+                "option_type": OptionType(m.group(5)),
+            }
+        m = re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})$', symbol.upper())
+        if m:
+            return {
+                "instrument_type": InstrumentType.FUT,
+                "strike_price": None, "expiry_date": None, "option_type": None,
+            }
+        return {
+            "instrument_type": InstrumentType.EQ,
+            "strike_price": None, "expiry_date": None, "option_type": None,
+        }
 
     @staticmethod
     def _map_status(status: str) -> OrderStatus:

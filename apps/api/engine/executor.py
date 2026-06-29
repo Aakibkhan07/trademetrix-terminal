@@ -127,6 +127,12 @@ class ExecutionEngine:
             return []
         return await self._adapter.get_orderbook()
 
+    async def get_funds(self):
+        if not self._adapter:
+            from core.models import Funds
+            return Funds(broker=self.broker)
+        return await self._adapter.get_funds()
+
     def _log_order(self, order: NormalizedOrder) -> None:
         try:
             supabase = get_supabase()

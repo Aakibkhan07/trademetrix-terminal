@@ -4,6 +4,17 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 
+class OptionType(StrEnum):
+    CE = "CE"
+    PE = "PE"
+
+
+class InstrumentType(StrEnum):
+    EQ = "EQ"
+    FUT = "FUT"
+    OPT = "OPT"
+
+
 class OrderSide(StrEnum):
     BUY = "BUY"
     SELL = "SELL"
@@ -68,6 +79,10 @@ class NormalizedOrder(BaseModel):
     strategy_id: str | None = None
     user_id: str | None = None
     broker: str = ""
+    instrument_type: InstrumentType = InstrumentType.EQ
+    strike_price: float | None = None
+    expiry_date: str | None = None
+    option_type: OptionType | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -92,6 +107,10 @@ class Position(BaseModel):
     product: ProductType
     multiplier: float = 1.0
     broker: str = ""
+    instrument_type: InstrumentType = InstrumentType.EQ
+    strike_price: float | None = None
+    expiry_date: str | None = None
+    option_type: OptionType | None = None
 
 
 class Holding(BaseModel):
@@ -130,6 +149,10 @@ class Quote(BaseModel):
     oi: int = 0
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     broker: str = ""
+    instrument_type: InstrumentType = InstrumentType.EQ
+    strike_price: float | None = None
+    expiry_date: str | None = None
+    option_type: OptionType | None = None
 
 
 class Candle(BaseModel):
@@ -143,6 +166,7 @@ class Candle(BaseModel):
     volume: int
     timestamp: datetime
     oi: int = 0
+    instrument_type: InstrumentType = InstrumentType.EQ
 
 
 class Tick(BaseModel):
@@ -157,6 +181,10 @@ class Tick(BaseModel):
     oi: int = 0
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     broker: str = ""
+    instrument_type: InstrumentType = InstrumentType.EQ
+    strike_price: float | None = None
+    expiry_date: str | None = None
+    option_type: OptionType | None = None
 
 
 class Session(BaseModel):

@@ -89,3 +89,47 @@ export const EQUITY_CURVE_POINTS = [
   114100, 113200, 115600, 117800, 116500, 118200, 120000,
   119100, 121400, 123000, 122200, 124500,
 ]
+
+export interface DemoOrder {
+  id: string
+  symbol: string
+  side: 'BUY' | 'SELL'
+  quantity: number
+  price: number
+  status: string
+  filled_quantity: number
+  average_price: number
+  created_at: string
+  instrument_type: string
+}
+
+export interface DemoPosition {
+  symbol: string
+  quantity: number
+  average_buy_price: number
+  unrealised_pnl: number
+  product: string
+  instrument_type: string
+  exchange: string
+}
+
+export const DEMO_ORDERS: DemoOrder[] = [
+  { id: 'o1', symbol: 'NIFTY', side: 'BUY', quantity: 75, price: 24580, status: 'FILLED', filled_quantity: 75, average_price: 24582, created_at: '2026-06-28T10:30:00', instrument_type: 'FUT' },
+  { id: 'o2', symbol: 'BANKNIFTY', side: 'SELL', quantity: 50, price: 52150, status: 'FILLED', filled_quantity: 50, average_price: 52148, created_at: '2026-06-28T10:45:00', instrument_type: 'FUT' },
+  { id: 'o3', symbol: 'RELIANCE', side: 'BUY', quantity: 200, price: 2850, status: 'OPEN', filled_quantity: 100, average_price: 2852, created_at: '2026-06-28T11:00:00', instrument_type: 'EQ' },
+  { id: 'o4', symbol: 'NIFTY24D266500CE', side: 'BUY', quantity: 100, price: 145, status: 'FILLED', filled_quantity: 100, average_price: 145, created_at: '2026-06-28T11:30:00', instrument_type: 'OPT' },
+  { id: 'o5', symbol: 'NIFTY24D266000PE', side: 'SELL', quantity: 100, price: 98, status: 'PENDING', filled_quantity: 0, average_price: 0, created_at: '2026-06-28T12:00:00', instrument_type: 'OPT' },
+]
+
+export const DEMO_POSITIONS: DemoPosition[] = [
+  { symbol: 'NIFTY', quantity: 75, average_buy_price: 24582, unrealised_pnl: 3240, product: 'INTRADAY', instrument_type: 'FUT', exchange: 'NFO' },
+  { symbol: 'BANKNIFTY', quantity: -50, average_buy_price: 52148, unrealised_pnl: 1850, product: 'INTRADAY', instrument_type: 'FUT', exchange: 'NFO' },
+  { symbol: 'NIFTY24D266500CE', quantity: 100, average_buy_price: 145, unrealised_pnl: 2100, product: 'NRML', instrument_type: 'OPT', exchange: 'NFO' },
+  { symbol: 'NIFTY24D266000PE', quantity: 100, average_buy_price: 98, unrealised_pnl: -450, product: 'NRML', instrument_type: 'OPT', exchange: 'NFO' },
+]
+
+export const DEMO_FUNDS = {
+  total_margin: 500000,
+  used_margin: 235000,
+  available_margin: 265000,
+}

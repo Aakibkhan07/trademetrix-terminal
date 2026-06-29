@@ -21,6 +21,7 @@ class StartRunRequest(BaseModel):
 
 class ExecuteSignalRequest(BaseModel):
     symbol: str
+    exchange: str = "NSE"
     side: str
     order_type: str = "MARKET"
     product: str = "INTRADAY"
@@ -28,6 +29,10 @@ class ExecuteSignalRequest(BaseModel):
     price: float = 0.0
     trigger_price: float | None = None
     strategy_id: str | None = None
+    instrument_type: str = "EQ"
+    strike_price: float | None = None
+    expiry_date: str | None = None
+    option_type: str | None = None
 
 
 @router.post("/start")
@@ -69,7 +74,15 @@ async def execute_trade(
     req: ExecuteSignalRequest,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    from core.models import Exchange, NormalizedOrder, OrderSide, OrderType, ProductType
+    from core.models import (
+        Exchange,
+        InstrumentType,
+        NormalizedOrder,
+        OptionType,
+        OrderSide,
+        OrderType,
+        ProductType,
+    )
 
     supabase = get_supabase()
     creds = supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True).maybe_single().execute()
@@ -81,7 +94,7 @@ async def execute_trade(
 
     order = NormalizedOrder(
         symbol=req.symbol,
-        exchange=Exchange.NSE,
+        exchange=Exchange(req.exchange),
         side=OrderSide(req.side),
         order_type=OrderType(req.order_type),
         product=ProductType(req.product),
@@ -89,11 +102,65 @@ async def execute_trade(
         price=req.price,
         trigger_price=req.trigger_price,
         strategy_id=req.strategy_id,
+        instrument_type=InstrumentType(req.instrument_type),
+        strike_price=req.strike_price,
+        expiry_date=req.expiry_date,
+        option_type=OptionType(req.option_type) if req.option_type else None,
     )
 
     result = await engine.execute_signal(order)
     await engine.stop()
     return {"result": result.model_dump()}
+
+
+@router.get("/orders")
+async def get_orders(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    result = supabase.table("orders").select("*").eq("user_id", current_user.id).order("created_at", desc=True).limit(100).execute()
+    return {"orders": result.data or []}
+
+
+@router.post("/orders/{order_id}/cancel")
+async def cancel_order(
+    order_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    supabase = get_supabase()
+    creds = supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True).maybe_single().execute()
+    if not creds.data:
+        raise HTTPException(status_code=400, detail="No active broker configured")
+
+    engine = ExecutionEngine(current_user.id, creds.data["broker"])
+    await engine.start()
+    result = await engine.cancel_order(order_id)
+    await engine.stop()
+    return {"result": result.model_dump()}
+
+
+@router.get("/positions")
+async def get_positions(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    creds = supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True).maybe_single().execute()
+    if creds.data:
+        engine = ExecutionEngine(current_user.id, creds.data["broker"])
+        await engine.start()
+        positions = await engine.get_positions()
+        await engine.stop()
+        return {"positions": [p.model_dump() for p in positions]}
+    return {"positions": []}
+
+
+@router.get("/funds")
+async def get_funds(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    creds = supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True).maybe_single().execute()
+    if creds.data:
+        engine = ExecutionEngine(current_user.id, creds.data["broker"])
+        await engine.start()
+        funds = await engine.get_funds()
+        await engine.stop()
+        return {"funds": funds.model_dump()}
+    return {"funds": {"total_margin": 0, "used_margin": 0, "available_margin": 0}}
 
 
 @router.get("/runs")

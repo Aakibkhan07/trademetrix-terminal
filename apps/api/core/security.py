@@ -7,7 +7,13 @@ from jose import JWTError, jwt
 from core.config import settings
 
 _ph = PasswordHasher()
-_fernet = Fernet(settings.encryption_key.encode() if len(settings.encryption_key) == 44 else Fernet.generate_key())
+
+if len(settings.encryption_key) != 44:
+    raise ValueError(
+        f"ENCRYPTION_KEY must be a 44-character base64 Fernet key (got {len(settings.encryption_key)} chars). "
+        "Generate one with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+    )
+_fernet = Fernet(settings.encryption_key.encode())
 
 
 def hash_password(password: str) -> str:
