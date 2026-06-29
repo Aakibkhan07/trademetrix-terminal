@@ -90,9 +90,17 @@ export const api = {
     start: (data: { strategy_id: string; broker: string; mode?: string; symbols?: string[] }) =>
       request('/engine/start', { method: 'POST', body: data }),
     stop: (runId: string) => request(`/engine/stop/${runId}`, { method: 'POST' }),
-    trade: (data: { symbol: string; side: string; quantity: number; price?: number; strategy_id?: string }) =>
-      request('/engine/trade', { method: 'POST', body: data }),
+    trade: (data: {
+      symbol: string; side: string; quantity: number; price?: number;
+      exchange?: string; order_type?: string; product?: string;
+      trigger_price?: number; strategy_id?: string;
+      instrument_type?: string; strike_price?: number; expiry_date?: string; option_type?: string;
+    }) => request('/engine/trade', { method: 'POST', body: data }),
     runs: () => request('/engine/runs'),
+    orders: () => request('/engine/orders'),
+    cancelOrder: (orderId: string) => request(`/engine/orders/${orderId}/cancel`, { method: 'POST' }),
+    positions: () => request('/engine/positions'),
+    funds: () => request('/engine/funds'),
   },
 
   ai: {

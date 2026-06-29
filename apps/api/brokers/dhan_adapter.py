@@ -13,7 +13,9 @@ from core.models import (
     Exchange,
     Funds,
     Holding,
+    InstrumentType,
     NormalizedOrder,
+    OptionType,
     OrderResult,
     OrderSide,
     OrderStatus,
@@ -64,11 +66,16 @@ class DhanAdapter(BaseBroker):
 
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
         client = await self._get_client()
+        segments_map = {
+            InstrumentType.EQ: "EQ",
+            InstrumentType.FUT: "FNO",
+            InstrumentType.OPT: "FNO",
+        }
         payload = {
             "dhanClientId": self._client_id,
             "transactionType": self._map_side(order.side),
             "exchange": order.exchange.value,
-            "segments": "EQ",
+            "segments": segments_map.get(order.instrument_type, "EQ"),
             "productType": self._map_product(order.product),
             "orderType": self._map_order_type(order.order_type),
             "securityId": order.symbol,
@@ -281,11 +288,12 @@ class DhanAdapter(BaseBroker):
         return mapping.get(p, "INTRADAY")
 
     def _normalize_order(self, item: dict) -> NormalizedOrder:
+        inst = self._parse_instrument(item.get("securityId", ""))
         return NormalizedOrder(
             id=item.get("orderId", ""),
             broker_order_id=item.get("orderId", ""),
             symbol=item.get("securityId", ""),
-            exchange=Exchange.NSE,
+            exchange=Exchange(item.get("exchange", "NSE")),
             side=OrderSide.BUY if item.get("transactionType") == "BUY" else OrderSide.SELL,
             order_type=OrderType.MARKET,
             product=ProductType.INTRADAY,
@@ -296,12 +304,17 @@ class DhanAdapter(BaseBroker):
             filled_quantity=int(item.get("filledQuantity", 0)),
             average_price=float(item.get("averageTradedPrice", 0)),
             broker=self.broker_name,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
 
     def _normalize_position(self, item: dict) -> Position:
+        inst = self._parse_instrument(item.get("securityId", ""))
         return Position(
             symbol=item.get("securityId", ""),
-            exchange=Exchange.NSE,
+            exchange=Exchange(item.get("exchange", "NSE")),
             quantity=int(item.get("netQty", 0)),
             buy_quantity=int(item.get("buyQty", 0)),
             sell_quantity=int(item.get("sellQty", 0)),
@@ -311,6 +324,10 @@ class DhanAdapter(BaseBroker):
             realised_pnl=float(item.get("realizedPnl", 0)),
             product=ProductType.INTRADAY,
             broker=self.broker_name,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
 
     def _normalize_holding(self, item: dict) -> Holding:
@@ -325,9 +342,10 @@ class DhanAdapter(BaseBroker):
         )
 
     def _normalize_quote(self, item: dict) -> Quote:
+        inst = self._parse_instrument(item.get("securityId", ""))
         return Quote(
             symbol=item.get("securityId", ""),
-            exchange=Exchange.NSE,
+            exchange=Exchange(item.get("exchange", "NSE")),
             last_price=float(item.get("lastPrice", 0)),
             open=float(item.get("open", 0)),
             high=float(item.get("high", 0)),
@@ -338,7 +356,31 @@ class DhanAdapter(BaseBroker):
             ask=float(item.get("ask", 0)),
             timestamp=datetime.utcnow(),
             broker=self.broker_name,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
+
+    @staticmethod
+    def _parse_instrument(symbol: str) -> dict:
+        import re
+        m = re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$', symbol.upper())
+        if m:
+            yy = int(m.group(2))
+            month_code = m.group(3)
+            months = {'JAN':1,'FEB':2,'MAR':3,'APR':4,'MAY':5,'JUN':6,'JUL':7,'AUG':8,'SEP':9,'OCT':10,'NOV':11,'DEC':12}
+            month_num = months.get(month_code, 1)
+            return {
+                "instrument_type": InstrumentType.OPT,
+                "strike_price": float(m.group(4)),
+                "expiry_date": f"{2000+yy}-{month_num:02d}",
+                "option_type": OptionType(m.group(5)),
+            }
+        m = re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})$', symbol.upper())
+        if m:
+            return {"instrument_type": InstrumentType.FUT, "strike_price": None, "expiry_date": None, "option_type": None}
+        return {"instrument_type": InstrumentType.EQ, "strike_price": None, "expiry_date": None, "option_type": None}
 
     @staticmethod
     def _map_status(status: str) -> OrderStatus:
