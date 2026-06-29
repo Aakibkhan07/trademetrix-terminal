@@ -24,3 +24,4 @@ prometheus-client>=0.20.0
 fyers-apiv3>=3.1
 smartapi-python>=1.5
 pyotp>=2.9
+logzero>=1.7
