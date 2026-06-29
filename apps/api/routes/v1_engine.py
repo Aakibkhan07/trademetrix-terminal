@@ -1,3 +1,5 @@
+import asyncio
+import time
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,6 +12,28 @@ from core.safe_query import safe_execute, safe_single
 from engine.executor import ExecutionEngine
 
 router = APIRouter(prefix="/engine", tags=["engine"])
+
+_engine_cache: dict[str, tuple[ExecutionEngine, float]] = {}
+_engine_lock = asyncio.Lock()
+_ENGINE_TTL = 120
+
+async def _get_engine(user_id: str, broker: str, is_paper: bool = True) -> ExecutionEngine:
+    key = f"{user_id}:{broker}:{is_paper}"
+    entry = _engine_cache.get(key)
+    if entry:
+        engine, ts = entry
+        if time.monotonic() - ts < _ENGINE_TTL:
+            return engine
+        await engine.stop()
+    engine = ExecutionEngine(user_id, broker, is_paper)
+    await engine.start()
+    _engine_cache[key] = (engine, time.monotonic())
+    return engine
+
+async def _release_engine(user_id: str, broker: str, is_paper: bool = True):
+    entry = _engine_cache.pop(f"{user_id}:{broker}:{is_paper}", None)
+    if entry:
+        await entry[0].stop()
 
 
 class StartRunRequest(BaseModel):
@@ -90,8 +114,7 @@ async def execute_trade(
     if not creds:
         raise HTTPException(status_code=400, detail="No active broker configured")
 
-    engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
-    await engine.start()
+    engine = await _get_engine(current_user.id, creds["broker"], is_paper=paper)
 
     order = NormalizedOrder(
         symbol=req.symbol,
@@ -110,7 +133,6 @@ async def execute_trade(
     )
 
     result = await engine.execute_signal(order)
-    await engine.stop()
     return {"result": result.model_dump()}
 
 
@@ -135,10 +157,8 @@ async def cancel_order(
     if not creds:
         raise HTTPException(status_code=400, detail="No active broker configured")
 
-    engine = ExecutionEngine(current_user.id, creds["broker"])
-    await engine.start()
+    engine = await _get_engine(current_user.id, creds["broker"], is_paper=False)
     result = await engine.cancel_order(order_id)
-    await engine.stop()
     return {"result": result.model_dump()}
 
 
@@ -148,15 +168,15 @@ async def get_positions(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
+    if paper:
+        return {"positions": []}
     creds = safe_single(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if creds:
         try:
-            engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
-            await engine.start()
+            engine = await _get_engine(current_user.id, creds["broker"], is_paper=False)
             positions = await engine.get_positions()
-            await engine.stop()
             return {"positions": [p.model_dump() for p in positions]}
         except ValueError as e:
             logger = __import__("logging").getLogger(__name__)
@@ -170,15 +190,15 @@ async def get_funds(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
+    if paper:
+        return {"funds": {"total_margin": 0, "used_margin": 0, "available_margin": 0}}
     creds = safe_single(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if creds:
         try:
-            engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
-            await engine.start()
+            engine = await _get_engine(current_user.id, creds["broker"], is_paper=False)
             funds = await engine.get_funds()
-            await engine.stop()
             return {"funds": funds.model_dump()}
         except ValueError as e:
             logger = __import__("logging").getLogger(__name__)
