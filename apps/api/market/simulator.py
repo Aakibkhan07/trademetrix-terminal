@@ -1,17 +1,13 @@
 import asyncio
 import logging
 import random
-from datetime import datetime
+from datetime import UTC, datetime
 
 from core.models import Exchange, Tick
 from market.data_socket import shared_socket
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SYMBOLS = [
-    "NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "HDFCBANK",
-    "INFY", "ICICIBANK", "SBIN", "BHARTIARTL", "KOTAKBANK",
-]
 
 class MarketSimulator:
     def __init__(self):
@@ -23,9 +19,9 @@ class MarketSimulator:
         if self._running:
             return
         self._running = True
-        symbols = symbols or DEFAULT_SYMBOLS
+        symbols = symbols or []
         for s in symbols:
-            self._prices[s] = random.uniform(100, 5000)
+            self._prices[s] = random.uniform(100, 50000)
         self._task = asyncio.create_task(self._tick_loop(symbols))
         logger.info("MarketSimulator started with %d symbols", len(symbols))
 
@@ -40,25 +36,31 @@ class MarketSimulator:
         while self._running:
             for symbol in symbols:
                 price = self._prices.get(symbol, 1000)
-                change = price * random.uniform(-0.002, 0.002)
+                change = price * random.uniform(-0.003, 0.003)
                 new_price = round(price + change, 2)
                 self._prices[symbol] = new_price
+
+                prev = price
+                delta = round(new_price - prev, 2)
+                delta_pct = round((delta / prev * 100), 2) if prev else 0
 
                 tick = Tick(
                     symbol=symbol,
                     exchange=Exchange.NSE,
                     last_price=new_price,
-                    bid=round(new_price - random.uniform(0.05, 2.0), 2),
-                    ask=round(new_price + random.uniform(0.05, 2.0), 2),
+                    change=delta,
+                    change_pct=delta_pct,
+                    bid=round(new_price - random.uniform(0.05, 5.0), 2),
+                    ask=round(new_price + random.uniform(0.05, 5.0), 2),
                     bid_qty=random.randint(100, 5000),
                     ask_qty=random.randint(100, 5000),
-                    volume=random.randint(1000, 50000),
+                    volume=random.randint(1000, 500000),
                     oi=random.randint(100000, 5000000),
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(UTC),
                     broker="simulator",
                 )
                 await shared_socket.broadcast_tick(tick)
-            await asyncio.sleep(random.uniform(0.5, 2.0))
+            await asyncio.sleep(random.uniform(0.5, 1.5))
 
 
 market_simulator = MarketSimulator()
