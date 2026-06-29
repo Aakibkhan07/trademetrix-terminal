@@ -363,5 +363,12 @@ async def get_option_chain(
 
     spot_prices = {"NIFTY": 24000, "BANKNIFTY": 52000, "FINNIFTY": 22000, "SENSEX": 80000}
     spot = spot_prices.get(symbol.upper(), 24000)
-    expiry = (datetime.date.today() + datetime.timedelta(days=(3 - datetime.date.today().weekday()) % 7 + 1)).strftime("%d%b").upper()
+
+    WEEKLY_EXPIRY = {"NIFTY": 1, "BANKNIFTY": 1, "FINNIFTY": 1, "SENSEX": 3}
+    target = WEEKLY_EXPIRY.get(symbol.upper(), 1)
+    today = datetime.date.today()
+    days = (target - today.weekday()) % 7
+    if days == 0: days = 7
+    expiry = (today + datetime.timedelta(days=days)).strftime("%d%b").upper()
+
     return _generate_option_chain(symbol, spot, expiry)
