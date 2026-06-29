@@ -437,6 +437,9 @@ export default function TradePage() {
                 <tr>
                   <th>Time</th>
                   <th>Symbol</th>
+                  <th>Type</th>
+                  <th>Expiry</th>
+                  <th className="numeric">Strike</th>
                   <th>Side</th>
                   <th className="numeric">Qty</th>
                   <th className="numeric">Price</th>
@@ -451,10 +454,14 @@ export default function TradePage() {
                   return (
                     <tr key={o.id || i}>
                       <td style={{ color: 'var(--text-muted)' }}>{o.created_at ? new Date(o.created_at).toLocaleTimeString() : '-'}</td>
-                      <td style={{ fontWeight: 600 }}>
-                        {o.symbol?.split(':').pop()}
-                        {o.instrument_type === 'OPT' && <span className="badge badge-violet" style={{ marginLeft: 4, fontSize: 7 }}>OPT</span>}
+                      <td style={{ fontWeight: 600 }}>{o.symbol?.split(':').pop()}</td>
+                      <td>
+                        <span className={`badge ${o.instrument_type === 'OPT' ? 'badge-violet' : o.instrument_type === 'FUT' ? 'badge-cyan' : 'badge-green'}`} style={{ fontSize: 8 }}>
+                          {o.instrument_type || 'EQ'}
+                        </span>
                       </td>
+                      <td style={{ fontSize: 11 }}>{o.expiry_date || '-'}</td>
+                      <td className="numeric">{o.strike_price || '-'}</td>
                       <td style={{ color: o.side === 'BUY' ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{o.side}</td>
                       <td className="numeric">{o.quantity}</td>
                       <td className="numeric">{o.price?.toFixed(1) || '-'}</td>

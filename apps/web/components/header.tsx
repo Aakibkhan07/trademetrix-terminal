@@ -15,7 +15,7 @@ export default function Header() {
   return (
     <header className="header">
       <Link href="/dashboard" className="header-brand" style={{ textDecoration: 'none' }}>
-        TradeMetrixTech
+        Trade Metrix
       </Link>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

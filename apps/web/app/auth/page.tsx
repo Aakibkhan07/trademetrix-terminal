@@ -47,7 +47,7 @@ export default function AuthPage() {
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}>
-            TradeMetrixTech
+            Trade Metrix Trading Terminal
           </h1>
           <p style={{ color: '#8888a0', margin: 0, fontSize: 14 }}>
             {isSignUp ? 'Create your algorithmic trading account' : 'Sign in to your terminal'}

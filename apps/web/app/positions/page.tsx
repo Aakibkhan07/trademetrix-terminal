@@ -117,6 +117,9 @@ export default function PositionsPage() {
               <thead>
                 <tr>
                   <th>Symbol</th>
+                  <th>Type</th>
+                  <th>Expiry</th>
+                  <th className="numeric">Strike</th>
                   <th className="numeric">Qty</th>
                   <th className="numeric">Buy Avg</th>
                   <th className="numeric">LTP</th>
@@ -135,6 +138,13 @@ export default function PositionsPage() {
                   return (
                     <tr key={i}>
                       <td style={{ fontWeight: 600 }}>{p.symbol?.split(':').pop()}</td>
+                      <td>
+                        <span className={`badge ${p.instrument_type === 'OPT' ? 'badge-violet' : p.instrument_type === 'FUT' ? 'badge-cyan' : 'badge-green'}`} style={{ fontSize: 9 }}>
+                          {p.instrument_type || 'EQ'}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 11 }}>{p.expiry_date || '-'}</td>
+                      <td className="numeric">{p.strike_price || '-'}</td>
                       <td className="numeric">{p.quantity}</td>
                       <td className="numeric">{p.average_buy_price?.toFixed(1) || '-'}</td>
                       <td className="numeric">{ltp?.toFixed(1) || '-'}</td>
@@ -178,6 +188,9 @@ export default function PositionsPage() {
               <thead>
                 <tr>
                   <th>Symbol</th>
+                  <th>Type</th>
+                  <th>Expiry</th>
+                  <th className="numeric">Strike</th>
                   <th>Side</th>
                   <th className="numeric">Qty</th>
                   <th className="numeric">Price</th>
@@ -191,6 +204,13 @@ export default function PositionsPage() {
                 {orders.map((o: any, i: number) => (
                   <tr key={i}>
                     <td style={{ fontWeight: 600 }}>{o.symbol?.split(':').pop()}</td>
+                    <td>
+                      <span className={`badge ${o.instrument_type === 'OPT' ? 'badge-violet' : o.instrument_type === 'FUT' ? 'badge-cyan' : 'badge-green'}`} style={{ fontSize: 9 }}>
+                        {o.instrument_type || 'EQ'}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 11 }}>{o.expiry_date || '-'}</td>
+                    <td className="numeric">{o.strike_price || '-'}</td>
                     <td style={{ color: o.side === 'BUY' ? '#22c55e' : '#ef4444' }}>{o.side}</td>
                     <td className="numeric">{o.quantity}</td>
                     <td className="numeric">{o.price?.toFixed(1) || '-'}</td>
