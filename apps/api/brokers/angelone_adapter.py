@@ -24,6 +24,8 @@ from core.models import (
     Session,
     Tick,
 )
+from SmartApi import SmartConnect
+import pyotp
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +73,8 @@ class AngelOneAdapter(BaseBroker):
         if not all([self._api_key, password, totp_secret]):
             raise ValueError("Angel One requires api_key, secret_key (password), and totp_secret")
 
-        import pyotp
         totp_code = pyotp.TOTP(totp_secret).now()
 
-        from SmartApi import SmartConnect
         smart = SmartConnect(self._api_key)
 
         data = await asyncio.get_running_loop().run_in_executor(
