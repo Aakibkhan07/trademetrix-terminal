@@ -293,6 +293,15 @@
   background: var(--accent-cyan-dim);
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
 }
+.btn-success {
+  background: var(--status-up);
+  color: #fff;
+  border-color: var(--status-up);
+}
+.btn-success:hover {
+  background: #16a34a;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+}
 .btn-sm { padding: var(--space-xs) var(--space-sm); font-size: var(--text-xs); }
 .btn-lg { padding: var(--space-md) var(--space-lg); font-size: var(--text-base); }
 .btn-icon { width: 36px; height: 36px; padding: 0; }
@@ -467,9 +476,58 @@
 
 /* ===== GRID HELPERS ===== */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); }
+/* ===== ALERTS ===== */
+.alert { border-radius: 8px; padding: 10px 14px; font-size: 13px; margin: 0; }
+.alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #22c55e; }
+.alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; }
+
+/* ===== LIVE INDICATORS ===== */
+.live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+.live-dot.active { background: #22c55e; box-shadow: 0 0 6px #22c55e; animation: pulse-dot 2s infinite; }
+.live-dot.inactive { background: #ef4444; }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.last-updated { font-size: 10px; color: #555570; }
+.price-up { color: #22c55e; }
+.price-down { color: #ef4444; }
+.price-unchanged { color: #8888a0; }
+
+.quick-num { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; border-radius: 6px; border: 1px solid rgba(139,92,246,0.15); background: transparent; color: #aaaac0; font-size: 11px; cursor: pointer; }
+.quick-num:hover { border-color: #8b5cf6; color: #f0f0f5; }
+.quick-num.active { background: rgba(139,92,246,0.15); border-color: #8b5cf6; color: #c4b5fd; }
+
+.live-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.live-badge.on { background: rgba(34,197,94,0.1); color: #22c55e; }
+.live-badge.off { background: rgba(239,68,68,0.1); color: #ef4444; }
+
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-md); }
 .grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-md); }
+
+/* ===== PAGE HEADERS ===== */
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.page-title { font-family: var(--font-display); font-size: 22px; margin: 0; }
+.page-subtitle { color: var(--text-secondary); font-size: 13px; margin: 4px 0 0; }
+
+/* ===== CARD HELPERS ===== */
+.card-label { margin: 0 0 2px; font-size: 12px; font-weight: 600; color: #aaaac0; }
+.card-value { margin: 0; font-size: 22px; font-weight: 700; }
+.card-change { margin: 0; font-size: 12px; }
+.card-change.up { color: var(--status-up); }
+.card-change.down { color: var(--status-down); }
+.card-placeholder { margin: 0; font-size: 14px; color: var(--text-muted); }
+.card-sec { font-weight: 400; opacity: 0.7; }
+
+/* ===== STAT CARD ===== */
+.stat-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(139,92,246,0.06); border-radius: 10px; padding: 14px; }
+.stat-label { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 4px; }
+.stat-value { font-size: 20px; font-weight: 700; margin: 0; }
+.stat-sub { font-size: 11px; margin: 2px 0 0; color: var(--text-muted); }
+
+.market-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.trade-form-row { display: flex; gap: 8px; align-items: end; }
+.trade-form-row > * { flex: 1; min-width: 0; }
+.trade-summary { background: rgba(139,92,246,0.04); border-radius: 8px; padding: 10px; margin-top: 12px; font-size: 12px; }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {

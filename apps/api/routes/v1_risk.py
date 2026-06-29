@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from core.db import get_supabase
 from core.deps import get_current_user
 from core.models import RiskSettings, UserProfile
+from core.safe_query import safe_execute
 from risk.riskguard import RiskGuard
 
 router = APIRouter(prefix="/risk", tags=["risk"])
@@ -21,8 +22,8 @@ class UpdateRiskRequest(BaseModel):
 @router.get("/settings")
 async def get_risk_settings(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    result = supabase.table("risk_settings").select("*").eq("user_id", current_user.id).execute()
-    return {"settings": result.data or []}
+    data = safe_execute(supabase.table("risk_settings").select("*").eq("user_id", current_user.id))
+    return {"settings": data or []}
 
 
 @router.post("/settings")

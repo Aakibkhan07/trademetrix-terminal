@@ -179,6 +179,8 @@ class Tick(BaseModel):
     ask_qty: int = 0
     volume: int = 0
     oi: int = 0
+    change: float = 0.0
+    change_pct: float = 0.0
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     broker: str = ""
     instrument_type: InstrumentType = InstrumentType.EQ

@@ -1,0 +1,127 @@
+'use client'
+
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
+
+export interface TickData {
+  symbol: string
+  last_price: number
+  bid: number
+  ask: number
+  bid_qty: number
+  ask_qty: number
+  volume: number
+  oi: number
+  change: number
+  change_pct: number
+  timestamp: string
+  exchange: string
+}
+
+interface MarketDataContextType {
+  ticks: Record<string, TickData>
+  connected: boolean
+  subscribe: (symbols: string[]) => void
+  unsubscribe: (symbols: string[]) => void
+  startFeed: () => Promise<void>
+  stopFeed: () => Promise<void>
+}
+
+const MarketDataContext = createContext<MarketDataContextType>({
+  ticks: {},
+  connected: false,
+  subscribe: () => {},
+  unsubscribe: () => {},
+  startFeed: async () => {},
+  stopFeed: async () => {},
+})
+
+export function MarketDataProvider({ children }: { children: ReactNode }) {
+  const [ticks, setTicks] = useState<Record<string, TickData>>({})
+  const [connected, setConnected] = useState(false)
+  const wsRef = useRef<WebSocket | null>(null)
+  const subscribedRef = useRef<Set<string>>(new Set())
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const connect = useCallback(() => {
+    const token = localStorage.getItem('trademetrix_token')
+    if (!token) return
+
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+    const wsBase = baseUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '')
+    const wsUrl = `${wsBase}/api/v1/marketdata/ws?access_token=${token}`
+
+    try {
+      const ws = new WebSocket(wsUrl)
+      ws.onopen = () => {
+        setConnected(true)
+        if (subscribedRef.current.size > 0) {
+          ws.send(JSON.stringify({ action: 'subscribe', symbols: Array.from(subscribedRef.current) }))
+        }
+      }
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data)
+          if (msg.type === 'tick') {
+            setTicks((prev) => ({ ...prev, [msg.symbol]: msg }))
+          }
+        } catch {}
+      }
+      ws.onclose = () => {
+        setConnected(false)
+        reconnectTimerRef.current = setTimeout(connect, 3000)
+      }
+      ws.onerror = () => { ws.close() }
+      wsRef.current = ws
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    connect()
+    return () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      wsRef.current?.close()
+    }
+  }, [connect])
+
+  const subscribe = useCallback((symbols: string[]) => {
+    for (const s of symbols) subscribedRef.current.add(s)
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'subscribe', symbols }))
+    }
+  }, [])
+
+  const unsubscribe = useCallback((symbols: string[]) => {
+    for (const s of symbols) subscribedRef.current.delete(s)
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'unsubscribe', symbols }))
+    }
+  }, [])
+
+  const startFeed = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('trademetrix_token')
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/marketdata/feed/start`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      })
+    } catch {}
+  }, [])
+
+  const stopFeed = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('trademetrix_token')
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/marketdata/feed/stop`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      })
+    } catch {}
+  }, [])
+
+  return (
+    <MarketDataContext.Provider value={{ ticks, connected, subscribe, unsubscribe, startFeed, stopFeed }}>
+      {children}
+    </MarketDataContext.Provider>
+  )
+}
+
+export function useMarketData() {
+  return useContext(MarketDataContext)
+}

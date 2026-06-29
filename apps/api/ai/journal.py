@@ -107,4 +107,7 @@ Important guidelines:
             "tags": ["ai_analysis", "journal"],
             "trade_ids": trade_ids,
         }
-        supabase.table("journal_entries").insert(entry).execute()
+        try:
+            supabase.table("journal_entries").insert(entry).execute()
+        except Exception as e:
+            logger.warning("Failed to save journal entry: %s", e)

@@ -13,3 +13,7 @@ dist/
 .ruff_cache/
 .mypy_cache/
 *.db
+fyersApi.log
+fyersRequests.log
+*.tsbuildinfo
+infra/production/.env.production

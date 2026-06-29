@@ -25,16 +25,21 @@ class TokenManager:
 
     async def _load_credentials(self) -> dict:
         supabase = get_supabase()
-        result = (
-            supabase.table("broker_credentials")
-            .select("*")
-            .eq("user_id", self.user_id)
-            .eq("broker", self.broker)
-            .single()
-            .execute()
-        )
-        if not result.data:
-            raise ValueError(f"No credentials found for broker {self.broker}")
+        try:
+            result = (
+                supabase.table("broker_credentials")
+                .select("*")
+                .eq("user_id", self.user_id)
+                .eq("broker", self.broker)
+                .single()
+                .execute()
+            )
+            if not result.data:
+                raise ValueError(f"No credentials found for broker {self.broker}")
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"Failed to load credentials for broker {self.broker}: {e}")
 
         row = result.data
         return {
@@ -47,9 +52,13 @@ class TokenManager:
     async def save_access_token(self, token: str) -> None:
         supabase = get_supabase()
         encrypted = encrypt_broker_credentials(token)
-        supabase.table("broker_credentials").update(
-            {"encrypted_access_token": encrypted, "updated_at": datetime.utcnow().isoformat()}
-        ).eq("user_id", self.user_id).eq("broker", self.broker).execute()
+        try:
+            supabase.table("broker_credentials").update(
+                {"encrypted_access_token": encrypted, "updated_at": datetime.utcnow().isoformat()}
+            ).eq("user_id", self.user_id).eq("broker", self.broker).execute()
+        except Exception as e:
+            logger = __import__("logging").getLogger(__name__)
+            logger.warning("Failed to save access token: %s", e)
 
     def _is_valid(self) -> bool:
         if not self._session:

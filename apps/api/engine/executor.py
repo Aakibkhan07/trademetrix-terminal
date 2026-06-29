@@ -12,6 +12,7 @@ from core.models import (
     OrderResult,
     OrderStatus,
 )
+from core.safe_query import safe_execute, safe_single
 from market.symbol_master import symbol_master
 from risk.riskguard import RiskGuard
 
@@ -136,7 +137,11 @@ class ExecutionEngine:
     def _log_order(self, order: NormalizedOrder) -> None:
         try:
             supabase = get_supabase()
-            supabase.table("orders").insert(order.model_dump()).execute()
+            data = order.model_dump(mode="json")
+            for field in ("id", "strategy_id", "run_id", "signal_id", "validity", "disclosed_quantity"):
+                if field in data and not data[field]:
+                    del data[field]
+            supabase.table("orders").insert(data).execute()
         except Exception as e:
             logger.error(f"Failed to log order: {e}")
 

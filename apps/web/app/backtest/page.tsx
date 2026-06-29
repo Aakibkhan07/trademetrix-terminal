@@ -58,11 +58,13 @@ export default function BacktestPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: 0 }}>Strategy Backtest</h1>
-        <p style={{ color: '#8888a0', fontSize: 14, margin: '4px 0 0' }}>
-          Test strategies against historical data
-        </p>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Strategy Backtest</h1>
+          <p className="page-subtitle">
+            Test strategies against historical data
+          </p>
+        </div>
       </div>
 
       <div className="panel" style={{ marginBottom: 24 }}>

@@ -3,6 +3,7 @@ import './globals.css'
 import { Providers } from './providers'
 import Header from '@/components/header'
 import MarketTicker from '@/components/market-ticker'
+import AppLayout from '@/components/app-layout'
 
 export const metadata: Metadata = {
   title: 'Trade Metrix Terminal',
@@ -24,7 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <Header />
           <MarketTicker />
-          {children}
+          <AppLayout>
+            {children}
+          </AppLayout>
         </Providers>
       </body>
     </html>
