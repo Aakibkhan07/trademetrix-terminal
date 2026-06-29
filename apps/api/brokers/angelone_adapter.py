@@ -24,7 +24,6 @@ from core.models import (
     Session,
     Tick,
 )
-from SmartApi import SmartConnect
 import pyotp
 
 logger = logging.getLogger(__name__)
@@ -75,11 +74,30 @@ class AngelOneAdapter(BaseBroker):
 
         totp_code = pyotp.TOTP(totp_secret).now()
 
-        smart = SmartConnect(self._api_key)
+        client = await get_http_client()
 
-        data = await asyncio.get_running_loop().run_in_executor(
-            None, lambda: smart.generateSession(self._client_code or self._api_key, password, totp_code)
+        login_payload = {
+            "clientcode": self._client_code or self._api_key,
+            "password": password,
+            "totp": totp_code,
+        }
+        login_headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "X-UserType": "USER",
+            "X-SourceID": "WEB",
+            "X-ClientLocalIP": "127.0.0.1",
+            "X-ClientPublicIP": "127.0.0.1",
+            "X-MACAddress": "00:00:00:00:00:00",
+            "X-PrivateKey": self._api_key,
+        }
+
+        resp = await client.post(
+            f"{self._base_url}/rest/auth/angelbroking/user/v1/loginByPassword",
+            json=login_payload,
+            headers=login_headers,
         )
+        data = resp.json()
 
         if not data or data.get("status") is not True:
             msg = data.get("message", "Authentication failed") if data else "No response from Angel One"
@@ -88,10 +106,7 @@ class AngelOneAdapter(BaseBroker):
         self._jwt = data["data"]["jwtToken"]
         self._auth_token = self._jwt
         self._refresh_token = data["data"]["refreshToken"]
-
-        feed_data = await asyncio.get_running_loop().run_in_executor(None, lambda: smart.getfeedToken())
-        if feed_data and feed_data.get("status") is True:
-            self._feed_token = feed_data.get("data", {}).get("feedToken", "")
+        self._feed_token = data["data"].get("feedToken", "")
 
         return Session(
             access_token=self._jwt,
