@@ -78,12 +78,16 @@ class SharedDataSocket:
             return
 
         row = cred.data
+        raw_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
+        if not raw_token:
+            logger.warning("No access_token stored for %s/%s — user must re-authenticate via OAuth", user_id, broker_type)
+            return
         adapter_cls = get_broker(broker_type)
         adapter = adapter_cls()
         await adapter.authenticate({
             "client_id": decrypt_broker_credentials(row["encrypted_api_key"]),
             "secret_key": decrypt_broker_credentials(row["encrypted_secret_key"]),
-            "access_token": decrypt_broker_credentials(row["encrypted_access_token"]),
+            "access_token": raw_token,
         })
 
         async def feed_runner():

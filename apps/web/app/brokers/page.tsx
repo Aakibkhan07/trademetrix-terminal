@@ -57,6 +57,32 @@ export default function BrokersPage() {
 
   useEffect(() => { load() }, [])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const authCode = params.get('auth_code')
+    if (authCode) {
+      api.brokers.fyersExchangeCode(authCode).then(() => {
+        setSuccessMsg('Fyers authenticated successfully! Market feed will start shortly.')
+        load()
+      }).catch(() => {
+        setSuccessMsg('Failed to exchange Fyers auth code. Try again.')
+      })
+    } else if (params.get('auth_success')) {
+      setSuccessMsg('Fyers authenticated successfully! Market feed will start shortly.')
+      load()
+    } else if (params.get('auth_error')) {
+      setSuccessMsg(`Fyers auth error: ${params.get('auth_error')}`)
+    }
+    if (authCode || params.get('auth_success') || params.get('auth_error')) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('auth_code')
+      url.searchParams.delete('state')
+      url.searchParams.delete('auth_success')
+      url.searchParams.delete('auth_error')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
+
   const handleAdd = async () => {
     try {
       await api.brokers.saveCredentials({ broker: selectedBroker, api_key: apiKey, secret_key: secretKey })

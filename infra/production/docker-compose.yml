@@ -56,7 +56,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:3000/"]
+      test: ["CMD", "wget", "--spider", "http://127.0.0.1:3000/"]
       <<: *healthcheck
 
   caddy:

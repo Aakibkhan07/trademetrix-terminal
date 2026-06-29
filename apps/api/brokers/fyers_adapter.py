@@ -60,7 +60,7 @@ class FyersAdapter(BaseBroker):
             session = fm.SessionModel(
                 client_id=client_id,
                 secret_key=app_secret,
-                redirect_uri="https://trade.fyers.in/api-login/redirect-uri/index.html",
+                redirect_uri="https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback",
                 grant_type="authorization_code",
             )
             session.set_token(auth_code)
