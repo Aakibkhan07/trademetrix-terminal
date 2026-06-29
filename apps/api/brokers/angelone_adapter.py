@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-import re
+import re as _re
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -32,7 +32,8 @@ logger = logging.getLogger(__name__)
 _SYMBOL_TOKEN_CACHE: dict[str, str] = {}
 
 EXCHANGE_MAP = {"NSE": "NSE", "NFO": "NFO", "BSE": "BSE", "MCX": "MCX"}
-EXCHANGE_SEGMENT = {"NSE": "NSE_EQ", "NFO": "NFO_FUT", "BSE": "BSE_EQ"}
+EXCHANGE_SEGMENT = {"NSE": "NSE_EQ", "NFO": "NFO_FUT", "BSE": "BSE_EQ", "NFO_OPT": "NFO_OPT"}
+OPTION_REGEX = _re.compile(r"^[A-Z]+\d{2}[A-Z]{3}\d+(CE|PE)$")
 
 
 def _dict_val(d: dict, *keys: str, default=None):
@@ -172,8 +173,10 @@ class AngelOneAdapter(BaseBroker):
         if cache_key in _SYMBOL_TOKEN_CACHE:
             return _SYMBOL_TOKEN_CACHE[cache_key]
 
-        client = await get_http_client()
-        exch = EXCHANGE_SEGMENT.get(exchange, "NSE_EQ")
+        if exchange == "NFO" and OPTION_REGEX.match(symbol):
+            exch = "NFO_OPT"
+        else:
+            exch = EXCHANGE_SEGMENT.get(exchange, "NSE_EQ")
 
         payload = {"exchange": exch, "tradingsymbol": symbol, "symboltoken": ""}
         resp = await client.post(
