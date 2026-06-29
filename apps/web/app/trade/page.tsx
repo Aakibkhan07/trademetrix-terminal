@@ -39,28 +39,28 @@ export default function TradePage() {
 
   const loadChain = useCallback(async (sym: string, expiry?: string, force?: boolean) => {
     if (!force && chainLoaded.current === sym) return
+    chainLoaded.current = sym
     setChainLoading(true); setChainErr('')
     try {
       const data = await api.marketdata.optionChain(sym) as any
       const exps = Array.isArray(data.expiries) ? data.expiries : []
       const chain = Array.isArray(data.optionChain) ? data.optionChain : []
-      if (!exps.length && !chain.length) { setChainErr('Empty response from server'); return }
-      chainLoaded.current = sym
+      if (!exps.length || !chain.length) { setChainErr('Empty response from server'); return }
       setExpiries(exps)
-      if (exps.length) {
+      {
         const currentExpiry = form.expiry_date
         if (!currentExpiry || (expiry && expiry !== currentExpiry)) {
           setForm((prev) => ({ ...prev, expiry_date: exps[0] }))
         }
       }
       setOptionChain(chain)
-      if (chain.length) {
+      {
         const mid = chain[Math.floor(chain.length / 2)]
         if (mid) setForm((prev) => ({ ...prev, strike_price: mid.strike }))
       }
     } catch (e) { setChainErr(String(e)) }
     finally { setChainLoading(false) }
-  }, [])
+  }, [form.expiry_date])
 
   useEffect(() => { if (token) loadChain(form.symbol) }, [form.symbol, token])
 
