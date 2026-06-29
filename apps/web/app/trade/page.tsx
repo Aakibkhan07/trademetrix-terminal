@@ -24,7 +24,7 @@ export default function TradePage() {
   const [placing, setPlacing] = useState(false)
   const [resultMsg, setResultMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [lastRefresh, setLastRefresh] = useState('')
-  const [paper, setPaper] = useState(true)
+
   const [expiries, setExpiries] = useState<string[]>([])
   const [optionChain, setOptionChain] = useState<any[]>([])
   const [chainLoading, setChainLoading] = useState(false)
@@ -107,7 +107,7 @@ export default function TradePage() {
         strike_price: form.strike_price || undefined,
         expiry_date: form.expiry_date || undefined,
         option_type: form.option_type || undefined,
-      }, paper) as any
+      }) as any
       setResultMsg({ ok: res.result.success, text: res.result.message || 'Order placed' })
       if (res.result.success) setTimeout(loadData, 1000)
     } catch (e) { setResultMsg({ ok: false, text: String(e) }) }
@@ -170,16 +170,6 @@ export default function TradePage() {
           <div className="panel" style={{ padding: 0 }}>
           <div className="panel-header" style={{ padding: '14px 16px', margin: 0 }}>
             <h3 className="panel-title" style={{ fontSize: 14 }}>Place Order</h3>
-            <div className="tab-bar" style={{ gap: 3 }}>
-              <button className={`tab ${paper ? 'active' : ''}`} onClick={() => setPaper(true)}
-                style={{ fontSize: 10, padding: '3px 10px', color: paper ? '#22c55e' : undefined }}>
-                Paper
-              </button>
-              <button className={`tab ${!paper ? 'active' : ''}`} onClick={() => setPaper(false)}
-                style={{ fontSize: 10, padding: '3px 10px', color: !paper ? '#ef4444' : undefined }}>
-                Live
-              </button>
-            </div>
           </div>
           <div style={{ padding: 16 }}>
             <div className="tab-bar" style={{ marginBottom: 14 }}>

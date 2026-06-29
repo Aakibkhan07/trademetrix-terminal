@@ -61,7 +61,7 @@ export const api = {
   brokers: {
     list: () => request('/brokers/list'),
     credentials: () => request('/brokers/credentials'),
-    saveCredentials: (data: { broker: string; api_key: string; secret_key: string }) =>
+    saveCredentials: (data: { broker: string; api_key: string; secret_key: string; additional_params?: Record<string, string> }) =>
       request('/brokers/credentials', { method: 'POST', body: data }),
     deleteCredentials: (broker: string) => request(`/brokers/credentials/${broker}`, { method: 'DELETE' }),
     fyersAuthUrl: () => request('/brokers/fyers/auth-url'),
@@ -98,12 +98,12 @@ export const api = {
       exchange?: string; order_type?: string; product?: string;
       trigger_price?: number; strategy_id?: string;
       instrument_type?: string; strike_price?: number; expiry_date?: string; option_type?: string;
-    }, paper?: boolean) => request(`/engine/trade?paper=${paper ?? true}`, { method: 'POST', body: data }),
+    }) => request('/engine/trade', { method: 'POST', body: data }),
     runs: () => request('/engine/runs'),
     orders: () => request('/engine/orders'),
     cancelOrder: (orderId: string) => request(`/engine/orders/${orderId}/cancel`, { method: 'POST' }),
-    positions: (paper?: boolean) => request(`/engine/positions?paper=${paper ?? true}`),
-    funds: (paper?: boolean) => request(`/engine/funds?paper=${paper ?? true}`),
+    positions: () => request('/engine/positions'),
+    funds: () => request('/engine/funds'),
   },
 
   ai: {

@@ -54,7 +54,6 @@ async def tradingview_webhook(request: Request):
         raise HTTPException(status_code=400, detail="symbol, action, and quantity are required")
 
     side = OrderSide.BUY if action in ("BUY", "LONG") else OrderSide.SELL
-    is_paper = data.get("paper", True)
 
     if not user_id:
         creds = safe_single(
@@ -78,7 +77,7 @@ async def tradingview_webhook(request: Request):
         raise HTTPException(status_code=400, detail="No active broker configured")
 
     try:
-        engine = ExecutionEngine(user_id, creds["broker"], is_paper=is_paper)
+        engine = ExecutionEngine(user_id, creds["broker"])
         await engine.start()
 
         order = NormalizedOrder(
@@ -122,7 +121,6 @@ async def webhook_info():
             "product": "INTRADAY/DELIVERY",
             "strategy_id": "Optional strategy identifier",
             "user_id": "Optional user ID (auto-detected if omitted)",
-            "paper": "True for paper trading, False for live",
         },
         "example_payload": {
             "symbol": "NIFTY",
@@ -132,6 +130,5 @@ async def webhook_info():
             "exchange": "NSE",
             "order_type": "MARKET",
             "product": "INTRADAY",
-            "paper": True,
         },
     }
