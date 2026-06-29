@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
@@ -36,6 +36,7 @@ const NAV_SECTIONS = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { token, loading, signout } = useAuth()
   const [killSwitchActive, setKillSwitchActive] = useState(false)
 
@@ -46,6 +47,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setKillSwitchActive(data.kill_switch_enabled)
     }).catch(() => {})
   }, [token, pathname])
+
+  useEffect(() => {
+    if (!loading && !token && pathname !== '/auth') {
+      router.replace('/auth')
+    }
+  }, [loading, token, pathname, router])
 
   if (pathname === '/auth') return <>{children}</>
 
