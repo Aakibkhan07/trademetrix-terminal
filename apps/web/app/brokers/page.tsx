@@ -39,6 +39,12 @@ export default function BrokersPage() {
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
 
+  const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
+    setMsg(text)
+    setMsgType(type)
+    setTimeout(() => setMsg(''), 12000)
+  }
+
   const load = async () => {
     try {
       const [credData, brokerData] = await Promise.all([
