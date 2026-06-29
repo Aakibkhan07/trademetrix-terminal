@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
@@ -29,6 +29,7 @@ export default function TradePage() {
   const [optionChain, setOptionChain] = useState<any[]>([])
   const [chainLoading, setChainLoading] = useState(false)
   const [chainErr, setChainErr] = useState('')
+  const chainLoaded = useRef('')
 
   const [form, setForm] = useState<OrderData>({
     symbol: 'NIFTY', side: 'BUY', quantity: LOT_SIZES.NIFTY, price: 0,
@@ -36,12 +37,15 @@ export default function TradePage() {
     instrument_type: 'OPT', strike_price: 0, expiry_date: '', option_type: 'CE',
   })
 
-  const loadChain = useCallback(async (sym: string, expiry?: string) => {
+  const loadChain = useCallback(async (sym: string, expiry?: string, force?: boolean) => {
+    if (!force && chainLoaded.current === sym) return
     setChainLoading(true); setChainErr('')
     try {
       const data = await api.marketdata.optionChain(sym) as any
       const exps = Array.isArray(data.expiries) ? data.expiries : []
       const chain = Array.isArray(data.optionChain) ? data.optionChain : []
+      if (!exps.length && !chain.length) { setChainErr('Empty response from server'); return }
+      chainLoaded.current = sym
       setExpiries(exps)
       if (exps.length) {
         const currentExpiry = form.expiry_date
@@ -54,7 +58,7 @@ export default function TradePage() {
         const mid = chain[Math.floor(chain.length / 2)]
         if (mid) setForm((prev) => ({ ...prev, strike_price: mid.strike }))
       }
-    } catch (e) { setChainErr(String(e)); setExpiries([]); setOptionChain([]) }
+    } catch (e) { setChainErr(String(e)) }
     finally { setChainLoading(false) }
   }, [])
 
@@ -387,7 +391,7 @@ export default function TradePage() {
                 {form.expiry_date}
               </span>
             </h3>
-            <button className="btn btn-ghost btn-sm" onClick={() => loadChain(form.symbol)} disabled={chainLoading} style={{ fontSize: 9 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => loadChain(form.symbol, undefined, true)} disabled={chainLoading} style={{ fontSize: 9 }}>
               {chainLoading ? 'Loading...' : 'Refresh'}
             </button>
           </div>
