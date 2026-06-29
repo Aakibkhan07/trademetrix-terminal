@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -30,6 +31,17 @@ logger = logging.getLogger(__name__)
 
 _SYMBOL_TOKEN_CACHE: dict[str, str] = {}
 
+EXCHANGE_MAP = {"NSE": "NSE", "NFO": "NFO", "BSE": "BSE", "MCX": "MCX"}
+EXCHANGE_SEGMENT = {"NSE": "NSE_EQ", "NFO": "NFO_FUT", "BSE": "BSE_EQ"}
+
+
+def _dict_val(d: dict, *keys: str, default=None):
+    for k in keys:
+        v = d.get(k)
+        if v is not None:
+            return v
+    return default
+
 
 class AngelOneAdapter(BaseBroker):
     broker_name = "angelone"
@@ -51,6 +63,7 @@ class AngelOneAdapter(BaseBroker):
         self._client_code = credentials.get("client_code", credentials.get("username", ""))
         if not self._client_code:
             self._client_code = credentials.get("client_id", credentials.get("api_key", ""))
+
         access_token = credentials.get("access_token", "")
         feed_token = credentials.get("feed_token", "")
 
@@ -97,7 +110,7 @@ class AngelOneAdapter(BaseBroker):
             json=login_payload,
             headers=login_headers,
         )
-        data = resp.json()
+        data = self._parse_response(resp)
 
         if not data or data.get("status") is not True:
             msg = data.get("message", "Authentication failed") if data else "No response from Angel One"
@@ -128,14 +141,39 @@ class AngelOneAdapter(BaseBroker):
             "X-PrivateKey": self._api_key,
         }
 
+    @staticmethod
+    def _parse_response(resp):
+        try:
+            data = resp.json()
+        except Exception:
+            data = {}
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (json.JSONDecodeError, TypeError):
+                data = {}
+        return data
+
+    @staticmethod
+    def _ensure_list(raw) -> list:
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        if isinstance(raw, list):
+            return raw
+        if isinstance(raw, dict):
+            return [raw]
+        return []
+
     async def _resolve_symbol_token(self, symbol: str, exchange: str = "NSE") -> str:
         cache_key = f"{exchange}:{symbol}"
         if cache_key in _SYMBOL_TOKEN_CACHE:
             return _SYMBOL_TOKEN_CACHE[cache_key]
 
         client = await get_http_client()
-        exchange_map = {"NSE": "NSE_EQ", "NFO": "NFO_FUT", "BSE": "BSE_EQ"}
-        exch = exchange_map.get(exchange, "NSE_EQ")
+        exch = EXCHANGE_SEGMENT.get(exchange, "NSE_EQ")
 
         payload = {"exchange": exch, "tradingsymbol": symbol, "symboltoken": ""}
         resp = await client.post(
@@ -143,17 +181,23 @@ class AngelOneAdapter(BaseBroker):
             json=payload,
             headers=self._headers(),
         )
-        data = resp.json()
+        data = self._parse_response(resp)
         token = ""
         if data.get("status") and data.get("data"):
             token = data["data"].get("symboltoken", "")
-        _SYMBOL_TOKEN_CACHE[cache_key] = token
+        if token:
+            _SYMBOL_TOKEN_CACHE[cache_key] = token
         return token
 
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
         symbol_token = await self._resolve_symbol_token(order.symbol, order.exchange.value)
-        exchange_map = {"NSE": "NSE", "NFO": "NFO", "BSE": "BSE", "MCX": "MCX"}
-        exch = exchange_map.get(order.exchange.value, "NSE")
+        if not symbol_token:
+            return OrderResult(
+                success=False,
+                broker_order_id="",
+                message=f"Could not resolve symbol token for {order.symbol}",
+            )
+        exch = EXCHANGE_MAP.get(order.exchange.value, "NSE")
 
         payload = {
             "variety": "NORMAL",
@@ -178,12 +222,13 @@ class AngelOneAdapter(BaseBroker):
             json=payload,
             headers=self._headers(),
         )
-        data = resp.json()
+        data = self._parse_response(resp)
         success = data.get("status") is True
+        order_data = data.get("data", {}) if isinstance(data.get("data"), dict) else {}
         return OrderResult(
             success=success,
-            broker_order_id=data.get("data", {}).get("orderid", "") if success else "",
-            message=data.get("message", data.get("data", {}).get("message", "")),
+            broker_order_id=order_data.get("orderid", "") if success else "",
+            message=data.get("message", order_data.get("message", "")),
         )
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
@@ -204,7 +249,7 @@ class AngelOneAdapter(BaseBroker):
             json=payload,
             headers=self._headers(),
         )
-        data = resp.json()
+        data = self._parse_response(resp)
         return OrderResult(
             success=data.get("status") is True,
             broker_order_id=order_id,
@@ -219,7 +264,7 @@ class AngelOneAdapter(BaseBroker):
             json=payload,
             headers=self._headers(),
         )
-        data = resp.json()
+        data = self._parse_response(resp)
         return OrderResult(
             success=data.get("status") is True,
             broker_order_id=order_id,
@@ -232,11 +277,9 @@ class AngelOneAdapter(BaseBroker):
             f"{self._base_url}/rest/secure/angelbroking/order/v1/getOrderBook",
             headers=self._headers(),
         )
-        data = resp.json()
-        orders = []
-        for item in data.get("data", []):
-            orders.append(self._normalize_order(item))
-        return orders
+        data = self._parse_response(resp)
+        items = self._ensure_list(data.get("data"))
+        return [self._normalize_order(item) for item in items]
 
     async def get_positions(self) -> list[Position]:
         client = await get_http_client()
@@ -244,11 +287,9 @@ class AngelOneAdapter(BaseBroker):
             f"{self._base_url}/rest/secure/angelbroking/position/v1/getPosition",
             headers=self._headers(),
         )
-        data = resp.json()
-        positions = []
-        for item in data.get("data", []):
-            positions.append(self._normalize_position(item))
-        return positions
+        data = self._parse_response(resp)
+        items = self._ensure_list(data.get("data"))
+        return [self._normalize_position(item) for item in items]
 
     async def get_holdings(self) -> list[Holding]:
         client = await get_http_client()
@@ -256,11 +297,9 @@ class AngelOneAdapter(BaseBroker):
             f"{self._base_url}/rest/secure/angelbroking/portfolio/v1/getHolding",
             headers=self._headers(),
         )
-        data = resp.json()
-        holdings = []
-        for item in data.get("data", []):
-            holdings.append(self._normalize_holding(item))
-        return holdings
+        data = self._parse_response(resp)
+        items = self._ensure_list(data.get("data"))
+        return [self._normalize_holding(item) for item in items]
 
     async def get_funds(self) -> Funds:
         client = await get_http_client()
@@ -268,7 +307,7 @@ class AngelOneAdapter(BaseBroker):
             f"{self._base_url}/rest/secure/angelbroking/user/v1/getRMS",
             headers=self._headers(),
         )
-        data = resp.json()
+        data = self._parse_response(resp)
         d = data.get("data", {})
         if isinstance(d, str):
             try:
@@ -295,7 +334,7 @@ class AngelOneAdapter(BaseBroker):
                 json=payload,
                 headers=self._headers(),
             )
-            data = resp.json()
+            data = self._parse_response(resp)
             if data.get("status") and data.get("data"):
                 results.append(self._normalize_quote(data["data"]))
         return results
@@ -320,9 +359,9 @@ class AngelOneAdapter(BaseBroker):
             json=payload,
             headers=self._headers(),
         )
-        data = resp.json()
+        data = self._parse_response(resp)
         candles = []
-        for item in data.get("data", []):
+        for item in self._ensure_list(data.get("data")):
             candles.append(
                 Candle(
                     symbol=symbol,
@@ -428,19 +467,19 @@ class AngelOneAdapter(BaseBroker):
     def _normalize_order(self, item: dict) -> NormalizedOrder:
         inst = self._parse_instrument(item.get("tradingsymbol", ""))
         return NormalizedOrder(
-            id=item.get("orderid", "") or item.get("orderId", ""),
-            broker_order_id=item.get("orderid", "") or item.get("orderId", ""),
+            id=_dict_val(item, "orderid", "orderId", default=""),
+            broker_order_id=_dict_val(item, "orderid", "orderId", default=""),
             symbol=item.get("tradingsymbol", ""),
-            exchange=Exchange(item.get("exchange", "NSE")),
-            side=OrderSide.BUY if (item.get("transactiontype") or item.get("transactionType")) == "BUY" else OrderSide.SELL,
+            exchange=Exchange(_dict_val(item, "exchange", default="NSE")),
+            side=OrderSide.BUY if (_dict_val(item, "transactiontype", "transactionType", default="")) == "BUY" else OrderSide.SELL,
             order_type=OrderType.MARKET,
             product=ProductType.INTRADAY,
             quantity=int(item.get("quantity", 0)),
             price=float(item.get("price", 0)),
-            trigger_price=float(item.get("triggerprice") or item.get("triggerPrice") or 0) or None,
-            status=self._map_status(item.get("orderstatus") or item.get("orderStatus", "")),
-            filled_quantity=int(item.get("filledqty") or item.get("filledQty", 0)),
-            average_price=float(item.get("averageprice") or item.get("averagePrice", 0)),
+            trigger_price=float(_dict_val(item, "triggerprice", "triggerPrice", default=0) or 0) or None,
+            status=self._map_status(_dict_val(item, "orderstatus", "orderStatus", default="")),
+            filled_quantity=int(_dict_val(item, "filledqty", "filledQty", default=0)),
+            average_price=float(_dict_val(item, "averageprice", "averagePrice", default=0)),
             broker=self.broker_name,
             instrument_type=inst["instrument_type"],
             strike_price=inst["strike_price"],
@@ -480,6 +519,11 @@ class AngelOneAdapter(BaseBroker):
         )
 
     def _normalize_quote(self, item: dict) -> Quote:
+        if isinstance(item, str):
+            try:
+                item = json.loads(item)
+            except (json.JSONDecodeError, TypeError):
+                item = {}
         sym = item.get("tradingsymbol", item.get("symbol", ""))
         inst = self._parse_instrument(sym)
         return Quote(
@@ -503,17 +547,16 @@ class AngelOneAdapter(BaseBroker):
 
     @staticmethod
     def _parse_instrument(symbol: str) -> dict:
-        import re
         m = re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$', symbol.upper())
         if m:
             yy = int(m.group(2))
             month_code = m.group(3)
-            months = {'JAN':1,'FEB':2,'MAR':3,'APR':4,'MAY':5,'JUN':6,'JUL':7,'AUG':8,'SEP':9,'OCT':10,'NOV':11,'DEC':12}
+            months = {'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6, 'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12}
             month_num = months.get(month_code, 1)
             return {
                 "instrument_type": InstrumentType.OPT,
                 "strike_price": float(m.group(4)),
-                "expiry_date": f"{2000+yy}-{month_num:02d}",
+                "expiry_date": f"{2000 + yy}-{month_num:02d}",
                 "option_type": OptionType(m.group(5)),
             }
         m = re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})$', symbol.upper())
