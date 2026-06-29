@@ -39,22 +39,25 @@ export default function TradePage() {
     setChainLoading(true)
     try {
       const data = await api.marketdata.optionChain(sym) as any
-      if (data.expiries?.length) {
-        setExpiries(data.expiries)
-        if (!form.expiry_date || expiry !== form.expiry_date) {
-          setForm((prev) => ({ ...prev, expiry_date: data.expiries[0] }))
+      const exps = Array.isArray(data.expiries) ? data.expiries : []
+      const chain = Array.isArray(data.optionChain) ? data.optionChain : []
+      setExpiries(exps)
+      if (exps.length) {
+        const currentExpiry = form.expiry_date
+        if (!currentExpiry || (expiry && expiry !== currentExpiry)) {
+          setForm((prev) => ({ ...prev, expiry_date: exps[0] }))
         }
       }
-      if (data.optionChain?.length) {
-        setOptionChain(data.optionChain)
-        const mid = data.optionChain[Math.floor(data.optionChain.length / 2)]
+      setOptionChain(chain)
+      if (chain.length) {
+        const mid = chain[Math.floor(chain.length / 2)]
         if (mid) setForm((prev) => ({ ...prev, strike_price: mid.strike }))
       }
     } catch { setExpiries([]); setOptionChain([]) }
     finally { setChainLoading(false) }
   }, [])
 
-  useEffect(() => { loadChain(form.symbol) }, [form.symbol])
+  useEffect(() => { if (token) loadChain(form.symbol) }, [form.symbol, token])
 
   const loadData = useCallback(async () => {
     try {
