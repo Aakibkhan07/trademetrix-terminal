@@ -122,6 +122,18 @@ async def delete_credentials(
 FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI", "https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback")
 
 
+def _fyers_auth_url(client_id: str, state: str) -> str:
+    app_type = client_id.split("-")[-1] if "-" in client_id else "100"
+    return (
+        f"https://api.fyers.in/api/v2/generate-authcode"
+        f"?client_id={client_id}"
+        f"&redirect_uri={FYERS_REDIRECT_URI}"
+        f"&response_type=code"
+        f"&state={state}"
+        f"&appType={app_type}"
+    )
+
+
 @router.post("/fyers/re-auth")
 async def fyers_re_auth(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
@@ -141,14 +153,7 @@ async def fyers_re_auth(current_user: UserProfile = Depends(get_current_user)):
         {"is_active": False, "encrypted_access_token": ""}
     ).eq("id", cred["id"]).execute()
 
-    auth_url = (
-        f"https://api.fyers.in/api/v2/generate-authcode"
-        f"?client_id={client_id}"
-        f"&redirect_uri={FYERS_REDIRECT_URI}"
-        f"&response_type=code"
-        f"&state={current_user.id}"
-    )
-    return {"auth_url": auth_url}
+    return {"auth_url": _fyers_auth_url(client_id, current_user.id)}
 
 
 @router.get("/fyers/auth-url")
@@ -165,14 +170,7 @@ async def fyers_auth_url(current_user: UserProfile = Depends(get_current_user)):
 
     row = supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute()
     client_id = decrypt_broker_credentials(row.data["encrypted_api_key"])
-    auth_url = (
-        f"https://api.fyers.in/api/v2/generate-authcode"
-        f"?client_id={client_id}"
-        f"&redirect_uri={FYERS_REDIRECT_URI}"
-        f"&response_type=code"
-        f"&state={current_user.id}"
-    )
-    return {"auth_url": auth_url}
+    return {"auth_url": _fyers_auth_url(client_id, current_user.id)}
 
 
 class FyersAuthCodeInput(BaseModel):
