@@ -270,9 +270,14 @@ class AngelOneAdapter(BaseBroker):
         )
         data = resp.json()
         d = data.get("data", {})
+        if isinstance(d, str):
+            try:
+                d = json.loads(d)
+            except (json.JSONDecodeError, TypeError):
+                d = {}
         return Funds(
-            total_margin=float(d.get("totalmargin", 0)),
-            used_margin=float(d.get("utilisedmargin", 0)),
+            total_margin=float(d.get("net", 0)),
+            used_margin=float(d.get("utiliseddebits", 0)),
             available_margin=float(d.get("availablecash", 0)),
             broker=self.broker_name,
         )
