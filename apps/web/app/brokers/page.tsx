@@ -35,6 +35,7 @@ export default function BrokersPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [selectedBroker, setSelectedBroker] = useState('')
   const [apiKey, setApiKey] = useState('')
+  const [clientCode, setClientCode] = useState('')
   const [secretKey, setSecretKey] = useState('')
   const [totpSecret, setTotpSecret] = useState('')
   const [msg, setMsg] = useState('')
@@ -92,10 +93,14 @@ export default function BrokersPage() {
 
   const handleAdd = async () => {
     try {
-      await api.brokers.saveCredentials({ broker: selectedBroker, api_key: apiKey, secret_key: secretKey, additional_params: totpSecret ? { totp_secret: totpSecret } : undefined })
+      const additional_params: Record<string, string> = {}
+      if (totpSecret) additional_params.totp_secret = totpSecret
+      if (clientCode) additional_params.client_code = clientCode
+      await api.brokers.saveCredentials({ broker: selectedBroker, api_key: apiKey, secret_key: secretKey, additional_params: Object.keys(additional_params).length ? additional_params : undefined })
       setShowAdd(false)
       setSelectedBroker('')
       setApiKey('')
+      setClientCode('')
       setSecretKey('')
       setTotpSecret('')
       if (selectedBroker === 'fyers') {
@@ -188,12 +193,18 @@ export default function BrokersPage() {
             {selectedBroker && (
               <>
                 <div style={{ marginBottom: 12 }}>
-                  <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>API Key / Client ID</label>
+                  <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>API Key {selectedBroker === 'angelone' && '(SmartAPI App Key)'}</label>
                   <input className="input" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Your broker API key" />
                 </div>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Secret Key</label>
-                  <input className="input" type="password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} placeholder="Your broker secret" />
+                {selectedBroker === 'angelone' && (
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Client ID (Angel One Login ID)</label>
+                    <input className="input" value={clientCode} onChange={(e) => setClientCode(e.target.value)} placeholder="Your Angel One trading account ID" />
+                  </div>
+                )}
+                <div style={{ marginBottom: selectedBroker === 'angelone' ? 12 : 20 }}>
+                  <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>{selectedBroker === 'angelone' ? 'Password/PIN' : 'Secret Key'}</label>
+                  <input className="input" type="password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} placeholder={selectedBroker === 'angelone' ? 'Your Angel One login password' : 'Your broker secret'} />
                 </div>
                 {selectedBroker === 'angelone' && (
                   <div style={{ marginBottom: 20 }}>
