@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
@@ -8,32 +8,6 @@ import { useAuth } from '@/lib/auth-context'
 
 const INDICES = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'SENSEX']
 const LOT_SIZES: Record<string, number> = { NIFTY: 65, SENSEX: 20, BANKNIFTY: 30, FINNIFTY: 60 }
-const STRIKE_INTERVALS: Record<string, number> = { NIFTY: 50, SENSEX: 100, BANKNIFTY: 100, FINNIFTY: 50 }
-const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']
-
-function nextWeeklyExpiries(count: number = 5): string[] {
-  const now = new Date()
-  const day = now.getDay()
-  const daysUntilThursday = (4 - day + 7) % 7 || 7
-  const expiries: string[] = []
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now)
-    d.setDate(now.getDate() + daysUntilThursday + i * 7)
-    expiries.push(
-      String(d.getDate()).padStart(2, '0') + MONTHS[d.getMonth()] + String(d.getFullYear()).slice(-2)
-    )
-  }
-  return expiries
-}
-
-function strikesNearSpot(spot: number, interval: number, rangePct: number = 0.06): number[] {
-  const halfRange = spot * rangePct
-  const lo = Math.floor((spot - halfRange) / interval) * interval
-  const hi = Math.ceil((spot + halfRange) / interval) * interval
-  const strikes: number[] = []
-  for (let s = lo; s <= hi; s += interval) strikes.push(s)
-  return strikes
-}
 
 interface OrderData {
   symbol: string; side: string; quantity: number; price: number
@@ -51,16 +25,36 @@ export default function TradePage() {
   const [resultMsg, setResultMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [lastRefresh, setLastRefresh] = useState('')
   const [paper, setPaper] = useState(true)
-  const expiries = useMemo(() => nextWeeklyExpiries(), [])
+  const [expiries, setExpiries] = useState<string[]>([])
+  const [optionChain, setOptionChain] = useState<any[]>([])
+  const [chainLoading, setChainLoading] = useState(false)
 
-  const [form, setForm] = useState<OrderData>(() => {
-    const exps = nextWeeklyExpiries()
-    return {
-      symbol: 'NIFTY', side: 'BUY', quantity: LOT_SIZES.NIFTY, price: 0,
-      exchange: 'NFO', order_type: 'MARKET', product: 'INTRADAY', trigger_price: null,
-      instrument_type: 'OPT', strike_price: 0, expiry_date: exps[0] || '02JUL', option_type: 'CE',
-    }
+  const [form, setForm] = useState<OrderData>({
+    symbol: 'NIFTY', side: 'BUY', quantity: LOT_SIZES.NIFTY, price: 0,
+    exchange: 'NFO', order_type: 'MARKET', product: 'INTRADAY', trigger_price: null,
+    instrument_type: 'OPT', strike_price: 0, expiry_date: '', option_type: 'CE',
   })
+
+  const loadChain = useCallback(async (sym: string, expiry?: string) => {
+    setChainLoading(true)
+    try {
+      const data = await api.marketdata.optionChain(sym) as any
+      if (data.expiries?.length) {
+        setExpiries(data.expiries)
+        if (!form.expiry_date || expiry !== form.expiry_date) {
+          setForm((prev) => ({ ...prev, expiry_date: data.expiries[0] }))
+        }
+      }
+      if (data.optionChain?.length) {
+        setOptionChain(data.optionChain)
+        const mid = data.optionChain[Math.floor(data.optionChain.length / 2)]
+        if (mid) setForm((prev) => ({ ...prev, strike_price: mid.strike }))
+      }
+    } catch { setExpiries([]); setOptionChain([]) }
+    finally { setChainLoading(false) }
+  }, [])
+
+  useEffect(() => { loadChain(form.symbol) }, [form.symbol])
 
   const loadData = useCallback(async () => {
     try {
@@ -84,17 +78,6 @@ export default function TradePage() {
 
   const fyersSymbol = `NSE:${form.symbol === 'BANKNIFTY' ? 'NIFTYBANK' : form.symbol === 'FINNIFTY' ? 'FINNIFTY' : form.symbol === 'SENSEX' ? 'SENSEX' : 'NIFTY50'}-INDEX`
   const livePrice = ticks[fyersSymbol]
-  const strikeInterval = STRIKE_INTERVALS[form.symbol] || 50
-  const strikes = livePrice?.last_price
-    ? strikesNearSpot(livePrice.last_price, strikeInterval)
-    : []
-
-  useEffect(() => {
-    if (strikes.length > 0 && (!form.strike_price || strikes.indexOf(form.strike_price) === -1)) {
-      const mid = strikes[Math.floor(strikes.length / 2)]
-      setForm((prev) => ({ ...prev, strike_price: mid }))
-    }
-  }, [strikes, form.symbol])
 
   usePolling(loadData, 3000, !!token)
 
@@ -253,9 +236,9 @@ export default function TradePage() {
                   <label className="stat-label">Strike</label>
                   <select className="select" value={form.strike_price || 0}
                     onChange={(e) => setForm({ ...form, strike_price: Number(e.target.value) })}>
-                    {strikes.length > 0
-                      ? strikes.map((s) => <option key={s} value={s}>{s}</option>)
-                      : <option value={0}>Waiting for price...</option>}
+                    {optionChain.length > 0
+                      ? optionChain.map((r: any) => <option key={r.strike} value={r.strike}>{r.strike}</option>)
+                      : <option value={0}>{chainLoading ? 'Loading...' : 'No data'}</option>}
                   </select>
                 </div>
                 <div>
@@ -383,6 +366,65 @@ export default function TradePage() {
           </div>
         </div>
       </div>
+
+      {form.instrument_type === 'OPT' && optionChain.length > 0 && (
+        <div className="panel" style={{ padding: 0, marginBottom: 20 }}>
+          <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
+            <h3 className="panel-title" style={{ fontSize: 13 }}>
+              {form.symbol} Option Chain
+              <span className="last-updated" style={{ marginLeft: 8, fontSize: 10 }}>
+                {form.expiry_date}
+              </span>
+            </h3>
+            <button className="btn btn-ghost btn-sm" onClick={() => loadChain(form.symbol)} disabled={chainLoading} style={{ fontSize: 9 }}>
+              {chainLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ fontSize: 10, minWidth: 600 }}>
+              <thead>
+                <tr>
+                  <th colSpan={5} style={{ textAlign: 'center', color: '#22c55e' }}>CALL</th>
+                  <th className="numeric" style={{ color: '#8b5cf6' }}>Strike</th>
+                  <th colSpan={5} style={{ textAlign: 'center', color: '#ef4444' }}>PUT</th>
+                </tr>
+                <tr>
+                  <th className="numeric">LTP</th><th className="numeric">Chg%</th><th className="numeric">Bid</th>
+                  <th className="numeric">Ask</th><th className="numeric">OI</th><th></th>
+                  <th className="numeric">LTP</th><th className="numeric">Chg%</th><th className="numeric">Bid</th>
+                  <th className="numeric">Ask</th><th className="numeric">OI</th>
+                </tr>
+              </thead>
+              <tbody>
+                {optionChain.map((row: any, i: number) => {
+                  const c = row.call || {}
+                  const p = row.put || {}
+                  return (
+                    <tr key={i} style={{ cursor: 'pointer', background: row.strike === form.strike_price ? 'rgba(139,92,246,0.08)' : undefined }}
+                      onClick={() => setForm((prev) => ({ ...prev, strike_price: row.strike }))}>
+                      <td className="numeric">{c.ltp || '-'}</td>
+                      <td className={`numeric ${(c.change_pct || 0) >= 0 ? 'positive' : 'negative'}`}>
+                        {(c.change_pct || 0) ? `${(c.change_pct || 0) >= 0 ? '+' : ''}${(c.change_pct || 0).toFixed(1)}%` : '-'}
+                      </td>
+                      <td className="numeric" style={{ color: '#22c55e' }}>{c.bid || '-'}</td>
+                      <td className="numeric" style={{ color: '#ef4444' }}>{c.ask || '-'}</td>
+                      <td className="numeric">{(c.oi || 0).toLocaleString()}</td>
+                      <td className="numeric" style={{ fontWeight: 700, color: '#8b5cf6' }}>{row.strike}</td>
+                      <td className="numeric">{p.ltp || '-'}</td>
+                      <td className={`numeric ${(p.change_pct || 0) >= 0 ? 'positive' : 'negative'}`}>
+                        {(p.change_pct || 0) ? `${(p.change_pct || 0) >= 0 ? '+' : ''}${(p.change_pct || 0).toFixed(1)}%` : '-'}
+                      </td>
+                      <td className="numeric" style={{ color: '#22c55e' }}>{p.bid || '-'}</td>
+                      <td className="numeric" style={{ color: '#ef4444' }}>{p.ask || '-'}</td>
+                      <td className="numeric">{(p.oi || 0).toLocaleString()}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="panel" style={{ padding: 0 }}>
         <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>

@@ -102,8 +102,8 @@ export const api = {
     runs: () => request('/engine/runs'),
     orders: () => request('/engine/orders'),
     cancelOrder: (orderId: string) => request(`/engine/orders/${orderId}/cancel`, { method: 'POST' }),
-    positions: () => request('/engine/positions'),
-    funds: () => request('/engine/funds'),
+    positions: (paper?: boolean) => request(`/engine/positions?paper=${paper ?? true}`),
+    funds: (paper?: boolean) => request(`/engine/funds?paper=${paper ?? true}`),
   },
 
   ai: {
@@ -116,6 +116,12 @@ export const api = {
     startSimulator: () => request('/marketdata/simulator/start', { method: 'POST' }),
     stopSimulator: () => request('/marketdata/simulator/stop', { method: 'POST' }),
     symbols: () => request('/marketdata/symbols'),
+    watchlist: () => request('/marketdata/watchlist'),
+    optionChain: (symbol: string) => request(`/marketdata/option-chain?symbol=${symbol}`),
+  },
+
+  tradingview: {
+    webhook: (data: Record<string, unknown>) => request('/tradingview/webhook', { method: 'POST', body: data }),
   },
 
   backtest: {

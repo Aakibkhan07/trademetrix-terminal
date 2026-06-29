@@ -248,6 +248,51 @@ export default function BrokersPage() {
             </>
           )}
 
+          <div className="panel" style={{ padding: '16px', marginBottom: 20 }}>
+            <div className="panel-header" style={{ marginBottom: 8 }}>
+              <h3 className="panel-title" style={{ fontSize: 14 }}>
+                <span style={{ marginRight: 6 }}>TV</span>
+                TradingView Webhook Integration
+              </h3>
+            </div>
+            <p style={{ fontSize: 12, color: '#8888a0', margin: '0 0 8px' }}>
+              Connect TradingView strategies via webhook. Configure alerts to POST to the endpoint below.
+            </p>
+            <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: 10, fontFamily: 'var(--font-mono)', fontSize: 11, wordBreak: 'break-all', marginBottom: 8 }}>
+              <span style={{ color: '#22d3ee' }}>POST</span> <span style={{ color: '#f0f0f5' }}>{process.env.NEXT_PUBLIC_API_URL || 'https://api.ai.trademetrix.tech/api/v1'}/tradingview/webhook</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11, marginBottom: 8 }}>
+              <div>
+                <p style={{ margin: '0 0 2px', color: '#555570', fontWeight: 600 }}>Request Format</p>
+                <pre style={{ margin: 0, fontSize: 10, color: '#8888a0', background: 'rgba(0,0,0,0.15)', padding: 8, borderRadius: 4, lineHeight: 1.5 }}>
+{`{
+  "symbol": "NIFTY",
+  "action": "BUY",
+  "quantity": 75,
+  "price": 0,
+  "exchange": "NSE",
+  "order_type": "MARKET",
+  "product": "INTRADAY",
+  "paper": true
+}`}</pre>
+              </div>
+              <div>
+                <p style={{ margin: '0 0 2px', color: '#555570', fontWeight: 600 }}>Pine Script Alert</p>
+                <pre style={{ margin: 0, fontSize: 10, color: '#8888a0', background: 'rgba(0,0,0,0.15)', padding: 8, borderRadius: 4, lineHeight: 1.5 }}>
+{`// In Strategy settings:
+// Alert → Webhook URL
+// Message:
+{"symbol":"{{ticker}}",
+ "action":"{{strategy.order.action}}",
+ "quantity":{{strategy.order.contracts}},
+ "paper":true}`}</pre>
+              </div>
+            </div>
+            <p style={{ fontSize: 10, color: '#555570', margin: 0 }}>
+              Set <code style={{ color: '#22d3ee' }}>paper: false</code> for live execution. Optionally set <code style={{ color: '#22d3ee' }}>TRADINGVIEW_WEBHOOK_SECRET</code> env for HMAC verification.
+            </p>
+          </div>
+
           <h2 style={{ fontFamily: 'Outfit', fontSize: 15, margin: '0 0 12px', color: '#f0f0f5' }}>
             Available Brokers
           </h2>
