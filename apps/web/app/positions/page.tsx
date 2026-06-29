@@ -14,7 +14,6 @@ export default function PositionsPage() {
   const [funds, setFunds] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState('')
-  const [paper, setPaper] = useState(true)
 
   useEffect(() => {
     const symbols = ['NSE:NIFTY50-INDEX', 'NSE:NIFTYBANK-INDEX', 'NSE:FINNIFTY-INDEX',
@@ -26,16 +25,16 @@ export default function PositionsPage() {
   const loadData = useCallback(async () => {
     try {
       const [p, o, f] = await Promise.all([
-        api.engine.positions(paper).catch(() => ({ positions: [] })),
+        api.engine.positions().catch(() => ({ positions: [] })),
         api.engine.orders().catch(() => ({ orders: [] })),
-        api.engine.funds(paper).catch(() => ({ funds: null })),
+        api.engine.funds().catch(() => ({ funds: null })),
       ])
       setPositions((p as any).positions || [])
       setOrders((o as any).orders || [])
       setFunds((f as any).funds || null)
       setLastRefresh(new Date().toLocaleTimeString())
     } catch {} finally { setLoading(false) }
-  }, [paper])
+  }, [])
 
   usePolling(loadData, 3000, !!token)
 
@@ -54,7 +53,7 @@ export default function PositionsPage() {
       symbol, side, quantity: Math.abs(qty), price: 0,
       exchange: 'NFO', order_type: 'MARKET', product: 'INTRADAY',
       instrument_type: positions.find(p => p.symbol === symbol)?.instrument_type || 'EQ',
-    }, paper)
+    })
     setTimeout(loadData, 1000)
   }
 
@@ -70,20 +69,6 @@ export default function PositionsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{paper ? 'PAPER' : 'LIVE'}</span>
-          <label className="switch" style={{ position: 'relative', display: 'inline-block', width: 36, height: 20 }}>
-            <input type="checkbox" checked={!paper} onChange={() => setPaper(!paper)}
-              style={{ opacity: 0, width: 0, height: 0 }} />
-            <span style={{
-              position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-              background: paper ? '#555570' : '#8b5cf6', borderRadius: 20, transition: '.3s',
-            }}>
-              <span style={{
-                position: 'absolute', height: 16, width: 16, borderRadius: '50%', background: '#fff',
-                top: 2, transition: '.3s', left: paper ? 2 : 18,
-              }} />
-            </span>
-          </label>
           <button className="btn btn-ghost btn-sm" onClick={loadData}>Refresh</button>
         </div>
       </div>

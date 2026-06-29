@@ -2,7 +2,7 @@ import asyncio
 import time
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from core.db import get_supabase
@@ -17,21 +17,21 @@ _engine_cache: dict[str, tuple[ExecutionEngine, float]] = {}
 _engine_lock = asyncio.Lock()
 _ENGINE_TTL = 120
 
-async def _get_engine(user_id: str, broker: str, is_paper: bool = True) -> ExecutionEngine:
-    key = f"{user_id}:{broker}:{is_paper}"
+async def _get_engine(user_id: str, broker: str) -> ExecutionEngine:
+    key = f"{user_id}:{broker}"
     entry = _engine_cache.get(key)
     if entry:
         engine, ts = entry
         if time.monotonic() - ts < _ENGINE_TTL:
             return engine
         await engine.stop()
-    engine = ExecutionEngine(user_id, broker, is_paper)
+    engine = ExecutionEngine(user_id, broker)
     await engine.start()
     _engine_cache[key] = (engine, time.monotonic())
     return engine
 
-async def _release_engine(user_id: str, broker: str, is_paper: bool = True):
-    entry = _engine_cache.pop(f"{user_id}:{broker}:{is_paper}", None)
+async def _release_engine(user_id: str, broker: str):
+    entry = _engine_cache.pop(f"{user_id}:{broker}", None)
     if entry:
         await entry[0].stop()
 
@@ -102,7 +102,6 @@ async def stop_engine(
 @router.post("/trade")
 async def execute_trade(
     req: ExecuteSignalRequest,
-    paper: bool = Query(True),
     current_user: UserProfile = Depends(get_current_user),
 ):
     from core.models import Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType, ProductType
@@ -114,7 +113,7 @@ async def execute_trade(
     if not creds:
         raise HTTPException(status_code=400, detail="No active broker configured")
 
-    engine = await _get_engine(current_user.id, creds["broker"], is_paper=paper)
+    engine = await _get_engine(current_user.id, creds["broker"])
 
     order = NormalizedOrder(
         symbol=req.symbol,
@@ -157,25 +156,22 @@ async def cancel_order(
     if not creds:
         raise HTTPException(status_code=400, detail="No active broker configured")
 
-    engine = await _get_engine(current_user.id, creds["broker"], is_paper=False)
+    engine = await _get_engine(current_user.id, creds["broker"])
     result = await engine.cancel_order(order_id)
     return {"result": result.model_dump()}
 
 
 @router.get("/positions")
 async def get_positions(
-    paper: bool = Query(True),
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    if paper:
-        return {"positions": []}
     creds = safe_single(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if creds:
         try:
-            engine = await _get_engine(current_user.id, creds["broker"], is_paper=False)
+            engine = await _get_engine(current_user.id, creds["broker"])
             positions = await engine.get_positions()
             return {"positions": [p.model_dump() for p in positions]}
         except ValueError as e:
@@ -186,18 +182,15 @@ async def get_positions(
 
 @router.get("/funds")
 async def get_funds(
-    paper: bool = Query(True),
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    if paper:
-        return {"funds": {"total_margin": 0, "used_margin": 0, "available_margin": 0}}
     creds = safe_single(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if creds:
         try:
-            engine = await _get_engine(current_user.id, creds["broker"], is_paper=False)
+            engine = await _get_engine(current_user.id, creds["broker"])
             funds = await engine.get_funds()
             return {"funds": funds.model_dump()}
         except ValueError as e:

@@ -12,7 +12,6 @@ from core.models import (
     OrderResult,
     OrderStatus,
 )
-from core.safe_query import safe_execute, safe_single
 from market.symbol_master import symbol_master
 from risk.riskguard import RiskGuard
 
@@ -20,10 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 class ExecutionEngine:
-    def __init__(self, user_id: str, broker: str, is_paper: bool = True):
+    def __init__(self, user_id: str, broker: str):
         self.user_id = user_id
         self.broker = broker
-        self.is_paper = is_paper
         self._riskguard = RiskGuard(user_id)
         self._token_manager = TokenManager(user_id, broker)
         self._adapter = None
@@ -35,7 +33,7 @@ class ExecutionEngine:
         adapter_cls = get_broker(self.broker)
         self._adapter = adapter_cls()
         await self._adapter.authenticate(session)
-        logger.info(f"Engine started for user={self.user_id} broker={self.broker} paper={self.is_paper}")
+        logger.info(f"Engine started for user={self.user_id} broker={self.broker}")
 
     async def stop(self):
         self._running = False
@@ -60,10 +58,7 @@ class ExecutionEngine:
             self._log_order(signal)
             return OrderResult(success=False, message=risk_check["reason"])
 
-        if self.is_paper:
-            return await self._paper_execute(signal)
-        else:
-            return await self._live_execute(signal)
+        return await self._live_execute(signal)
 
     async def _live_execute(self, signal: NormalizedOrder) -> OrderResult:
         signal.sent_at = datetime.now(UTC)
@@ -87,32 +82,9 @@ class ExecutionEngine:
         self._log_audit("place_order", signal)
         return result
 
-    async def _paper_execute(self, signal: NormalizedOrder) -> OrderResult:
-        signal.sent_at = datetime.now(UTC)
-        signal.filled_at = datetime.now(UTC)
-        signal.status = OrderStatus.FILLED
-        signal.filled_quantity = signal.quantity
-        signal.average_price = signal.price or 100.0
-        signal.latency_ms = 0.0
-        signal.slippage = 0.0
-        signal.message = "Paper fill (simulated)"
-        signal.broker_order_id = f"paper_{int(time.time())}_{hash(str(signal)) % 10000}"
-
-        self._log_order(signal)
-        self._log_audit("paper_place_order", signal)
-
-        return OrderResult(
-            success=True,
-            broker_order_id=signal.broker_order_id,
-            message="Paper fill (simulated)",
-        )
-
     async def cancel_order(self, order_id: str) -> OrderResult:
         if not self._adapter:
             return OrderResult(success=False, message="Engine not started")
-
-        if self.is_paper:
-            return OrderResult(success=True, message="Paper order cancelled (simulated)")
 
         result = await self._adapter.cancel_order(order_id)
         self._log_audit("cancel_order", None, extra={"order_id": order_id})

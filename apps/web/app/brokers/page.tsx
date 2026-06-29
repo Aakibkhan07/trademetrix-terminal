@@ -36,6 +36,7 @@ export default function BrokersPage() {
   const [selectedBroker, setSelectedBroker] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [secretKey, setSecretKey] = useState('')
+  const [totpSecret, setTotpSecret] = useState('')
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
 
@@ -91,11 +92,12 @@ export default function BrokersPage() {
 
   const handleAdd = async () => {
     try {
-      await api.brokers.saveCredentials({ broker: selectedBroker, api_key: apiKey, secret_key: secretKey })
+      await api.brokers.saveCredentials({ broker: selectedBroker, api_key: apiKey, secret_key: secretKey, additional_params: totpSecret ? { totp_secret: totpSecret } : undefined })
       setShowAdd(false)
       setSelectedBroker('')
       setApiKey('')
       setSecretKey('')
+      setTotpSecret('')
       if (selectedBroker === 'fyers') {
         const authData = await api.brokers.fyersAuthUrl() as { auth_url: string }
         showMsg(`Fyers app ID saved! Click the link that opened to login.`)
@@ -189,10 +191,16 @@ export default function BrokersPage() {
                   <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>API Key / Client ID</label>
                   <input className="input" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Your broker API key" />
                 </div>
-                <div style={{ marginBottom: 20 }}>
+                <div style={{ marginBottom: 12 }}>
                   <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Secret Key</label>
                   <input className="input" type="password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} placeholder="Your broker secret" />
                 </div>
+                {selectedBroker === 'angelone' && (
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>TOTP Secret (Base32)</label>
+                    <input className="input" type="password" value={totpSecret} onChange={(e) => setTotpSecret(e.target.value)} placeholder="Your Angel One TOTP secret key" />
+                  </div>
+                )}
               </>
             )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

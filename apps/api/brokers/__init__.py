@@ -1,3 +1,4 @@
+from brokers.angelone_adapter import AngelOneAdapter
 from brokers.base import BaseBroker
 from brokers.dhan_adapter import DhanAdapter
 from brokers.fyers_adapter import FyersAdapter
@@ -23,10 +24,12 @@ def list_brokers() -> list[str]:
 register_broker("fyers", FyersAdapter)
 register_broker("dhan", DhanAdapter)
 register_broker("zerodha", ZerodhaAdapter)
+register_broker("angelone", AngelOneAdapter)
 
 
 __all__ = [
     "BaseBroker",
+    "AngelOneAdapter",
     "FyersAdapter",
     "DhanAdapter",
     "ZerodhaAdapter",
