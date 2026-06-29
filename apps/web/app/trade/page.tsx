@@ -8,8 +8,17 @@ import { useAuth } from '@/lib/auth-context'
 
 const INDICES = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'SENSEX']
 const EXPIRIES = ['24JUN', '27JUN', '04JUL', '11JUL', '25JUL']
-const STRIKES = [26400, 26500, 26600, 26700, 26800]
 const LOT_SIZES: Record<string, number> = { NIFTY: 65, SENSEX: 20, BANKNIFTY: 30, FINNIFTY: 60 }
+const STRIKE_INTERVALS: Record<string, number> = { NIFTY: 50, SENSEX: 100, BANKNIFTY: 100, FINNIFTY: 50 }
+
+function strikesNearSpot(spot: number, interval: number, rangePct: number = 0.06): number[] {
+  const halfRange = spot * rangePct
+  const lo = Math.floor((spot - halfRange) / interval) * interval
+  const hi = Math.ceil((spot + halfRange) / interval) * interval
+  const strikes: number[] = []
+  for (let s = lo; s <= hi; s += interval) strikes.push(s)
+  return strikes
+}
 
 interface OrderData {
   symbol: string; side: string; quantity: number; price: number
@@ -30,7 +39,7 @@ export default function TradePage() {
   const [form, setForm] = useState<OrderData>({
     symbol: 'NIFTY', side: 'BUY', quantity: LOT_SIZES.NIFTY, price: 0,
     exchange: 'NFO', order_type: 'MARKET', product: 'INTRADAY', trigger_price: null,
-    instrument_type: 'OPT', strike_price: 26600, expiry_date: '27JUN', option_type: 'CE',
+    instrument_type: 'OPT', strike_price: 0, expiry_date: '27JUN', option_type: 'CE',
   })
 
   const loadData = useCallback(async () => {
@@ -53,6 +62,20 @@ export default function TradePage() {
     startFeed()
   }, [subscribe, startFeed])
 
+  const fyersSymbol = `NSE:${form.symbol === 'BANKNIFTY' ? 'NIFTYBANK' : form.symbol === 'FINNIFTY' ? 'FINNIFTY' : form.symbol === 'SENSEX' ? 'SENSEX' : 'NIFTY50'}-INDEX`
+  const livePrice = ticks[fyersSymbol]
+  const strikeInterval = STRIKE_INTERVALS[form.symbol] || 50
+  const strikes = livePrice?.last_price
+    ? strikesNearSpot(livePrice.last_price, strikeInterval)
+    : []
+
+  useEffect(() => {
+    if (strikes.length > 0 && (!form.strike_price || strikes.indexOf(form.strike_price) === -1)) {
+      const mid = strikes[Math.floor(strikes.length / 2)]
+      setForm((prev) => ({ ...prev, strike_price: mid }))
+    }
+  }, [strikes, form.symbol])
+
   usePolling(loadData, 3000, !!token)
 
   const optionSymbol = form.instrument_type === 'OPT' && form.expiry_date && form.strike_price && form.option_type
@@ -60,9 +83,6 @@ export default function TradePage() {
     : form.instrument_type === 'FUT' && form.expiry_date
       ? `${form.symbol}${form.expiry_date}`
       : form.symbol
-
-  const fyersSymbol = `NSE:${form.symbol === 'BANKNIFTY' ? 'NIFTYBANK' : form.symbol === 'FINNIFTY' ? 'FINNIFTY' : form.symbol === 'SENSEX' ? 'SENSEX' : 'NIFTY50'}-INDEX`
-  const livePrice = ticks[fyersSymbol]
 
   const handlePlace = async () => {
     setPlacing(true); setResultMsg(null)
@@ -203,7 +223,9 @@ export default function TradePage() {
                   <label className="stat-label">Strike</label>
                   <select className="select" value={form.strike_price || 0}
                     onChange={(e) => setForm({ ...form, strike_price: Number(e.target.value) })}>
-                    {STRIKES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    {strikes.length > 0
+                      ? strikes.map((s) => <option key={s} value={s}>{s}</option>)
+                      : <option value={0}>Waiting for price...</option>}
                   </select>
                 </div>
                 <div>
