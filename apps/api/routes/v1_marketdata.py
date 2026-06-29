@@ -4,6 +4,7 @@ import json
 import logging
 import random
 
+import httpx
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
 
 from core.deps import get_current_user
@@ -296,6 +297,77 @@ def _generate_option_chain(symbol: str, spot_price: float, expiry: str) -> dict:
     return {"optionChain": chain, "expiries": [expiry]}
 
 
+NSE_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY"}
+
+
+async def _fetch_nse_option_chain(symbol: str) -> dict | None:
+    if symbol.upper() not in NSE_INDICES:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            client.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept": "application/json, text/plain, */*",
+            })
+            await client.get("https://www.nseindia.com")
+            resp = await client.get(f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol.upper()}")
+            if resp.status_code != 200:
+                logger.warning("NSE option chain returned status %d", resp.status_code)
+                return None
+            data = resp.json()
+            records = data.get("records", {})
+            raw_expiries = records.get("expiryDates", [])
+            raw_data = records.get("data", [])
+            if not raw_expiries or not raw_data:
+                return None
+            expiries = []
+            for e in raw_expiries:
+                try:
+                    dt = datetime.datetime.strptime(e, "%d-%b-%Y").strftime("%d%b").upper()
+                    expiries.append(dt)
+                except Exception:
+                    expiries.append(e.upper().replace("-", ""))
+            option_chain = []
+            strikes_seen = set()
+            for row in raw_data:
+                strike = row.get("strikePrice", 0)
+                if not strike or strike in strikes_seen:
+                    continue
+                strikes_seen.add(strike)
+                ce = row.get("CE") or {}
+                pe = row.get("PE") or {}
+                option_chain.append({
+                    "strike": strike,
+                    "call": {
+                        "ltp": ce.get("lastPrice", 0),
+                        "change": ce.get("change", 0),
+                        "change_pct": ce.get("pChange", 0),
+                        "bid": ce.get("bidprice", 0),
+                        "ask": ce.get("askPrice", 0),
+                        "volume": ce.get("totalTradedVolume", 0),
+                        "oi": ce.get("openInterest", 0),
+                        "iv": ce.get("impliedVolatility", 0),
+                    },
+                    "put": {
+                        "ltp": pe.get("lastPrice", 0),
+                        "change": pe.get("change", 0),
+                        "change_pct": pe.get("pChange", 0),
+                        "bid": pe.get("bidprice", 0),
+                        "ask": pe.get("askPrice", 0),
+                        "volume": pe.get("totalTradedVolume", 0),
+                        "oi": pe.get("openInterest", 0),
+                        "iv": pe.get("impliedVolatility", 0),
+                    },
+                })
+            if option_chain and expiries:
+                logger.info("NSE option chain fetched successfully for %s (%d strikes, %d expiries)", symbol, len(option_chain), len(expiries))
+                return {"optionChain": option_chain, "expiries": expiries}
+    except Exception as e:
+        logger.warning("NSE option chain fetch failed for %s: %s", symbol, e)
+    return None
+
+
 @router.get("/option-chain")
 async def get_option_chain(
     symbol: str = Query("NIFTY"),
@@ -357,9 +429,14 @@ async def get_option_chain(
                 })
 
             if option_chain and expiries and any(r.get("strike", 0) for r in option_chain):
+                logger.info("Fyers option chain fetched for %s", symbol)
                 return {"optionChain": option_chain, "expiries": expiries}
     except Exception as e:
-        logger.warning("Fyers option chain unavailable (%s), using fallback", e)
+        logger.warning("Fyers option chain unavailable (%s)", e)
+
+    nse_data = await _fetch_nse_option_chain(symbol)
+    if nse_data:
+        return nse_data
 
     spot_prices = {"NIFTY": 24000, "BANKNIFTY": 52000, "FINNIFTY": 22000, "SENSEX": 80000}
     spot = spot_prices.get(symbol.upper(), 24000)
