@@ -1,15 +1,30 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
 import { useAuth } from '@/lib/auth-context'
 
 const INDICES = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'SENSEX']
-const EXPIRIES = ['24JUN', '27JUN', '04JUL', '11JUL', '25JUL']
 const LOT_SIZES: Record<string, number> = { NIFTY: 65, SENSEX: 20, BANKNIFTY: 30, FINNIFTY: 60 }
 const STRIKE_INTERVALS: Record<string, number> = { NIFTY: 50, SENSEX: 100, BANKNIFTY: 100, FINNIFTY: 50 }
+const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']
+
+function nextWeeklyExpiries(count: number = 5): string[] {
+  const now = new Date()
+  const day = now.getDay()
+  const daysUntilThursday = (4 - day + 7) % 7 || 7
+  const expiries: string[] = []
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now)
+    d.setDate(now.getDate() + daysUntilThursday + i * 7)
+    expiries.push(
+      String(d.getDate()).padStart(2, '0') + MONTHS[d.getMonth()] + String(d.getFullYear()).slice(-2)
+    )
+  }
+  return expiries
+}
 
 function strikesNearSpot(spot: number, interval: number, rangePct: number = 0.06): number[] {
   const halfRange = spot * rangePct
@@ -35,11 +50,16 @@ export default function TradePage() {
   const [placing, setPlacing] = useState(false)
   const [resultMsg, setResultMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [lastRefresh, setLastRefresh] = useState('')
+  const [paper, setPaper] = useState(true)
+  const expiries = useMemo(() => nextWeeklyExpiries(), [])
 
-  const [form, setForm] = useState<OrderData>({
-    symbol: 'NIFTY', side: 'BUY', quantity: LOT_SIZES.NIFTY, price: 0,
-    exchange: 'NFO', order_type: 'MARKET', product: 'INTRADAY', trigger_price: null,
-    instrument_type: 'OPT', strike_price: 0, expiry_date: '27JUN', option_type: 'CE',
+  const [form, setForm] = useState<OrderData>(() => {
+    const exps = nextWeeklyExpiries()
+    return {
+      symbol: 'NIFTY', side: 'BUY', quantity: LOT_SIZES.NIFTY, price: 0,
+      exchange: 'NFO', order_type: 'MARKET', product: 'INTRADAY', trigger_price: null,
+      instrument_type: 'OPT', strike_price: 0, expiry_date: exps[0] || '02JUL', option_type: 'CE',
+    }
   })
 
   const loadData = useCallback(async () => {
@@ -96,7 +116,7 @@ export default function TradePage() {
         strike_price: form.strike_price || undefined,
         expiry_date: form.expiry_date || undefined,
         option_type: form.option_type || undefined,
-      }) as any
+      }, paper) as any
       setResultMsg({ ok: res.result.success, text: res.result.message || 'Order placed' })
       if (res.result.success) setTimeout(loadData, 1000)
     } catch (e) { setResultMsg({ ok: false, text: String(e) }) }
@@ -156,9 +176,19 @@ export default function TradePage() {
       )}
 
       <div className="grid-2" style={{ gap: 20, marginBottom: 24 }}>
-        <div className="panel" style={{ padding: 0 }}>
+          <div className="panel" style={{ padding: 0 }}>
           <div className="panel-header" style={{ padding: '14px 16px', margin: 0 }}>
             <h3 className="panel-title" style={{ fontSize: 14 }}>Place Order</h3>
+            <div className="tab-bar" style={{ gap: 3 }}>
+              <button className={`tab ${paper ? 'active' : ''}`} onClick={() => setPaper(true)}
+                style={{ fontSize: 10, padding: '3px 10px', color: paper ? '#22c55e' : undefined }}>
+                Paper
+              </button>
+              <button className={`tab ${!paper ? 'active' : ''}`} onClick={() => setPaper(false)}
+                style={{ fontSize: 10, padding: '3px 10px', color: !paper ? '#ef4444' : undefined }}>
+                Live
+              </button>
+            </div>
           </div>
           <div style={{ padding: 16 }}>
             <div className="tab-bar" style={{ marginBottom: 14 }}>
@@ -216,7 +246,7 @@ export default function TradePage() {
                   <label className="stat-label">Expiry</label>
                   <select className="select" value={form.expiry_date || ''}
                     onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}>
-                    {EXPIRIES.map((e) => <option key={e} value={e}>{e}</option>)}
+                    {expiries.map((e) => <option key={e} value={e}>{e}</option>)}
                   </select>
                 </div>
                 <div>
@@ -245,7 +275,7 @@ export default function TradePage() {
                 <label className="stat-label">Expiry</label>
                 <select className="select" value={form.expiry_date || ''}
                   onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}>
-                  {EXPIRIES.map((e) => <option key={e} value={e}>{e}</option>)}
+                  {expiries.map((e) => <option key={e} value={e}>{e}</option>)}
                 </select>
               </div>
             )}

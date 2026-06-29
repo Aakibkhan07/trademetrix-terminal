@@ -98,7 +98,7 @@ export const api = {
       exchange?: string; order_type?: string; product?: string;
       trigger_price?: number; strategy_id?: string;
       instrument_type?: string; strike_price?: number; expiry_date?: string; option_type?: string;
-    }) => request('/engine/trade', { method: 'POST', body: data }),
+    }, paper?: boolean) => request(`/engine/trade?paper=${paper ?? true}`, { method: 'POST', body: data }),
     runs: () => request('/engine/runs'),
     orders: () => request('/engine/orders'),
     cancelOrder: (orderId: string) => request(`/engine/orders/${orderId}/cancel`, { method: 'POST' }),
