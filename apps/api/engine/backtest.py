@@ -150,16 +150,18 @@ class BacktestEngine:
 
 async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: str = "15m",
                                  days: int = 60) -> list[dict]:
-    supabase = get_supabase()
-    result = supabase.table("symbol_master") \
-        .select("*") \
-        .eq("symbol", symbol) \
-        .eq("exchange", exchange) \
-        .limit(1) \
-        .execute()
-    if not result.data:
-        logger.warning("Symbol %s not found in master, using synthesized data", symbol)
-        return _synthesize_candles(symbol, days, interval)
+    try:
+        supabase = get_supabase()
+        result = supabase.table("symbol_master") \
+            .select("*") \
+            .eq("symbol", symbol) \
+            .eq("exchange", exchange) \
+            .limit(1) \
+            .execute()
+        if result.data:
+            return _synthesize_candles(symbol, days, interval)
+    except Exception as e:
+        logger.warning("Could not query symbol_master (%s), using synthesized data", e)
     return _synthesize_candles(symbol, days, interval)
 
 
