@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
@@ -111,7 +113,7 @@ async def delete_credentials(
     ))
 
 
-FYERS_REDIRECT_URI = "https://trade.fyers.in/api-login/redirect-uri/index.html"
+FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI", "https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback")
 
 
 @router.get("/fyers/auth-url")
@@ -185,6 +187,10 @@ async def fyers_callback(
     auth_code: str = Query(alias="auth_code"),
     state: str | None = Query(None),
 ):
+    from fastapi.responses import RedirectResponse
+
+    FRONTEND_URL = "https://ai.trademetrix.tech/brokers"
+
     import httpx
 
     supabase = get_supabase()
@@ -195,7 +201,7 @@ async def fyers_callback(
         .eq("broker", "fyers")
     )
     if not cred:
-        return {"message": "Fyers auth code received but no credentials found. Use POST /brokers/fyers/exchange-code with this auth_code."}
+        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=No+Fyers+credentials+found")
 
     client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
     secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
@@ -207,7 +213,7 @@ async def fyers_callback(
         )
         data = resp.json()
         if data.get("s") != "ok":
-            return {"message": f"Fyers auth failed: {data.get('message', '')}. Try using the auth_code manually."}
+            return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=Fyers+auth+failed")
 
         raw_token = data["access_token"]
         encrypted = encrypt_broker_credentials(raw_token)
@@ -215,4 +221,4 @@ async def fyers_callback(
             {"encrypted_access_token": encrypted, "is_active": True, "updated_at": __import__("datetime").datetime.utcnow().isoformat()}
         ).eq("id", cred["id"]).execute()
 
-    return {"message": "Fyers authenticated successfully! You can close this tab."}
+    return RedirectResponse(url=f"{FRONTEND_URL}?auth_success=1")

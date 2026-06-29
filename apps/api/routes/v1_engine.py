@@ -152,11 +152,15 @@ async def get_positions(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if creds:
-        engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
-        await engine.start()
-        positions = await engine.get_positions()
-        await engine.stop()
-        return {"positions": [p.model_dump() for p in positions]}
+        try:
+            engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
+            await engine.start()
+            positions = await engine.get_positions()
+            await engine.stop()
+            return {"positions": [p.model_dump() for p in positions]}
+        except ValueError as e:
+            logger = __import__("logging").getLogger(__name__)
+            logger.warning("Failed to get positions: %s", e)
     return {"positions": []}
 
 
@@ -170,11 +174,15 @@ async def get_funds(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if creds:
-        engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
-        await engine.start()
-        funds = await engine.get_funds()
-        await engine.stop()
-        return {"funds": funds.model_dump()}
+        try:
+            engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
+            await engine.start()
+            funds = await engine.get_funds()
+            await engine.stop()
+            return {"funds": funds.model_dump()}
+        except ValueError as e:
+            logger = __import__("logging").getLogger(__name__)
+            logger.warning("Failed to get funds: %s", e)
     return {"funds": {"total_margin": 0, "used_margin": 0, "available_margin": 0}}
 
 
