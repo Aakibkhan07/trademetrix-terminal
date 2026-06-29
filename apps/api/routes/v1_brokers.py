@@ -123,14 +123,12 @@ FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI", "https://api.ai.trademetrix
 
 
 def _fyers_auth_url(client_id: str, state: str) -> str:
-    app_type = client_id.split("-")[-1] if "-" in client_id else "100"
     return (
-        f"https://api.fyers.in/api/v2/generate-authcode"
+        f"https://api-t1.fyers.in/api/v3/generate-authcode"
         f"?client_id={client_id}"
         f"&redirect_uri={FYERS_REDIRECT_URI}"
         f"&response_type=code"
         f"&state={state}"
-        f"&appType={app_type}"
     )
 
 
@@ -182,8 +180,6 @@ async def fyers_exchange_code(
     req: FyersAuthCodeInput,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    import httpx
-
     supabase = get_supabase()
     cred = safe_single(
         supabase.table("broker_credentials")
@@ -197,20 +193,27 @@ async def fyers_exchange_code(
     client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
     secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            "https://api.fyers.in/api/v2/validate-authcode",
-            json={"client_id": client_id, "secret_key": secret_key, "auth_code": req.auth_code},
-        )
-        data = resp.json()
-        if data.get("s") != "ok":
-            raise HTTPException(status_code=400, detail=f"Fyers auth failed: {data.get('message', '')}")
+    from fyers_apiv3 import fyersModel
 
-        raw_token = data["access_token"]
-        encrypted = encrypt_broker_credentials(raw_token)
-        supabase.table("broker_credentials").update(
-            {"encrypted_access_token": encrypted, "is_active": True, "updated_at": __import__("datetime").datetime.utcnow().isoformat()}
-        ).eq("id", cred["id"]).execute()
+    def _exchange():
+        s = fyersModel.SessionModel(
+            client_id=client_id,
+            secret_key=secret_key,
+            redirect_uri=FYERS_REDIRECT_URI,
+            grant_type="authorization_code",
+        )
+        s.set_token(req.auth_code)
+        return s.generate_token()
+
+    data = await asyncio.get_running_loop().run_in_executor(None, _exchange)
+    if data.get("s") != "ok":
+        raise HTTPException(status_code=400, detail=f"Fyers auth failed: {data.get('message', '')}")
+
+    raw_token = data["access_token"]
+    encrypted = encrypt_broker_credentials(raw_token)
+    supabase.table("broker_credentials").update(
+        {"encrypted_access_token": encrypted, "is_active": True, "updated_at": __import__("datetime").datetime.utcnow().isoformat()}
+    ).eq("id", cred["id"]).execute()
 
     return {"message": "Fyers authenticated successfully!"}
 
@@ -223,8 +226,6 @@ async def fyers_callback(
     from fastapi.responses import RedirectResponse
 
     FRONTEND_URL = "https://ai.trademetrix.tech/brokers"
-
-    import httpx
 
     supabase = get_supabase()
     cred = safe_single(
@@ -239,19 +240,26 @@ async def fyers_callback(
     client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
     secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            "https://api.fyers.in/api/v2/validate-authcode",
-            json={"client_id": client_id, "secret_key": secret_key, "auth_code": auth_code},
-        )
-        data = resp.json()
-        if data.get("s") != "ok":
-            return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=Fyers+auth+failed")
+    from fyers_apiv3 import fyersModel
 
-        raw_token = data["access_token"]
-        encrypted = encrypt_broker_credentials(raw_token)
-        supabase.table("broker_credentials").update(
-            {"encrypted_access_token": encrypted, "is_active": True, "updated_at": __import__("datetime").datetime.utcnow().isoformat()}
-        ).eq("id", cred["id"]).execute()
+    def _exchange():
+        s = fyersModel.SessionModel(
+            client_id=client_id,
+            secret_key=secret_key,
+            redirect_uri=FYERS_REDIRECT_URI,
+            grant_type="authorization_code",
+        )
+        s.set_token(auth_code)
+        return s.generate_token()
+
+    data = await asyncio.get_running_loop().run_in_executor(None, _exchange)
+    if data.get("s") != "ok":
+        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=Fyers+auth+failed")
+
+    raw_token = data["access_token"]
+    encrypted = encrypt_broker_credentials(raw_token)
+    supabase.table("broker_credentials").update(
+        {"encrypted_access_token": encrypted, "is_active": True, "updated_at": __import__("datetime").datetime.utcnow().isoformat()}
+    ).eq("id", cred["id"]).execute()
 
     return RedirectResponse(url=f"{FRONTEND_URL}?auth_success=1")
