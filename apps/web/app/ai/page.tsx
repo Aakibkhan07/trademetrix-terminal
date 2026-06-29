@@ -38,7 +38,9 @@ export default function AIPage() {
 
   return (
     <div>
-      <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: '0 0 24px' }}>AI Trading Desk</h1>
+      <div className="page-header" style={{ marginBottom: 24 }}>
+        <h1 className="page-title">AI Trading Desk</h1>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div className="panel">

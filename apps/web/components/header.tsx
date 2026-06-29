@@ -1,21 +1,16 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-
-const NAV_LINKS = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/strategies', label: 'Strategies' },
-  { href: '/brokers', label: 'Brokers' },
-  { href: '/marketdata', label: 'Market Data' },
-  { href: '/backtest', label: 'Backtest' },
-  { href: '/ai', label: 'AI Desk' },
-]
+import Link from 'next/link'
+import { useMarketData } from '@/lib/use-market-data'
 
 export default function Header() {
   const pathname = usePathname()
+  const { connected, ticks } = useMarketData()
 
   if (pathname === '/auth') return null
+
+  const nifty = ticks['NSE:NIFTY50-INDEX']
 
   return (
     <header className="header">
@@ -23,22 +18,18 @@ export default function Header() {
         TradeMetrixTech
       </Link>
 
-      <nav className="header-nav">
-        {NAV_LINKS.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={pathname.startsWith(link.href) ? 'active' : ''}
-          >
-            {link.label}
-          </Link>
-        ))}
-      </nav>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span className="badge badge-green">
-          <span className="status-dot active" style={{ marginRight: 4 }} />
-          System OK
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {nifty && (
+          <span style={{ fontSize: 11, color: '#8888a0' }}>
+            NIFTY <span style={{ color: '#f0f0f5', fontWeight: 600 }}>{nifty.last_price.toFixed(1)}</span>
+            <span style={{ marginLeft: 3, color: (nifty.change_pct ?? 0) >= 0 ? '#22c55e' : '#ef4444' }}>
+              {(nifty.change_pct ?? 0) >= 0 ? '+' : ''}{(nifty.change_pct ?? 0).toFixed(2)}%
+            </span>
+          </span>
+        )}
+        <span className={`badge ${connected ? 'badge-green' : 'badge-red'}`} style={{ fontSize: 10 }}>
+          <span className={`status-dot ${connected ? 'active' : ''}`} style={{ marginRight: 3 }} />
+          {connected ? 'Live' : 'Offline'}
         </span>
       </div>
     </header>

@@ -149,19 +149,42 @@ class BacktestEngine:
 
 
 async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: str = "15m",
-                                 days: int = 60) -> list[dict]:
-    try:
-        supabase = get_supabase()
-        result = supabase.table("symbol_master") \
-            .select("*") \
-            .eq("symbol", symbol) \
-            .eq("exchange", exchange) \
-            .limit(1) \
-            .execute()
-        if result.data:
-            return _synthesize_candles(symbol, days, interval)
-    except Exception as e:
-        logger.warning("Could not query symbol_master (%s), using synthesized data", e)
+                                 days: int = 60, user_id: str | None = None) -> list[dict]:
+    if user_id:
+        try:
+            from core.db import get_supabase
+            from core.security import decrypt_broker_credentials
+            supabase = get_supabase()
+            cred = supabase.table("broker_credentials") \
+                .select("*") \
+                .eq("user_id", user_id) \
+                .eq("broker", "fyers") \
+                .single() \
+                .execute()
+            if cred.data:
+                row = cred.data
+                client_id = decrypt_broker_credentials(row["encrypted_api_key"])
+                raw_token = decrypt_broker_credentials(row["encrypted_access_token"])
+
+                fyers_symbol = _map_to_fyers_symbol(symbol, exchange)
+
+                fyers_interval = _resolve_fyers_interval(interval)
+                import time
+                now = int(time.time())
+                start_ts = str(now - days * 86400)
+
+                from brokers.fyers_adapter import FyersAdapter
+                adapter = FyersAdapter()
+                await adapter.authenticate({"client_id": client_id, "access_token": raw_token})
+                candles = await adapter.get_historical(fyers_symbol, fyers_interval, start_ts, str(now))
+                if candles:
+                    logger.info("Backtest using %d real candles from Fyers for %s", len(candles), fyers_symbol)
+                    return [_candle_to_dict(c) for c in candles]
+                logger.warning("Fyers returned 0 candles for %s, falling back to synthetic", fyers_symbol)
+        except Exception as e:
+            logger.warning("Failed to fetch real data from Fyers (%s), using synthesized data", e)
+
+    logger.info("Backtest using synthesized data for %s", symbol)
     return _synthesize_candles(symbol, days, interval)
 
 
@@ -212,3 +235,40 @@ def _synthesize_candles(symbol: str, days: int, interval: str) -> list[dict]:
             "oi": random.randint(100000, 5000000),
         })
     return candles
+
+
+def _map_to_fyers_symbol(symbol: str, exchange: str) -> str:
+    if ":" in symbol:
+        return symbol
+    mapping = {
+        "NIFTY": "NSE:NIFTY50-INDEX",
+        "BANKNIFTY": "NSE:NIFTYBANK-INDEX",
+        "FINNIFTY": "NSE:FINNIFTY-INDEX",
+        "SENSEX": "BSE:SENSEX-INDEX",
+        "MIDCPNIFTY": "NSE:MIDCPNIFTY-INDEX",
+        "NIFTY50": "NSE:NIFTY50-INDEX",
+    }
+    if symbol.upper() in mapping:
+        return mapping[symbol.upper()]
+    return f"{exchange}:{symbol}"
+
+
+def _resolve_fyers_interval(interval: str) -> str:
+    mins = _parse_interval_minutes(interval)
+    fyers_map = {1: "1", 2: "2", 3: "3", 5: "5", 10: "10", 15: "15", 20: "20", 30: "30", 60: "60",
+                  120: "120", 180: "180", 240: "240", 360: "360", 480: "480", 720: "720", 960: "960", 1440: "D"}
+    return fyers_map.get(mins, "15")
+
+
+def _candle_to_dict(c: Candle) -> dict:
+    return {
+        "symbol": c.symbol,
+        "exchange": c.exchange.value if hasattr(c.exchange, "value") else str(c.exchange),
+        "interval": c.interval,
+        "open": c.open,
+        "high": c.high,
+        "low": c.low,
+        "close": c.close,
+        "volume": c.volume,
+        "timestamp": c.timestamp.isoformat() if hasattr(c.timestamp, "isoformat") else str(c.timestamp),
+    }

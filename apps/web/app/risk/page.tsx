@@ -65,7 +65,9 @@ export default function RiskPage() {
 
   return (
     <div>
-      <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: '0 0 24px' }}>Risk Control</h1>
+      <div className="page-header" style={{ marginBottom: 24 }}>
+        <h1 className="page-title">Risk Control</h1>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div className="panel">

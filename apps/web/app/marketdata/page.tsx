@@ -1,236 +1,119 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { api } from '@/lib/api'
+import { useEffect, useState } from 'react'
+import { useMarketData } from '@/lib/use-market-data'
 
-interface TickData {
-  symbol: string
-  last_price: number
-  bid: number
-  ask: number
-  volume: number
-  oi: number
-  change: number
-  change_pct: number
-  timestamp: string
-}
-
-const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/api/v1/marketdata/ws'
-
-const WATCHLIST = ['NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK', 'SBIN', 'BHARTIARTL', 'KOTAKBANK']
-
-const DEMO_TICKS: TickData[] = [
-  { symbol: 'NIFTY', last_price: 24582.30, bid: 24581.50, ask: 24583.10, volume: 1254300, oi: 0, change: 291.35, change_pct: 1.20, timestamp: new Date().toISOString() },
-  { symbol: 'BANKNIFTY', last_price: 52148.75, bid: 52147.00, ask: 52150.50, volume: 892100, oi: 0, change: -156.45, change_pct: -0.30, timestamp: new Date().toISOString() },
-  { symbol: 'RELIANCE', last_price: 2856.40, bid: 2856.00, ask: 2856.80, volume: 345200, oi: 52100, change: 42.60, change_pct: 1.51, timestamp: new Date().toISOString() },
-  { symbol: 'TCS', last_price: 4123.75, bid: 4123.00, ask: 4124.50, volume: 187600, oi: 31200, change: -18.25, change_pct: -0.44, timestamp: new Date().toISOString() },
-  { symbol: 'HDFCBANK', last_price: 1682.30, bid: 1682.00, ask: 1682.60, volume: 423100, oi: 78400, change: 23.50, change_pct: 1.42, timestamp: new Date().toISOString() },
-  { symbol: 'INFY', last_price: 1567.85, bid: 1567.50, ask: 1568.20, volume: 234500, oi: 45600, change: -8.90, change_pct: -0.56, timestamp: new Date().toISOString() },
-  { symbol: 'ICICIBANK', last_price: 1234.50, bid: 1234.20, ask: 1234.80, volume: 312400, oi: 62300, change: 15.30, change_pct: 1.25, timestamp: new Date().toISOString() },
-  { symbol: 'SBIN', last_price: 845.60, bid: 845.30, ask: 845.90, volume: 567800, oi: 89100, change: 5.20, change_pct: 0.62, timestamp: new Date().toISOString() },
-  { symbol: 'BHARTIARTL', last_price: 1456.20, bid: 1455.90, ask: 1456.50, volume: 178900, oi: 23400, change: -12.40, change_pct: -0.84, timestamp: new Date().toISOString() },
-  { symbol: 'KOTAKBANK', last_price: 1892.40, bid: 1892.00, ask: 1892.80, volume: 156700, oi: 34500, change: 28.60, change_pct: 1.53, timestamp: new Date().toISOString() },
-]
+const WATCHLIST = ['NSE:NIFTY50-INDEX', 'NSE:NIFTYBANK-INDEX', 'NSE:FINNIFTY-INDEX',
+  'BSE:SENSEX-INDEX', 'NSE:MIDCPNIFTY-INDEX']
 
 export default function MarketDataPage() {
-  const [ticks, setTicks] = useState<Map<string, TickData>>(new Map())
-  const [connected, setConnected] = useState(false)
-  const [simRunning, setSimRunning] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
+  const { ticks, connected, subscribe, startFeed, stopFeed } = useMarketData()
+  const [feedOn, setFeedOn] = useState(false)
 
   useEffect(() => {
-    const map = new Map<string, TickData>()
-    DEMO_TICKS.forEach(t => map.set(t.symbol, t))
-    setTicks(map)
-  }, [])
+    subscribe(WATCHLIST)
+  }, [subscribe])
 
-  const getWsUrl = () => {
-    const token = localStorage.getItem('trademetrix_token')
-    return token ? `${WS_BASE}?access_token=${token}` : WS_BASE
+  const sorted = Object.values(ticks).sort((a, b) => Math.abs(b.change_pct ?? 0) - Math.abs(a.change_pct ?? 0))
+
+  const toggleFeed = async () => {
+    if (feedOn) { await stopFeed(); setFeedOn(false) }
+    else { await startFeed(); setFeedOn(true) }
   }
-
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return
-    const ws = new WebSocket(getWsUrl())
-    wsRef.current = ws
-
-    ws.onopen = () => {
-      setConnected(true)
-      ws.send(JSON.stringify({ action: 'subscribe', symbols: WATCHLIST }))
-    }
-
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data)
-      if (msg.type === 'tick') {
-        const prev = ticks.get(msg.symbol)
-        const change = msg.last_price - (prev?.last_price || msg.last_price)
-        const changePct = prev?.last_price ? (change / prev.last_price) * 100 : 0
-        setTicks((prevMap) => {
-          const next = new Map(prevMap)
-          next.set(msg.symbol, { ...msg, change, change_pct: changePct })
-          return next
-        })
-      }
-    }
-
-    ws.onclose = () => {
-      setConnected(false)
-      wsRef.current = null
-    }
-
-    ws.onerror = () => setConnected(false)
-  }, [])
-
-  const disconnect = useCallback(() => {
-    wsRef.current?.close()
-    wsRef.current = null
-    setConnected(false)
-  }, [])
-
-  useEffect(() => {
-    return () => disconnect()
-  }, [disconnect])
-
-  const startSim = async () => {
-    try {
-      await api.post('/marketdata/simulator/start')
-      setSimRunning(true)
-    } catch { /* ignore */ }
-  }
-
-  const stopSim = async () => {
-    try {
-      await api.post('/marketdata/simulator/stop')
-      setSimRunning(false)
-    } catch { /* ignore */ }
-  }
-
-  const tickList = Array.from(ticks.values()).sort((a, b) => a.symbol.localeCompare(b.symbol))
-
-  const gainers = [...tickList].sort((a, b) => b.change_pct - a.change_pct).slice(0, 3)
-  const losers = [...tickList].sort((a, b) => a.change_pct - b.change_pct).slice(0, 3)
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div className="page-header">
         <div>
-          <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: 0 }}>Market Data</h1>
-          <p style={{ color: '#8888a0', fontSize: 14, margin: '4px 0 0' }}>
-            Real-time and simulated market data feed
+          <h1 className="page-title">Market Data</h1>
+          <p className="page-subtitle">
+            <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
+            {connected ? 'Connected' : 'Disconnected'} &middot; {Object.keys(ticks).length} symbols
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: connected ? '#22c55e' : '#8888a0' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: connected ? '#22c55e' : '#8888a0', boxShadow: connected ? '0 0 6px #22c55e' : 'none' }} />
-            {connected ? 'Live' : 'Demo'}
-          </span>
-          {connected ? (
-            <button className="btn btn-sm btn-danger" onClick={disconnect}>Disconnect</button>
-          ) : (
-            <button className="btn btn-sm btn-cyan" onClick={connect}>Connect Live</button>
-          )}
-          <button className={`btn btn-sm ${simRunning ? 'btn-danger' : 'btn-secondary'}`} onClick={simRunning ? stopSim : startSim}>
-            {simRunning ? 'Stop Sim' : 'Start Sim'}
-          </button>
-        </div>
+        <button className={`btn btn-sm ${feedOn ? 'btn-danger' : 'btn-primary'}`} onClick={toggleFeed}>
+          {feedOn ? 'Stop Feed' : 'Start Feed'}
+        </button>
       </div>
 
-      <div className="grid-3" style={{ marginBottom: 20 }}>
-        <div className="glass-card" style={{ padding: '14px' }}>
-          <p style={{ color: '#555570', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontWeight: 600 }}>Top Gainers</p>
-          {gainers.map((t) => (
-            <div key={t.symbol} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
-              <span style={{ fontWeight: 600 }}>{t.symbol}</span>
-              <span style={{ color: '#22c55e' }}>+{t.change_pct.toFixed(2)}%</span>
-            </div>
-          ))}
+      {sorted.length > 0 && (
+        <div className="grid-4" style={{ marginBottom: 20, gap: 12 }}>
+          {sorted.slice(0, 4).map((t) => {
+            const pct = t.change_pct ?? 0
+            return (
+              <div key={t.symbol} className="glass-card" style={{ padding: '10px 14px' }}>
+                <p className="card-label">{t.symbol?.split(':').pop()}</p>
+                <p className="card-value" style={{ fontSize: 18 }}>
+                  {t.last_price?.toFixed(1)}
+                  <span className={`card-change ${pct >= 0 ? 'up' : 'down'}`} style={{ marginLeft: 6, fontSize: 11 }}>
+                    {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                  </span>
+                </p>
+              </div>
+            )
+          })}
         </div>
-        <div className="glass-card" style={{ padding: '14px' }}>
-          <p style={{ color: '#555570', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontWeight: 600 }}>Top Losers</p>
-          {losers.map((t) => (
-            <div key={t.symbol} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
-              <span style={{ fontWeight: 600 }}>{t.symbol}</span>
-              <span style={{ color: '#ef4444' }}>{t.change_pct.toFixed(2)}%</span>
-            </div>
-          ))}
-        </div>
-        <div className="glass-card" style={{ padding: '14px' }}>
-          <p style={{ color: '#555570', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontWeight: 600 }}>Market Summary</p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
-            <span style={{ color: '#555570' }}>Advancers</span>
-            <span style={{ color: '#22c55e', fontWeight: 600 }}>6</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
-            <span style={{ color: '#555570' }}>Decliners</span>
-            <span style={{ color: '#ef4444', fontWeight: 600 }}>4</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}>
-            <span style={{ color: '#555570' }}>Unchanged</span>
-            <span style={{ fontWeight: 600 }}>0</span>
-          </div>
-        </div>
-      </div>
+      )}
 
       <div className="panel" style={{ padding: 0 }}>
-        <div style={{ borderBottom: '1px solid rgba(139,92,246,0.06)', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 className="panel-title" style={{ fontSize: 14, margin: 0 }}>Live Ticker</h3>
-          <span style={{ fontSize: 11, color: '#555570' }}>{tickList.length} symbols</span>
+        <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
+          <h3 className="panel-title" style={{ fontSize: 13 }}>
+            Live Ticks ({sorted.length})
+            <span className={`live-badge ${connected ? 'on' : 'off'}`} style={{ marginLeft: 8 }}>
+              <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
+              {connected ? 'Live' : 'Offline'}
+            </span>
+          </h3>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th style={{ padding: '10px 14px' }}>Symbol</th>
-                <th style={{ padding: '10px 14px' }}>LTP</th>
-                <th style={{ padding: '10px 14px' }}>Change</th>
-                <th style={{ padding: '10px 14px' }}>Change %</th>
-                <th style={{ padding: '10px 14px' }}>Bid</th>
-                <th style={{ padding: '10px 14px' }}>Ask</th>
-                <th style={{ padding: '10px 14px' }}>Volume</th>
-                <th style={{ padding: '10px 14px' }}>OI</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickList.map((t) => (
-                <tr key={t.symbol}>
-                  <td style={{ fontWeight: 600, padding: '10px 14px' }}>{t.symbol}</td>
-                  <td className="numeric" style={{ fontWeight: 600, padding: '10px 14px' }}>{t.last_price.toFixed(2)}</td>
-                  <td className="numeric" style={{ color: t.change >= 0 ? '#22c55e' : '#ef4444', padding: '10px 14px' }}>
-                    {t.change >= 0 ? '+' : ''}{t.change.toFixed(2)}
-                  </td>
-                  <td className="numeric" style={{ color: t.change_pct >= 0 ? '#22c55e' : '#ef4444', padding: '10px 14px' }}>
-                    {t.change_pct >= 0 ? '+' : ''}{t.change_pct.toFixed(2)}%
-                  </td>
-                  <td className="numeric" style={{ padding: '10px 14px' }}>{t.bid.toFixed(2)}</td>
-                  <td className="numeric" style={{ padding: '10px 14px' }}>{t.ask.toFixed(2)}</td>
-                  <td className="numeric" style={{ padding: '10px 14px' }}>{t.volume.toLocaleString()}</td>
-                  <td className="numeric" style={{ padding: '10px 14px' }}>{t.oi.toLocaleString()}</td>
+        {sorted.length > 0 ? (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ fontSize: 11 }}>
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th className="numeric">LTP</th>
+                  <th className="numeric">Change</th>
+                  <th className="numeric">Change%</th>
+                  <th className="numeric">Bid</th>
+                  <th className="numeric">Ask</th>
+                  <th className="numeric">Volume</th>
+                  <th className="numeric">OI</th>
+                  <th className="numeric">Spread</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 16 }}>
-        <div className="glass-card" style={{ padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#555570', fontSize: 12 }}>Watchlist</span>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {WATCHLIST.map((s) => {
-                const tick = ticks.get(s)
-                return (
-                  <span key={s} className={`badge ${tick && tick.change >= 0 ? 'badge-green' : 'badge-red'}`} style={{ fontSize: 10, padding: '3px 8px', cursor: 'pointer' }}>
-                    {s} {tick ? tick.last_price.toFixed(0) : ''}
-                  </span>
-                )
-              })}
-            </div>
+              </thead>
+              <tbody>
+                {sorted.map((t, i) => {
+                  const spread = t.ask && t.bid ? (t.ask - t.bid) : 0
+                  const pct = t.change_pct ?? 0
+                  const chg = t.change ?? 0
+                  return (
+                    <tr key={t.symbol + i}>
+                      <td style={{ fontWeight: 600 }}>{t.symbol?.split(':').pop()}</td>
+                      <td className="numeric">{t.last_price?.toFixed(1)}</td>
+                      <td className={`numeric ${chg >= 0 ? 'positive' : 'negative'}`}>
+                        {chg >= 0 ? '+' : ''}{chg?.toFixed(1)}
+                      </td>
+                      <td className={`numeric ${pct >= 0 ? 'positive' : 'negative'}`}>
+                        {pct >= 0 ? '+' : ''}{pct?.toFixed(2)}%
+                      </td>
+                      <td className="numeric positive">{t.bid || '-'}</td>
+                      <td className="numeric negative">{t.ask || '-'}</td>
+                      <td className="numeric">{(t.volume || 0).toLocaleString()}</td>
+                      <td className="numeric">{(t.oi || 0).toLocaleString()}</td>
+                      <td className={`numeric ${spread > 0 ? '' : 'neutral'}`} style={{ color: spread > 0 ? '#f59e0b' : 'var(--text-muted)' }}>
+                        {spread > 0 ? spread.toFixed(1) : '-'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-          <span style={{ fontSize: 10, color: '#555570' }}>
-            {connected ? 'Live feed' : 'Demo data'} · {tickList.filter(t => t.change >= 0).length}↑ {tickList.filter(t => t.change < 0).length}↓
-          </span>
-        </div>
+        ) : (
+          <p style={{ color: 'var(--text-muted)', fontSize: 12, padding: 20, margin: 0, textAlign: 'center' }}>
+            No data yet. Start the feed and wait for ticks.
+          </p>
+        )}
       </div>
     </div>
   )

@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
-from postgrest.exceptions import APIError
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from core.db import get_supabase
 from core.deps import get_current_user
 from core.models import UserProfile
+from core.safe_query import safe_execute, safe_single
 from engine.executor import ExecutionEngine
 
 router = APIRouter(prefix="/engine", tags=["engine"])
@@ -41,7 +41,7 @@ async def start_engine(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    data = {
+    payload = {
         "user_id": current_user.id,
         "strategy_id": req.strategy_id,
         "broker": req.broker,
@@ -51,10 +51,12 @@ async def start_engine(
         "started_at": datetime.utcnow().isoformat(),
     }
     try:
-        result = supabase.table("strategy_runs").insert(data).execute()
-    except APIError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return {"run_id": result.data[0]["id"], "status": "running"}
+        result = supabase.table("strategy_runs").insert(payload).execute()
+        return {"run_id": result.data[0]["id"], "status": "running"}
+    except Exception as e:
+        logger = __import__("logging").getLogger(__name__)
+        logger.warning("Failed to start engine run: %s", e)
+        return {"run_id": "", "status": "error", "detail": str(e)}
 
 
 @router.post("/stop/{run_id}")
@@ -63,33 +65,32 @@ async def stop_engine(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    supabase.table("strategy_runs").update(
-        {"status": "stopped", "stopped_at": datetime.utcnow().isoformat()}
-    ).eq("id", run_id).eq("user_id", current_user.id).execute()
+    try:
+        supabase.table("strategy_runs").update(
+            {"status": "stopped", "stopped_at": datetime.utcnow().isoformat()}
+        ).eq("id", run_id).eq("user_id", current_user.id).execute()
+    except Exception as e:
+        logger = __import__("logging").getLogger(__name__)
+        logger.warning("Failed to update strategy run: %s", e)
     return {"message": "Engine stopped"}
 
 
 @router.post("/trade")
 async def execute_trade(
     req: ExecuteSignalRequest,
+    paper: bool = Query(True),
     current_user: UserProfile = Depends(get_current_user),
 ):
-    from core.models import (
-        Exchange,
-        InstrumentType,
-        NormalizedOrder,
-        OptionType,
-        OrderSide,
-        OrderType,
-        ProductType,
-    )
+    from core.models import Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType, ProductType
 
     supabase = get_supabase()
-    creds = supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True).maybe_single().execute()
-    if not creds.data:
+    creds = safe_single(
+        supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
+    )
+    if not creds:
         raise HTTPException(status_code=400, detail="No active broker configured")
 
-    engine = ExecutionEngine(current_user.id, creds.data["broker"])
+    engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
     await engine.start()
 
     order = NormalizedOrder(
@@ -116,8 +117,10 @@ async def execute_trade(
 @router.get("/orders")
 async def get_orders(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    result = supabase.table("orders").select("*").eq("user_id", current_user.id).order("created_at", desc=True).limit(100).execute()
-    return {"orders": result.data or []}
+    data = safe_execute(
+        supabase.table("orders").select("*").eq("user_id", current_user.id).order("created_at", desc=True).limit(100)
+    )
+    return {"orders": data or []}
 
 
 @router.post("/orders/{order_id}/cancel")
@@ -126,11 +129,13 @@ async def cancel_order(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    creds = supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True).maybe_single().execute()
-    if not creds.data:
+    creds = safe_single(
+        supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
+    )
+    if not creds:
         raise HTTPException(status_code=400, detail="No active broker configured")
 
-    engine = ExecutionEngine(current_user.id, creds.data["broker"])
+    engine = ExecutionEngine(current_user.id, creds["broker"])
     await engine.start()
     result = await engine.cancel_order(order_id)
     await engine.stop()
@@ -138,11 +143,16 @@ async def cancel_order(
 
 
 @router.get("/positions")
-async def get_positions(current_user: UserProfile = Depends(get_current_user)):
+async def get_positions(
+    paper: bool = Query(True),
+    current_user: UserProfile = Depends(get_current_user),
+):
     supabase = get_supabase()
-    creds = supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True).maybe_single().execute()
-    if creds.data:
-        engine = ExecutionEngine(current_user.id, creds.data["broker"])
+    creds = safe_single(
+        supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
+    )
+    if creds:
+        engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
         await engine.start()
         positions = await engine.get_positions()
         await engine.stop()
@@ -151,11 +161,16 @@ async def get_positions(current_user: UserProfile = Depends(get_current_user)):
 
 
 @router.get("/funds")
-async def get_funds(current_user: UserProfile = Depends(get_current_user)):
+async def get_funds(
+    paper: bool = Query(True),
+    current_user: UserProfile = Depends(get_current_user),
+):
     supabase = get_supabase()
-    creds = supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True).maybe_single().execute()
-    if creds.data:
-        engine = ExecutionEngine(current_user.id, creds.data["broker"])
+    creds = safe_single(
+        supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
+    )
+    if creds:
+        engine = ExecutionEngine(current_user.id, creds["broker"], is_paper=paper)
         await engine.start()
         funds = await engine.get_funds()
         await engine.stop()
@@ -166,5 +181,7 @@ async def get_funds(current_user: UserProfile = Depends(get_current_user)):
 @router.get("/runs")
 async def get_runs(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    result = supabase.table("strategy_runs").select("*").eq("user_id", current_user.id).order("created_at", desc=True).execute()
-    return {"runs": result.data or []}
+    data = safe_execute(
+        supabase.table("strategy_runs").select("*").eq("user_id", current_user.id).order("created_at", desc=True)
+    )
+    return {"runs": data or []}

@@ -37,6 +37,7 @@ export default function BrokersPage() {
   const [apiKey, setApiKey] = useState('')
   const [secretKey, setSecretKey] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [fyersAuthUrl, setFyersAuthUrl] = useState('')
 
   const load = async () => {
     try {
@@ -59,13 +60,20 @@ export default function BrokersPage() {
   const handleAdd = async () => {
     try {
       await api.brokers.saveCredentials({ broker: selectedBroker, api_key: apiKey, secret_key: secretKey })
-      setSuccessMsg(`${BROKER_INFO[selectedBroker]?.name || selectedBroker} connected successfully`)
       setShowAdd(false)
       setSelectedBroker('')
       setApiKey('')
       setSecretKey('')
+      if (selectedBroker === 'fyers') {
+        const authData = await api.brokers.fyersAuthUrl() as { auth_url: string }
+        setFyersAuthUrl(authData.auth_url || '')
+        setSuccessMsg(`Fyers app ID saved! Click the link that opened to login.`)
+        if (authData.auth_url) window.open(authData.auth_url, '_blank')
+      } else {
+        setSuccessMsg(`${BROKER_INFO[selectedBroker]?.name || selectedBroker} connected successfully`)
+      }
       load()
-      setTimeout(() => setSuccessMsg(''), 3000)
+      setTimeout(() => setSuccessMsg(''), 10000)
     } catch { /* ignore */ }
   }
 
@@ -79,10 +87,10 @@ export default function BrokersPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div className="page-header" style={{ flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: 0 }}>Brokers</h1>
-          <p style={{ color: '#8888a0', fontSize: 14, margin: '4px 0 0' }}>
+          <h1 className="page-title">Brokers</h1>
+          <p className="page-subtitle">
             Connect and manage your broker accounts
           </p>
         </div>

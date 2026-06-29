@@ -33,6 +33,7 @@ async def run_backtest(
             exchange=req.exchange,
             interval=req.interval,
             days=req.days,
+            user_id=current_user.id,
         )
 
         engine = BacktestEngine(

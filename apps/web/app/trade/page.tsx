@@ -1,112 +1,59 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
-import { DEMO_ORDERS, DEMO_POSITIONS, DEMO_FUNDS } from '@/lib/demo-data'
+import { useMarketData } from '@/lib/use-market-data'
+import { usePolling } from '@/lib/use-polling'
+import { useAuth } from '@/lib/auth-context'
 
 const INDICES = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'SENSEX']
 const EXPIRIES = ['24JUN', '27JUN', '04JUL', '11JUL', '25JUL']
 const STRIKES = [26400, 26500, 26600, 26700, 26800]
+const LOT_SIZES: Record<string, number> = { NIFTY: 65, SENSEX: 20, BANKNIFTY: 30, FINNIFTY: 60 }
 
 interface OrderData {
-  symbol: string
-  side: string
-  quantity: number
-  price: number
-  exchange: string
-  order_type: string
-  product: string
-  trigger_price: number | null
-  instrument_type: string
-  strike_price: number | null
-  expiry_date: string | null
-  option_type: string | null
+  symbol: string; side: string; quantity: number; price: number
+  exchange: string; order_type: string; product: string; trigger_price: number | null
+  instrument_type: string; strike_price: number | null; expiry_date: string | null; option_type: string | null
 }
 
 export default function TradePage() {
-  const [orders, setOrders] = useState<unknown[]>([])
-  const [positions, setPositions] = useState<unknown[]>([])
+  const { token } = useAuth()
+  const { ticks, connected, subscribe, startFeed } = useMarketData()
+  const [orders, setOrders] = useState<any[]>([])
+  const [positions, setPositions] = useState<any[]>([])
   const [funds, setFunds] = useState<Record<string, number> | null>(null)
-  const [loading, setLoading] = useState(true)
   const [placing, setPlacing] = useState(false)
   const [resultMsg, setResultMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [lastRefresh, setLastRefresh] = useState('')
 
   const [form, setForm] = useState<OrderData>({
-    symbol: 'NIFTY',
-    side: 'BUY',
-    quantity: 75,
-    price: 0,
-    exchange: 'NFO',
-    order_type: 'MARKET',
-    product: 'INTRADAY',
-    trigger_price: null,
-    instrument_type: 'OPT',
-    strike_price: 26600,
-    expiry_date: '27JUN',
-    option_type: 'CE',
+    symbol: 'NIFTY', side: 'BUY', quantity: LOT_SIZES.NIFTY, price: 0,
+    exchange: 'NFO', order_type: 'MARKET', product: 'INTRADAY', trigger_price: null,
+    instrument_type: 'OPT', strike_price: 26600, expiry_date: '27JUN', option_type: 'CE',
   })
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [o, p, f] = await Promise.all([
-        api.engine.orders().catch(() => ({ orders: DEMO_ORDERS })),
-        api.engine.positions().catch(() => ({ positions: DEMO_POSITIONS })),
-        api.engine.funds().catch(() => ({ funds: DEMO_FUNDS })),
+        api.engine.orders().catch(() => ({ orders: [] })),
+        api.engine.positions().catch(() => ({ positions: [] })),
+        api.engine.funds().catch(() => ({ funds: null })),
       ])
-      const od = o as { orders: unknown[] }
-      const pd = p as { positions: unknown[] }
-      const fd = f as { funds: Record<string, number> }
-      setOrders(od.orders || DEMO_ORDERS)
-      setPositions(pd.positions || DEMO_POSITIONS)
-      setFunds(fd.funds || DEMO_FUNDS)
-    } catch {
-      setOrders(DEMO_ORDERS)
-      setPositions(DEMO_POSITIONS)
-      setFunds(DEMO_FUNDS)
-    } finally {
-      setLoading(false)
-    }
-  }
+      setOrders((o as any).orders || [])
+      setPositions((p as any).positions || [])
+      setFunds((f as any).funds || null)
+      setLastRefresh(new Date().toLocaleTimeString())
+    } catch {}
+  }, [])
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    const symbols = INDICES.map((s) => `NSE:${s === 'BANKNIFTY' ? 'NIFTYBANK' : s === 'FINNIFTY' ? 'FINNIFTY' : s === 'SENSEX' ? 'SENSEX' : 'NIFTY50'}-INDEX`)
+    subscribe(symbols)
+    startFeed()
+  }, [subscribe, startFeed])
 
-  const handlePlace = async () => {
-    setPlacing(true)
-    setResultMsg(null)
-    try {
-      const res = await api.engine.trade({
-        symbol: form.instrument_type === 'OPT' && form.expiry_date && form.strike_price && form.option_type
-          ? `${form.symbol}${form.expiry_date}${form.strike_price}${form.option_type}`
-          : form.instrument_type === 'FUT' && form.expiry_date
-            ? `${form.symbol}${form.expiry_date}`
-            : form.symbol,
-        side: form.side,
-        quantity: form.quantity,
-        price: form.price || undefined,
-        exchange: form.exchange,
-        order_type: form.order_type,
-        product: form.product,
-        trigger_price: form.trigger_price || undefined,
-        instrument_type: form.instrument_type,
-        strike_price: form.strike_price || undefined,
-        expiry_date: form.expiry_date || undefined,
-        option_type: form.option_type || undefined,
-      }) as { result: { success: boolean; message: string } }
-      setResultMsg({ ok: res.result.success, text: res.result.message || 'Order placed' })
-      if (res.result.success) setTimeout(loadData, 1000)
-    } catch (e) {
-      setResultMsg({ ok: false, text: String(e) })
-    } finally {
-      setPlacing(false)
-    }
-  }
-
-  const handleCancel = async (orderId: string) => {
-    try {
-      await api.engine.cancelOrder(orderId)
-      loadData()
-    } catch { /* ignore */ }
-  }
+  usePolling(loadData, 3000, !!token)
 
   const optionSymbol = form.instrument_type === 'OPT' && form.expiry_date && form.strike_price && form.option_type
     ? `${form.symbol}${form.expiry_date}${form.strike_price}${form.option_type}`
@@ -114,303 +61,327 @@ export default function TradePage() {
       ? `${form.symbol}${form.expiry_date}`
       : form.symbol
 
+  const fyersSymbol = `NSE:${form.symbol === 'BANKNIFTY' ? 'NIFTYBANK' : form.symbol === 'FINNIFTY' ? 'FINNIFTY' : form.symbol === 'SENSEX' ? 'SENSEX' : 'NIFTY50'}-INDEX`
+  const livePrice = ticks[fyersSymbol]
+
+  const handlePlace = async () => {
+    setPlacing(true); setResultMsg(null)
+    try {
+      const res = await api.engine.trade({
+        symbol: optionSymbol, side: form.side, quantity: form.quantity,
+        price: form.price || undefined, exchange: form.exchange,
+        order_type: form.order_type, product: form.product,
+        trigger_price: form.trigger_price || undefined,
+        instrument_type: form.instrument_type,
+        strike_price: form.strike_price || undefined,
+        expiry_date: form.expiry_date || undefined,
+        option_type: form.option_type || undefined,
+      }) as any
+      setResultMsg({ ok: res.result.success, text: res.result.message || 'Order placed' })
+      if (res.result.success) setTimeout(loadData, 1000)
+    } catch (e) { setResultMsg({ ok: false, text: String(e) }) }
+    finally { setPlacing(false) }
+  }
+
+  const handleCancel = async (orderId: string) => {
+    try { await api.engine.cancelOrder(orderId); loadData() } catch {}
+  }
+
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: 0 }}>Trade</h1>
-        <p style={{ color: '#8888a0', fontSize: 14, margin: '4px 0 0' }}>
-          Place orders and monitor positions
-        </p>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Trade</h1>
+          <p className="page-subtitle">
+            <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
+            {connected ? 'Live' : 'Connecting...'}
+            {lastRefresh && <span className="last-updated" style={{ marginLeft: 12 }}>Updated {lastRefresh}</span>}
+          </p>
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={loadData}>Refresh</button>
       </div>
 
+      {livePrice && (
+        <div className="glass-card" style={{ padding: '12px 16px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <span className="card-label">{form.symbol}</span>
+              <span className="last-updated" style={{ marginLeft: 8 }}>{form.exchange}</span>
+            </div>
+            <div>
+              <span className="card-value" style={{ fontSize: 22 }}>{livePrice.last_price?.toFixed(1)}</span>
+              <span className={`card-change ${livePrice.change >= 0 ? 'up' : 'down'}`} style={{ marginLeft: 8, fontSize: 13 }}>
+                {livePrice.change >= 0 ? '+' : ''}{livePrice.change?.toFixed(1)} ({(livePrice.change_pct ?? 0) >= 0 ? '+' : ''}{(livePrice.change_pct ?? 0).toFixed(2)}%)
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              Bid: <span style={{ color: '#22c55e' }}>{livePrice.bid || '-'}</span>
+              {' \u00B7 '}
+              Ask: <span style={{ color: '#ef4444' }}>{livePrice.ask || '-'}</span>
+            </div>
+            <div style={{ flex: 1, textAlign: 'right' }}>
+              <span className={`live-badge ${connected ? 'on' : 'off'}`}>
+                <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
+                {connected ? 'Live Feed' : 'Disconnected'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {resultMsg && (
-        <div style={{
-          background: resultMsg.ok ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-          border: `1px solid ${resultMsg.ok ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
-          borderRadius: 8, padding: '10px 14px', marginBottom: 16,
-        }}>
-          <p style={{ color: resultMsg.ok ? '#22c55e' : '#ef4444', fontSize: 13, margin: 0 }}>
-            {resultMsg.ok ? '✓ ' : '✗ '}{resultMsg.text}
-          </p>
+        <div className={`alert ${resultMsg.ok ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: 16 }}>
+          {resultMsg.ok ? '\u2713 ' : '\u2717 '}{resultMsg.text}
         </div>
       )}
 
       <div className="grid-2" style={{ gap: 20, marginBottom: 24 }}>
         <div className="panel" style={{ padding: 0 }}>
-          <div className="panel-header" style={{ padding: '16px 18px', borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
-            <h3 className="panel-title" style={{ fontSize: 15, margin: 0 }}>Place Order</h3>
+          <div className="panel-header" style={{ padding: '14px 16px', margin: 0 }}>
+            <h3 className="panel-title" style={{ fontSize: 14 }}>Place Order</h3>
           </div>
-          <div style={{ padding: '18px' }}>
-            <div className="tab-bar" style={{ marginBottom: 16 }}>
-              {['EQ', 'FUT', 'OPT'].map((t) => (
-                <button
-                  key={t}
-                  className={`tab ${form.instrument_type === t ? 'active' : ''}`}
-                  onClick={() => setForm({ ...form, instrument_type: t, exchange: t === 'EQ' ? 'NSE' : 'NFO' })}
-                >
+          <div style={{ padding: 16 }}>
+            <div className="tab-bar" style={{ marginBottom: 14 }}>
+              {(['EQ', 'FUT', 'OPT'] as const).map((t) => (
+                <button key={t} className={`tab ${form.instrument_type === t ? 'active' : ''}`}
+                  onClick={() => setForm({ ...form, instrument_type: t, exchange: t === 'EQ' ? 'NSE' : 'NFO' })}>
                   {t === 'OPT' ? 'Options' : t === 'FUT' ? 'Futures' : 'Equity'}
                 </button>
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="trade-form-row" style={{ marginBottom: 8 }}>
               <div>
-                <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Symbol</label>
-                <select className="select" value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value })}>
+                <label className="stat-label">Symbol</label>
+                <select className="select" value={form.symbol}
+                  onChange={(e) => setForm({ ...form, symbol: e.target.value, quantity: LOT_SIZES[e.target.value] || 50 })}>
                   {INDICES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Side</label>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button
-                    className={`btn btn-sm ${form.side === 'BUY' ? 'btn-success' : 'btn-secondary'}`}
-                    style={{ flex: 1 }}
-                    onClick={() => setForm({ ...form, side: 'BUY' })}
-                  >BUY</button>
-                  <button
-                    className={`btn btn-sm ${form.side === 'SELL' ? 'btn-danger' : 'btn-secondary'}`}
-                    style={{ flex: 1 }}
-                    onClick={() => setForm({ ...form, side: 'SELL' })}
-                  >SELL</button>
+                <label className="stat-label">Side</label>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  <button className={`btn btn-sm ${form.side === 'BUY' ? 'btn-success' : 'btn-secondary'}`} style={{ flex: 1, fontSize: 11 }}
+                    onClick={() => setForm({ ...form, side: 'BUY' })}>BUY</button>
+                  <button className={`btn btn-sm ${form.side === 'SELL' ? 'btn-danger' : 'btn-secondary'}`} style={{ flex: 1, fontSize: 11 }}
+                    onClick={() => setForm({ ...form, side: 'SELL' })}>SELL</button>
                 </div>
               </div>
+            </div>
+
+            <div className="trade-form-row" style={{ marginBottom: 8 }}>
               <div>
-                <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Order Type</label>
-                <select className="select" value={form.order_type} onChange={(e) => setForm({ ...form, order_type: e.target.value })}>
+                <label className="stat-label">Type</label>
+                <select className="select" value={form.order_type}
+                  onChange={(e) => setForm({ ...form, order_type: e.target.value })}>
                   <option value="MARKET">Market</option>
                   <option value="LIMIT">Limit</option>
                   <option value="SL">Stop Loss</option>
-                  <option value="SLM">Stop Loss Market</option>
+                  <option value="SLM">SL Market</option>
                 </select>
               </div>
               <div>
-                <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Product</label>
-                <select className="select" value={form.product} onChange={(e) => setForm({ ...form, product: e.target.value })}>
-                  <option value="INTRADAY">Intraday (MIS)</option>
-                  <option value="NRML">Delivery (NRML)</option>
+                <label className="stat-label">Product</label>
+                <select className="select" value={form.product}
+                  onChange={(e) => setForm({ ...form, product: e.target.value })}>
+                  <option value="INTRADAY">MIS</option>
+                  <option value="NRML">NRML</option>
                 </select>
               </div>
             </div>
 
             {form.instrument_type === 'OPT' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 12 }}>
+              <div className="trade-form-row" style={{ marginBottom: 8 }}>
                 <div>
-                  <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Expiry</label>
-                  <select className="select" value={form.expiry_date || ''} onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}>
+                  <label className="stat-label">Expiry</label>
+                  <select className="select" value={form.expiry_date || ''}
+                    onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}>
                     {EXPIRIES.map((e) => <option key={e} value={e}>{e}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Strike</label>
-                  <select className="select" value={form.strike_price || 0} onChange={(e) => setForm({ ...form, strike_price: Number(e.target.value) })}>
+                  <label className="stat-label">Strike</label>
+                  <select className="select" value={form.strike_price || 0}
+                    onChange={(e) => setForm({ ...form, strike_price: Number(e.target.value) })}>
                     {STRIKES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Type</label>
+                  <label className="stat-label">Type</label>
                   <div className="tab-bar">
-                    <button
-                      className={`tab ${form.option_type === 'CE' ? 'active' : ''}`}
-                      onClick={() => setForm({ ...form, option_type: 'CE' })}
-                      style={{ fontSize: 11, padding: '4px 12px' }}
-                    >CE</button>
-                    <button
-                      className={`tab ${form.option_type === 'PE' ? 'active' : ''}`}
-                      onClick={() => setForm({ ...form, option_type: 'PE' })}
-                      style={{ fontSize: 11, padding: '4px 12px' }}
-                    >PE</button>
+                    <button className={`tab ${form.option_type === 'CE' ? 'active' : ''}`}
+                      onClick={() => setForm({ ...form, option_type: 'CE' })}>CE</button>
+                    <button className={`tab ${form.option_type === 'PE' ? 'active' : ''}`}
+                      onClick={() => setForm({ ...form, option_type: 'PE' })}>PE</button>
                   </div>
                 </div>
               </div>
             )}
 
             {form.instrument_type === 'FUT' && (
-              <div style={{ marginTop: 12 }}>
-                <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Expiry</label>
-                <select className="select" value={form.expiry_date || ''} onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}>
+              <div style={{ marginBottom: 8 }}>
+                <label className="stat-label">Expiry</label>
+                <select className="select" value={form.expiry_date || ''}
+                  onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}>
                   {EXPIRIES.map((e) => <option key={e} value={e}>{e}</option>)}
                 </select>
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+            <div className="trade-form-row">
               <div>
-                <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Quantity</label>
-                <input className="input" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} />
+                <label className="stat-label">Qty</label>
+                <input className="input" type="number" value={form.quantity}
+                  onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} />
               </div>
               <div>
-                <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>
-                  {form.order_type === 'MARKET' ? 'Price (0 for market)' : 'Price'}
-                </label>
-                <input className="input" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
+                <label className="stat-label">{form.order_type === 'MARKET' ? 'Price' : 'Price'}</label>
+                <input className="input" type="number" value={form.price}
+                  onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
               </div>
             </div>
 
             {form.order_type === 'SL' && (
-              <div style={{ marginTop: 12 }}>
-                <label style={{ color: '#8888a0', fontSize: 11, display: 'block', marginBottom: 4 }}>Trigger Price</label>
-                <input className="input" type="number" value={form.trigger_price || ''} onChange={(e) => setForm({ ...form, trigger_price: Number(e.target.value) })} />
+              <div style={{ marginTop: 8 }}>
+                <label className="stat-label">Trigger</label>
+                <input className="input" type="number" value={form.trigger_price || ''}
+                  onChange={(e) => setForm({ ...form, trigger_price: Number(e.target.value) })} />
               </div>
             )}
 
-            <div style={{ background: 'rgba(139,92,246,0.04)', borderRadius: 8, padding: 10, marginTop: 14, fontSize: 12 }}>
-              <span style={{ color: '#555570' }}>Order preview: </span>
-              <span style={{ color: '#f0f0f5' }}>{form.side} {form.quantity}x </span>
-              <span style={{ color: '#22d3ee' }}>{optionSymbol}</span>
-              <span style={{ color: '#555570' }}> @ {form.exchange} {form.order_type}</span>
+            <div className="trade-summary">
+              <span style={{ color: 'var(--text-muted)' }}>Order: </span>
+              <span style={{ color: form.side === 'BUY' ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
+                {form.side} {form.quantity}x
+              </span>
+              <span style={{ color: '#22d3ee', marginLeft: 4 }}>{optionSymbol}</span>
+              <span className="last-updated" style={{ marginLeft: 4 }}>@{form.exchange} {form.order_type}</span>
+              {livePrice && <span className="last-updated" style={{ marginLeft: 8 }}>LTP: {livePrice.last_price}</span>}
             </div>
 
-            <button
-              className="btn btn-primary"
-              style={{ width: '100%', marginTop: 14 }}
-              onClick={handlePlace}
-              disabled={placing || !form.quantity || form.quantity <= 0}
-            >
-              {placing ? 'Placing...' : `Place ${form.side} Order`}
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }}
+              onClick={handlePlace} disabled={placing || !form.quantity || form.quantity <= 0}>
+              {placing ? 'Placing...' : `${form.side} ${form.option_type || form.instrument_type}`}
             </button>
           </div>
         </div>
 
         <div>
-          <div className="glass-card" style={{ padding: '16px', marginBottom: 16 }}>
-            <p style={{ color: '#555570', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px', fontWeight: 600 }}>Funds</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-              <div>
-                <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f0f0f5' }}>
-                  {(funds?.available_margin || 0).toLocaleString()}
-                </p>
-                <p style={{ margin: 0, fontSize: 10, color: '#555570' }}>Available</p>
+          <div className="glass-card" style={{ padding: 14, marginBottom: 12 }}>
+            <div className="page-header" style={{ marginBottom: 8 }}>
+              <span className="stat-label">Funds</span>
+              <span className="last-updated">{lastRefresh}</span>
+            </div>
+            <div className="grid-3" style={{ gap: 8 }}>
+              <div className="stat-card" style={{ padding: 10 }}>
+                <p className="stat-label">Available</p>
+                <p className="stat-value" style={{ fontSize: 16 }}>{(funds?.available_margin || 0).toLocaleString()}</p>
               </div>
-              <div>
-                <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#22d3ee' }}>
-                  {(funds?.used_margin || 0).toLocaleString()}
-                </p>
-                <p style={{ margin: 0, fontSize: 10, color: '#555570' }}>Used</p>
+              <div className="stat-card" style={{ padding: 10 }}>
+                <p className="stat-label">Used</p>
+                <p className="stat-value" style={{ fontSize: 16, color: '#22d3ee' }}>{(funds?.used_margin || 0).toLocaleString()}</p>
               </div>
-              <div>
-                <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f0f0f5' }}>
-                  {(funds?.total_margin || 0).toLocaleString()}
-                </p>
-                <p style={{ margin: 0, fontSize: 10, color: '#555570' }}>Total</p>
+              <div className="stat-card" style={{ padding: 10 }}>
+                <p className="stat-label">Total</p>
+                <p className="stat-value" style={{ fontSize: 16 }}>{(funds?.total_margin || 0).toLocaleString()}</p>
               </div>
             </div>
           </div>
 
           <div className="panel" style={{ padding: 0 }}>
-            <div className="panel-header" style={{ padding: '12px 16px', borderBottom: '1px solid rgba(139,92,246,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="panel-title" style={{ fontSize: 14, margin: 0 }}>Open Positions</h3>
-              <button className="btn btn-sm btn-ghost" onClick={loadData} style={{ fontSize: 10 }}>Refresh</button>
+            <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
+              <h3 className="panel-title" style={{ fontSize: 13 }}>Positions ({positions.length})</h3>
+              <button className="btn btn-ghost btn-sm" onClick={loadData} style={{ fontSize: 9 }}>Refresh</button>
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              {!loading && positions.length > 0 ? (
+            {positions.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
                 <table className="data-table" style={{ fontSize: 11 }}>
                   <thead>
                     <tr>
-                      <th style={{ padding: '8px 10px' }}>Symbol</th>
-                      <th style={{ padding: '8px 10px' }}>Type</th>
-                      <th style={{ padding: '8px 10px' }}>Qty</th>
-                      <th style={{ padding: '8px 10px' }}>Avg</th>
-                      <th style={{ padding: '8px 10px' }}>P&L</th>
+                      <th style={{ padding: '6px 8px' }}>Symbol</th>
+                      <th className="numeric">Qty</th>
+                      <th className="numeric">Avg</th>
+                      <th className="numeric">LTP</th>
+                      <th className="numeric">P&L</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(positions as Array<{
-                      symbol: string; quantity: number; average_buy_price: number;
-                      unrealised_pnl: number; instrument_type: string; exchange: string;
-                    }>).map((p, i) => {
-                      const isOption = p.instrument_type === 'OPT'
+                    {positions.map((p: any, i: number) => {
+                      const live = ticks[p.symbol]
+                      const ltp = live?.last_price || p.last_price || 0
+                      const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : p.unrealised_pnl
                       return (
                         <tr key={i}>
-                          <td style={{ fontWeight: 600, padding: '8px 10px' }}>{p.symbol}</td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <span className={`badge ${isOption ? 'badge-violet' : p.instrument_type === 'FUT' ? 'badge-cyan' : 'badge-green'}`} style={{ fontSize: 8 }}>
-                              {p.instrument_type}
-                            </span>
-                          </td>
-                          <td style={{ padding: '8px 10px' }} className="numeric">{p.quantity}</td>
-                          <td style={{ padding: '8px 10px' }} className="numeric">{p.average_buy_price?.toFixed(1) || '-'}</td>
-                          <td className="numeric" style={{ padding: '8px 10px', color: p.unrealised_pnl >= 0 ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
-                            {p.unrealised_pnl >= 0 ? '+' : ''}{p.unrealised_pnl?.toFixed(0) || '0'}
+                          <td style={{ fontWeight: 600, padding: '6px 8px' }}>{p.symbol?.split(':').pop()}</td>
+                          <td className="numeric">{p.quantity}</td>
+                          <td className="numeric">{p.average_buy_price?.toFixed(1) || '-'}</td>
+                          <td className="numeric">{ltp?.toFixed(1) || '-'}</td>
+                          <td className={`numeric ${pnl >= 0 ? 'positive' : 'negative'}`} style={{ fontWeight: 600 }}>
+                            {pnl >= 0 ? '+' : ''}{pnl?.toFixed(0) || '0'}
                           </td>
                         </tr>
                       )
                     })}
                   </tbody>
                 </table>
-              ) : (
-                <p style={{ color: '#555570', fontSize: 12, padding: 16, margin: 0, textAlign: 'center' }}>
-                  {loading ? 'Loading...' : 'No open positions'}
-                </p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', fontSize: 12, padding: 14, margin: 0, textAlign: 'center' }}>No positions</p>
+            )}
           </div>
         </div>
       </div>
 
       <div className="panel" style={{ padding: 0 }}>
-        <div className="panel-header" style={{ padding: '12px 16px', borderBottom: '1px solid rgba(139,92,246,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 className="panel-title" style={{ fontSize: 14, margin: 0 }}>Orders ({orders.length})</h3>
+        <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
+          <h3 className="panel-title" style={{ fontSize: 13 }}>Orders ({orders.length})</h3>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          {!loading && orders.length > 0 ? (
+        {orders.length > 0 ? (
+          <div style={{ overflowX: 'auto' }}>
             <table className="data-table" style={{ fontSize: 11 }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '8px 10px' }}>Time</th>
-                  <th style={{ padding: '8px 10px' }}>Symbol</th>
-                  <th style={{ padding: '8px 10px' }}>Side</th>
-                  <th style={{ padding: '8px 10px' }}>Qty</th>
-                  <th style={{ padding: '8px 10px' }}>Price</th>
-                  <th style={{ padding: '8px 10px' }}>Filled</th>
-                  <th style={{ padding: '8px 10px' }}>Avg</th>
-                  <th style={{ padding: '8px 10px' }}>Status</th>
-                  <th style={{ padding: '8px 10px' }}>Action</th>
+                  <th>Time</th>
+                  <th>Symbol</th>
+                  <th>Side</th>
+                  <th className="numeric">Qty</th>
+                  <th className="numeric">Price</th>
+                  <th className="numeric">Filled</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {(orders as Array<{
-                  id: string; symbol: string; side: string; quantity: number;
-                  price: number; status: string; filled_quantity: number;
-                  average_price: number; created_at: string; instrument_type: string;
-                }>).map((o, i) => {
-                  const cancelable = o.status === 'OPEN' || o.status === 'PENDING' || o.status === 'TRIGGER_PENDING'
-                  const isOption = o.instrument_type === 'OPT' || o.symbol.includes('CE') || o.symbol.includes('PE')
+                {orders.map((o: any, i: number) => {
+                  const cancelable = ['OPEN', 'PENDING', 'TRIGGER_PENDING'].includes(o.status)
                   return (
                     <tr key={o.id || i}>
-                      <td style={{ color: '#555570', padding: '8px 10px' }}>{o.created_at ? new Date(o.created_at).toLocaleTimeString() : '-'}</td>
-                      <td style={{ fontWeight: 600, padding: '8px 10px' }}>
-                        {o.symbol}
-                        {isOption && <span className="badge badge-violet" style={{ marginLeft: 4, fontSize: 8 }}>OPT</span>}
+                      <td style={{ color: 'var(--text-muted)' }}>{o.created_at ? new Date(o.created_at).toLocaleTimeString() : '-'}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {o.symbol?.split(':').pop()}
+                        {o.instrument_type === 'OPT' && <span className="badge badge-violet" style={{ marginLeft: 4, fontSize: 7 }}>OPT</span>}
                       </td>
-                      <td style={{ color: o.side === 'BUY' ? '#22c55e' : '#ef4444', fontWeight: 600, padding: '8px 10px' }}>{o.side}</td>
-                      <td className="numeric" style={{ padding: '8px 10px' }}>{o.quantity}</td>
-                      <td className="numeric" style={{ padding: '8px 10px' }}>{o.price?.toFixed(1) || '-'}</td>
-                      <td className="numeric" style={{ padding: '8px 10px' }}>{o.filled_quantity || 0}</td>
-                      <td className="numeric" style={{ padding: '8px 10px' }}>{o.average_price?.toFixed(1) || '-'}</td>
-                      <td style={{ padding: '8px 10px' }}>
-                        <span className={`badge ${o.status === 'FILLED' || o.status === 'COMPLETE' ? 'badge-green' : o.status === 'REJECTED' || o.status === 'CANCELLED' ? 'badge-red' : 'badge-violet'}`} style={{ fontSize: 8 }}>
+                      <td style={{ color: o.side === 'BUY' ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{o.side}</td>
+                      <td className="numeric">{o.quantity}</td>
+                      <td className="numeric">{o.price?.toFixed(1) || '-'}</td>
+                      <td className="numeric">{o.filled_quantity || 0}</td>
+                      <td>
+                        <span className={`badge ${['FILLED', 'COMPLETE'].includes(o.status) ? 'badge-green' : ['REJECTED', 'CANCELLED'].includes(o.status) ? 'badge-red' : 'badge-violet'}`} style={{ fontSize: 8 }}>
                           {o.status}
                         </span>
                       </td>
-                      <td style={{ padding: '8px 10px' }}>
-                        {cancelable && (
-                          <button className="btn btn-sm btn-danger" style={{ fontSize: 9, padding: '2px 8px' }} onClick={() => handleCancel(o.id)}>
-                            Cancel
-                          </button>
-                        )}
+                      <td>
+                        {cancelable && <button className="btn btn-sm btn-danger" style={{ fontSize: 8, padding: '2px 6px' }} onClick={() => handleCancel(o.id)}>Cancel</button>}
                       </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
-          ) : (
-            <p style={{ color: '#555570', fontSize: 12, padding: 16, margin: 0, textAlign: 'center' }}>
-              {loading ? 'Loading...' : 'No orders yet'}
-            </p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <p style={{ color: 'var(--text-muted)', fontSize: 12, padding: 14, margin: 0, textAlign: 'center' }}>No orders yet</p>
+        )}
       </div>
     </div>
   )

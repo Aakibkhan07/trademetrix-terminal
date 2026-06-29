@@ -63,14 +63,28 @@ class SharedDataSocket:
             return
 
         from brokers import get_broker
-        from brokers.token_manager import TokenManager
+        from core.db import get_supabase
+        from core.security import decrypt_broker_credentials
 
-        token_manager = TokenManager(user_id, broker_type)
-        session = await token_manager.get_session()
+        supabase = get_supabase()
+        cred = supabase.table("broker_credentials") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .eq("broker", broker_type) \
+            .single() \
+            .execute()
+        if not cred.data:
+            logger.warning("No credentials found for %s/%s", user_id, broker_type)
+            return
 
+        row = cred.data
         adapter_cls = get_broker(broker_type)
         adapter = adapter_cls()
-        await adapter.authenticate(session)
+        await adapter.authenticate({
+            "client_id": decrypt_broker_credentials(row["encrypted_api_key"]),
+            "secret_key": decrypt_broker_credentials(row["encrypted_secret_key"]),
+            "access_token": decrypt_broker_credentials(row["encrypted_access_token"]),
+        })
 
         async def feed_runner():
             try:

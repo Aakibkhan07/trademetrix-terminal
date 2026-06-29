@@ -45,7 +45,10 @@ class SymbolMaster:
                     "segment": "EQ",
                     "last_updated": trade_date.isoformat(),
                 }
-                supabase.table("symbol_master").upsert(row, on_conflict=["broker", "token"]).execute()
+                try:
+                    supabase.table("symbol_master").upsert(row, on_conflict=["broker", "token"]).execute()
+                except Exception:
+                    pass
                 count += 1
 
         return count
@@ -87,7 +90,10 @@ class SymbolMaster:
                     "segment": "EQ",
                     "last_updated": date.today().isoformat(),
                 }
-                supabase.table("symbol_master").upsert(row, on_conflict=["broker", "token"]).execute()
+                try:
+                    supabase.table("symbol_master").upsert(row, on_conflict=["broker", "token"]).execute()
+                except Exception:
+                    pass
                 count += 1
         return count
 
@@ -115,7 +121,10 @@ class SymbolMaster:
                     "segment": parts[5].strip() if len(parts) > 5 else "EQ",
                     "last_updated": date.today().isoformat(),
                 }
-                supabase.table("symbol_master").upsert(row, on_conflict=["broker", "token"]).execute()
+                try:
+                    supabase.table("symbol_master").upsert(row, on_conflict=["broker", "token"]).execute()
+                except Exception:
+                    pass
                 count += 1
         return count
 
@@ -143,36 +152,46 @@ class SymbolMaster:
                     "segment": parts[4].strip(),
                     "last_updated": date.today().isoformat(),
                 }
-                supabase.table("symbol_master").upsert(row, on_conflict=["broker", "token"]).execute()
+                try:
+                    supabase.table("symbol_master").upsert(row, on_conflict=["broker", "token"]).execute()
+                except Exception:
+                    pass
                 count += 1
         return count
 
+
     async def resolve_symbol(self, canonical: str, broker: str) -> str | None:
         supabase = get_supabase()
-        result = (
-            supabase.table("symbol_master")
-            .select("broker_symbol")
-            .eq("symbol", canonical)
-            .eq("broker", broker)
-            .maybe_single()
-            .execute()
-        )
-        if result.data:
-            return result.data["broker_symbol"]
+        try:
+            result = (
+                supabase.table("symbol_master")
+                .select("broker_symbol")
+                .eq("symbol", canonical)
+                .eq("broker", broker)
+                .maybe_single()
+                .execute()
+            )
+            if result.data:
+                return result.data["broker_symbol"]
+        except Exception:
+            pass
         return canonical
 
     async def resolve_to_canonical(self, broker_symbol: str, broker: str) -> str | None:
         supabase = get_supabase()
-        result = (
-            supabase.table("symbol_master")
-            .select("symbol")
-            .eq("broker_symbol", broker_symbol)
-            .eq("broker", broker)
-            .maybe_single()
-            .execute()
-        )
-        if result.data:
-            return result.data["symbol"]
+        try:
+            result = (
+                supabase.table("symbol_master")
+                .select("symbol")
+                .eq("broker_symbol", broker_symbol)
+                .eq("broker", broker)
+                .maybe_single()
+                .execute()
+            )
+            if result.data:
+                return result.data["symbol"]
+        except Exception:
+            pass
         return broker_symbol
 
 

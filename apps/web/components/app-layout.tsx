@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
@@ -18,9 +18,9 @@ const NAV_SECTIONS = [
   {
     label: 'Trading',
     items: [
-      { href: '/trade', label: 'Trade', icon: 'P' },
+      { href: '/trade', label: 'Trade', icon: 'T' },
       { href: '/marketdata', label: 'Market Data', icon: 'M' },
-      { href: '/backtest', label: 'Backtest', icon: 'T' },
+      { href: '/backtest', label: 'Backtest', icon: 'B' },
       { href: '/risk', label: 'Risk Control', icon: 'R' },
     ],
   },
@@ -33,25 +33,20 @@ const NAV_SECTIONS = [
   },
 ]
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const router = useRouter()
-  const { token, signout, loading } = useAuth()
+  const { token, loading, signout } = useAuth()
   const [killSwitchActive, setKillSwitchActive] = useState(false)
 
   useEffect(() => {
-    if (!loading && !token) {
-      router.push('/auth')
-    }
-  }, [token, loading, router])
-
-  useEffect(() => {
-    if (!token) return
+    if (!token || pathname === '/auth') return
     api.risk.killSwitchStatus().then((d: unknown) => {
       const data = d as { kill_switch_enabled: boolean }
       setKillSwitchActive(data.kill_switch_enabled)
     }).catch(() => {})
-  }, [token])
+  }, [token, pathname])
+
+  if (pathname === '/auth') return <>{children}</>
 
   if (loading || !token) {
     return (

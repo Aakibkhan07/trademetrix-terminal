@@ -60,10 +60,10 @@ export default function StrategiesPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div className="page-header">
         <div>
-          <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: 0 }}>Strategies</h1>
-          <p style={{ color: '#8888a0', fontSize: 14, margin: '4px 0 0' }}>
+          <h1 className="page-title">Strategies</h1>
+          <p className="page-subtitle">
             Create, deploy, and manage your trading strategies
           </p>
         </div>

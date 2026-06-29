@@ -1,4 +1,5 @@
 
+from core.constants import LOT_SIZES
 from core.models import (
     Candle,
     Exchange,
@@ -20,7 +21,7 @@ class TrendRider(BaseStrategy):
         self.fast_period = config.get("fast_period", 9)
         self.slow_period = config.get("slow_period", 21)
         self.symbol = config.get("symbol", "NIFTY")
-        self.quantity = config.get("quantity", 75)
+        self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 75))
         self._prices: list[float] = []
 
     async def on_start(self) -> None:
