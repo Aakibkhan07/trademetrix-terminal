@@ -72,7 +72,7 @@ export const api = {
     enableKillSwitch: () => request('/risk/kill-switch/enable', { method: 'POST' }),
     disableKillSwitch: () => request('/risk/kill-switch/disable', { method: 'POST' }),
     killSwitchStatus: () => request('/risk/kill-switch'),
-    enableLive: () => request('/risk/live/enable'),
+    enableLive: () => request('/risk/live/enable', { method: 'POST', body: { confirm: true } }),
     disableLive: () => request('/risk/live/disable'),
     liveStatus: () => request('/risk/live/status'),
   },
