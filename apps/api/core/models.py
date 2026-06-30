@@ -55,6 +55,9 @@ class Exchange(StrEnum):
 class NormalizedOrder(BaseModel):
     id: str = ""
     broker_order_id: str = ""
+    client_order_id: str = ""
+    source: str = "manual"
+    reason: str = ""
     symbol: str
     exchange: Exchange
     side: OrderSide
@@ -83,6 +86,7 @@ class NormalizedOrder(BaseModel):
     strike_price: float | None = None
     expiry_date: str | None = None
     option_type: OptionType | None = None
+    is_paper: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -91,6 +95,9 @@ class OrderResult(BaseModel):
     broker_order_id: str = ""
     order: NormalizedOrder | None = None
     message: str = ""
+    status: str = ""
+    filled_qty: int = 0
+    avg_price: float = 0.0
 
 
 class Position(BaseModel):

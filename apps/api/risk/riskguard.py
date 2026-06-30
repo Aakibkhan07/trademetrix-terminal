@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime, timedelta, timezone
 
 from core.db import get_supabase
 from core.models import NormalizedOrder, RiskSettings
@@ -39,9 +39,12 @@ class RiskGuard:
 
     async def _load_settings(self, strategy_id: str | None = None) -> RiskSettings | None:
         supabase = get_supabase()
-        query = supabase.table("risk_settings").select("*").eq("user_id", self.user_id)
         if strategy_id:
-            query = query.eq("strategy_id", strategy_id)
+            query = supabase.table("risk_settings").select("*").eq("user_id", self.user_id).eq("strategy_id", strategy_id)
+            data = safe_single(query)
+            if data:
+                return RiskSettings(**data)
+        query = supabase.table("risk_settings").select("*").eq("user_id", self.user_id)
         data = safe_single(query)
         if data:
             return RiskSettings(**data)
@@ -147,16 +150,69 @@ class RiskGuard:
         return len([p for p in rows if p.get("quantity", 0) != 0])
 
     def _get_today_pnl(self) -> float:
-        today = date.today().isoformat()
-        rows = safe_execute(get_supabase().table("orders").select("total_value, side, status").eq("user_id", self.user_id).gte("created_at", today))
-        pnl = 0
-        for o in rows:
-            if o.get("status") == "FILLED":
-                val = float(o.get("total_value", 0))
-                if o.get("side") == "SELL":
-                    pnl += val
-                else:
-                    pnl -= val
+        IST = timezone(timedelta(hours=5, minutes=30))
+        today_start = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+        filled = safe_execute(
+            get_supabase().table("orders")
+            .select("symbol, side, quantity, filled_quantity, average_price, created_at")
+            .eq("user_id", self.user_id)
+            .eq("status", "FILLED")
+            .gte("created_at", today_start)
+            .order("created_at")
+        )
+        if not filled:
+            return 0.0
+
+        sell_symbols = {o["symbol"] for o in filled if o["side"] == "SELL"}
+        historical: dict[str, list[dict]] = {}
+        for sym in sell_symbols:
+            hist_rows = safe_execute(
+                get_supabase().table("orders")
+                .select("quantity, filled_quantity, average_price")
+                .eq("user_id", self.user_id)
+                .eq("symbol", sym)
+                .eq("side", "BUY")
+                .eq("status", "FILLED")
+                .lt("created_at", today_start)
+                .order("created_at")
+            )
+            if hist_rows:
+                historical[sym] = hist_rows
+
+        pnl = 0.0
+        buy_queue: dict[str, list[list[float]]] = {}
+
+        for o in filled:
+            sym = o["symbol"]
+            qty = float(o.get("filled_quantity") or o.get("quantity") or 0)
+            price = float(o.get("average_price") or 0)
+            if qty <= 0:
+                continue
+
+            if o["side"] == "BUY":
+                buy_queue.setdefault(sym, []).append([qty, price])
+            else:
+                rem = qty
+                queue = buy_queue.setdefault(sym, [])
+                while rem > 0 and queue:
+                    bqty, bprice = queue[0]
+                    used = min(rem, bqty)
+                    pnl += used * (price - bprice)
+                    rem -= used
+                    queue[0][0] -= used
+                    if queue[0][0] <= 1e-8:
+                        queue.pop(0)
+                if rem > 0:
+                    for h in historical.get(sym, []):
+                        if rem <= 0:
+                            break
+                        hqty = float(h.get("filled_quantity") or h.get("quantity") or 0)
+                        hprice = float(h.get("average_price") or 0)
+                        if hqty > 0:
+                            used = min(rem, hqty)
+                            pnl += used * (price - hprice)
+                            rem -= used
         return pnl
 
     def _get_current_drawdown(self) -> float:

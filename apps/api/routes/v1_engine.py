@@ -7,9 +7,11 @@ from pydantic import BaseModel
 
 from core.db import get_supabase
 from core.deps import get_current_user
-from core.models import UserProfile
+from core.models import OrderResult, UserProfile
 from core.safe_query import safe_execute, safe_single
 from engine.executor import ExecutionEngine
+from engine.gate import execute_order
+from engine.token_refresh import get_token_status
 
 router = APIRouter(prefix="/engine", tags=["engine"])
 
@@ -106,15 +108,6 @@ async def execute_trade(
 ):
     from core.models import Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType, ProductType
 
-    supabase = get_supabase()
-    creds = safe_single(
-        supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
-    )
-    if not creds:
-        raise HTTPException(status_code=400, detail="No active broker configured")
-
-    engine = await _get_engine(current_user.id, creds["broker"])
-
     order = NormalizedOrder(
         symbol=req.symbol,
         exchange=Exchange(req.exchange),
@@ -129,9 +122,10 @@ async def execute_trade(
         strike_price=req.strike_price,
         expiry_date=req.expiry_date,
         option_type=OptionType(req.option_type) if req.option_type else None,
+        source="manual",
     )
 
-    result = await engine.execute_signal(order)
+    result = await execute_order(current_user.id, order, source="manual")
     return {"result": result.model_dump()}
 
 
@@ -206,3 +200,15 @@ async def get_runs(current_user: UserProfile = Depends(get_current_user)):
         supabase.table("strategy_runs").select("*").eq("user_id", current_user.id).order("created_at", desc=True)
     )
     return {"runs": data or []}
+
+
+@router.get("/token-status")
+async def token_status(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    creds = safe_single(
+        supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
+    )
+    if not creds:
+        return {"status": "unknown", "broker": ""}
+    status = await get_token_status(current_user.id, creds["broker"])
+    return status
