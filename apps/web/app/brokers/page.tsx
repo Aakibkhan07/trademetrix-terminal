@@ -193,8 +193,11 @@ export default function BrokersPage() {
             {selectedBroker && (
               <>
                 <div style={{ marginBottom: 12 }}>
-                  <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>API Key {selectedBroker === 'angelone' && '(SmartAPI App Key)'}</label>
-                  <input className="input" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Your broker API key" />
+                  <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    {selectedBroker === 'dhan' ? 'Client ID' : selectedBroker === 'angelone' ? 'API Key (SmartAPI App Key)' : 'API Key'}
+                  </label>
+                  <input className="input" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={selectedBroker === 'dhan' ? 'Your Dhan client ID' : selectedBroker === 'angelone' ? 'Your SmartAPI app key' : 'Your broker API key'} />
                 </div>
                 {selectedBroker === 'angelone' && (
                   <div style={{ marginBottom: 12 }}>
@@ -203,8 +206,11 @@ export default function BrokersPage() {
                   </div>
                 )}
                 <div style={{ marginBottom: selectedBroker === 'angelone' ? 12 : 20 }}>
-                  <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>{selectedBroker === 'angelone' ? 'Password/PIN' : 'Secret Key'}</label>
-                  <input className="input" type="password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} placeholder={selectedBroker === 'angelone' ? 'Your Angel One login password' : 'Your broker secret'} />
+                  <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    {selectedBroker === 'angelone' ? 'Password/PIN' : selectedBroker === 'dhan' ? 'Access Token' : 'Secret Key'}
+                  </label>
+                  <input className="input" type="password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)}
+                    placeholder={selectedBroker === 'angelone' ? 'Your Angel One login password' : selectedBroker === 'dhan' ? 'Your Dhan access token (JWT)' : 'Your broker secret'} />
                 </div>
                 {selectedBroker === 'angelone' && (
                   <div style={{ marginBottom: 20 }}>

@@ -1,494 +1,527 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
-import { useMarketData } from '@/lib/use-market-data'
-import { usePolling } from '@/lib/use-polling'
 import { useAuth } from '@/lib/auth-context'
 
-const INDICES = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'SENSEX']
-const LOT_SIZES: Record<string, number> = { NIFTY: 65, SENSEX: 20, BANKNIFTY: 30, FINNIFTY: 60 }
+/* -------- Types -------- */
 
-interface OrderData {
-  symbol: string; side: string; quantity: number; price: number
-  exchange: string; order_type: string; product: string; trigger_price: number | null
-  instrument_type: string; strike_price: number | null; expiry_date: string | null; option_type: string | null
+interface BrokerCred {
+  id: string
+  broker: string
+  is_active: boolean
+  created_at: string
 }
+
+interface OptionRow {
+  strike: number
+  call: { ltp: number; bid: number; ask: number; volume: number; oi: number; iv: number }
+  put: { ltp: number; bid: number; ask: number; volume: number; oi: number; iv: number }
+}
+
+interface ChainResponse {
+  optionChain: OptionRow[]
+  expiries: string[]
+}
+
+interface OrderResult {
+  success: boolean
+  broker_order_id: string
+  message: string
+  status: string
+}
+
+/* -------- Constants -------- */
+
+const UNDERLYING = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'SENSEX']
+
+function fmt(n: number) {
+  return n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+}
+
+/* -------- Skeleton helpers -------- */
+
+function SkeletonLine({ w, h = 12 }: { w: string; h?: number }) {
+  return <div style={{ width: w, height: h, background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
+}
+
+function SkeletonBar() {
+  return (
+    <div className="panel" style={{ padding: '10px 16px', display: 'flex', gap: 12, marginBottom: 16 }}>
+      <SkeletonLine w="80px" h={28} />
+      <SkeletonLine w="80px" h={28} />
+      <SkeletonLine w="80px" h={28} />
+    </div>
+  )
+}
+
+function SkeletonTable() {
+  return (
+    <div className="panel" style={{ padding: 14 }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} style={{ display: 'flex', gap: 16, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+          <SkeletonLine w="50px" />
+          <SkeletonLine w="80px" />
+          <SkeletonLine w="80px" />
+          <SkeletonLine w="80px" />
+          <SkeletonLine w="80px" />
+          <SkeletonLine w="60px" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* -------- Main page -------- */
 
 export default function TradePage() {
   const { token } = useAuth()
-  const { ticks, connected, subscribe, startFeed } = useMarketData()
-  const [orders, setOrders] = useState<any[]>([])
-  const [positions, setPositions] = useState<any[]>([])
-  const [funds, setFunds] = useState<Record<string, number> | null>(null)
-  const [placing, setPlacing] = useState(false)
-  const [resultMsg, setResultMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [lastRefresh, setLastRefresh] = useState('')
 
+  const [creds, setCreds] = useState<BrokerCred[]>([])
+  const [credsLoading, setCredsLoading] = useState(true)
+  const [credsError, setCredsError] = useState('')
+
+  const [underlying, setUnderlying] = useState('NIFTY')
+  const [chain, setChain] = useState<OptionRow[]>([])
   const [expiries, setExpiries] = useState<string[]>([])
-  const [optionChain, setOptionChain] = useState<any[]>([])
+  const [expiry, setExpiry] = useState('')
   const [chainLoading, setChainLoading] = useState(false)
-  const [chainErr, setChainErr] = useState('')
-  const chainLoaded = useRef('')
+  const [chainError, setChainError] = useState('')
+  const [liveSource, setLiveSource] = useState(false)
 
-  const [form, setForm] = useState<OrderData>({
-    symbol: 'NIFTY', side: 'BUY', quantity: LOT_SIZES.NIFTY, price: 0,
-    exchange: 'NFO', order_type: 'MARKET', product: 'INTRADAY', trigger_price: null,
-    instrument_type: 'OPT', strike_price: 0, expiry_date: '', option_type: 'CE',
-  })
+  const [selectedStrike, setSelectedStrike] = useState<number | null>(null)
+  const [selectedSide, setSelectedSide] = useState<'CE' | 'PE' | null>(null)
+  const [orderQty, setOrderQty] = useState(1)
+  const [orderPrice, setOrderPrice] = useState(0)
+  const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT'>('MARKET')
+  const [isLiveMode, setIsLiveMode] = useState(false)
+  const [placing, setPlacing] = useState(false)
+  const [orderResult, setOrderResult] = useState<OrderResult | null>(null)
+  const [orderError, setOrderError] = useState('')
+  const [confirmingLive, setConfirmingLive] = useState(false)
 
-  const loadChain = useCallback(async (sym: string, expiry?: string, force?: boolean) => {
-    if (!force && chainLoaded.current === sym) return
-    chainLoaded.current = sym
-    setChainLoading(true); setChainErr('')
+  const activeBroker = creds.find(c => c.is_active)
+
+  /* Load broker credentials */
+  const loadCreds = useCallback(async () => {
+    setCredsLoading(true)
+    setCredsError('')
     try {
-      const data = await api.marketdata.optionChain(sym) as any
-      const exps = Array.isArray(data.expiries) ? data.expiries : []
-      const chain = Array.isArray(data.optionChain) ? data.optionChain : []
-      if (!exps.length || !chain.length) { setChainErr('Empty response from server'); return }
-      setExpiries(exps)
-      {
-        const currentExpiry = form.expiry_date
-        if (!currentExpiry || (expiry && expiry !== currentExpiry)) {
-          setForm((prev) => ({ ...prev, expiry_date: exps[0] }))
-        }
-      }
-      setOptionChain(chain)
-      {
-        const mid = chain[Math.floor(chain.length / 2)]
-        if (mid) setForm((prev) => ({ ...prev, strike_price: mid.strike }))
-      }
-    } catch (e) { setChainErr(String(e)) }
-    finally { setChainLoading(false) }
-  }, [form.expiry_date])
-
-  useEffect(() => { if (token) loadChain(form.symbol) }, [form.symbol, token])
-
-  const loadData = useCallback(async () => {
-    try {
-      const [o, p, f] = await Promise.all([
-        api.engine.orders().catch(() => ({ orders: [] })),
-        api.engine.positions().catch(() => ({ positions: [] })),
-        api.engine.funds().catch(() => ({ funds: null })),
-      ])
-      setOrders((o as any).orders || [])
-      setPositions((p as any).positions || [])
-      setFunds((f as any).funds || null)
-      setLastRefresh(new Date().toLocaleTimeString())
-    } catch {}
+      const d = await api.brokers.credentials() as { credentials: BrokerCred[] }
+      setCreds(d.credentials || [])
+    } catch (e) {
+      setCredsError(String(e))
+    } finally {
+      setCredsLoading(false)
+    }
   }, [])
 
-  useEffect(() => {
-    const symbols = INDICES.map((s) => `NSE:${s === 'BANKNIFTY' ? 'NIFTYBANK' : s === 'FINNIFTY' ? 'FINNIFTY' : s === 'SENSEX' ? 'SENSEX' : 'NIFTY50'}-INDEX`)
-    subscribe(symbols)
-    startFeed()
-  }, [subscribe, startFeed])
+  useEffect(() => { if (token) loadCreds() }, [token, loadCreds])
 
-  const fyersSymbol = `NSE:${form.symbol === 'BANKNIFTY' ? 'NIFTYBANK' : form.symbol === 'FINNIFTY' ? 'FINNIFTY' : form.symbol === 'SENSEX' ? 'SENSEX' : 'NIFTY50'}-INDEX`
-  const livePrice = ticks[fyersSymbol]
-
-  usePolling(loadData, 3000, !!token)
-
-  const optionSymbol = form.instrument_type === 'OPT' && form.expiry_date && form.strike_price && form.option_type
-    ? `${form.symbol}${form.expiry_date}${form.strike_price}${form.option_type}`
-    : form.instrument_type === 'FUT' && form.expiry_date
-      ? `${form.symbol}${form.expiry_date}`
-      : form.symbol
-
-  const handlePlace = async () => {
-    setPlacing(true); setResultMsg(null)
+  /* Load option chain */
+  const loadChain = useCallback(async (sym: string) => {
+    setChainLoading(true)
+    setChainError('')
     try {
-      const res = await api.engine.trade({
-        symbol: optionSymbol, side: form.side, quantity: form.quantity,
-        price: form.price || undefined, exchange: form.exchange,
-        order_type: form.order_type, product: form.product,
-        trigger_price: form.trigger_price || undefined,
-        instrument_type: form.instrument_type,
-        strike_price: form.strike_price || undefined,
-        expiry_date: form.expiry_date || undefined,
-        option_type: form.option_type || undefined,
-      }) as any
-      setResultMsg({ ok: res.result.success, text: res.result.message || 'Order placed' })
-      if (res.result.success) setTimeout(loadData, 1000)
-    } catch (e) { setResultMsg({ ok: false, text: String(e) }) }
-    finally { setPlacing(false) }
+      const d = await api.marketdata.optionChain(sym) as ChainResponse
+      const exps = d.expiries || []
+      const rows = d.optionChain || []
+      if (!rows.length) {
+        setChainError('Empty response from server')
+        return
+      }
+      setChain(rows)
+      setExpiries(exps)
+      if (exps.length && !exps.includes(expiry)) setExpiry(exps[0])
+      const hasPrices = rows.some(r => r.call.ltp > 0 || r.put.ltp > 0)
+      setLiveSource(hasPrices)
+    } catch (e) {
+      setChainError(String(e))
+    } finally {
+      setChainLoading(false)
+    }
+  }, [expiry])
+
+  useEffect(() => { if (token) loadChain(underlying) }, [token, underlying])
+
+  /* Activate broker */
+  const handleActivate = async (broker: string) => {
+    try {
+      await api.brokers.activate(broker)
+      await loadCreds()
+    } catch (e) {
+      setCredsError(String(e))
+    }
   }
 
-  const handleCancel = async (orderId: string) => {
-    try { await api.engine.cancelOrder(orderId); loadData() } catch {}
+  /* Open order ticket */
+  const openOrder = (strike: number, side: 'CE' | 'PE') => {
+    setSelectedStrike(strike)
+    setSelectedSide(side)
+    setOrderQty(1)
+    setOrderPrice(0)
+    setOrderType('MARKET')
+    setOrderResult(null)
+    setOrderError('')
+    setConfirmingLive(false)
+  }
+
+  const selectedRow = chain.find(r => r.strike === selectedStrike)
+  const selectedQuote = selectedSide === 'CE' ? selectedRow?.call : selectedRow?.put
+
+  /* Check live status + confirm */
+  const handleToggleLive = async () => {
+    if (isLiveMode) {
+      setIsLiveMode(false)
+      return
+    }
+    try {
+      const status = await api.risk.liveStatus() as { is_live: boolean }
+      if (status.is_live) {
+        setIsLiveMode(true)
+      } else {
+        setConfirmingLive(true)
+      }
+    } catch {
+      setConfirmingLive(true)
+    }
+  }
+
+  const confirmLive = async () => {
+    try {
+      await api.risk.enableLive()
+      setIsLiveMode(true)
+      setConfirmingLive(false)
+    } catch (e) {
+      setOrderError(String(e))
+      setConfirmingLive(false)
+    }
+  }
+
+  /* Place order */
+  const handlePlace = async () => {
+    if (!selectedStrike || !selectedSide || !expiry) return
+    setPlacing(true)
+    setOrderResult(null)
+    setOrderError('')
+
+    const optionSymbol = `${underlying}${expiry}${selectedStrike}${selectedSide}`
+
+    try {
+      const res = await api.engine.trade({
+        symbol: optionSymbol,
+        side: selectedSide === 'CE' ? 'BUY' : 'SELL',
+        quantity: orderQty,
+        price: orderType === 'LIMIT' ? orderPrice : 0,
+        exchange: 'NFO',
+        order_type: orderType,
+        product: isLiveMode ? 'NRML' : 'INTRADAY',
+        instrument_type: 'OPT',
+        strike_price: selectedStrike,
+        expiry_date: expiry,
+        option_type: selectedSide,
+      }) as { result: OrderResult }
+
+      setOrderResult(res.result)
+      if (res.result.success) {
+        setSelectedStrike(null)
+        setSelectedSide(null)
+      }
+    } catch (e) {
+      setOrderError(String(e))
+    } finally {
+      setPlacing(false)
+    }
   }
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Trade</h1>
-          <p className="page-subtitle">
-            <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
-            {connected ? 'Live' : 'Connecting...'}
-            {lastRefresh && <span className="last-updated" style={{ marginLeft: 12 }}>Updated {lastRefresh}</span>}
+          <h1 className="page-title">Trade Desk</h1>
+          <p className="page-subtitle">Manual order placement via broker</p>
+        </div>
+      </div>
+
+      {/* Broker bar */}
+      {credsLoading && <SkeletonBar />}
+      {credsError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{credsError}</div>}
+      {!credsLoading && (
+        <div className="panel" style={{ padding: '10px 16px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: '#555570', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Broker</span>
+            {creds.length === 0 && (
+              <span style={{ fontSize: 12, color: '#555570' }}>No brokers connected. Go to Brokers page to add credentials.</span>
+            )}
+            {creds.map(c => (
+              <button
+                key={c.broker}
+                className={`btn btn-sm ${c.is_active ? 'btn-cyan' : 'btn-secondary'}`}
+                onClick={() => !c.is_active && handleActivate(c.broker)}
+                style={{ fontSize: 11, textTransform: 'capitalize' }}
+                disabled={c.is_active}
+              >
+                {c.is_active && <span className="live-dot active" />}
+                {c.broker}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Underlying selector */}
+      <div className="panel" style={{ padding: '10px 16px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#555570', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Underlying</span>
+          {UNDERLYING.map(s => (
+            <button
+              key={s}
+              className={`btn btn-sm ${underlying === s ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => { setUnderlying(s); setSelectedStrike(null); setSelectedSide(null) }}
+              style={{ fontSize: 11 }}
+            >
+              {s}
+            </button>
+          ))}
+          {expiries.length > 0 && (
+            <>
+              <span style={{ fontSize: 11, color: '#555570', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginLeft: 8 }}>Expiry</span>
+              <select className="select" value={expiry} onChange={e => setExpiry(e.target.value)} style={{ maxWidth: 120, fontSize: 11 }}>
+                {expiries.map(e => <option key={e} value={e}>{e}</option>)}
+              </select>
+            </>
+          )}
+          {!liveSource && chain.length > 0 && (
+            <span style={{ fontSize: 10, color: '#f59e0b', marginLeft: 8 }}>
+              Live quotes coming soon — prices shown may be simulated
+            </span>
+          )}
+          {chain.length > 0 && (
+            <span style={{ fontSize: 10, color: '#555570', marginLeft: 'auto' }}>
+              {chain.length} strikes
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Error / Loading */}
+      {chainError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{chainError}</div>}
+      {chainLoading && <SkeletonTable />}
+
+      {/* Option chain table */}
+      {!chainLoading && !chainError && chain.length > 0 && (
+        <div className="panel" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>
+          <table className="data-table" style={{ fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'center', width: 90 }}>CALL LTP</th>
+                <th style={{ textAlign: 'center', width: 60 }}>Bid</th>
+                <th style={{ textAlign: 'center', width: 60 }}>Ask</th>
+                <th style={{ textAlign: 'center', width: 60 }}>Vol</th>
+                <th style={{ textAlign: 'center', width: 70 }}>STRIKE</th>
+                <th style={{ textAlign: 'center', width: 60 }}>Vol</th>
+                <th style={{ textAlign: 'center', width: 60 }}>Bid</th>
+                <th style={{ textAlign: 'center', width: 60 }}>Ask</th>
+                <th style={{ textAlign: 'center', width: 90 }}>PUT LTP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chain.map(r => {
+                const isSelected = selectedStrike === r.strike
+                return (
+                  <tr key={r.strike}
+                    onClick={() => openOrder(r.strike, r.call.ltp > 0 ? 'CE' : 'CE')}
+                    style={{ cursor: 'pointer', background: isSelected ? 'rgba(139,92,246,0.06)' : undefined }}
+                  >
+                    {/* CALL */}
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        className="btn btn-sm"
+                        onClick={(e) => { e.stopPropagation(); openOrder(r.strike, 'CE') }}
+                        style={{
+                          fontSize: 10, padding: '1px 8px',
+                          background: selectedStrike === r.strike && selectedSide === 'CE' ? 'rgba(34,211,238,0.15)' : 'transparent',
+                          color: r.call.ltp > 0 ? '#22d3ee' : '#555570',
+                          border: `1px solid ${selectedStrike === r.strike && selectedSide === 'CE' ? 'rgba(34,211,238,0.3)' : 'transparent'}`,
+                          width: '100%',
+                        }}
+                      >
+                        {r.call.ltp > 0 ? fmt(r.call.ltp) : '\u2014'}
+                      </button>
+                    </td>
+                    <td style={{ textAlign: 'center', color: r.call.bid > 0 ? '#aaaac0' : '#555570' }}>{r.call.bid > 0 ? fmt(r.call.bid) : '\u2014'}</td>
+                    <td style={{ textAlign: 'center', color: r.call.ask > 0 ? '#aaaac0' : '#555570' }}>{r.call.ask > 0 ? fmt(r.call.ask) : '\u2014'}</td>
+                    <td style={{ textAlign: 'center', color: '#555570', fontSize: 10 }}>{r.call.volume || '\u2014'}</td>
+                    {/* STRIKE */}
+                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#f0f0f5' }}>{r.strike}</td>
+                    {/* PUT */}
+                    <td style={{ textAlign: 'center', color: '#555570', fontSize: 10 }}>{r.put.volume || '\u2014'}</td>
+                    <td style={{ textAlign: 'center', color: r.put.bid > 0 ? '#aaaac0' : '#555570' }}>{r.put.bid > 0 ? fmt(r.put.bid) : '\u2014'}</td>
+                    <td style={{ textAlign: 'center', color: r.put.ask > 0 ? '#aaaac0' : '#555570' }}>{r.put.ask > 0 ? fmt(r.put.ask) : '\u2014'}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        className="btn btn-sm"
+                        onClick={(e) => { e.stopPropagation(); openOrder(r.strike, 'PE') }}
+                        style={{
+                          fontSize: 10, padding: '1px 8px',
+                          background: selectedStrike === r.strike && selectedSide === 'PE' ? 'rgba(239,68,68,0.15)' : 'transparent',
+                          color: r.put.ltp > 0 ? '#ef4444' : '#555570',
+                          border: `1px solid ${selectedStrike === r.strike && selectedSide === 'PE' ? 'rgba(239,68,68,0.3)' : 'transparent'}`,
+                          width: '100%',
+                        }}
+                      >
+                        {r.put.ltp > 0 ? fmt(r.put.ltp) : '\u2014'}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!chainLoading && !chainError && chain.length === 0 && (
+        <div className="panel" style={{ padding: 20, textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#555570' }}>
+            No option chain data available for {underlying}.
           </p>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={loadData}>Refresh</button>
-      </div>
-
-      {livePrice && (
-        <div className="glass-card" style={{ padding: '12px 16px', marginBottom: 16 }}>
-          <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div>
-              <span className="card-label">{form.symbol}</span>
-              <span className="last-updated" style={{ marginLeft: 8 }}>{form.exchange}</span>
-            </div>
-            <div>
-              <span className="card-value" style={{ fontSize: 22 }}>{livePrice.last_price?.toFixed(1)}</span>
-              <span className={`card-change ${livePrice.change >= 0 ? 'up' : 'down'}`} style={{ marginLeft: 8, fontSize: 13 }}>
-                {livePrice.change >= 0 ? '+' : ''}{livePrice.change?.toFixed(1)} ({(livePrice.change_pct ?? 0) >= 0 ? '+' : ''}{(livePrice.change_pct ?? 0).toFixed(2)}%)
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              Bid: <span style={{ color: '#22c55e' }}>{livePrice.bid || '-'}</span>
-              {' \u00B7 '}
-              Ask: <span style={{ color: '#ef4444' }}>{livePrice.ask || '-'}</span>
-            </div>
-            <div style={{ flex: 1, textAlign: 'right' }}>
-              <span className={`live-badge ${connected ? 'on' : 'off'}`}>
-                <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
-                {connected ? 'Live Feed' : 'Disconnected'}
-              </span>
-            </div>
-          </div>
-        </div>
       )}
 
-      {resultMsg && (
-        <div className={`alert ${resultMsg.ok ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: 16 }}>
-          {resultMsg.ok ? '\u2713 ' : '\u2717 '}{resultMsg.text}
-        </div>
-      )}
-
-      <div className="grid-2" style={{ gap: 20, marginBottom: 24 }}>
-          <div className="panel" style={{ padding: 0 }}>
-          <div className="panel-header" style={{ padding: '14px 16px', margin: 0 }}>
-            <h3 className="panel-title" style={{ fontSize: 14 }}>Place Order</h3>
-          </div>
-          <div style={{ padding: 16 }}>
-            <div className="tab-bar" style={{ marginBottom: 14 }}>
-              {(['EQ', 'FUT', 'OPT'] as const).map((t) => (
-                <button key={t} className={`tab ${form.instrument_type === t ? 'active' : ''}`}
-                  onClick={() => setForm({ ...form, instrument_type: t, exchange: t === 'EQ' ? 'NSE' : 'NFO' })}>
-                  {t === 'OPT' ? 'Options' : t === 'FUT' ? 'Futures' : 'Equity'}
-                </button>
-              ))}
-            </div>
-
-            <div className="trade-form-row" style={{ marginBottom: 8 }}>
-              <div>
-                <label className="stat-label">Symbol</label>
-                <select className="select" value={form.symbol}
-                  onChange={(e) => setForm({ ...form, symbol: e.target.value, quantity: LOT_SIZES[e.target.value] || 50 })}>
-                  {INDICES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="stat-label">Side</label>
-                <div style={{ display: 'flex', gap: 3 }}>
-                  <button className={`btn btn-sm ${form.side === 'BUY' ? 'btn-success' : 'btn-secondary'}`} style={{ flex: 1, fontSize: 11 }}
-                    onClick={() => setForm({ ...form, side: 'BUY' })}>BUY</button>
-                  <button className={`btn btn-sm ${form.side === 'SELL' ? 'btn-danger' : 'btn-secondary'}`} style={{ flex: 1, fontSize: 11 }}
-                    onClick={() => setForm({ ...form, side: 'SELL' })}>SELL</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="trade-form-row" style={{ marginBottom: 8 }}>
-              <div>
-                <label className="stat-label">Type</label>
-                <select className="select" value={form.order_type}
-                  onChange={(e) => setForm({ ...form, order_type: e.target.value })}>
-                  <option value="MARKET">Market</option>
-                  <option value="LIMIT">Limit</option>
-                  <option value="SL">Stop Loss</option>
-                  <option value="SLM">SL Market</option>
-                </select>
-              </div>
-              <div>
-                <label className="stat-label">Product</label>
-                <select className="select" value={form.product}
-                  onChange={(e) => setForm({ ...form, product: e.target.value })}>
-                  <option value="INTRADAY">MIS</option>
-                  <option value="NRML">NRML</option>
-                </select>
-              </div>
-            </div>
-
-            {form.instrument_type === 'OPT' && (
-              <div className="trade-form-row" style={{ marginBottom: 8 }}>
-                <div>
-                  <label className="stat-label">Expiry</label>
-                  <select className="select" value={form.expiry_date || ''}
-                    onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}>
-                    {expiries.map((e) => <option key={e} value={e}>{e}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="stat-label">Strike</label>
-                  <select className="select" value={form.strike_price || 0}
-                    onChange={(e) => setForm({ ...form, strike_price: Number(e.target.value) })}>
-                    {optionChain.length > 0
-                      ? optionChain.map((r: any) => <option key={r.strike} value={r.strike}>{r.strike}</option>)
-                      : <option value={0}>{chainLoading ? 'Loading...' : 'No data'}</option>}
-                  </select>
-                </div>
-                <div>
-                  <label className="stat-label">Type</label>
-                  <div className="tab-bar">
-                    <button className={`tab ${form.option_type === 'CE' ? 'active' : ''}`}
-                      onClick={() => setForm({ ...form, option_type: 'CE' })}>CE</button>
-                    <button className={`tab ${form.option_type === 'PE' ? 'active' : ''}`}
-                      onClick={() => setForm({ ...form, option_type: 'PE' })}>PE</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {form.instrument_type === 'FUT' && (
-              <div style={{ marginBottom: 8 }}>
-                <label className="stat-label">Expiry</label>
-                <select className="select" value={form.expiry_date || ''}
-                  onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}>
-                  {expiries.map((e) => <option key={e} value={e}>{e}</option>)}
-                </select>
-              </div>
-            )}
-
-            <div className="trade-form-row">
-              <div>
-                <label className="stat-label">Qty</label>
-                <input className="input" type="number" value={form.quantity}
-                  onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} />
-              </div>
-              <div>
-                <label className="stat-label">{form.order_type === 'MARKET' ? 'Price' : 'Price'}</label>
-                <input className="input" type="number" value={form.price}
-                  onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
-              </div>
-            </div>
-
-            {form.order_type === 'SL' && (
-              <div style={{ marginTop: 8 }}>
-                <label className="stat-label">Trigger</label>
-                <input className="input" type="number" value={form.trigger_price || ''}
-                  onChange={(e) => setForm({ ...form, trigger_price: Number(e.target.value) })} />
-              </div>
-            )}
-
-            <div className="trade-summary">
-              <span style={{ color: 'var(--text-muted)' }}>Order: </span>
-              <span style={{ color: form.side === 'BUY' ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
-                {form.side} {form.quantity}x
-              </span>
-              <span style={{ color: '#22d3ee', marginLeft: 4 }}>{optionSymbol}</span>
-              <span className="last-updated" style={{ marginLeft: 4 }}>@{form.exchange} {form.order_type}</span>
-              {livePrice && <span className="last-updated" style={{ marginLeft: 8 }}>LTP: {livePrice.last_price}</span>}
-            </div>
-
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }}
-              onClick={handlePlace} disabled={placing || !form.quantity || form.quantity <= 0}>
-              {placing ? 'Placing...' : `${form.side} ${form.option_type || form.instrument_type}`}
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div className="glass-card" style={{ padding: 14, marginBottom: 12 }}>
-            <div className="page-header" style={{ marginBottom: 8 }}>
-              <span className="stat-label">Funds</span>
-              <span className="last-updated">{lastRefresh}</span>
-            </div>
-            <div className="grid-3" style={{ gap: 8 }}>
-              <div className="stat-card" style={{ padding: 10 }}>
-                <p className="stat-label">Available</p>
-                <p className="stat-value" style={{ fontSize: 16 }}>{(funds?.available_margin || 0).toLocaleString()}</p>
-              </div>
-              <div className="stat-card" style={{ padding: 10 }}>
-                <p className="stat-label">Used</p>
-                <p className="stat-value" style={{ fontSize: 16, color: '#22d3ee' }}>{(funds?.used_margin || 0).toLocaleString()}</p>
-              </div>
-              <div className="stat-card" style={{ padding: 10 }}>
-                <p className="stat-label">Total</p>
-                <p className="stat-value" style={{ fontSize: 16 }}>{(funds?.total_margin || 0).toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="panel" style={{ padding: 0 }}>
-            <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
-              <h3 className="panel-title" style={{ fontSize: 13 }}>Positions ({positions.length})</h3>
-              <button className="btn btn-ghost btn-sm" onClick={loadData} style={{ fontSize: 9 }}>Refresh</button>
-            </div>
-            {positions.length > 0 ? (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table" style={{ fontSize: 11 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ padding: '6px 8px' }}>Symbol</th>
-                      <th className="numeric">Qty</th>
-                      <th className="numeric">Avg</th>
-                      <th className="numeric">LTP</th>
-                      <th className="numeric">P&L</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {positions.map((p: any, i: number) => {
-                      const live = ticks[p.symbol]
-                      const ltp = live?.last_price || p.last_price || 0
-                      const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : p.unrealised_pnl
-                      return (
-                        <tr key={i}>
-                          <td style={{ fontWeight: 600, padding: '6px 8px' }}>{p.symbol?.split(':').pop()}</td>
-                          <td className="numeric">{p.quantity}</td>
-                          <td className="numeric">{p.average_buy_price?.toFixed(1) || '-'}</td>
-                          <td className="numeric">{ltp?.toFixed(1) || '-'}</td>
-                          <td className={`numeric ${pnl >= 0 ? 'positive' : 'negative'}`} style={{ fontWeight: 600 }}>
-                            {pnl >= 0 ? '+' : ''}{pnl?.toFixed(0) || '0'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p style={{ color: 'var(--text-muted)', fontSize: 12, padding: 14, margin: 0, textAlign: 'center' }}>No positions</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {form.instrument_type === 'OPT' && (
-        <>
-        {chainErr && <div className="alert alert-error" style={{ marginBottom: 12, fontSize: 11 }}>{chainErr}</div>}
-        {chainErr && <div style={{ marginBottom: 12, padding: 12, background: 'rgba(239,68,68,0.08)', borderRadius: 8, fontSize: 11, color: '#ef4444' }}>
-          {chainErr}
-        </div>}
-        </>)}
-      {form.instrument_type === 'OPT' && optionChain.length > 0 && (
-        <div className="panel" style={{ padding: 0, marginBottom: 20 }}>
-          <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
-            <h3 className="panel-title" style={{ fontSize: 13 }}>
-              {form.symbol} Option Chain
-              <span className="last-updated" style={{ marginLeft: 8, fontSize: 10 }}>
-                {form.expiry_date}
-              </span>
+      {/* Order ticket */}
+      {selectedStrike && selectedSide && (
+        <div className="panel" style={{ padding: 16, maxWidth: 420 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h3 style={{ fontFamily: 'Outfit', fontSize: 14, margin: 0 }}>
+              {underlying}{expiry}{selectedStrike}{selectedSide}
             </h3>
-            <button className="btn btn-ghost btn-sm" onClick={() => loadChain(form.symbol, undefined, true)} disabled={chainLoading} style={{ fontSize: 9 }}>
-              {chainLoading ? 'Loading...' : 'Refresh'}
+            <button className="btn btn-sm btn-ghost" onClick={() => { setSelectedStrike(null); setSelectedSide(null) }} style={{ fontSize: 11 }}>
+              Clear
             </button>
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table" style={{ fontSize: 10, minWidth: 600 }}>
-              <thead>
-                <tr>
-                  <th colSpan={5} style={{ textAlign: 'center', color: '#22c55e' }}>CALL</th>
-                  <th className="numeric" style={{ color: '#8b5cf6' }}>Strike</th>
-                  <th colSpan={5} style={{ textAlign: 'center', color: '#ef4444' }}>PUT</th>
-                </tr>
-                <tr>
-                  <th className="numeric">LTP</th><th className="numeric">Chg%</th><th className="numeric">Bid</th>
-                  <th className="numeric">Ask</th><th className="numeric">OI</th><th></th>
-                  <th className="numeric">LTP</th><th className="numeric">Chg%</th><th className="numeric">Bid</th>
-                  <th className="numeric">Ask</th><th className="numeric">OI</th>
-                </tr>
-              </thead>
-              <tbody>
-                {optionChain.map((row: any, i: number) => {
-                  const c = row.call || {}
-                  const p = row.put || {}
-                  return (
-                    <tr key={i} style={{ cursor: 'pointer', background: row.strike === form.strike_price ? 'rgba(139,92,246,0.08)' : undefined }}
-                      onClick={() => setForm((prev) => ({ ...prev, strike_price: row.strike }))}>
-                      <td className="numeric">{c.ltp || '-'}</td>
-                      <td className={`numeric ${(c.change_pct || 0) >= 0 ? 'positive' : 'negative'}`}>
-                        {(c.change_pct || 0) ? `${(c.change_pct || 0) >= 0 ? '+' : ''}${(c.change_pct || 0).toFixed(1)}%` : '-'}
-                      </td>
-                      <td className="numeric" style={{ color: '#22c55e' }}>{c.bid || '-'}</td>
-                      <td className="numeric" style={{ color: '#ef4444' }}>{c.ask || '-'}</td>
-                      <td className="numeric">{(c.oi || 0).toLocaleString()}</td>
-                      <td className="numeric" style={{ fontWeight: 700, color: '#8b5cf6' }}>{row.strike}</td>
-                      <td className="numeric">{p.ltp || '-'}</td>
-                      <td className={`numeric ${(p.change_pct || 0) >= 0 ? 'positive' : 'negative'}`}>
-                        {(p.change_pct || 0) ? `${(p.change_pct || 0) >= 0 ? '+' : ''}${(p.change_pct || 0).toFixed(1)}%` : '-'}
-                      </td>
-                      <td className="numeric" style={{ color: '#22c55e' }}>{p.bid || '-'}</td>
-                      <td className="numeric" style={{ color: '#ef4444' }}>{p.ask || '-'}</td>
-                      <td className="numeric">{(p.oi || 0).toLocaleString()}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+
+          {selectedQuote && (
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12, fontSize: 11 }}>
+              <div>
+                <span style={{ color: '#555570' }}>LTP</span>
+                <p style={{ margin: '2px 0 0', fontWeight: 600 }}>
+                  {selectedQuote.ltp > 0 ? `\u20B9${fmt(selectedQuote.ltp)}` : '\u2014'}
+                </p>
+              </div>
+              <div>
+                <span style={{ color: '#555570' }}>Bid/Ask</span>
+                <p style={{ margin: '2px 0 0', fontWeight: 600 }}>
+                  {selectedQuote.bid > 0 || selectedQuote.ask > 0
+                    ? `\u20B9${fmt(selectedQuote.bid)} / \u20B9${fmt(selectedQuote.ask)}`
+                    : '\u2014'}
+                </p>
+              </div>
+              <div>
+                <span style={{ color: '#555570' }}>IV</span>
+                <p style={{ margin: '2px 0 0', fontWeight: 600 }}>{selectedQuote.iv > 0 ? `${selectedQuote.iv}%` : '\u2014'}</p>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Side</label>
+              <span style={{ fontSize: 13, fontWeight: 700, color: selectedSide === 'CE' ? '#22d3ee' : '#ef4444' }}>
+                {selectedSide === 'CE' ? 'BUY' : 'SELL'}
+              </span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Qty</label>
+              <input className="input" type="number" min={1} value={orderQty} onChange={e => setOrderQty(Number(e.target.value))} style={{ fontSize: 12, padding: '4px 8px' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Type</label>
+              <select className="select" value={orderType} onChange={e => setOrderType(e.target.value as 'MARKET' | 'LIMIT')} style={{ fontSize: 12, padding: '4px 8px' }}>
+                <option value="MARKET">Market</option>
+                <option value="LIMIT">Limit</option>
+              </select>
+            </div>
           </div>
+
+          {orderType === 'LIMIT' && (
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Limit Price</label>
+              <input className="input" type="number" min={0} step={0.05} value={orderPrice} onChange={e => setOrderPrice(Number(e.target.value))} style={{ fontSize: 12, padding: '4px 8px' }} />
+            </div>
+          )}
+
+          {/* Paper / Live toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 10, color: '#555570', fontWeight: 600 }}>Mode</span>
+            <button
+              className={`btn btn-sm ${!isLiveMode ? 'btn-success' : 'btn-secondary'}`}
+              onClick={() => isLiveMode && setIsLiveMode(false)}
+              style={{ fontSize: 10, opacity: !isLiveMode ? 1 : 0.5 }}
+              disabled={!isLiveMode}
+            >
+              PAPER
+            </button>
+            <button
+              className={`btn btn-sm ${isLiveMode ? 'btn-danger' : 'btn-secondary'}`}
+              onClick={handleToggleLive}
+              style={{ fontSize: 10, opacity: isLiveMode ? 1 : 0.5 }}
+            >
+              LIVE
+            </button>
+            {activeBroker && (
+              <span style={{ fontSize: 10, color: '#555570', marginLeft: 'auto' }}>
+                via {activeBroker.broker}
+              </span>
+            )}
+          </div>
+
+          {/* Confirm live dialog */}
+          {confirmingLive && (
+            <div style={{
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+              borderRadius: 8, padding: '10px 12px', marginBottom: 12,
+            }}>
+              <p style={{ margin: '0 0 8px', fontSize: 11, color: '#ef4444', fontWeight: 500 }}>
+                Live trading is not enabled. Enable live mode to place real orders?
+              </p>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn-sm btn-danger" onClick={confirmLive} style={{ fontSize: 10 }}>
+                  Enable Live
+                </button>
+                <button className="btn btn-sm btn-secondary" onClick={() => setConfirmingLive(false)} style={{ fontSize: 10 }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {orderError && (
+            <div className="alert alert-error" style={{ marginBottom: 12 }}>
+              {orderError}
+            </div>
+          )}
+
+          {orderResult && (
+            <div className={`alert ${orderResult.success ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11 }}>
+                {orderResult.success ? 'Order placed successfully' : 'Order rejected'}
+                {orderResult.broker_order_id && <span style={{ display: 'block', fontSize: 10, color: '#555570', marginTop: 2 }}>ID: {orderResult.broker_order_id}</span>}
+                {orderResult.message && <span style={{ display: 'block', fontSize: 10, marginTop: 2 }}>{orderResult.message}</span>}
+              </div>
+            </div>
+          )}
+
+          <button
+            className={`btn ${isLiveMode ? 'btn-danger' : 'btn-primary'}`}
+            onClick={handlePlace}
+            disabled={placing}
+            style={{ width: '100%', fontSize: 12 }}
+          >
+            {placing ? 'Placing...' : `${isLiveMode ? 'LIVE ' : ''}Place ${selectedSide === 'CE' ? 'BUY' : 'SELL'} ${underlying}${expiry}${selectedStrike}${selectedSide}`}
+          </button>
         </div>
       )}
-
-      <div className="panel" style={{ padding: 0 }}>
-        <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
-          <h3 className="panel-title" style={{ fontSize: 13 }}>Orders ({orders.length})</h3>
-        </div>
-        {orders.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table" style={{ fontSize: 11 }}>
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Symbol</th>
-                  <th>Type</th>
-                  <th>Expiry</th>
-                  <th className="numeric">Strike</th>
-                  <th>Side</th>
-                  <th className="numeric">Qty</th>
-                  <th className="numeric">Price</th>
-                  <th className="numeric">Filled</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((o: any, i: number) => {
-                  const cancelable = ['OPEN', 'PENDING', 'TRIGGER_PENDING'].includes(o.status)
-                  return (
-                    <tr key={o.id || i}>
-                      <td style={{ color: 'var(--text-muted)' }}>{o.created_at ? new Date(o.created_at).toLocaleTimeString() : '-'}</td>
-                      <td style={{ fontWeight: 600 }}>{o.symbol?.split(':').pop()}</td>
-                      <td>
-                        <span className={`badge ${o.instrument_type === 'OPT' ? 'badge-violet' : o.instrument_type === 'FUT' ? 'badge-cyan' : 'badge-green'}`} style={{ fontSize: 8 }}>
-                          {o.instrument_type || 'EQ'}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 11 }}>{o.expiry_date || '-'}</td>
-                      <td className="numeric">{o.strike_price || '-'}</td>
-                      <td style={{ color: o.side === 'BUY' ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{o.side}</td>
-                      <td className="numeric">{o.quantity}</td>
-                      <td className="numeric">{o.price?.toFixed(1) || '-'}</td>
-                      <td className="numeric">{o.filled_quantity || 0}</td>
-                      <td>
-                        <span className={`badge ${['FILLED', 'COMPLETE'].includes(o.status) ? 'badge-green' : ['REJECTED', 'CANCELLED'].includes(o.status) ? 'badge-red' : 'badge-violet'}`} style={{ fontSize: 8 }}>
-                          {o.status}
-                        </span>
-                      </td>
-                      <td>
-                        {cancelable && <button className="btn btn-sm btn-danger" style={{ fontSize: 8, padding: '2px 6px' }} onClick={() => handleCancel(o.id)}>Cancel</button>}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p style={{ color: 'var(--text-muted)', fontSize: 12, padding: 14, margin: 0, textAlign: 'center' }}>No orders yet</p>
-        )}
-      </div>
     </div>
   )
 }

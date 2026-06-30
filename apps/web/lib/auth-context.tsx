@@ -1,18 +1,22 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from './api'
 
-interface User {
+export interface User {
   id?: string
   email: string
   full_name?: string
+  subscription_tier?: string
+  is_admin?: boolean
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   token: string | null
   user: User | null
+  tier: string
+  isAdmin: boolean
   signin: (email: string, password: string) => Promise<void>
   signup: (email: string, password: string, full_name?: string) => Promise<void>
   signout: () => void
@@ -21,57 +25,64 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-const TOKEN_KEY = 'trademetrix_token'
-const USER_KEY = 'trademetrix_user'
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_KEY)
-    const storedUser = localStorage.getItem(USER_KEY)
-    if (stored) {
-      setToken(stored)
-      api.setToken(stored)
-      if (storedUser) {
-        try { setUser(JSON.parse(storedUser)) } catch { /* ignore */ }
-      }
+  const tier = user?.subscription_tier || 'free'
+  const isAdmin = user?.is_admin === true
+  const token: string | null = user ? 'authenticated' : null
+
+  const fetchUser = useCallback(async () => {
+    try {
+      const u = await api.auth.me()
+      setUser(u as User)
+    } catch {
+      setUser(null)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
-  const persist = useCallback((t: string, u: User) => {
-    setToken(t)
-    setUser(u)
-    localStorage.setItem(TOKEN_KEY, t)
-    localStorage.setItem(USER_KEY, JSON.stringify(u))
-    api.setToken(t)
-  }, [])
+  useEffect(() => {
+    fetchUser()
+  }, [fetchUser])
 
   const signin = useCallback(async (email: string, password: string) => {
     const data = await api.auth.signin({ email, password }) as { access_token: string; user?: User }
-    persist(data.access_token, data.user || { email })
-  }, [persist])
+    if (data.user) {
+      setUser(data.user as User)
+    } else {
+      await fetchUser()
+    }
+  }, [fetchUser])
 
   const signup = useCallback(async (email: string, password: string, full_name?: string) => {
     const data = await api.auth.signup({ email, password, full_name }) as { access_token: string; user?: User }
-    persist(data.access_token, data.user || { email, full_name })
-  }, [persist])
+    if (data.user) {
+      setUser(data.user as User)
+    } else {
+      await fetchUser()
+    }
+  }, [fetchUser])
 
-  const signout = useCallback(() => {
-    setToken(null)
+  const signout = useCallback(async () => {
+    try {
+      await api.auth.signout()
+    } catch {
+      // ignore — we clear local state regardless
+    }
     setUser(null)
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    api.setToken(null)
     router.push('/auth')
   }, [router])
 
+  const value = useMemo<AuthContextType>(() => ({
+    token, user, tier, isAdmin, signin, signup, signout, loading,
+  }), [token, user, tier, isAdmin, signin, signup, signout, loading])
+
   return (
-    <AuthContext.Provider value={{ token, user, signin, signup, signout, loading }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

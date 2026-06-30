@@ -8,13 +8,11 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    const token = localStorage.getItem('trademetrix_token')
-    if (token) {
-      api.setToken(token)
+    api.auth.me().then(() => {
       router.push('/dashboard')
-    } else {
+    }).catch(() => {
       router.push('/auth')
-    }
+    })
   }, [router])
 
   return (

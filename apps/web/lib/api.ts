@@ -1,33 +1,54 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
-let _token: string | null = null
+export interface AdminUser {
+  id: string
+  email: string
+  full_name: string
+  is_admin: boolean
+  subscription_tier: string
+  active_assignments: number
+}
 
-export function setApiToken(t: string | null) {
-  _token = t
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
 }
 
 interface ApiOptions {
   method?: string
   body?: unknown
   headers?: Record<string, string>
+  signal?: AbortSignal
+}
+
+function getCSRFToken(): string {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : ''
 }
 
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const { method = 'GET', body, headers = {} } = options
+  const { method = 'GET', body, headers = {}, signal } = options
 
-  const authHeaders: Record<string, string> = { ...headers }
-  if (_token) {
-    authHeaders['Authorization'] = `Bearer ${_token}`
+  const finalHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...headers,
+  }
+
+  const csrf = getCSRFToken()
+  if (csrf && method !== 'GET') {
+    finalHeaders['X-CSRF-Token'] = csrf
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders,
-    },
+    headers: finalHeaders,
     credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   })
 
   if (res.status === 204) return undefined as T
@@ -35,19 +56,18 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const data = await res.json()
 
   if (!res.ok) {
-    throw new Error(data.detail || `Request failed: ${res.status}`)
+    throw new ApiError(res.status, data.detail || `Request failed: ${res.status}`)
   }
 
   return data as T
 }
 
 export const api = {
-  setToken: setApiToken,
-
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
-  put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
+  post: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>(path, { method: 'POST', body, signal }),
+  put: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>(path, { method: 'PUT', body, signal }),
+  patch: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>(path, { method: 'PATCH', body, signal }),
+  delete: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'DELETE', signal }),
 
   auth: {
     signup: (data: { email: string; password: string; full_name?: string }) =>
@@ -55,7 +75,7 @@ export const api = {
     signin: (data: { email: string; password: string }) =>
       request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signin', { method: 'POST', body: data }),
     signout: () => request('/auth/signout', { method: 'POST' }),
-    me: () => request('/auth/me'),
+    me: () => request<{ id: string; email: string; full_name?: string; subscription_tier?: string; is_admin?: boolean }>('/auth/me'),
   },
 
   brokers: {
@@ -67,6 +87,7 @@ export const api = {
     fyersAuthUrl: () => request('/brokers/fyers/auth-url'),
     fyersExchangeCode: (authCode: string) => request('/brokers/fyers/exchange-code', { method: 'POST', body: { auth_code: authCode } }),
     fyersReAuth: () => request('/brokers/fyers/re-auth', { method: 'POST' }),
+    activate: (broker: string) => request('/brokers/activate', { method: 'POST', body: { broker } }),
   },
 
   risk: {
@@ -83,10 +104,40 @@ export const api = {
   strategies: {
     list: () => request('/strategies/'),
     listBuiltin: () => request('/strategies/list-builtin'),
+    assigned: () => request('/strategies/assigned'),
     create: (data: { name: string; type: string; config: Record<string, unknown> }) =>
       request('/strategies/', { method: 'POST', body: data }),
     update: (id: string, data: Record<string, unknown>) => request(`/strategies/${id}`, { method: 'PUT', body: data }),
     delete: (id: string) => request(`/strategies/${id}`, { method: 'DELETE' }),
+  },
+
+  admin: {
+    users: {
+      list: () => request<{ users: AdminUser[] }>('/admin/users'),
+      updateTier: (userId: string, data: { subscription_tier: string }) =>
+        request<{ subscription_tier: string; message: string; deactivated_assignments: number }>(
+          `/admin/users/${userId}`, { method: 'PATCH', body: data },
+        ),
+    },
+    assignments: {
+      list: (userId?: string) => request(userId ? `/admin/assignments?user_id=${userId}` : '/admin/assignments'),
+      create: (data: { user_id: string; strategy_key: string }) =>
+        request('/admin/assignments', { method: 'POST', body: data }),
+      remove: (id: string) => request(`/admin/assignments/${id}`, { method: 'DELETE' }),
+    },
+    broadcast: {
+      recipients: (strategyKey: string) =>
+        request<{ recipients: { user_id: string; email: string; full_name: string }[] }>(
+          `/admin/broadcast/recipients?strategy_key=${strategyKey}`,
+        ),
+      send: (data: {
+        strategy_key: string; symbol: string; action: string; quantity: number;
+        price?: number; exchange?: string; order_type?: string; product?: string;
+        reason?: string; paper?: boolean;
+      }) => request<{ results: { user_id: string; email: string; success: boolean; broker_order_id: string; message: string; status: string }[]; count: number; paper: boolean }>(
+        '/admin/broadcast', { method: 'POST', body: data },
+      ),
+    },
   },
 
   engine: {

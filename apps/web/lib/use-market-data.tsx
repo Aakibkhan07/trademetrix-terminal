@@ -43,12 +43,9 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const connect = useCallback(() => {
-    const token = localStorage.getItem('trademetrix_token')
-    if (!token) return
-
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
     const wsBase = baseUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '')
-    const wsUrl = `${wsBase}/api/v1/marketdata/ws?access_token=${token}`
+    const wsUrl = `${wsBase}/api/v1/marketdata/ws`
 
     try {
       const ws = new WebSocket(wsUrl)
@@ -99,18 +96,16 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
 
   const startFeed = useCallback(async () => {
     try {
-      const token = localStorage.getItem('trademetrix_token')
       await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/marketdata/feed/start`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+        method: 'POST', credentials: 'include',
       })
     } catch {}
   }, [])
 
   const stopFeed = useCallback(async () => {
     try {
-      const token = localStorage.getItem('trademetrix_token')
       await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/marketdata/feed/stop`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+        method: 'POST', credentials: 'include',
       })
     } catch {}
   }, [])
