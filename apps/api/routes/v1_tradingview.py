@@ -11,7 +11,7 @@ from core.models import (
     Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType, ProductType, UserProfile,
 )
 from core.safe_query import safe_single
-from engine.executor import ExecutionEngine
+from engine.gate import execute_order, get_mirror_recipients, scaled_qty
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,49 @@ def _verify_signature(payload: bytes, signature: str) -> bool:
         return True
     expected = hmac.new(WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
+
+
+async def _execute_for_user(
+    user_id: str,
+    symbol: str,
+    action: str,
+    quantity: int,
+    price: float,
+    exchange: str,
+    order_type: str,
+    product: str,
+    strategy_id: str,
+    reason: str,
+    source: str,
+) -> dict:
+    try:
+        side = OrderSide.BUY if action in ("BUY", "LONG") else OrderSide.SELL
+        scaled = scaled_qty(user_id, quantity, price)
+        if scaled != quantity:
+            logger.info("Quantity scaled from %d to %d for user=%s", quantity, scaled, user_id)
+
+        order = NormalizedOrder(
+            symbol=symbol,
+            exchange=Exchange(exchange),
+            side=side,
+            order_type=OrderType(order_type),
+            product=ProductType(product),
+            quantity=scaled,
+            price=price if price else 0.0,
+            strategy_id=strategy_id or None,
+            reason=reason,
+        )
+        result = await execute_order(user_id, order, source=source)
+        return {
+            "user_id": user_id,
+            "success": result.success,
+            "broker_order_id": result.broker_order_id,
+            "message": result.message,
+            "status": result.status,
+        }
+    except Exception as e:
+        logger.error("Execution error for user=%s: %s", user_id, e)
+        return {"user_id": user_id, "success": False, "message": str(e), "status": "error"}
 
 
 @router.post("/webhook")
@@ -49,16 +92,32 @@ async def tradingview_webhook(request: Request):
     product = data.get("product", "INTRADAY").upper()
     strategy_id = data.get("strategy_id", "")
     user_id = data.get("user_id", "")
+    reason = data.get("reason", "")
 
     if not symbol or not action or quantity <= 0:
         raise HTTPException(status_code=400, detail="symbol, action, and quantity are required")
 
-    side = OrderSide.BUY if action in ("BUY", "LONG") else OrderSide.SELL
+    is_mirror = bool(strategy_id)
+
+    if is_mirror and not user_id:
+        recipients = await get_mirror_recipients(strategy_id)
+        if not recipients:
+            return {"results": [], "message": "No recipients found for this strategy"}
+
+        results = []
+        for r in recipients:
+            uid = r["user_id"]
+            res = await _execute_for_user(
+                uid, symbol, action, quantity, price, exchange,
+                order_type, product, strategy_id, reason, source="mirror",
+            )
+            results.append(res)
+        return {"results": results, "count": len(results)}
 
     if not user_id:
         creds = safe_single(
             get_supabase().table("broker_credentials")
-            .select("user_id, broker")
+            .select("user_id")
             .eq("is_active", True)
             .limit(1)
             .execute()
@@ -67,41 +126,12 @@ async def tradingview_webhook(request: Request):
             raise HTTPException(status_code=400, detail="No active broker user found")
         user_id = creds["user_id"]
 
-    creds = safe_single(
-        get_supabase().table("broker_credentials")
-        .select("broker")
-        .eq("user_id", user_id)
-        .eq("is_active", True)
+    result = await _execute_for_user(
+        user_id, symbol, action, quantity, price, exchange,
+        order_type, product, strategy_id, reason,
+        source="mirror" if is_mirror else "manual",
     )
-    if not creds:
-        raise HTTPException(status_code=400, detail="No active broker configured")
-
-    try:
-        engine = ExecutionEngine(user_id, creds["broker"])
-        await engine.start()
-
-        order = NormalizedOrder(
-            symbol=symbol,
-            exchange=Exchange(exchange),
-            side=side,
-            order_type=OrderType(order_type),
-            product=ProductType(product),
-            quantity=quantity,
-            price=price if price else 0.0,
-            strategy_id=strategy_id or None,
-        )
-
-        result = await engine.execute_signal(order)
-        await engine.stop()
-
-        return {
-            "success": result.success,
-            "broker_order_id": result.broker_order_id,
-            "message": result.message,
-        }
-    except Exception as e:
-        logger.error("TradingView webhook execution error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+    return result
 
 
 @router.get("/webhook-info")
@@ -121,6 +151,7 @@ async def webhook_info():
             "product": "INTRADAY/DELIVERY",
             "strategy_id": "Optional strategy identifier",
             "user_id": "Optional user ID (auto-detected if omitted)",
+            "reason": "Optional human-readable reason string",
         },
         "example_payload": {
             "symbol": "NIFTY",
