@@ -10,6 +10,17 @@ from core.security import create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+COOKIE_NAME = "tm_session"
+COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 days
+COOKIE_KWARGS = dict(
+    httponly=True,
+    secure=True,
+    samesite="lax",
+    path="/",
+    domain=settings.cookie_domain or None,
+    max_age=COOKIE_MAX_AGE,
+)
+
 
 class SignUpRequest(BaseModel):
     email: str
@@ -25,6 +36,17 @@ class SignInRequest(BaseModel):
 class AuthResponse(BaseModel):
     user: UserProfile
     access_token: str
+
+
+def _set_session_cookie(response: Response, token: str):
+    response.set_cookie(key=COOKIE_NAME, value=token, **COOKIE_KWARGS)
+    # also set old name during migration so existing clients don't break
+    response.set_cookie(key="access_token", value=token, **COOKIE_KWARGS)
+
+
+def _clear_session_cookie(response: Response):
+    response.delete_cookie(key=COOKIE_NAME, path="/", domain=settings.cookie_domain or None)
+    response.delete_cookie(key="access_token", path="/", domain=settings.cookie_domain or None)
 
 
 @router.post("/signup", status_code=201)
@@ -69,14 +91,7 @@ async def signup(req: SignUpRequest, response: Response):
         pass
 
     access_token = create_access_token(subject=user_id)
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=86400,
-    )
+    _set_session_cookie(response, access_token)
 
     user = UserProfile(
         id=user_id,
@@ -118,14 +133,7 @@ async def signin(req: SignInRequest, response: Response):
     user_id = token_data["user"]["id"]
     access_token = create_access_token(subject=user_id)
 
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=86400,
-    )
+    _set_session_cookie(response, access_token)
 
     try:
         client = await get_http_client()
@@ -155,7 +163,7 @@ async def signin(req: SignInRequest, response: Response):
 
 @router.post("/signout")
 async def signout(response: Response, current_user: UserProfile = Depends(get_current_user)):
-    response.delete_cookie(key="access_token", httponly=True, secure=True, samesite="lax")
+    _clear_session_cookie(response)
 
     record_audit(AuditLogEntry(
         user_id=current_user.id,

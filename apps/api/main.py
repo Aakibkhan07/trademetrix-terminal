@@ -1,3 +1,4 @@
+import os
 import time
 from contextlib import asynccontextmanager
 
@@ -15,6 +16,7 @@ from core.sentry import init_sentry
 from core.vault import init_vault
 from market.simulator import market_simulator
 from middleware.validation import InputValidationMiddleware
+from middleware.csrf import CSRFProtectMiddleware
 from routes.v1_ai import router as ai_router
 from routes.v1_auth import router as auth_router
 from routes.v1_backtest import router as backtest_router
@@ -24,7 +26,11 @@ from routes.v1_health import router as health_router
 from routes.v1_marketdata import router as marketdata_router
 from routes.v1_risk import router as risk_router
 from routes.v1_strategies import router as strategies_router
+from routes.v1_admin import router as admin_router
 from routes.v1_tradingview import router as tradingview_router
+
+
+_PROD = os.getenv("ENV", "").lower() == "production"
 
 
 @asynccontextmanager
@@ -43,6 +49,9 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     lifespan=lifespan,
+    docs_url=None if _PROD else "/docs",
+    redoc_url=None if _PROD else "/redoc",
+    openapi_url=None if _PROD else "/openapi.json",
 )
 
 app.add_middleware(
@@ -55,6 +64,7 @@ app.add_middleware(
 
 app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
 app.add_middleware(InputValidationMiddleware)
+app.add_middleware(CSRFProtectMiddleware)
 
 
 @app.middleware("http")
@@ -79,6 +89,7 @@ app.include_router(ai_router, prefix="/api/v1")
 app.include_router(marketdata_router, prefix="/api/v1")
 app.include_router(backtest_router, prefix="/api/v1")
 app.include_router(tradingview_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
 app.include_router(prometheus_router)
 
 

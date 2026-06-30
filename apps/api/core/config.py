@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     secret_key: str
     encryption_key: str
     cors_origins: str = "http://localhost:3000"
+    cookie_domain: str = ""
 
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
