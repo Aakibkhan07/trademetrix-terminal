@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from core.db import get_supabase
 from core.deps import get_current_user
-from core.models import RiskSettings, UserProfile
+from core.models import RiskSettings, TIER_DAILY_LOSS, UserProfile
 from core.safe_query import safe_execute
 from risk.riskguard import RiskGuard
 
@@ -31,6 +31,18 @@ async def update_risk_settings(
     req: UpdateRiskRequest,
     current_user: UserProfile = Depends(get_current_user),
 ):
+    if req.max_daily_loss == 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Daily loss cap cannot be disabled. Minimum is your tier default of ₹{TIER_DAILY_LOSS.get(current_user.subscription_tier, 2000):.0f}.",
+        )
+    tier_floor = TIER_DAILY_LOSS.get(current_user.subscription_tier, 2000.0)
+    if req.max_daily_loss < tier_floor:
+        raise HTTPException(
+            status_code=400,
+            detail=f"max_daily_loss {req.max_daily_loss:.0f} is below your tier floor of ₹{tier_floor:.0f}. You may raise it, but not lower it below your tier's default.",
+        )
+
     rg = RiskGuard(current_user.id)
     settings = RiskSettings(
         user_id=current_user.id,

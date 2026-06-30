@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime, timedelta, timezone
 
 from core.db import get_supabase
-from core.models import NormalizedOrder, RiskSettings
+from core.models import NormalizedOrder, RiskSettings, TIER_DAILY_LOSS
 from core.safe_query import safe_execute, safe_insert, safe_single, safe_update
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ class RiskGuard:
     async def check_order(self, order: NormalizedOrder) -> dict:
         settings = await self._load_settings(order.strategy_id)
         if not settings:
-            return {"allowed": True, "reason": ""}
+            settings = RiskSettings(user_id=self.user_id)
 
         if settings.kill_switch_enabled:
             return {"allowed": False, "reason": "Kill switch is enabled. All trading halted."}
@@ -126,12 +126,22 @@ class RiskGuard:
         return {"allowed": True, "reason": ""}
 
     def _check_max_daily_loss(self, settings: RiskSettings) -> dict:
-        if settings.max_daily_loss <= 0:
-            return {"allowed": True, "reason": ""}
+        max_loss = settings.max_daily_loss
+        if max_loss <= 0:
+            tier = self._get_user_tier()
+            max_loss = TIER_DAILY_LOSS.get(tier, 2000.0)
         today_pnl = self._get_today_pnl()
-        if today_pnl <= -settings.max_daily_loss:
-            return {"allowed": False, "reason": f"Daily loss {today_pnl:.2f} exceeds max {settings.max_daily_loss:.2f} Circuit breaker triggered"}
+        if today_pnl <= -max_loss:
+            return {"allowed": False, "reason": f"Daily loss {today_pnl:.2f} exceeds max {max_loss:.2f}. Circuit breaker triggered."}
         return {"allowed": True, "reason": ""}
+
+    def _get_user_tier(self) -> str:
+        profile = safe_single(
+            get_supabase().table("profiles")
+            .select("subscription_tier")
+            .eq("id", self.user_id)
+        )
+        return profile.get("subscription_tier", "free") if profile else "free"
 
     def _check_drawdown(self, settings: RiskSettings) -> dict:
         if settings.max_drawdown_pct <= 0:
