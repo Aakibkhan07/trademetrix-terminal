@@ -23,31 +23,34 @@ async def metrics():
     return get_metrics()
 
 
-@router.get("/health/ready")
-async def readiness():
-    deps = {"database": False, "cache": False}
-    messages = []
-
+def _db_ok() -> bool:
     try:
         from core.db import get_supabase
         sb = get_supabase()
-        sb.table("users").select("id").limit(1).execute()
-        deps["database"] = True
-    except Exception as e:
-        messages.append(f"database: {e}")
+        sb.table("orders").select("id").limit(1).execute()
+        return True
+    except Exception:
+        return False
 
+
+async def _cache_ok() -> bool:
     try:
         if cache._client:
             await cache._client.ping()
-            deps["cache"] = True
-    except Exception as e:
-        messages.append(f"cache: {e}")
+            return True
+        return False
+    except Exception:
+        return False
 
-    ready = all(deps.values())
+
+@router.get("/health/ready")
+async def readiness():
+    db = _db_ok()
+    cache_ok = await _cache_ok()
+    status = "ok" if db else "degraded"
     return {
-        "status": "ready" if ready else "degraded",
-        "dependencies": deps,
-        "messages": messages,
+        "status": status,
+        "dependencies": {"database": db, "cache": cache_ok},
     }
 
 

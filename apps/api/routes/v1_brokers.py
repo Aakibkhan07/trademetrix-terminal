@@ -29,6 +29,10 @@ class BrokerCredentialResponse(BaseModel):
     is_active: bool
 
 
+class ActivateBrokerRequest(BaseModel):
+    broker: str
+
+
 @router.get("/list")
 async def list_available_brokers():
     return {"brokers": list_brokers()}
@@ -43,6 +47,35 @@ async def get_credentials(current_user: UserProfile = Depends(get_current_user))
         .eq("user_id", current_user.id)
     )
     return {"credentials": data or []}
+
+
+@router.post("/activate")
+async def activate_broker(
+    req: ActivateBrokerRequest,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    supabase = get_supabase()
+    target = safe_single(
+        supabase.table("broker_credentials")
+        .select("id")
+        .eq("user_id", current_user.id)
+        .eq("broker", req.broker)
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail=f"No credentials found for broker '{req.broker}'")
+
+    supabase.table("broker_credentials").update({"is_active": False}).eq("user_id", current_user.id).neq("broker", req.broker).execute()
+    supabase.table("broker_credentials").update({"is_active": True}).eq("id", target["id"]).execute()
+
+    record_audit(AuditLogEntry(
+        user_id=current_user.id,
+        action="activate_broker",
+        resource="broker_credentials",
+        resource_id=target["id"],
+        details={"broker": req.broker},
+    ))
+
+    return {"message": f"Broker '{req.broker}' activated", "broker": req.broker}
 
 
 @router.post("/credentials", status_code=201)
