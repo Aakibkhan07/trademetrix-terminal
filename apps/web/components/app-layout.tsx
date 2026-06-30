@@ -37,26 +37,28 @@ const NAV_SECTIONS = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { token, loading, signout } = useAuth()
+  const { user, loading, signout } = useAuth()
   const [killSwitchActive, setKillSwitchActive] = useState(false)
 
+  const isAuthenticated = !!user
+
   useEffect(() => {
-    if (!token || pathname === '/auth') return
+    if (!isAuthenticated || pathname === '/auth') return
     api.risk.killSwitchStatus().then((d: unknown) => {
       const data = d as { kill_switch_enabled: boolean }
       setKillSwitchActive(data.kill_switch_enabled)
     }).catch(() => {})
-  }, [token, pathname])
+  }, [isAuthenticated, pathname])
 
   useEffect(() => {
-    if (!loading && !token && pathname !== '/auth') {
+    if (!loading && !isAuthenticated && pathname !== '/auth' && pathname !== '/onboarding') {
       router.replace('/auth')
     }
-  }, [loading, token, pathname, router])
+  }, [loading, isAuthenticated, pathname, router])
 
-  if (pathname === '/auth') return <>{children}</>
+  if (pathname === '/auth' || pathname === '/onboarding') return <>{children}</>
 
-  if (loading || !token) {
+  if (loading || !isAuthenticated) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#000', color: '#8888a0' }}>
         <p>Loading...</p>
