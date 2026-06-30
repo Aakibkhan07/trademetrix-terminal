@@ -5,6 +5,7 @@ from core.audit import record_audit
 from core.db import get_supabase
 from core.deps import get_current_user
 from core.models import AuditLogEntry, UserProfile
+from core.safe_query import safe_execute
 from strategies import list_strategies
 
 router = APIRouter(prefix="/strategies", tags=["strategies"])
@@ -24,7 +25,33 @@ class UpdateStrategyRequest(BaseModel):
 
 @router.get("/list-builtin")
 async def list_builtin():
-    return {"strategies": list_strategies()}
+    from strategies import get_strategy_catalog
+    return {"strategies": [s.model_dump() for s in get_strategy_catalog()]}
+
+
+@router.get("/assigned")
+async def get_assigned_strategies(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    data = safe_execute(
+        supabase.table("strategy_assignments")
+        .select("strategy_key, mirror_enabled, required_tier")
+        .eq("user_id", current_user.id)
+        .eq("active", True)
+    )
+    from strategies import get_strategy_catalog
+    catalog = {s.key: s for s in get_strategy_catalog()}
+    result = []
+    for row in data or []:
+        key = row["strategy_key"]
+        info = catalog.get(key)
+        result.append({
+            "strategy_key": key,
+            "name": info.name if info else key,
+            "description": info.description if info else "",
+            "mirror_enabled": row.get("mirror_enabled", True),
+            "required_tier": row.get("required_tier", "free"),
+        })
+    return {"strategies": result}
 
 
 @router.get("/")
