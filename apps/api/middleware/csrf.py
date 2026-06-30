@@ -1,0 +1,50 @@
+import secrets
+from collections.abc import Callable
+
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
+
+from core.config import settings
+
+MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+SAFE_PATHS = {
+    "/api/v1/auth/signin",
+    "/api/v1/auth/signup",
+    "/api/v1/auth/signout",
+    "/api/v1/tradingview/webhook",
+}
+
+CSRF_COOKIE_NAME = "csrf_token"
+
+
+class CSRFProtectMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app: ASGIApp):
+        super().__init__(app)
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        if request.method in MUTATING_METHODS and request.url.path not in SAFE_PATHS:
+            csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+            csrf_header = request.headers.get("x-csrf-token", "")
+            if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF validation failed"},
+                )
+
+        response = await call_next(request)
+
+        if request.url.path in SAFE_PATHS and request.method == "POST":
+            token = secrets.token_hex(32)
+            response.set_cookie(
+                key=CSRF_COOKIE_NAME,
+                value=token,
+                httponly=False,
+                secure=True,
+                samesite="lax",
+                path="/",
+                domain=settings.cookie_domain or None,
+            )
+
+        return response

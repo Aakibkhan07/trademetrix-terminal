@@ -20,7 +20,7 @@ router = APIRouter(prefix="/marketdata", tags=["marketdata"])
 
 @router.websocket("/ws")
 async def marketdata_ws(websocket: WebSocket, token: str | None = None):
-    token = token or websocket.query_params.get("access_token")
+    token = token or websocket.query_params.get("access_token") or websocket.cookies.get("tm_session") or websocket.cookies.get("access_token")
     if not token or decode_access_token(token) is None:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
         return
