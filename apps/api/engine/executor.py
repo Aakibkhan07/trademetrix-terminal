@@ -12,6 +12,7 @@ from core.models import (
     OrderResult,
     OrderStatus,
 )
+from engine.gate import execute_order as gate_execute_order
 from market.symbol_master import symbol_master
 from risk.riskguard import RiskGuard
 
@@ -42,45 +43,7 @@ class ExecutionEngine:
         logger.info(f"Engine stopped for user={self.user_id}")
 
     async def execute_signal(self, signal: NormalizedOrder) -> OrderResult:
-        if not self._adapter:
-            return OrderResult(success=False, message="Engine not started")
-
-        signal.signal_at = datetime.now(UTC)
-        signal.user_id = self.user_id
-        signal.broker = self.broker
-
-        risk_check = await self._riskguard.check_order(signal)
-        signal.risk_checked_at = datetime.now(UTC)
-
-        if not risk_check["allowed"]:
-            signal.status = OrderStatus.REJECTED
-            signal.message = risk_check["reason"]
-            self._log_order(signal)
-            return OrderResult(success=False, message=risk_check["reason"])
-
-        return await self._live_execute(signal)
-
-    async def _live_execute(self, signal: NormalizedOrder) -> OrderResult:
-        signal.sent_at = datetime.now(UTC)
-        send_start = time.monotonic()
-
-        broker_symbol = await symbol_master.resolve_symbol(signal.symbol, self.broker)
-        signal.symbol = broker_symbol or signal.symbol
-
-        result = await self._adapter.place_order(signal)
-
-        send_end = time.monotonic()
-        signal.latency_ms = round((send_end - send_start) * 1000, 2)
-
-        if result.success and result.broker_order_id:
-            signal.broker_order_id = result.broker_order_id
-            signal.status = OrderStatus.OPEN
-            signal.filled_at = datetime.now(UTC)
-            signal.message = "Order placed successfully"
-
-        self._log_order(signal)
-        self._log_audit("place_order", signal)
-        return result
+        return await gate_execute_order(self.user_id, signal, source="manual")
 
     async def cancel_order(self, order_id: str) -> OrderResult:
         if not self._adapter:
