@@ -7,6 +7,7 @@ export interface AdminUser {
   is_admin: boolean
   subscription_tier: string
   active_assignments: number
+  max_active_strategies: number
 }
 
 export class ApiError extends Error {

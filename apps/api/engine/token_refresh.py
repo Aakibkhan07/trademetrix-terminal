@@ -82,10 +82,25 @@ async def refresh_all_tokens() -> list[dict]:
 
     results = []
     for row in rows:
+        try:
+            client_id = decrypt_broker_credentials(row["encrypted_api_key"]) if row.get("encrypted_api_key") else ""
+            secret_key = decrypt_broker_credentials(row["encrypted_secret_key"]) if row.get("encrypted_secret_key") else ""
+            existing_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
+        except Exception as e:
+            logger.warning("Skipping user=%s broker=%s: cannot decrypt credentials (%s)", row["user_id"], row["broker"], e)
+            safe_update("broker_credentials", {"token_status": "needs_attention"}, "user_id", row["user_id"])
+            results.append({
+                "user_id": row["user_id"],
+                "broker": row["broker"],
+                "success": False,
+                "error": f"credential decryption failed: {e}",
+            })
+            continue
+
         creds = {
-            "client_id": decrypt_broker_credentials(row["encrypted_api_key"]),
-            "secret_key": decrypt_broker_credentials(row["encrypted_secret_key"]),
-            "access_token": decrypt_broker_credentials(row.get("encrypted_access_token", "") or ""),
+            "client_id": client_id,
+            "secret_key": secret_key,
+            "access_token": existing_token,
             **row.get("additional_params", {}),
         }
         result = await refresh_user_token(row["user_id"], row["broker"], creds)

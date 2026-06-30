@@ -245,6 +245,20 @@ TIER_ORDER: dict[str, int] = {
     "enterprise": 3,
 }
 
+TIER_LIMITS: dict[str, int] = {
+    "free": 1,
+    "starter": 2,
+    "pro": 8,
+    "enterprise": 15,
+}
+
+TIER_DAILY_LOSS: dict[str, float] = {
+    "free": 2000.0,
+    "starter": 3000.0,
+    "pro": 5000.0,
+    "enterprise": 10000.0,
+}
+
 
 def tier_satisfies(user_tier: str, required_tier: str) -> bool:
     return TIER_ORDER.get(user_tier, -1) >= TIER_ORDER.get(required_tier, 99)

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from core.audit import record_audit
 from core.db import get_supabase
 from core.deps import get_current_user, require_admin
-from core.models import AuditLogEntry, Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType as OrderTypeEnum, ProductType, StrategyAssignment, TIER_ORDER, UserProfile, tier_satisfies
+from core.models import AuditLogEntry, Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType as OrderTypeEnum, ProductType, StrategyAssignment, TIER_LIMITS, TIER_ORDER, UserProfile, tier_satisfies
 from core.safe_query import safe_execute, safe_single
 from engine.gate import execute_order, get_mirror_recipients, scaled_qty
 from strategies import get_strategy_catalog, get_strategy_tier, list_strategies
@@ -47,13 +47,15 @@ async def admin_list_users(admin: UserProfile = Depends(require_admin)):
 
     result = []
     for p in profiles:
+        tier = p.get("subscription_tier", "free")
         result.append({
             "id": p["id"],
             "email": p.get("email", ""),
             "full_name": p.get("full_name", ""),
             "is_admin": p.get("is_admin", False),
-            "subscription_tier": p.get("subscription_tier", "free"),
+            "subscription_tier": tier,
             "active_assignments": count_map.get(p["id"], 0),
+            "max_active_strategies": TIER_LIMITS.get(tier, 99),
         })
 
     return {"users": result}
@@ -109,15 +111,30 @@ async def admin_assign_strategy(
         .eq("user_id", req.user_id)
         .eq("strategy_key", req.strategy_key)
     )
-    if existing:
-        if existing.get("active"):
-            return AssignResponse(
-                id=existing["id"],
-                user_id=req.user_id,
-                strategy_key=req.strategy_key,
-                required_tier=required_tier,
-                message="Already assigned and active (no-op)",
+    if existing and existing.get("active"):
+        return AssignResponse(
+            id=existing["id"],
+            user_id=req.user_id,
+            strategy_key=req.strategy_key,
+            required_tier=required_tier,
+            message="Already assigned and active (no-op)",
+        )
+
+    limit = TIER_LIMITS.get(user_tier, 0)
+    if limit > 0:
+        current_active = safe_execute(
+            supabase.table("strategy_assignments")
+            .select("id")
+            .eq("user_id", req.user_id)
+            .eq("active", True)
+        ) or []
+        if len(current_active) >= limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{user_tier} tier allows {limit} active strategies; unassign one first",
             )
+
+    if existing:
         supabase.table("strategy_assignments").update({"active": True, "assigned_by": admin.id}).eq(
             "id", existing["id"]
         ).execute()
@@ -244,9 +261,22 @@ async def admin_update_user_tier(
         if deactivate_ids:
             supabase.table("strategy_assignments").update({"active": False}).in_("id", deactivate_ids).execute()
             deactivated_count = len(deactivate_ids)
+
+        new_limit = TIER_LIMITS.get(tier, 99)
+        remaining = safe_execute(
+            supabase.table("strategy_assignments")
+            .select("id, created_at")
+            .eq("user_id", user_id)
+            .eq("active", True)
+            .order("created_at", desc=True)
+        ) or []
+        if len(remaining) > new_limit:
+            excess_ids = [a["id"] for a in remaining[new_limit:]]
+            supabase.table("strategy_assignments").update({"active": False}).in_("id", excess_ids).execute()
+            deactivated_count += len(excess_ids)
             logger.info(
-                "Deactivated %d assignment(s) on tier downgrade user=%s %s->%s",
-                deactivated_count, user_id, old_tier, tier,
+                "Deactivated %d excess strategies on tier downgrade user=%s %s->%s (limit %d)",
+                len(excess_ids), user_id, old_tier, tier, new_limit,
             )
 
     record_audit(AuditLogEntry(
