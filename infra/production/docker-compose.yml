@@ -29,6 +29,7 @@ services:
       - trademetrix
     env_file: ../../apps/api/.env
     environment:
+      ENV: production
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: https://ai.trademetrix.tech
       LOG_LEVEL: INFO
