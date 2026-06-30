@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from core.audit import record_audit
 from core.db import get_supabase
 from core.deps import get_current_user
-from core.models import AuditLogEntry, UserProfile
+from core.models import AuditLogEntry, TIER_LIMITS, UserProfile
 from core.safe_query import safe_execute
 from strategies import list_strategies
 
@@ -51,7 +51,11 @@ async def get_assigned_strategies(current_user: UserProfile = Depends(get_curren
             "mirror_enabled": row.get("mirror_enabled", True),
             "required_tier": row.get("required_tier", "free"),
         })
-    return {"strategies": result}
+    return {
+        "strategies": result,
+        "active_count": len(result),
+        "max_active_strategies": TIER_LIMITS.get(current_user.subscription_tier, 99),
+    }
 
 
 @router.get("/")

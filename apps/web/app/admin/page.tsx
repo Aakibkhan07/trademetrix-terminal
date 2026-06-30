@@ -283,7 +283,7 @@ function AdminDashboard() {
                   fontSize: 10, color: '#8888a0', background: 'rgba(139,92,246,0.08)',
                   borderRadius: 4, padding: '1px 6px',
                 }}>
-                  {u.active_assignments} assigned
+                  {u.active_assignments} / {u.max_active_strategies} used
                 </span>
               </div>
             </div>
@@ -335,6 +335,10 @@ function AdminDashboard() {
                     <span style={{ fontSize: 11, color: '#8888a0' }}>Updating...</span>
                   )}
                 </div>
+              </div>
+
+              <div style={{ marginBottom: 16, fontSize: 12, color: '#8888a0' }}>
+                Active strategies: {activeAssignments.length} / {selectedUser.max_active_strategies}
               </div>
 
               <div style={{ marginBottom: 20 }}>
@@ -396,6 +400,14 @@ function AdminDashboard() {
                   const userTierRank = TIER_ORDER[selectedUser.subscription_tier] ?? 0
                   const reqTierRank = TIER_ORDER[s.required_tier] ?? 99
                   const canAssign = userTierRank >= reqTierRank
+                  const atLimit = activeAssignments.length >= selectedUser.max_active_strategies
+
+                  const disabled = !canAssign || atLimit
+                  const title = !canAssign
+                    ? `Requires ${s.required_tier} tier`
+                    : atLimit
+                      ? `${selectedUser.subscription_tier} tier limit of ${selectedUser.max_active_strategies} reached`
+                      : `Assign ${s.name}`
 
                   return (
                     <div key={s.key} className="glass-card" style={{
@@ -411,13 +423,13 @@ function AdminDashboard() {
                         </span>
                       </div>
                       <button
-                        className={`btn btn-sm ${canAssign ? 'btn-cyan' : 'btn-secondary'}`}
-                        onClick={() => canAssign && handleAssign(s.key)}
-                        disabled={!canAssign}
-                        style={{ fontSize: 10, opacity: canAssign ? 1 : 0.5 }}
-                        title={canAssign ? `Assign ${s.name}` : `Requires ${s.required_tier} tier`}
+                        className={`btn btn-sm ${canAssign && !atLimit ? 'btn-cyan' : 'btn-secondary'}`}
+                        onClick={() => !disabled && handleAssign(s.key)}
+                        disabled={disabled}
+                        style={{ fontSize: 10, opacity: disabled ? 0.5 : 1 }}
+                        title={title}
                       >
-                        {canAssign ? 'Assign' : `needs ${s.required_tier}`}
+                        {canAssign ? (atLimit ? 'limit reached' : 'Assign') : `needs ${s.required_tier}`}
                       </button>
                     </div>
                   )

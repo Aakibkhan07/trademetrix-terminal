@@ -35,8 +35,8 @@ def _db_ok() -> bool:
 
 async def _cache_ok() -> bool:
     try:
-        if cache._client:
-            await cache._client.ping()
+        if cache._enabled and cache._redis:
+            await cache._redis.ping()
             return True
         return False
     except Exception:
