@@ -227,6 +227,29 @@ class RiskSettings(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class StrategyAssignment(BaseModel):
+    id: str = ""
+    user_id: str
+    strategy_key: str
+    required_tier: str = "free"
+    mirror_enabled: bool = True
+    active: bool = True
+    assigned_by: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+TIER_ORDER: dict[str, int] = {
+    "free": 0,
+    "starter": 1,
+    "pro": 2,
+    "enterprise": 3,
+}
+
+
+def tier_satisfies(user_tier: str, required_tier: str) -> bool:
+    return TIER_ORDER.get(user_tier, -1) >= TIER_ORDER.get(required_tier, 99)
+
+
 class UserProfile(BaseModel):
     id: str
     email: str
