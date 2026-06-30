@@ -47,8 +47,8 @@ class DhanAdapter(BaseBroker):
         return self._client
 
     async def authenticate(self, credentials: dict) -> Session:
-        self._access_token = credentials.get("access_token", "")
-        self._client_id = credentials.get("client_id", "")
+        self._access_token = credentials.get("access_token") or credentials.get("secret_key") or ""
+        self._client_id = credentials.get("client_id") or credentials.get("api_key") or credentials.get("dhanClientId") or ""
         if not self._access_token:
             raise ValueError("access_token required for Dhan authentication")
         return Session(
@@ -61,30 +61,42 @@ class DhanAdapter(BaseBroker):
     def _headers(self) -> dict:
         return {
             "access-token": self._access_token,
-            "client-id": self._client_id,
+            "Content-Type": "application/json",
         }
 
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
         client = await self._get_client()
-        segments_map = {
-            InstrumentType.EQ: "EQ",
-            InstrumentType.FUT: "FNO",
-            InstrumentType.OPT: "FNO",
+        exchange_segment_map = {
+            (Exchange.NSE, InstrumentType.EQ): "NSE_EQ",
+            (Exchange.NFO, InstrumentType.FUT): "NSE_FNO",
+            (Exchange.NFO, InstrumentType.OPT): "NSE_FNO",
+            (Exchange.BSE, InstrumentType.EQ): "BSE_EQ",
         }
-        payload = {
+        seg = exchange_segment_map.get((order.exchange, order.instrument_type), "NSE_EQ")
+        payload: dict = {
             "dhanClientId": self._client_id,
             "transactionType": self._map_side(order.side),
-            "exchange": order.exchange.value,
-            "segments": segments_map.get(order.instrument_type, "EQ"),
+            "exchangeSegment": seg,
             "productType": self._map_product(order.product),
             "orderType": self._map_order_type(order.order_type),
+            "validity": "DAY",
             "securityId": order.symbol,
             "quantity": order.quantity,
-            "price": order.price or 0,
-            "triggerPrice": order.trigger_price or 0,
-            "afterMarket": False,
-            "validity": "DAY",
+            "afterMarketOrder": False,
         }
+        if order.price and order.price > 0:
+            payload["price"] = order.price
+        if order.trigger_price and order.trigger_price > 0:
+            payload["triggerPrice"] = order.trigger_price
+        if order.disclosed_quantity and order.disclosed_quantity > 0:
+            payload["disclosedQuantity"] = order.disclosed_quantity
+        if order.instrument_type in (InstrumentType.FUT, InstrumentType.OPT) and order.expiry_date:
+            payload["drvExpiryDate"] = order.expiry_date
+        if order.instrument_type == InstrumentType.OPT:
+            if order.option_type:
+                payload["drvOptionType"] = order.option_type.value
+            if order.strike_price:
+                payload["drvStrikePrice"] = order.strike_price
         resp = await client.post(f"{self._base_url}/orders", json=payload, headers=self._headers())
         data = resp.json()
         success = data.get("status") == "success"
@@ -96,7 +108,16 @@ class DhanAdapter(BaseBroker):
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
         client = await self._get_client()
-        payload = {"orderId": order_id, **changes}
+        payload = {
+            "dhanClientId": self._client_id,
+            "orderId": order_id,
+            "orderType": changes.get("order_type", "LIMIT"),
+            "productType": changes.get("product", "INTRADAY"),
+            "validity": "DAY",
+            "quantity": changes.get("quantity", 0),
+            "price": changes.get("price", 0),
+            "triggerPrice": changes.get("trigger_price", 0),
+        }
         resp = await client.put(f"{self._base_url}/orders/{order_id}", json=payload, headers=self._headers())
         data = resp.json()
         return OrderResult(
@@ -119,29 +140,36 @@ class DhanAdapter(BaseBroker):
         client = await self._get_client()
         resp = await client.get(f"{self._base_url}/orders", headers=self._headers())
         data = resp.json()
-        return [self._normalize_order(item) for item in data.get("data", [])]
+        items = data if isinstance(data, list) else data.get("data", [])
+        return [self._normalize_order(item) for item in items]
 
     async def get_positions(self) -> list[Position]:
         client = await self._get_client()
         resp = await client.get(f"{self._base_url}/positions", headers=self._headers())
         data = resp.json()
-        return [self._normalize_position(item) for item in data.get("data", [])]
+        items = data if isinstance(data, list) else data.get("data", [])
+        return [self._normalize_position(item) for item in items]
 
     async def get_holdings(self) -> list[Holding]:
         client = await self._get_client()
         resp = await client.get(f"{self._base_url}/holdings", headers=self._headers())
         data = resp.json()
-        return [self._normalize_holding(item) for item in data.get("data", [])]
+        items = data if isinstance(data, list) else data.get("data", [])
+        if not items and isinstance(data, dict) and "errorMessage" in data:
+            return []
+        return [self._normalize_holding(item) for item in items]
 
     async def get_funds(self) -> Funds:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/funds", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/fundlimit", headers=self._headers())
         data = resp.json()
-        fund_data = data.get("data", {})
+        total = float(data.get("sodLimit", data.get("totalBalance", 0)))
+        used = float(data.get("utilizedAmount", data.get("usedBalance", 0)))
+        avail = float(data.get("availabelBalance", data.get("availableBalance", 0)))
         return Funds(
-            total_margin=float(fund_data.get("totalBalance", 0)),
-            used_margin=float(fund_data.get("usedBalance", 0)),
-            available_margin=float(fund_data.get("availableBalance", 0)),
+            total_margin=total,
+            used_margin=used,
+            available_margin=avail,
             broker=self.broker_name,
         )
 

@@ -1,6 +1,8 @@
 import asyncio
+import gzip
 import json
 import logging
+import os
 import re as _re
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -32,8 +34,31 @@ logger = logging.getLogger(__name__)
 _SYMBOL_TOKEN_CACHE: dict[str, str] = {}
 
 EXCHANGE_MAP = {"NSE": "NSE", "NFO": "NFO", "BSE": "BSE", "MCX": "MCX"}
-EXCHANGE_SEGMENT = {"NSE": "NSE_EQ", "NFO": "NFO_FUT", "BSE": "BSE_EQ", "NFO_OPT": "NFO_OPT"}
-OPTION_REGEX = _re.compile(r"^[A-Z]+\d{2}[A-Z]{3}\d+(CE|PE)$")
+EXCHANGE_SEGMENT = {"NSE": "NSE_EQ", "NFO": "NFO_FUT", "BSE": "BSE_EQ"}
+
+_TOKEN_MAP: dict[str, str] = {}
+_MAP_DIR = os.path.dirname(os.path.abspath(__file__))
+_MAP_PATH = os.path.join(_MAP_DIR, "angel_tokens.json.gz")
+
+
+def _load_token_map() -> dict[str, str]:
+    if _TOKEN_MAP:
+        return _TOKEN_MAP
+    path = _MAP_PATH
+    if not os.path.isfile(path):
+        logger.warning("Token map not found at %s", path)
+        return _TOKEN_MAP
+    try:
+        with gzip.open(path, "rt") as f:
+            data = json.load(f)
+        _TOKEN_MAP.update(data)
+        logger.info("Loaded %d token mappings from %s", len(data), path)
+    except Exception as e:
+        logger.error("Failed to load token map: %s", e)
+    return _TOKEN_MAP
+
+
+_load_token_map()
 
 
 def _dict_val(d: dict, *keys: str, default=None):
@@ -170,27 +195,30 @@ class AngelOneAdapter(BaseBroker):
 
     async def _resolve_symbol_token(self, symbol: str, exchange: str = "NSE") -> str:
         cache_key = f"{exchange}:{symbol}"
-        if cache_key in _SYMBOL_TOKEN_CACHE:
-            return _SYMBOL_TOKEN_CACHE[cache_key]
+        cached = _SYMBOL_TOKEN_CACHE.get(cache_key)
+        if cached:
+            return cached
 
-        if exchange == "NFO" and OPTION_REGEX.match(symbol):
-            exch = "NFO_OPT"
-        else:
-            exch = EXCHANGE_SEGMENT.get(exchange, "NSE_EQ")
+        if not _TOKEN_MAP:
+            _load_token_map()
 
-        payload = {"exchange": exch, "tradingsymbol": symbol, "symboltoken": ""}
-        resp = await client.post(
-            f"{self._base_url}/rest/secure/angelbroking/order/v1/getLtpData",
-            json=payload,
-            headers=self._headers(),
-        )
-        data = self._parse_response(resp)
+        candidates = [f"{exchange}:{symbol}"]
+        if exchange == "NSE" and not symbol.endswith("-EQ"):
+            candidates.insert(0, f"NSE:{symbol}-EQ")
+
         token = ""
-        if data.get("status") and data.get("data"):
-            token = data["data"].get("symboltoken", "")
+        for key in candidates:
+            t = _TOKEN_MAP.get(key)
+            if t:
+                token = t
+                break
+
         if token:
             _SYMBOL_TOKEN_CACHE[cache_key] = token
-        return token
+            return token
+
+        logger.warning("No token found for %s:%s in local map", exchange, symbol)
+        return ""
 
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
         symbol_token = await self._resolve_symbol_token(order.symbol, order.exchange.value)
