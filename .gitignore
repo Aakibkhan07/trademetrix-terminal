@@ -17,3 +17,4 @@ fyersApi.log
 fyersRequests.log
 *.tsbuildinfo
 infra/production/.env.production
+apps/api/brokers/angel_tokens.json.gz
