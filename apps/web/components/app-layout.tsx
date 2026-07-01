@@ -65,12 +65,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, pathname])
 
   useEffect(() => {
-    if (!loading && !isAuthenticated && pathname !== '/auth' && pathname !== '/onboarding') {
+    if (!loading && !isAuthenticated && pathname !== '/auth' && pathname !== '/onboarding' && !pathname.startsWith('/portal')) {
       router.replace('/auth')
     }
   }, [loading, isAuthenticated, pathname, router])
 
-  if (pathname === '/auth' || pathname === '/onboarding') return <>{children}</>
+  if (pathname === '/auth' || pathname === '/onboarding' || pathname.startsWith('/portal')) return <>{children}</>
 
   if (loading || !isAuthenticated) {
     return (
