@@ -27,6 +27,7 @@ from routes.v1_marketdata import router as marketdata_router
 from routes.v1_risk import router as risk_router
 from routes.v1_strategies import router as strategies_router
 from routes.v1_admin import router as admin_router
+from routes.v1_otp import router as otp_router
 from routes.v1_tradingview import router as tradingview_router
 
 
@@ -87,6 +88,7 @@ app.include_router(engine_router, prefix="/api/v1")
 app.include_router(ai_router, prefix="/api/v1")
 app.include_router(marketdata_router, prefix="/api/v1")
 app.include_router(backtest_router, prefix="/api/v1")
+app.include_router(otp_router, prefix="/api/v1")
 app.include_router(tradingview_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(prometheus_router)

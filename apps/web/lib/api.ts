@@ -76,7 +76,13 @@ export const api = {
     signin: (data: { email: string; password: string }) =>
       request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signin', { method: 'POST', body: data }),
     signout: () => request('/auth/signout', { method: 'POST' }),
-    me: () => request<{ id: string; email: string; full_name?: string; subscription_tier?: string; is_admin?: boolean }>('/auth/me'),
+    me: () => request<{ id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string; is_admin?: boolean }>('/auth/me'),
+    sendOTP: (data: { email: string; phone?: string }) =>
+      request<{ message: string; exists: boolean }>('/auth/send-otp', { method: 'POST', body: data }),
+    registerWithOTP: (data: { email: string; password: string; full_name?: string; phone?: string }) =>
+      request<{ message: string; user_id: string }>('/auth/register-with-otp', { method: 'POST', body: data }),
+    verifyOTP: (data: { email: string; otp: string }) =>
+      request<{ access_token: string; user: { id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string }; is_new: boolean }>('/auth/verify-otp', { method: 'POST', body: data }),
   },
 
   brokers: {

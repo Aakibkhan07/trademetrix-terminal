@@ -141,6 +141,20 @@ CREATE TABLE IF NOT EXISTS public.journal_entries (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.otp_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    code_hash TEXT NOT NULL,
+    purpose TEXT NOT NULL DEFAULT 'login',
+    expires_at TIMESTAMPTZ NOT NULL,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_otp_codes_email ON public.otp_codes(email);
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '';
+
 CREATE TABLE IF NOT EXISTS public.audit_log (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID NOT NULL,
