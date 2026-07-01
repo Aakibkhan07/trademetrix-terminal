@@ -1,17 +1,19 @@
 import hashlib
+import json
 import random
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Response, status
+from pydantic import BaseModel, field_validator
 
 from core.audit import record_audit
+from core.cache import cache
 from core.config import settings
 from core.db import get_supabase
 from core.http_client import get_http_client
 from core.models import AuditLogEntry, UserProfile
 from core.notifications import deliver_otp
 from core.security import create_access_token
-from pydantic import BaseModel, field_validator
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -25,6 +27,8 @@ COOKIE_KWARGS = dict(
     domain=settings.cookie_domain or None,
     max_age=COOKIE_MAX_AGE,
 )
+
+OTP_TTL = 300
 
 
 class SendOTPRequest(BaseModel):
@@ -65,17 +69,21 @@ def _generate_otp() -> str:
     return str(random.randint(100000, 999999))
 
 
-def _store_otp(supabase, email: str, code: str, phone: str = ""):
-    expires_at = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
+async def _store_otp(email: str, code: str, phone: str = ""):
     code_hash = hashlib.sha256(code.encode()).hexdigest()
-    supabase.table("otp_codes").insert({
-        "email": email,
-        "phone": phone,
-        "code_hash": code_hash,
-        "purpose": "login",
-        "expires_at": expires_at,
-    }).execute()
-    supabase.table("otp_codes").delete().eq("email", email).eq("purpose", "login").lt("expires_at", datetime.now(UTC).isoformat()).execute()
+    await cache.set(
+        f"otp:{email}:login",
+        {"code_hash": code_hash, "phone": phone, "verified": False, "created_at": datetime.now(UTC).isoformat()},
+        ttl=OTP_TTL,
+    )
+
+
+async def _get_stored_otp(email: str) -> dict | None:
+    return await cache.get(f"otp:{email}:login")
+
+
+async def _delete_otp(email: str):
+    await cache.delete(f"otp:{email}:login")
 
 
 def _check_user_exists(supabase, email: str) -> dict | None:
@@ -89,7 +97,7 @@ async def send_otp(req: SendOTPRequest):
     user = _check_user_exists(supabase, req.email)
 
     code = _generate_otp()
-    _store_otp(supabase, req.email, code, req.phone)
+    await _store_otp(req.email, code, req.phone)
     await deliver_otp(code, req.email, req.phone)
 
     if user:
@@ -142,7 +150,7 @@ async def register_with_otp(req: RegisterWithOTPRequest):
         pass
 
     code = _generate_otp()
-    _store_otp(supabase, req.email, code, req.phone)
+    await _store_otp(req.email, code, req.phone)
     await deliver_otp(code, req.email, req.phone)
 
     return {"message": "Account created. OTP sent to your registered contact.", "user_id": user_id}
@@ -150,27 +158,22 @@ async def register_with_otp(req: RegisterWithOTPRequest):
 
 @router.post("/verify-otp")
 async def verify_otp(req: VerifyOTPRequest, response: Response):
-    supabase = get_supabase()
-
-    records = supabase.table("otp_codes").select("*").eq("email", req.email).eq("purpose", "login").eq("verified_at", None).order("created_at", desc=True).limit(5).execute()
-    if not records or not records.data:
+    stored = await _get_stored_otp(req.email)
+    if not stored:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No OTP found. Request a new one.")
 
     code_hash = hashlib.sha256(req.otp.encode()).hexdigest()
-    valid = None
-    for record in records.data:
-        expires_at = record.get("expires_at", "")
-        if record.get("code_hash") == code_hash:
-            if expires_at and datetime.fromisoformat(expires_at.replace("Z", "+00:00")) < datetime.now(UTC):
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP expired. Request a new one.")
-            valid = record
-            break
-
-    if not valid:
+    if stored.get("code_hash") != code_hash:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP. Please try again.")
 
-    supabase.table("otp_codes").update({"verified_at": datetime.now(UTC).isoformat()}).eq("id", valid["id"]).execute()
+    if stored.get("verified"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP already used. Request a new one.")
 
+    stored["verified"] = True
+    await _store_otp(req.email, req.otp, stored.get("phone", ""))
+    await _delete_otp(req.email)
+
+    supabase = get_supabase()
     user = _check_user_exists(supabase, req.email)
     is_new = False
     if not user:
