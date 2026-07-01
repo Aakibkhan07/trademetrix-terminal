@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
+import { api } from '@/lib/api'
 
 export interface TickData {
   symbol: string
@@ -95,19 +96,11 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const startFeed = useCallback(async () => {
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/marketdata/feed/start`, {
-        method: 'POST', credentials: 'include',
-      })
-    } catch {}
+    try { await api.post('/marketdata/feed/start') } catch {}
   }, [])
 
   const stopFeed = useCallback(async () => {
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/marketdata/feed/stop`, {
-        method: 'POST', credentials: 'include',
-      })
-    } catch {}
+    try { await api.post('/marketdata/feed/stop') } catch {}
   }, [])
 
   return (

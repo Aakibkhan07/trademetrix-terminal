@@ -13,6 +13,10 @@ SAFE_PATHS = {
     "/api/v1/auth/signup",
     "/api/v1/auth/signout",
     "/api/v1/tradingview/webhook",
+    "/api/v1/marketdata/feed/start",
+    "/api/v1/marketdata/feed/stop",
+    "/api/v1/marketdata/simulator/start",
+    "/api/v1/marketdata/simulator/stop",
 }
 
 CSRF_COOKIE_NAME = "csrf_token"

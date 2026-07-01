@@ -39,7 +39,6 @@ async def lifespan(app: FastAPI):
     init_sentry()
     init_vault()
     await cache.init()
-    await market_simulator.start()
     yield
     await market_simulator.stop()
     await cache.close()
