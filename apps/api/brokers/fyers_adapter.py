@@ -233,19 +233,21 @@ class FyersAdapter(BaseBroker):
         if not self._fyers:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
         self._running = True
-        _prev: dict[str, float] = {}
+        sym_map: dict[str, str] = {}
+        for s in symbols:
+            f = s.replace("-INDEX", "")
+            sym_map[f] = s
 
         while self._running:
             try:
-                data = await self._sync(self._fyers.quotes, {"symbols": ",".join(symbols)})
+                data = await self._sync(self._fyers.quotes, {"symbols": ",".join(sym_map)})
                 for item in data.get("d", []):
                     v = item.get("v", {})
                     sym = v.get("symbol") or item.get("n", "")
+                    sym = sym_map.get(sym, sym)
                     lp = float(v.get("lp", 0))
-                    prev = _prev.get(sym)
-                    change = (lp - prev) if prev is not None else 0.0
-                    change_pct = ((lp - prev) / prev * 100) if prev and prev != 0 else 0.0
-                    _prev[sym] = lp
+                    change = float(v.get("ch", 0))
+                    change_pct = float(v.get("chp", 0))
                     inst_type = InstrumentType.EQ
                     strike = None
                     expiry = None
