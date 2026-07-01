@@ -57,7 +57,7 @@ function SkeletonLine({ w }: { w: string }) {
 
 function SkeletonCard() {
   return (
-    <div className="glass-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 6 }}>
+    <div className="t-panel" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 6 }}>
       <SkeletonLine w="50%" />
       <SkeletonLine w="70%" />
     </div>
@@ -66,7 +66,7 @@ function SkeletonCard() {
 
 function SkeletonPane() {
   return (
-    <div className="panel" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="t-panel" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
       <SkeletonLine w="30%" />
       <SkeletonLine w="60%" />
       <div style={{ height: 8 }} />
@@ -80,13 +80,11 @@ function SkeletonPane() {
 function NotAuthorized() {
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Admin</h1>
-          <p className="page-subtitle">Administration panel</p>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 className="t-page-title">Admin</h1>
+        <p className="t-sub" style={{ fontSize: 13 }}>Administration panel</p>
       </div>
-      <div className="alert alert-error">
+      <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13 }}>
         You do not have admin access.
       </div>
     </div>
@@ -99,8 +97,8 @@ export default function AdminPage() {
   if (authLoading) {
     return (
       <div>
-        <div className="page-header">
-          <h1 className="page-title">Admin</h1>
+        <div style={{ marginBottom: 24 }}>
+          <h1 className="t-page-title">Admin</h1>
         </div>
         <SkeletonPane />
       </div>
@@ -205,27 +203,25 @@ function AdminDashboard() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Admin Panel</h1>
-          <p className="page-subtitle">Manage users and strategy assignments</p>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 className="t-page-title">Admin Panel</h1>
+        <p className="t-sub" style={{ fontSize: 13 }}>Manage users and strategy assignments</p>
       </div>
 
       {usersError && (
-        <div className="alert alert-error" style={{ marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>
           {usersError.message}
         </div>
       )}
 
       {tierError && (
-        <div className="alert alert-error" style={{ marginBottom: 12 }}>
+        <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 12 }}>
           {tierError}
         </div>
       )}
 
       {tierSuccess && (
-        <div className="alert alert-success" style={{ marginBottom: 12 }}>
+        <div style={{ padding: '12px 16px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 8, color: '#22c55e', fontSize: 13, marginBottom: 12 }}>
           {tierSuccess}
         </div>
       )}
@@ -233,7 +229,7 @@ function AdminDashboard() {
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
         <div style={{ flex: '0 0 320px', minWidth: 0 }}>
           <input
-            className="input"
+            className="t-input"
             placeholder="Search users..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -260,7 +256,7 @@ function AdminDashboard() {
           {!usersLoading && filteredUsers.map(u => (
             <div
               key={u.id}
-              className="glass-card"
+              className="t-panel"
               onClick={() => {
                 setSelectedUserId(u.id)
                 setTierError('')
@@ -292,7 +288,7 @@ function AdminDashboard() {
 
         <div style={{ flex: 1, minWidth: 0 }}>
           {!selectedUser && !usersLoading && (
-            <div className="panel" style={{ padding: 20, textAlign: 'center' }}>
+            <div className="t-panel" style={{ padding: 20, textAlign: 'center' }}>
               <p style={{ margin: 0, fontSize: 13, color: '#555570' }}>
                 Select a user from the list to manage their tier and strategy assignments.
               </p>
@@ -300,7 +296,7 @@ function AdminDashboard() {
           )}
 
           {selectedUser && (
-            <div className="panel" style={{ padding: 20 }}>
+            <div className="t-panel" style={{ padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <div>
                   <h2 style={{ fontFamily: 'Outfit', fontSize: 16, margin: 0 }}>
@@ -319,7 +315,7 @@ function AdminDashboard() {
                 </label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <select
-                    className="select"
+                    className="t-select"
                     value={selectedUser.subscription_tier}
                     onChange={(e) => handleTierChange(e.target.value)}
                     disabled={tierUpdating}
@@ -348,7 +344,7 @@ function AdminDashboard() {
                 {assignmentsLoading && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {Array.from({ length: 2 }).map((_, i) => (
-                      <div key={i} className="glass-card" style={{ padding: 10, display: 'flex', gap: 8 }}>
+                      <div key={i} className="t-panel" style={{ padding: 10, display: 'flex', gap: 8 }}>
                         <SkeletonLine w="30%" />
                         <SkeletonLine w="50px" />
                       </div>
@@ -363,7 +359,7 @@ function AdminDashboard() {
                 {!assignmentsLoading && activeAssignments.map(a => {
                   const info = catalog.find(c => c.key === a.strategy_key)
                   return (
-                    <div key={a.id} className="glass-card" style={{
+                    <div key={a.id} className="t-panel" style={{
                       padding: '8px 12px', marginBottom: 4,
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     }}>
@@ -376,7 +372,7 @@ function AdminDashboard() {
                         </span>
                       </div>
                       <button
-                        className="btn btn-sm btn-danger"
+                        className="t-btn t-btn-sm t-btn-danger"
                         onClick={() => handleUnassign(a.id)}
                         style={{ fontSize: 10 }}
                       >
@@ -410,7 +406,7 @@ function AdminDashboard() {
                       : `Assign ${s.name}`
 
                   return (
-                    <div key={s.key} className="glass-card" style={{
+                    <div key={s.key} className="t-panel" style={{
                       padding: '8px 12px', marginBottom: 4,
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     }}>
@@ -423,7 +419,7 @@ function AdminDashboard() {
                         </span>
                       </div>
                       <button
-                        className={`btn btn-sm ${canAssign && !atLimit ? 'btn-cyan' : 'btn-secondary'}`}
+                        className={`t-btn t-btn-sm ${canAssign && !atLimit ? 't-btn' : 't-btn'}`}
                         onClick={() => !disabled && handleAssign(s.key)}
                         disabled={disabled}
                         style={{ fontSize: 10, opacity: disabled ? 0.5 : 1 }}

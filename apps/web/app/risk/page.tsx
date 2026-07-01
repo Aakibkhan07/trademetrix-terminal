@@ -32,7 +32,6 @@ export default function RiskPage() {
         is_live: (live as { is_live: boolean }).is_live,
       }))
     } catch {
-      // use defaults
     } finally {
       setLoading(false)
     }
@@ -65,14 +64,14 @@ export default function RiskPage() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 24 }}>
-        <h1 className="page-title">Risk Control</h1>
+      <div style={{ marginBottom: 24 }}>
+        <h1 className="t-page-title">Risk Control</h1>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title">Kill Switch</h3>
+        <div className="t-panel">
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Kill Switch</h3>
           </div>
           <button
             className={`kill-switch ${data.kill_switch ? 'active' : 'inactive'}`}
@@ -91,12 +90,12 @@ export default function RiskPage() {
           </p>
         </div>
 
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title">Trading Mode</h3>
+        <div className="t-panel">
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Trading Mode</h3>
           </div>
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <p style={{ fontSize: 32, fontWeight: 700, margin: 0 }} className={data.is_live ? 'negative' : 'neon-cyan'}>
+            <p style={{ fontSize: 32, fontWeight: 700, margin: 0 }} className={data.is_live ? 't-down' : 'neon-cyan'}>
               {data.is_live ? 'LIVE' : 'PAPER'}
             </p>
             <p style={{ color: '#555570', fontSize: 12, marginTop: 8 }}>
@@ -107,7 +106,7 @@ export default function RiskPage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              className={`btn ${data.is_live ? 'btn-danger' : 'btn-cyan'}`}
+              className={`t-btn ${data.is_live ? 't-btn-danger' : 't-btn'}`}
               style={{ flex: 1 }}
               onClick={() => data.is_live ? handleDisableLive() : setShowLiveModal(true)}
             >
@@ -117,29 +116,29 @@ export default function RiskPage() {
         </div>
       </div>
 
-      <div className="panel" style={{ marginBottom: 24 }}>
-        <div className="panel-header">
-          <h3 className="panel-title">Risk Limits</h3>
+      <div className="t-panel" style={{ marginBottom: 24 }}>
+        <div className="t-panel-header">
+          <h3 className="t-panel-title">Risk Limits</h3>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           <div>
-            <p style={{ color: '#8888a0', fontSize: 12, margin: '0 0 4px' }}>Max Daily Loss</p>
-            <p className="numeric" style={{ fontSize: 20, margin: 0 }}>{data.max_daily_loss || 'Not set'}</p>
+            <p className="t-stat-label" style={{ margin: '0 0 4px' }}>Max Daily Loss</p>
+            <p className="t-num" style={{ fontSize: 20, margin: 0 }}>{data.max_daily_loss || 'Not set'}</p>
           </div>
           <div>
-            <p style={{ color: '#8888a0', fontSize: 12, margin: '0 0 4px' }}>Max Drawdown</p>
-            <p className="numeric" style={{ fontSize: 20, margin: 0 }}>{data.max_drawdown || 'Not set'}%</p>
+            <p className="t-stat-label" style={{ margin: '0 0 4px' }}>Max Drawdown</p>
+            <p className="t-num" style={{ fontSize: 20, margin: 0 }}>{data.max_drawdown || 'Not set'}%</p>
           </div>
           <div>
-            <p style={{ color: '#8888a0', fontSize: 12, margin: '0 0 4px' }}>Max Open Positions</p>
-            <p className="numeric" style={{ fontSize: 20, margin: 0 }}>{data.max_open_positions}</p>
+            <p className="t-stat-label" style={{ margin: '0 0 4px' }}>Max Open Positions</p>
+            <p className="t-num" style={{ fontSize: 20, margin: 0 }}>{data.max_open_positions}</p>
           </div>
         </div>
       </div>
 
       {showLiveModal && (
-        <div className="modal-overlay" onClick={() => setShowLiveModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="t-modal-overlay" onClick={() => setShowLiveModal(false)}>
+          <div className="t-modal" onClick={(e) => e.stopPropagation()}>
             <h2 style={{ fontFamily: 'Outfit', fontSize: 18, margin: '0 0 8px', color: '#ef4444' }}>
               WARNING: Enable Live Trading
             </h2>
@@ -162,8 +161,8 @@ export default function RiskPage() {
               </span>
             </label>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => setShowLiveModal(false)}>Cancel</button>
-              <button className="btn btn-danger" onClick={handleEnableLive} disabled={!liveConfirm}>
+              <button className="t-btn" onClick={() => setShowLiveModal(false)}>Cancel</button>
+              <button className="t-btn-danger" onClick={handleEnableLive} disabled={!liveConfirm}>
                 Confirm Live Mode
               </button>
             </div>

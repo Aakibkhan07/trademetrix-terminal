@@ -71,58 +71,62 @@ export default function PositionsPage() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="t-page-header">
         <div>
-          <h1 className="page-title">Positions</h1>
-          <p className="page-subtitle">
-            <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
+          <h1 className="t-page-title">Positions</h1>
+          <p className="t-page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-sub'}`} />
             {connected ? 'Live' : 'Connecting...'}
-            {lastRefresh && <span className="last-updated" style={{ marginLeft: 12 }}>Updated {lastRefresh}</span>}
+            {lastRefresh && <span className="t-faint" style={{ marginLeft: 8 }}>Updated <span className="t-num">{lastRefresh}</span></span>}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn btn-ghost btn-sm" onClick={loadData}>Refresh</button>
-        </div>
+        <button className="t-btn t-btn-ghost t-btn-sm" onClick={loadData}>Refresh</button>
       </div>
 
       {funds && (
-        <div className="grid-3" style={{ gap: 12, marginBottom: 20 }}>
-          <div className="stat-card" style={{ padding: 12 }}>
-            <span className="stat-label">Available</span>
-            <span className="stat-value" style={{ fontSize: 18 }}>{(funds.available_margin || 0).toLocaleString()}</span>
+        <div className="t-row" style={{ gap: 12, marginBottom: 16 }}>
+          <div className="t-panel" style={{ flex: 1 }}>
+            <div className="t-stat">
+              <div className="t-stat-label">Available</div>
+              <div className="t-stat-value">{(funds.available_margin || 0).toLocaleString()}</div>
+            </div>
           </div>
-          <div className="stat-card" style={{ padding: 12 }}>
-            <span className="stat-label">Used</span>
-            <span className="stat-value" style={{ fontSize: 18, color: '#22d3ee' }}>{(funds.used_margin || 0).toLocaleString()}</span>
+          <div className="t-panel" style={{ flex: 1 }}>
+            <div className="t-stat">
+              <div className="t-stat-label">Used</div>
+              <div className="t-stat-value" style={{ color: 'var(--cyan)' }}>{(funds.used_margin || 0).toLocaleString()}</div>
+            </div>
           </div>
-          <div className="stat-card" style={{ padding: 12 }}>
-            <span className="stat-label">Total P&L</span>
-            <span className={`stat-value ${totalPnl >= 0 ? 'positive' : 'negative'}`} style={{ fontSize: 18 }}>
-              {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(0)}
-            </span>
+          <div className="t-panel" style={{ flex: 1 }}>
+            <div className="t-stat">
+              <div className="t-stat-label">Total P&amp;L</div>
+              <div className={`t-stat-value ${totalPnl >= 0 ? 't-up' : 't-down'}`}>
+                {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(0)}
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="panel" style={{ padding: 0, marginBottom: 20 }}>
-        <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
-          <h3 className="panel-title" style={{ fontSize: 13 }}>Open Positions ({positions.length})</h3>
+      <div className="t-panel" style={{ padding: 0 }}>
+        <div className="t-panel-header">
+          <h3 className="t-panel-title">Open Positions ({positions.length})</h3>
         </div>
         {positions.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table" style={{ fontSize: 11 }}>
+          <div className="t-table-wrap">
+            <table className="t-table">
               <thead>
                 <tr>
                   <th>Symbol</th>
                   <th>Type</th>
                   <th>Expiry</th>
-                  <th className="numeric">Strike</th>
-                  <th className="numeric">Qty</th>
-                  <th className="numeric">Buy Avg</th>
-                  <th className="numeric">LTP</th>
-                  <th className="numeric">P&L</th>
-                  <th className="numeric">P&L%</th>
-                  <th className="numeric">Product</th>
+                  <th className="t-num">Strike</th>
+                  <th className="t-num">Qty</th>
+                  <th className="t-num">Buy Avg</th>
+                  <th className="t-num">LTP</th>
+                  <th className="t-num">P&amp;L</th>
+                  <th className="t-num">P&amp;L%</th>
+                  <th className="t-num">Product</th>
                   <th></th>
                 </tr>
               </thead>
@@ -136,28 +140,28 @@ export default function PositionsPage() {
                     <tr key={i}>
                       <td style={{ fontWeight: 600 }}>{p.symbol?.split(':').pop()}</td>
                       <td>
-                        <span className={`badge ${p.instrument_type === 'OPT' ? 'badge-violet' : p.instrument_type === 'FUT' ? 'badge-cyan' : 'badge-green'}`} style={{ fontSize: 9 }}>
+                        <span className={`t-badge ${p.instrument_type === 'OPT' ? 't-badge-violet' : p.instrument_type === 'FUT' ? 't-badge-cyan' : 't-badge-green'}`}>
                           {p.instrument_type || 'EQ'}
                         </span>
                       </td>
-                      <td style={{ fontSize: 11 }}>{p.expiry_date || '-'}</td>
-                      <td className="numeric">{p.strike_price || '-'}</td>
-                      <td className="numeric">{p.quantity}</td>
-                      <td className="numeric">{p.average_buy_price?.toFixed(1) || '-'}</td>
-                      <td className="numeric">{ltp?.toFixed(1) || '-'}</td>
-                      <td className={`numeric ${pnl >= 0 ? 'positive' : 'negative'}`} style={{ fontWeight: 600 }}>
+                      <td className="t-faint" style={{ fontSize: 11 }}>{p.expiry_date || '-'}</td>
+                      <td className="t-num">{p.strike_price || '-'}</td>
+                      <td className="t-num">{p.quantity}</td>
+                      <td className="t-num">{p.average_buy_price?.toFixed(1) || '-'}</td>
+                      <td className="t-num">{ltp?.toFixed(1) || '-'}</td>
+                      <td className={`t-num ${pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 600 }}>
                         {pnl >= 0 ? '+' : ''}{pnl?.toFixed(0) || '0'}
                       </td>
-                      <td className={`numeric ${pnlPct >= 0 ? 'positive' : 'negative'}`}>
+                      <td className={`t-num ${pnlPct >= 0 ? 't-up' : 't-down'}`}>
                         {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
                       </td>
-                      <td className="numeric">
-                        <span className={`badge ${p.product === 'INTRADAY' ? 'badge-cyan' : 'badge-violet'}`} style={{ fontSize: 9 }}>
+                      <td className="t-num">
+                        <span className={`t-badge ${p.product === 'INTRADAY' ? 't-badge-cyan' : 't-badge-violet'}`}>
                           {p.product}
                         </span>
                       </td>
                       <td>
-                        <button className="btn btn-sm btn-danger" style={{ fontSize: 9, padding: '2px 8px' }}
+                        <button className="t-btn t-btn-sm t-btn-danger"
                           onClick={() => sqOff(p.symbol, p.quantity)}>
                           {p.quantity > 0 ? 'SELL' : 'BUY'}
                         </button>
@@ -169,30 +173,30 @@ export default function PositionsPage() {
             </table>
           </div>
         ) : (
-          <p style={{ color: 'var(--text-muted)', fontSize: 12, padding: 20, margin: 0, textAlign: 'center' }}>
-            {loading ? 'Loading...' : 'No open positions'}
-          </p>
+          <div className="t-panel-body" style={{ textAlign: 'center', padding: 20 }}>
+            <span className="t-faint">{loading ? 'Loading...' : 'No open positions'}</span>
+          </div>
         )}
       </div>
 
-      <div className="panel" style={{ padding: 0 }}>
-        <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
-          <h3 className="panel-title" style={{ fontSize: 13 }}>Orders ({orders.length})</h3>
+      <div className="t-panel" style={{ padding: 0 }}>
+        <div className="t-panel-header">
+          <h3 className="t-panel-title">Orders ({orders.length})</h3>
         </div>
         {orders.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table" style={{ fontSize: 11 }}>
+          <div className="t-table-wrap">
+            <table className="t-table">
               <thead>
                 <tr>
                   <th>Symbol</th>
                   <th>Type</th>
                   <th>Expiry</th>
-                  <th className="numeric">Strike</th>
+                  <th className="t-num">Strike</th>
                   <th>Side</th>
-                  <th className="numeric">Qty</th>
-                  <th className="numeric">Price</th>
-                  <th className="numeric">Filled</th>
-                  <th className="numeric">Avg</th>
+                  <th className="t-num">Qty</th>
+                  <th className="t-num">Price</th>
+                  <th className="t-num">Filled</th>
+                  <th className="t-num">Avg</th>
                   <th>Status</th>
                   <th>Time</th>
                   <th></th>
@@ -203,29 +207,28 @@ export default function PositionsPage() {
                   <tr key={i}>
                     <td style={{ fontWeight: 600 }}>{o.symbol?.split(':').pop()}</td>
                     <td>
-                      <span className={`badge ${o.instrument_type === 'OPT' ? 'badge-violet' : o.instrument_type === 'FUT' ? 'badge-cyan' : 'badge-green'}`} style={{ fontSize: 9 }}>
+                      <span className={`t-badge ${o.instrument_type === 'OPT' ? 't-badge-violet' : o.instrument_type === 'FUT' ? 't-badge-cyan' : 't-badge-green'}`}>
                         {o.instrument_type || 'EQ'}
                       </span>
                     </td>
-                    <td style={{ fontSize: 11 }}>{o.expiry_date || '-'}</td>
-                    <td className="numeric">{o.strike_price || '-'}</td>
-                    <td style={{ color: o.side === 'BUY' ? '#22c55e' : '#ef4444' }}>{o.side}</td>
-                    <td className="numeric">{o.quantity}</td>
-                    <td className="numeric">{o.price?.toFixed(1) || '-'}</td>
-                    <td className="numeric">{o.filled_quantity || 0}</td>
-                    <td className="numeric">{o.average_price?.toFixed(1) || '-'}</td>
+                    <td className="t-faint" style={{ fontSize: 11 }}>{o.expiry_date || '-'}</td>
+                    <td className="t-num">{o.strike_price || '-'}</td>
+                    <td className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{o.side}</td>
+                    <td className="t-num">{o.quantity}</td>
+                    <td className="t-num">{o.price?.toFixed(1) || '-'}</td>
+                    <td className="t-num">{o.filled_quantity || 0}</td>
+                    <td className="t-num">{o.average_price?.toFixed(1) || '-'}</td>
                     <td>
-                      <span className={`badge ${o.status === 'FILLED' ? 'badge-green' : o.status === 'OPEN' ? 'badge-cyan' : o.status === 'REJECTED' ? 'badge-red' : 'badge-violet'}`}
-                        style={{ fontSize: 9 }}>
+                      <span className={`t-badge ${o.status === 'FILLED' ? 't-badge-green' : o.status === 'OPEN' ? 't-badge-cyan' : o.status === 'REJECTED' ? 't-badge-red' : 't-badge-violet'}`}>
                         {o.status}
                       </span>
                     </td>
-                    <td style={{ fontSize: 10, color: '#555570' }}>
+                    <td className="t-faint t-num" style={{ fontSize: 10 }}>
                       {o.created_at ? new Date(o.created_at).toLocaleTimeString() : '-'}
                     </td>
                     <td>
                       {['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status) && (
-                        <button className="btn btn-sm btn-danger" style={{ fontSize: 9, padding: '2px 8px' }}
+                        <button className="t-btn t-btn-sm t-btn-danger"
                           onClick={() => cancelOrder(o.id)}>
                           Cancel
                         </button>
@@ -237,9 +240,9 @@ export default function PositionsPage() {
             </table>
           </div>
         ) : (
-          <p style={{ color: 'var(--text-muted)', fontSize: 12, padding: 20, margin: 0, textAlign: 'center' }}>
-            {loading ? 'Loading...' : 'No orders yet'}
-          </p>
+          <div className="t-panel-body" style={{ textAlign: 'center', padding: 20 }}>
+            <span className="t-faint">{loading ? 'Loading...' : 'No orders yet'}</span>
+          </div>
         )}
       </div>
     </div>

@@ -38,27 +38,27 @@ export default function AIPage() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 24 }}>
-        <h1 className="page-title">AI Trading Desk</h1>
+      <div style={{ marginBottom: 24 }}>
+        <h1 className="t-page-title">AI Trading Desk</h1>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title">Command Desk</h3>
+        <div className="t-panel">
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Command Desk</h3>
           </div>
-          <p style={{ color: '#8888a0', fontSize: 13, marginBottom: 12 }}>
+          <p className="t-sub" style={{ marginBottom: 12 }}>
             Ask questions about your account or give commands in plain language.
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
-              className="input"
+              className="t-input"
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               placeholder="e.g. How did my strategies perform today?"
               onKeyDown={(e) => e.key === 'Enter' && handleCommand()}
             />
-            <button className="btn btn-cyan" onClick={handleCommand} disabled={loading}>
+            <button className="t-btn" onClick={handleCommand} disabled={loading}>
               {loading ? '...' : 'Send'}
             </button>
           </div>
@@ -69,14 +69,14 @@ export default function AIPage() {
           )}
         </div>
 
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title">AI Trade Journal</h3>
+        <div className="t-panel">
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">AI Trade Journal</h3>
           </div>
-          <p style={{ color: '#8888a0', fontSize: 13, marginBottom: 12 }}>
+          <p className="t-sub" style={{ marginBottom: 12 }}>
             Get psychological and statistical feedback on your trading behaviour.
           </p>
-          <button className="btn btn-primary" onClick={handleAnalyse} disabled={analysing}>
+          <button className="t-btn-primary" onClick={handleAnalyse} disabled={analysing}>
             {analysing ? 'Analysing...' : 'Analyse Last 7 Days'}
           </button>
           {analysis && (
@@ -89,7 +89,7 @@ export default function AIPage() {
                {analysis && typeof (analysis as Record<string, unknown>).score === 'number' && (
                 <div style={{ marginTop: 12, textAlign: 'center' }}>
                   <p style={{ color: '#8888a0', fontSize: 12, marginBottom: 4 }}>Discipline Score</p>
-                  <p className="numeric neon-violet" style={{ fontSize: 36, fontWeight: 700, margin: 0 }}>
+                  <p className="t-num neon-violet" style={{ fontSize: 36, fontWeight: 700, margin: 0 }}>
                     {(analysis as Record<string, number>).score}/100
                   </p>
                 </div>

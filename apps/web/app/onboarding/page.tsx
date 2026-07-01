@@ -55,8 +55,8 @@ function StepAccount({ onDone }: { onDone: () => void }) {
 
   if (authLoading) {
     return (
-      <div className="panel" style={{ padding: 32, textAlign: 'center' }}>
-        <p style={{ color: '#8888a0', fontSize: 13 }}>Loading...</p>
+      <div className="t-panel" style={{ padding: 32, textAlign: 'center' }}>
+        <p className="t-sub" style={{ fontSize: 13 }}>Loading...</p>
       </div>
     )
   }
@@ -84,24 +84,24 @@ function StepAccount({ onDone }: { onDone: () => void }) {
       <form onSubmit={handle}>
         {mode === 'signup' && (
           <div style={{ marginBottom: 16 }}>
-            <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Full name</label>
-            <input className="input" type="text" value={fullName} onChange={e => setFullName(e.target.value)} />
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Full name</label>
+            <input className="t-input" type="text" value={fullName} onChange={e => setFullName(e.target.value)} />
           </div>
         )}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Email address</label>
-          <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+          <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Email address</label>
+          <input className="t-input" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
         </div>
         <div style={{ marginBottom: 20 }}>
-          <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Password</label>
-          <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+          <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Password</label>
+          <input className="t-input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
         </div>
 
         {error && (
-          <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>
+          <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{error}</div>
         )}
 
-        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '10px 20px' }} disabled={loading}>
+        <button type="submit" className="t-btn-primary" style={{ width: '100%', padding: '10px 20px' }} disabled={loading}>
           {loading ? 'Processing...' : mode === 'signup' ? 'Create Account' : 'Sign In'}
         </button>
       </form>
@@ -221,15 +221,15 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
 
   if (loading) {
     return (
-      <div className="panel" style={{ padding: 32, textAlign: 'center' }}>
-        <p style={{ color: '#8888a0', fontSize: 13 }}>Loading...</p>
+      <div className="t-panel" style={{ padding: 32, textAlign: 'center' }}>
+        <p className="t-sub" style={{ fontSize: 13 }}>Loading...</p>
       </div>
     )
   }
 
   return (
     <div>
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
       {credentials.length > 0 && (
         <div style={{ marginBottom: 20 }}>
@@ -237,7 +237,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
           {credentials.map(c => {
             const info = BROKER_INFO[c.broker]
             return (
-              <div key={c.id} className="glass-card" style={{ padding: '10px 14px', marginBottom: 8 }}>
+              <div key={c.id} className="t-panel" style={{ padding: '10px 14px', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(139,92,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#8b5cf6' }}>
                     {info?.icon || c.broker[0].toUpperCase()}
@@ -248,11 +248,11 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
                       Connected {new Date(c.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <span className={`badge ${c.is_active ? 'badge-green' : 'badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
+                  <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
                     {c.is_active ? 'Active' : 'Inactive'}
                   </span>
                   {c.broker === 'fyers' && !c.is_active && (
-                    <button className="btn btn-sm btn-cyan" style={{ fontSize: 10 }} onClick={async () => {
+                    <button className="t-btn t-btn-sm" style={{ fontSize: 10 }} onClick={async () => {
                       try {
                         const data = await api.brokers.fyersAuthUrl() as { auth_url: string }
                         if (data.auth_url) { window.open(data.auth_url, '_blank'); setFyersPopup(true) }
@@ -269,7 +269,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       )}
 
       {fyersPopup && (
-        <div className="glass-card" style={{ padding: 12, marginBottom: 16, background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
+        <div className="t-panel" style={{ padding: 12, marginBottom: 16, background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
           <p style={{ margin: 0, fontSize: 12, color: '#f0f0f5' }}>
             Fyers login opened in a new tab. Complete the auth there and the page will update automatically.
           </p>
@@ -306,39 +306,39 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       )}
 
       {selectedBroker && (
-        <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
+        <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
           <h4 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>
             {BROKER_INFO[selectedBroker]?.name || selectedBroker} Credentials
           </h4>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>
               {selectedBroker === 'dhan' ? 'Client ID' : 'API Key'}
             </label>
-            <input className="input" value={apiKey} onChange={e => setApiKey(e.target.value)} />
+            <input className="t-input" value={apiKey} onChange={e => setApiKey(e.target.value)} />
           </div>
           {selectedBroker === 'angelone' && (
             <div style={{ marginBottom: 12 }}>
-              <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Client ID (Angel One Login ID)</label>
-              <input className="input" value={clientCode} onChange={e => setClientCode(e.target.value)} />
+              <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Client ID (Angel One Login ID)</label>
+              <input className="t-input" value={clientCode} onChange={e => setClientCode(e.target.value)} />
             </div>
           )}
           <div style={{ marginBottom: selectedBroker === 'angelone' ? 12 : 16 }}>
-            <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>
               {selectedBroker === 'angelone' ? 'Password/PIN' : selectedBroker === 'dhan' ? 'Access Token' : 'Secret Key'}
             </label>
-            <input className="input" type="password" value={secretKey} onChange={e => setSecretKey(e.target.value)} />
+            <input className="t-input" type="password" value={secretKey} onChange={e => setSecretKey(e.target.value)} />
           </div>
           {selectedBroker === 'angelone' && (
             <div style={{ marginBottom: 16 }}>
-              <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>TOTP Secret (Base32)</label>
-              <input className="input" type="password" value={totpSecret} onChange={e => setTotpSecret(e.target.value)} />
+              <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>TOTP Secret (Base32)</label>
+              <input className="t-input" type="password" value={totpSecret} onChange={e => setTotpSecret(e.target.value)} />
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button className="btn btn-sm btn-secondary" onClick={() => { setSelectedBroker(''); setApiKey(''); setSecretKey(''); setClientCode(''); setTotpSecret('') }}>
+            <button className="t-btn t-btn-sm" onClick={() => { setSelectedBroker(''); setApiKey(''); setSecretKey(''); setClientCode(''); setTotpSecret('') }}>
               Cancel
             </button>
-            <button className="btn btn-sm btn-primary" onClick={handleSave} disabled={!apiKey || saving}>
+            <button className="t-btn t-btn-sm t-btn-primary" onClick={handleSave} disabled={!apiKey || saving}>
               {saving ? 'Saving...' : selectedBroker === 'fyers' ? 'Save & Login to Fyers' : 'Connect'}
             </button>
           </div>
@@ -346,7 +346,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       )}
 
       {credentials.some(c => c.is_active) && (
-        <button className="btn btn-primary" style={{ width: '100%', padding: '10px 20px' }} onClick={onDone}>
+        <button className="t-btn-primary" style={{ width: '100%', padding: '10px 20px' }} onClick={onDone}>
           Continue to Terminal
         </button>
       )}
@@ -382,28 +382,28 @@ function StepDone() {
       </div>
 
       {loading && (
-        <div className="panel" style={{ padding: 16, textAlign: 'center' }}>
+        <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
           <p style={{ color: '#8888a0', fontSize: 12 }}>Loading your strategies...</p>
         </div>
       )}
 
       {error && (
-        <div className="alert alert-error" style={{ marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>
           Could not load strategy assignments
         </div>
       )}
 
       {!loading && assigned.length > 0 && (
-        <div className="panel" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
-          <div className="panel-header" style={{ padding: '12px 16px', margin: 0 }}>
-            <h3 className="panel-title" style={{ fontSize: 13 }}>Your Assigned Strategies</h3>
+        <div className="t-panel" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
+          <div className="t-panel-header" style={{ padding: '12px 16px', margin: 0 }}>
+            <h3 className="t-panel-title" style={{ fontSize: 13 }}>Your Assigned Strategies</h3>
             <span style={{ fontSize: 11, color: '#555570' }}>{assigned.length}</span>
           </div>
           {assigned.map((s: AssignedStrategy) => (
-            <div key={s.id} className="glass-card" style={{ padding: '10px 14px', margin: '0 12px 8px', fontSize: 12 }}>
+            <div key={s.id} className="t-panel" style={{ padding: '10px 14px', margin: '0 12px 8px', fontSize: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 600, color: '#f0f0f5' }}>{s.name || s.strategy_key}</span>
-                <span className="badge badge-violet" style={{ fontSize: 9, padding: '1px 6px' }}>{s.required_tier}</span>
+                <span className="t-badge t-badge-violet" style={{ fontSize: 9, padding: '1px 6px' }}>{s.required_tier}</span>
               </div>
               <p style={{ margin: '4px 0 0', fontSize: 10, color: '#555570' }}>
                 {s.mirror_enabled ? 'Mirror enabled' : 'Mirror disabled'} · {s.active ? 'Active' : 'Inactive'}
@@ -414,7 +414,7 @@ function StepDone() {
       )}
 
       {!loading && assigned.length === 0 && (
-        <div className="panel" style={{ padding: 16, textAlign: 'center', marginBottom: 20 }}>
+        <div className="t-panel" style={{ padding: 16, textAlign: 'center', marginBottom: 20 }}>
           <p style={{ margin: 0, fontSize: 12, color: '#8888a0' }}>
             No strategies assigned yet. Your admin can assign strategies in the Admin panel.
           </p>
@@ -422,7 +422,7 @@ function StepDone() {
       )}
 
       <button
-        className="btn btn-primary"
+        className="t-btn-primary"
         style={{ width: '100%', padding: '12px 24px', fontSize: 14 }}
         onClick={() => router.push('/dashboard')}
       >
@@ -514,7 +514,7 @@ export default function OnboardingPage() {
 
         <ProgressBar current={step} />
 
-        <div className="panel" style={{ padding: 28, border: '1px solid rgba(139,92,246,0.15)' }}>
+        <div className="t-panel" style={{ padding: 28, border: '1px solid rgba(139,92,246,0.15)' }}>
           {step === 0 && <StepAccount onDone={handleNext} />}
           {step === 1 && <StepConnectBroker onDone={handleNext} />}
           {step === 2 && <StepDone />}

@@ -62,17 +62,17 @@ interface WatchlistItem {
 
 /* -------- Helpers -------- */
 
-const STATUS_COLOR: Record<string, string> = {
-  FILLED: '#22c55e',
-  REJECTED: '#ef4444',
-  CANCELLED: '#f59e0b',
-  PENDING: '#3b82f6',
-  OPEN: '#3b82f6',
-  PARTIALLY_FILLED: '#f59e0b',
-  EXPIRED: '#8888a0',
+const STATUS_BADGE: Record<string, string> = {
+  FILLED: 't-badge-green',
+  REJECTED: 't-badge-red',
+  CANCELLED: 't-badge-amber',
+  PENDING: 't-badge-cyan',
+  OPEN: 't-badge-cyan',
+  PARTIALLY_FILLED: 't-badge-amber',
+  EXPIRED: 't-badge-sub',
 }
 
-function statusColor(s: string) { return STATUS_COLOR[s.toUpperCase()] || '#8888a0' }
+function statusBadge(s: string) { return STATUS_BADGE[s.toUpperCase()] || 't-badge-sub' }
 
 function fmt(n: number) {
   return n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
@@ -86,7 +86,7 @@ function SkeletonLine({ w, h = 12 }: { w: string; h?: number }) {
 
 function SkeletonCard({ h = 80 }: { h?: number }) {
   return (
-    <div className="glass-card" style={{ padding: 14, height: h, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="t-stat" style={{ padding: 14, height: h, display: 'flex', flexDirection: 'column', gap: 8 }}>
       <SkeletonLine w="40%" />
       <SkeletonLine w="60%" />
     </div>
@@ -155,13 +155,13 @@ export default function TerminalPage() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="t-page-header">
         <div>
-          <h1 className="page-title">Terminal</h1>
-          <p className="page-subtitle">
+          <h1 className="t-page-title">Terminal</h1>
+          <p className="t-sub">
             Real-time trading dashboard
             {feedMode === 'simulator' && (
-              <span className="badge badge-amber" style={{ marginLeft: 8 }}>SIMULATED DATA</span>
+              <span className="t-badge t-badge-amber" style={{ marginLeft: 8 }}>SIMULATED DATA</span>
             )}
           </p>
         </div>
@@ -169,13 +169,13 @@ export default function TerminalPage() {
 
       {/* Global errors */}
       {(posError || ordError || fundError || stratError) && (
-        <div className="alert alert-error" style={{ marginBottom: 16 }}>
-          {posError?.message || ordError?.message || fundError?.message || stratError?.message}
+        <div className="t-panel" style={{ marginBottom: 16, padding: 12, borderLeft: '3px solid #ef4444' }}>
+          <span className="t-down">{posError?.message || ordError?.message || fundError?.message || stratError?.message}</span>
         </div>
       )}
 
       {/* KPI row */}
-      <div className="grid-4" style={{ marginBottom: 20 }}>
+      <div className="t-grid-4" style={{ marginBottom: 20 }}>
         {fundLoading ? (
           <>
             <SkeletonCard h={70} />
@@ -185,122 +185,133 @@ export default function TerminalPage() {
           </>
         ) : (
           <>
-            <div className="stat-card">
-              <p className="stat-label">Total Margin</p>
-              <p className={`stat-value ${hasLive ? 'neon-cyan' : ''}`}>
+            <div className="t-stat">
+              <div className="t-stat-row">
+                <span className={`t-dot ${hasLive ? 't-dot-cyan t-dot-pulse' : 't-dot-sub'}`} />
+                <span className="t-stat-label">Total Margin</span>
+              </div>
+              <p className="t-stat-value">
                 {funds ? `\u20B9${fmt(funds.total_margin)}` : '\u2014'}
               </p>
-              {funds && <p className="stat-sub">{funds.broker || 'N/A'}</p>}
+              {funds && <p className="t-stat-sub">{funds.broker || 'N/A'}</p>}
             </div>
-            <div className="stat-card">
-              <p className="stat-label">Available Margin</p>
-              <p className={`stat-value ${hasLive ? 'neon-cyan' : ''}`}>
+            <div className="t-stat">
+              <div className="t-stat-row">
+                <span className="t-dot t-dot-green" />
+                <span className="t-stat-label">Available Margin</span>
+              </div>
+              <p className="t-stat-value">
                 {funds ? `\u20B9${fmt(funds.available_margin)}` : '\u2014'}
               </p>
             </div>
-            <div className="stat-card">
-              <p className="stat-label">Open Positions</p>
-              <p className="stat-value">{posLoading ? '\u2014' : posCount}</p>
+            <div className="t-stat">
+              <div className="t-stat-row">
+                <span className="t-dot t-dot-sub" />
+                <span className="t-stat-label">Open Positions</span>
+              </div>
+              <p className="t-stat-value">{posLoading ? '\u2014' : posCount}</p>
             </div>
-            <div className="stat-card">
-              <p className="stat-label">Active Strategies</p>
-              <p className="stat-value">{stratLoading ? '\u2014' : activeStrats}</p>
+            <div className="t-stat">
+              <div className="t-stat-row">
+                <span className="t-dot t-dot-violet" />
+                <span className="t-stat-label">Active Strategies</span>
+              </div>
+              <p className="t-stat-value">{stratLoading ? '\u2014' : activeStrats}</p>
               {!stratLoading && activeStrats > 0 && (
-                <p className="stat-sub">{assignedStrats.map(s => s.name).join(', ')}</p>
+                <p className="t-stat-sub">{assignedStrats.map(s => s.name).join(', ')}</p>
               )}
             </div>
           </>
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
+      <div className="t-row" style={{ gap: 20, marginBottom: 20 }}>
         {/* Open Positions */}
-        <div className="panel" style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
-          <div className="panel-header" style={{ padding: '14px 16px 10px', margin: 0 }}>
-            <h3 className="panel-title" style={{ fontSize: 14 }}>Open Positions</h3>
-            <span style={{ fontSize: 11, color: '#555570' }}>{posCount} open</span>
+        <div className="t-panel" style={{ flex: 1, minWidth: 0, padding: 0, overflow: 'hidden' }}>
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Open Positions</h3>
+            <span className="t-faint">{posCount} open</span>
           </div>
           {posLoading && (
-            <div style={{ padding: '8px 16px 16px' }}>
+            <div className="t-panel-body">
               <SkeletonRow /><SkeletonRow /><SkeletonRow />
             </div>
           )}
           {posError && (
-            <p style={{ padding: '12px 16px', margin: 0, fontSize: 12, color: '#ef4444' }}>
-              {posError.message}
-            </p>
+            <div className="t-panel-body">
+              <p className="t-down">{posError.message}</p>
+            </div>
           )}
           {!posLoading && !posError && positions.length === 0 && (
-            <p style={{ padding: '16px', margin: 0, fontSize: 12, color: '#555570' }}>
-              No open positions.
-            </p>
+            <div className="t-panel-body">
+              <p className="t-faint">No open positions.</p>
+            </div>
           )}
           {!posLoading && positions.length > 0 && (
-            <table className="data-table" style={{ fontSize: 12 }}>
-              <thead>
-                <tr>
-                  <th>Symbol</th>
-                  <th>Qty</th>
-                  <th>Avg</th>
-                  <th>P&amp;L</th>
-                  <th>Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map((p, i) => (
-                  <tr key={i}>
-                    <td style={{ fontWeight: 600 }}>{p.symbol}</td>
-                    <td>{p.quantity}</td>
-                    <td>{(p.average_buy_price || p.average_sell_price) ? `\u20B9${fmt(p.average_buy_price || p.average_sell_price)}` : '\u2014'}</td>
-                    <td className={`numeric ${(p.unrealised_pnl || p.m2m) >= 0 ? 'positive' : 'negative'}`}>
-                      {(p.unrealised_pnl || p.m2m) !== 0 ? `${(p.unrealised_pnl || p.m2m) >= 0 ? '+' : ''}\u20B9${fmt(p.unrealised_pnl || p.m2m)}` : '\u20B90'}
-                    </td>
-                    <td style={{ color: '#555570', fontSize: 10 }}>{p.instrument_type} {p.product}</td>
+            <div className="t-table-wrap">
+              <table className="t-table">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Qty</th>
+                    <th>Avg</th>
+                    <th>P&amp;L</th>
+                    <th>Type</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {positions.map((p, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight: 600 }}>{p.symbol}</td>
+                      <td className="t-num">{p.quantity}</td>
+                      <td className="t-num">{(p.average_buy_price || p.average_sell_price) ? `\u20B9${fmt(p.average_buy_price || p.average_sell_price)}` : '\u2014'}</td>
+                      <td className={`t-num ${(p.unrealised_pnl || p.m2m) >= 0 ? 't-up' : 't-down'}`}>
+                        {(p.unrealised_pnl || p.m2m) !== 0 ? `${(p.unrealised_pnl || p.m2m) >= 0 ? '+' : ''}\u20B9${fmt(p.unrealised_pnl || p.m2m)}` : '\u20B90'}
+                      </td>
+                      <td className="t-faint">{p.instrument_type} {p.product}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
         {/* Your Strategies */}
-        <div className="panel" style={{ flex: '0 0 280px', padding: 0, overflow: 'hidden' }}>
-          <div className="panel-header" style={{ padding: '14px 16px 10px', margin: 0 }}>
-            <h3 className="panel-title" style={{ fontSize: 14 }}>Your Strategies</h3>
-            <span style={{ fontSize: 11, color: '#555570' }}>{activeStrats} active</span>
+        <div className="t-panel" style={{ flex: '0 0 280px', padding: 0, overflow: 'hidden' }}>
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Your Strategies</h3>
+            <span className="t-faint">{activeStrats} active</span>
           </div>
           {stratLoading && (
-            <div style={{ padding: '8px 16px 16px' }}>
+            <div className="t-panel-body">
               <SkeletonCard h={50} />
               <SkeletonCard h={50} />
             </div>
           )}
           {stratError && (
-            <p style={{ padding: '12px 16px', margin: 0, fontSize: 12, color: '#ef4444' }}>
-              {stratError.message}
-            </p>
+            <div className="t-panel-body">
+              <p className="t-down">{stratError.message}</p>
+            </div>
           )}
           {!stratLoading && !stratError && assignedStrats.length === 0 && (
-            <p style={{ padding: '16px', margin: 0, fontSize: 12, color: '#555570' }}>
-              No strategies assigned.
-            </p>
+            <div className="t-panel-body">
+              <p className="t-faint">No strategies assigned.</p>
+            </div>
           )}
           {!stratLoading && assignedStrats.length > 0 && (
-            <div style={{ padding: '0 16px 16px' }}>
+            <div className="t-panel-body" style={{ paddingTop: 0 }}>
               {assignedStrats.map(s => (
-                <div key={s.strategy_key} className="glass-card" style={{
+                <div key={s.strategy_key} style={{
                   padding: '10px 12px', marginTop: 8,
+                  background: 'rgba(255,255,255,0.02)',
+                  borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f5' }}>{s.name}</span>
-                    <span style={{
-                      fontSize: 9, padding: '1px 6px', borderRadius: 4,
-                      background: 'rgba(139,92,246,0.15)', color: '#8b5cf6',
-                      border: '1px solid rgba(139,92,246,0.2)',
-                      textTransform: 'capitalize',
-                    }}>{s.required_tier}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{s.name}</span>
+                    <span className="t-badge t-badge-violet" style={{ textTransform: 'capitalize' }}>{s.required_tier}</span>
                   </div>
-                  <p style={{ margin: 0, fontSize: 10, color: '#555570', lineHeight: 1.4 }}>
+                  <p className="t-faint" style={{ margin: 0, fontSize: 10, lineHeight: 1.4 }}>
                     {s.description}
                   </p>
                 </div>
@@ -310,91 +321,87 @@ export default function TerminalPage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 20 }}>
+      <div className="t-row" style={{ gap: 20 }}>
         {/* Recent Orders */}
-        <div className="panel" style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
-          <div className="panel-header" style={{ padding: '14px 16px 10px', margin: 0 }}>
-            <h3 className="panel-title" style={{ fontSize: 14 }}>Recent Orders</h3>
-            <span style={{ fontSize: 11, color: '#555570' }}>{ordLoading ? '\u2014' : `${orders.length} total`}</span>
+        <div className="t-panel" style={{ flex: 1, minWidth: 0, padding: 0, overflow: 'hidden' }}>
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Recent Orders</h3>
+            <span className="t-faint">{ordLoading ? '\u2014' : `${orders.length} total`}</span>
           </div>
           {ordLoading && (
-            <div style={{ padding: '8px 16px 16px' }}>
+            <div className="t-panel-body">
               <SkeletonRow /><SkeletonRow /><SkeletonRow />
             </div>
           )}
           {ordError && (
-            <p style={{ padding: '12px 16px', margin: 0, fontSize: 12, color: '#ef4444' }}>
-              {ordError.message}
-            </p>
+            <div className="t-panel-body">
+              <p className="t-down">{ordError.message}</p>
+            </div>
           )}
           {!ordLoading && !ordError && orders.length === 0 && (
-            <p style={{ padding: '16px', margin: 0, fontSize: 12, color: '#555570' }}>
-              No orders yet.
-            </p>
+            <div className="t-panel-body">
+              <p className="t-faint">No orders yet.</p>
+            </div>
           )}
           {!ordLoading && orders.length > 0 && (
-            <table className="data-table" style={{ fontSize: 12 }}>
-              <thead>
-                <tr>
-                  <th>Symbol</th>
-                  <th>Side</th>
-                  <th>Qty</th>
-                  <th>Price</th>
-                  <th>Status</th>
-                  <th>Time</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.slice(0, 20).map(o => (
-                  <tr key={o.id}>
-                    <td style={{ fontWeight: 600 }}>{o.symbol}</td>
-                    <td className={o.side === 'BUY' ? 'positive' : 'negative'} style={{ fontWeight: 500 }}>
-                      {o.side}
-                    </td>
-                    <td>{o.filled_quantity || o.quantity}</td>
-                    <td>{o.average_price ? `\u20B9${fmt(o.average_price)}` : o.price ? `\u20B9${fmt(o.price)}` : '\u2014'}</td>
-                    <td>
-                      <span style={{
-                        display: 'inline-block', padding: '1px 6px', borderRadius: 3,
-                        fontSize: 10, fontWeight: 600,
-                        background: `${statusColor(o.status)}22`,
-                        color: statusColor(o.status),
-                        border: `1px solid ${statusColor(o.status)}44`,
-                      }}>
-                        {o.status}
-                      </span>
-                    </td>
-                    <td style={{ color: '#555570', fontSize: 10 }}>
-                      {o.created_at ? new Date(o.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '\u2014'}
-                    </td>
-                    <td>
-                      {['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status) && (
-                        <button className="btn btn-sm btn-danger" style={{ fontSize: 9, padding: '2px 8px' }}
-                          onClick={() => handleCancel(o.id)} disabled={cancelling === o.id}>
-                          {cancelling === o.id ? '...' : 'Cancel'}
-                        </button>
-                      )}
-                    </td>
+            <div className="t-table-wrap">
+              <table className="t-table">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Time</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {orders.slice(0, 20).map(o => (
+                    <tr key={o.id}>
+                      <td style={{ fontWeight: 600 }}>{o.symbol}</td>
+                      <td className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 500 }}>
+                        {o.side}
+                      </td>
+                      <td className="t-num">{o.filled_quantity || o.quantity}</td>
+                      <td className="t-num">{o.average_price ? `\u20B9${fmt(o.average_price)}` : o.price ? `\u20B9${fmt(o.price)}` : '\u2014'}</td>
+                      <td>
+                        <span className={`t-badge ${statusBadge(o.status)}`}>
+                          {o.status}
+                        </span>
+                      </td>
+                      <td className="t-faint">
+                        {o.created_at ? new Date(o.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '\u2014'}
+                      </td>
+                      <td>
+                        {['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status) && (
+                          <button className="t-btn t-btn-sm t-btn-danger"
+                            onClick={() => handleCancel(o.id)} disabled={cancelling === o.id}>
+                            {cancelling === o.id ? '...' : 'Cancel'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
         {/* Indices / Watchlist */}
-        <div className="panel" style={{ flex: '0 0 200px', padding: 0, overflow: 'hidden' }}>
-          <div className="panel-header" style={{ padding: '14px 16px 10px', margin: 0 }}>
-            <h3 className="panel-title" style={{ fontSize: 14 }}>Indices</h3>
-            <span style={{ fontSize: 11, color: '#555570' }}>{indices.length}</span>
+        <div className="t-panel" style={{ flex: '0 0 200px', padding: 0, overflow: 'hidden' }}>
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Indices</h3>
+            <span className="t-faint">{indices.length}</span>
             {feedMode === 'simulator' && (
-              <span className="badge badge-amber" style={{ marginLeft: 8, fontSize: 9 }}>SIMULATED DATA</span>
+              <span className="t-badge t-badge-amber" style={{ marginLeft: 8 }}>SIMULATED DATA</span>
             )}
           </div>
-          <div style={{ padding: '0 16px 16px' }}>
+          <div className="t-panel-body">
             {indices.length === 0 && (
-              <p style={{ margin: '12px 0 0', fontSize: 12, color: '#555570' }}>
+              <p className="t-faint" style={{ margin: '12px 0 0' }}>
                 Market data unavailable.
               </p>
             )}
@@ -402,15 +409,14 @@ export default function TerminalPage() {
               const t = ticks[idx.symbol]
               const pct = t?.change_pct
               return (
-                <div key={idx.symbol} className="glass-card" style={{
+                <div key={idx.symbol} style={{
                   padding: '8px 10px', marginTop: 8, display: 'flex',
                   justifyContent: 'space-between', alignItems: 'center',
+                  background: 'rgba(255,255,255,0.02)',
+                  borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)',
                 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#f0f0f5' }}>{idx.name}</span>
-                  <span style={{
-                    fontSize: 9,
-                    color: t ? (pct != null && pct >= 0 ? '#22c55e' : '#ef4444') : '#555570',
-                  }}>
+                  <span style={{ fontSize: 11, fontWeight: 600 }}>{idx.name}</span>
+                  <span className={`t-num ${t ? (pct != null && pct >= 0 ? 't-up' : 't-down') : 't-faint'}`}>
                     {t?.last_price != null ? t.last_price.toFixed(1) : '\u2014'}
                   </span>
                 </div>

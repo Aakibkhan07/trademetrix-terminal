@@ -13,23 +13,33 @@ export default function Header() {
   const nifty = ticks['NSE:NIFTY50-INDEX']
 
   return (
-    <header className="header">
-      <Link href="/dashboard" className="header-brand" style={{ textDecoration: 'none' }}>
-        Trade Metrix
-      </Link>
+    <header className="t-header">
+      <div className="t-header-left">
+        <Link href="/dashboard" className="t-header-brand" style={{ textDecoration: 'none' }}>
+          TM
+        </Link>
+        <span style={{ width: 1, height: 18, background: 'var(--border)' }} />
+        <span style={{ fontSize: 10, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
+          v0.1
+        </span>
+      </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div className="t-header-center">
         {nifty && (
-          <span style={{ fontSize: 11, color: '#8888a0' }}>
-            NIFTY <span style={{ color: '#f0f0f5', fontWeight: 600 }}>{nifty.last_price.toFixed(1)}</span>
-            <span style={{ marginLeft: 3, color: (nifty.change_pct ?? 0) >= 0 ? '#22c55e' : '#ef4444' }}>
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: 'var(--text-faint)', fontWeight: 500 }}>NIFTY</span>
+            <span style={{ color: 'var(--text)', fontWeight: 600 }}>{nifty.last_price.toFixed(1)}</span>
+            <span style={{ color: (nifty.change_pct ?? 0) >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
               {(nifty.change_pct ?? 0) >= 0 ? '+' : ''}{(nifty.change_pct ?? 0).toFixed(2)}%
             </span>
           </span>
         )}
-        <span className={`badge ${connected ? 'badge-green' : 'badge-red'}`} style={{ fontSize: 10 }}>
-          <span className={`status-dot ${connected ? 'active' : ''}`} style={{ marginRight: 3 }} />
-          {connected ? 'Live' : 'Offline'}
+      </div>
+
+      <div className="t-header-right">
+        <span className={`t-badge ${connected ? 't-badge-green' : 't-badge-red'}`}>
+          <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-red'}`} style={{ marginRight: 4 }} />
+          {connected ? 'LIVE' : 'OFF'}
         </span>
       </div>
     </header>
