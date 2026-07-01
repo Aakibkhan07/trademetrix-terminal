@@ -17,7 +17,6 @@
   height: var(--header-height);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 12px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
@@ -29,23 +28,14 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-}
-.t-header-brand {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 700;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  white-space: nowrap;
-  letter-spacing: -0.02em;
+  flex-shrink: 0;
 }
 .t-header-center {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 20px;
   min-width: 0;
 }
 .t-header-right {
@@ -53,6 +43,70 @@
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+}
+.t-header-search {
+  display: flex;
+  align-items: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+  height: 26px;
+  max-width: 240px;
+  width: 100%;
+}
+.t-header-search input {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  width: 100%;
+  padding: 0 4px;
+}
+.t-header-search input::placeholder { color: var(--text-faint); }
+.t-header-search-icon {
+  color: var(--text-faint);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.t-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.t-header-nav-item {
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  background: none;
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+.t-header-nav-item:hover { color: var(--text); background: var(--bg-hover); }
+.t-header-nav-item.active { color: var(--cyan); background: var(--bg-active); }
+.t-header-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.t-header-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-sub);
 }
 
 /* ===== TICKER ===== */
@@ -91,26 +145,50 @@
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 8px 0;
-  gap: 2px;
   flex-shrink: 0;
   overflow-y: auto;
 }
-.t-nav-item {
-  width: 36px;
-  height: 36px;
+.t-sidebar-logo {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  color: var(--text-faint);
-  font-size: 13px;
-  font-weight: 600;
-  transition: all var(--transition-fast);
-  position: relative;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
   text-decoration: none;
   flex-shrink: 0;
+}
+.t-sidebar-logo-text {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.t-sidebar-section {
+  padding: 6px 12px 2px;
+}
+.t-sidebar-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.t-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 0 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-sub);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  position: relative;
 }
 .t-nav-item:hover {
   color: var(--text);
@@ -120,27 +198,56 @@
   color: var(--cyan);
   background: var(--bg-active);
 }
-.t-nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: -4px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 2px;
-  height: 16px;
-  background: var(--cyan);
-  border-radius: 1px;
+.t-nav-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1px solid currentColor;
+  opacity: 0.5;
 }
-.t-nav-label {
-  font-size: 7px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
-  margin: 6px 0 2px;
-  text-align: center;
+.t-nav-item.active .t-nav-icon {
+  opacity: 1;
+  border-color: var(--cyan);
+}
+.t-nav-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.t-sidebar-footer {
+  margin-top: auto;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.t-sidebar-footer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
   width: 100%;
+  text-align: left;
 }
-.t-nav-spacer { height: 1px; width: 24px; background: var(--border); margin: 4px 0; }
+.t-sidebar-footer-item:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
 
 /* ===== CONTENT AREA ===== */
 .t-content {
@@ -696,10 +803,20 @@
   .t-order-ticket { display: none; }
   .t-grid-4 { grid-template-columns: 1fr 1fr; }
 }
+@media (max-width: 900px) {
+  .t-header-search { display: none; }
+  .t-header-nav { display: none; }
+  .t-sidebar { width: 52px; }
+  .t-sidebar .t-sidebar-logo-text,
+  .t-sidebar .t-sidebar-section,
+  .t-sidebar .t-nav-text,
+  .t-sidebar .t-sidebar-footer-item span { display: none; }
+  .t-sidebar .t-nav-item { justify-content: center; padding: 6px; margin: 0 4px; }
+  .t-sidebar-footer-item { justify-content: center; }
+}
 @media (max-width: 640px) {
   .t-grid-2, .t-grid-3, .t-grid-4 { grid-template-columns: 1fr; }
   .t-row { flex-direction: column; }
   .t-ticker { display: none; }
-  .t-sidebar { width: 44px; }
   .t-content { padding: 8px; }
 }
