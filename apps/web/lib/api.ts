@@ -167,6 +167,8 @@ export const api = {
   marketdata: {
     startSimulator: () => request('/marketdata/simulator/start', { method: 'POST' }),
     stopSimulator: () => request('/marketdata/simulator/stop', { method: 'POST' }),
+    startFeed: () => request('/marketdata/feed/start', { method: 'POST' }),
+    stopFeed: () => request('/marketdata/feed/stop', { method: 'POST' }),
     symbols: () => request('/marketdata/symbols'),
     watchlist: () => request('/marketdata/watchlist'),
     optionChain: (symbol: string) => request(`/marketdata/option-chain?symbol=${symbol}`),

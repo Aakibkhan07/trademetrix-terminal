@@ -29,7 +29,7 @@ class MarketSimulator:
 
     async def start(self, symbols: list[str] | None = None):
         if self._running:
-            return
+            await self.stop()
         self._running = True
         symbols = symbols or []
         for s in symbols:
