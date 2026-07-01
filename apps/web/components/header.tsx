@@ -15,7 +15,7 @@ const PAGE_TABS: Record<string, { label: string; tabs: { key: string; label: str
   '/brokers': { label: 'Brokers', tabs: [] },
   '/backtest': { label: 'Backtest', tabs: [] },
   '/journal': { label: 'Journal', tabs: [] },
-  '/settings': { label: 'Settings', tabs: [] },
+  '/account': { label: 'Account', tabs: [] },
   '/risk': { label: 'Risk', tabs: [] },
   '/ai': { label: 'AI Desk', tabs: [] },
   '/transparency': { label: 'Reports', tabs: [] },

@@ -43,7 +43,7 @@ const NAV_SECTIONS = [
   {
     label: 'System',
     items: [
-      { href: '/settings', label: 'Settings', icon: 'S' },
+      { href: '/account', label: 'Account', icon: 'U' },
     ],
   },
 ]
