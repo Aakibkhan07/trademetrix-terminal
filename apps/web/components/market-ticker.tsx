@@ -15,7 +15,7 @@ const TICKER_SYMBOLS = [
 ]
 
 export default function MarketTicker() {
-  const { ticks, subscribe, startFeed } = useMarketData()
+  const { ticks, feedMode, subscribe, startFeed } = useMarketData()
 
   useEffect(() => {
     subscribe(TICKER_SYMBOLS.map((s) => s.key))
@@ -24,6 +24,11 @@ export default function MarketTicker() {
 
   return (
     <div className="ticker">
+      {feedMode === 'simulator' && (
+        <span className="badge badge-amber" style={{ marginRight: 12, fontSize: 10, flexShrink: 0 }}>
+          SIMULATED DATA
+        </span>
+      )}
       {TICKER_SYMBOLS.map((s, i) => {
         const t = ticks[s.key]
         const pct = t?.change_pct ?? 0
