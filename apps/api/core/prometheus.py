@@ -38,7 +38,7 @@ def update_process_metrics():
     cpu_percent.set(proc.cpu_percent(interval=0))
 
 
-@router.get("/metrics/prometheus")
+@router.get("/metrics")
 async def prometheus_metrics():
     update_process_metrics()
     from core.resilience import get_circuit_breaker_stats
