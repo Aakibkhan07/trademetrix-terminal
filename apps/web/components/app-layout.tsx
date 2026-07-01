@@ -29,6 +29,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/brokers', label: 'Brokers', icon: 'B' },
       { href: '/backtest', label: 'Backtest', icon: 'K' },
+      { href: '/journal', label: 'Journal', icon: 'J' },
       { href: '/risk', label: 'Risk Control', icon: 'R' },
     ],
   },
@@ -37,6 +38,12 @@ const NAV_SECTIONS = [
     items: [
       { href: '/ai', label: 'AI Desk', icon: 'A' },
       { href: '/transparency', label: 'Reports', icon: 'E' },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { href: '/settings', label: 'Settings', icon: 'S' },
     ],
   },
 ]
