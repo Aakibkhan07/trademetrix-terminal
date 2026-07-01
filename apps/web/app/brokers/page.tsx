@@ -13,7 +13,7 @@ const BROKER_INFO: Record<string, { name: string; icon: string; latency: string;
   icici: { name: 'ICICI Direct', icon: 'I', latency: '< 10ms', status: 'Coming Soon' },
   hdfc: { name: 'HDFC Securities', icon: 'H', latency: '< 10ms', status: 'Coming Soon' },
   kotakneo: { name: 'Kotak Neo', icon: 'K', latency: '< 8ms', status: 'Connected' },
-  aliceblue: { name: 'Alice Blue', icon: 'A', latency: '< 12ms', status: 'Coming Soon' },
+  aliceblue: { name: 'Alice Blue', icon: 'A', latency: '< 12ms', status: 'Connected' },
   finvasia: { name: 'Shoonya', icon: 'S', latency: '< 6ms', status: 'Connected' },
   groww: { name: 'Groww', icon: 'G', latency: '-', status: 'Coming Soon' },
   iifl: { name: 'IIFL', icon: 'I', latency: '< 12ms', status: 'Coming Soon' },
