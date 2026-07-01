@@ -1,11 +1,20 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/lib/use-toast'
+
+function downloadCSV(rows: string[][], filename: string) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function PositionsPage() {
   const { token } = useAuth()
@@ -111,6 +120,21 @@ export default function PositionsPage() {
       <div className="t-panel" style={{ padding: 0 }}>
         <div className="t-panel-header">
           <h3 className="t-panel-title">Open Positions ({positions.length})</h3>
+          {positions.length > 0 && (
+            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => {
+              const header = ['Symbol', 'Type', 'Expiry', 'Strike', 'Qty', 'Buy Avg', 'LTP', 'P&L', 'P&L%', 'Product']
+              const data = positions.map((p: any) => {
+                const live = ticks[p.symbol]
+                const ltp = live?.last_price || p.last_price || 0
+                const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : p.unrealised_pnl
+                const pnlPct = p.average_buy_price ? (pnl / (Math.abs(p.quantity) * p.average_buy_price) * 100) : 0
+                return [p.symbol, p.instrument_type, p.expiry_date || '', String(p.strike_price || ''), String(p.quantity), p.average_buy_price?.toFixed(1) || '', ltp.toFixed(1), pnl.toFixed(0), pnlPct.toFixed(2), p.product]
+              })
+              downloadCSV([header, ...data], `positions-${new Date().toISOString().slice(0, 10)}.csv`)
+            }}>
+              Export CSV
+            </button>
+          )}
         </div>
         {positions.length > 0 ? (
           <div className="t-table-wrap">
@@ -182,6 +206,15 @@ export default function PositionsPage() {
       <div className="t-panel" style={{ padding: 0 }}>
         <div className="t-panel-header">
           <h3 className="t-panel-title">Orders ({orders.length})</h3>
+          {orders.length > 0 && (
+            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => {
+              const header = ['Symbol', 'Type', 'Expiry', 'Strike', 'Side', 'Qty', 'Price', 'Filled', 'Avg', 'Status', 'Time']
+              const data = orders.map((o: any) => [o.symbol, o.instrument_type, o.expiry_date || '', String(o.strike_price || ''), o.side, String(o.quantity), o.price?.toFixed(1) || '', String(o.filled_quantity || 0), o.average_price?.toFixed(1) || '', o.status, o.created_at ? new Date(o.created_at).toISOString() : ''])
+              downloadCSV([header, ...data], `orders-${new Date().toISOString().slice(0, 10)}.csv`)
+            }}>
+              Export CSV
+            </button>
+          )}
         </div>
         {orders.length > 0 ? (
           <div className="t-table-wrap">

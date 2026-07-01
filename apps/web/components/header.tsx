@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useMarketData } from '@/lib/use-market-data'
 import { useAuth } from '@/lib/auth-context'
+import { useTheme } from '@/lib/use-theme'
 
 const PAGE_TABS: Record<string, { label: string; tabs: { key: string; label: string }[] }> = {
   '/dashboard': { label: 'Dashboard', tabs: [] },
@@ -13,6 +14,8 @@ const PAGE_TABS: Record<string, { label: string; tabs: { key: string; label: str
   '/strategies': { label: 'Strategies', tabs: [] },
   '/brokers': { label: 'Brokers', tabs: [] },
   '/backtest': { label: 'Backtest', tabs: [] },
+  '/journal': { label: 'Journal', tabs: [] },
+  '/settings': { label: 'Settings', tabs: [] },
   '/risk': { label: 'Risk', tabs: [] },
   '/ai': { label: 'AI Desk', tabs: [] },
   '/transparency': { label: 'Reports', tabs: [] },
@@ -22,6 +25,7 @@ export default function Header() {
   const pathname = usePathname()
   const { connected, ticks } = useMarketData()
   const { user } = useAuth()
+  const { theme, toggleTheme } = useTheme()
 
   if (pathname === '/auth') return null
 
@@ -60,6 +64,12 @@ export default function Header() {
       </div>
 
       <div className="t-header-right">
+        <button className="t-btn t-btn-xs t-btn-ghost" onClick={toggleTheme}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          style={{ fontSize: 13, padding: '2px 6px' }}>
+          {theme === 'dark' ? 'Light' : 'Dark'}
+        </button>
+
         {nifty && (
           <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ color: 'var(--text-faint)' }}>NIFTY</span>
