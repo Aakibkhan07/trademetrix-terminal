@@ -13,7 +13,7 @@ export interface User {
 }
 
 export interface AuthContextType {
-  token: string | null
+  token: boolean
   user: User | null
   tier: string
   isAdmin: boolean
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const tier = user?.subscription_tier || 'free'
   const isAdmin = user?.is_admin === true
-  const token: string | null = user ? 'authenticated' : null
+  const token: boolean = user !== null
 
   const fetchUser = useCallback(async () => {
     try {

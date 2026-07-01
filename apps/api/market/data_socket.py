@@ -110,6 +110,10 @@ class SharedDataSocket:
             task.cancel()
             logger.info(f"Broker feed stopped for {broker_type}")
 
+    async def stop_all_feeds(self) -> None:
+        for broker_type in list(self._broker_feeds.keys()):
+            await self.stop_broker_feed(broker_type)
+
     @property
     def subscribed_symbols(self) -> set[str]:
         return set(self._subscribers.keys()) - {"*"}

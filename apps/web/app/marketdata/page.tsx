@@ -3,13 +3,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useMarketData } from '@/lib/use-market-data'
 import { api } from '@/lib/api'
-import { useAuth } from '@/lib/auth-context'
 
 type WatchItem = { symbol: string; name: string; type: string }
 
 export default function MarketDataPage() {
   const { ticks, connected, subscribe, startFeed, stopFeed } = useMarketData()
-  const { token } = useAuth()
   const [feedOn, setFeedOn] = useState(false)
   const [indices, setIndices] = useState<WatchItem[]>([])
   const [stocks, setStocks] = useState<WatchItem[]>([])

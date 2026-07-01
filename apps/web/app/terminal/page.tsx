@@ -1,6 +1,8 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useApi } from '@/lib/use-api'
+import { useMarketData } from '@/lib/use-market-data'
 
 /* -------- Types -------- */
 
@@ -105,6 +107,7 @@ function SkeletonRow() {
 
 export default function TerminalPage() {
   const refreshKey = 0
+  const { ticks, subscribe } = useMarketData()
 
   const { data: posData, loading: posLoading, error: posError } =
     useApi<{ positions: Position[] }>(`/engine/positions?_=${refreshKey}`)
@@ -122,6 +125,14 @@ export default function TerminalPage() {
   const funds = fundData?.funds || null
   const assignedStrats = stratData?.strategies || []
   const indices = wlData?.indices || []
+
+  const allSymbols = [
+    ...(wlData?.indices || []).map(i => i.symbol),
+    ...(wlData?.stocks || []).map(s => s.symbol),
+  ]
+  useEffect(() => {
+    if (allSymbols.length) subscribe(allSymbols)
+  }, [allSymbols, subscribe])
 
   const hasLive: boolean = funds !== null && (funds.total_margin > 0 || funds.available_margin > 0)
   const posCount = positions.length
@@ -355,17 +366,24 @@ export default function TerminalPage() {
                 Market data unavailable.
               </p>
             )}
-            {indices.map(idx => (
-              <div key={idx.symbol} className="glass-card" style={{
-                padding: '8px 10px', marginTop: 8, display: 'flex',
-                justifyContent: 'space-between', alignItems: 'center',
-              }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#f0f0f5' }}>{idx.name}</span>
-                <span style={{ fontSize: 9, color: '#555570' }}>
-                  {idx.symbol.includes('VIX') ? '\u2014' : '\u2014'}
-                </span>
-              </div>
-            ))}
+            {indices.map(idx => {
+              const t = ticks[idx.symbol]
+              const pct = t?.change_pct
+              return (
+                <div key={idx.symbol} className="glass-card" style={{
+                  padding: '8px 10px', marginTop: 8, display: 'flex',
+                  justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#f0f0f5' }}>{idx.name}</span>
+                  <span style={{
+                    fontSize: 9,
+                    color: t ? (pct != null && pct >= 0 ? '#22c55e' : '#ef4444') : '#555570',
+                  }}>
+                    {t?.last_price != null ? t.last_price.toFixed(1) : '\u2014'}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
