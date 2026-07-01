@@ -58,32 +58,30 @@ export default function BacktestPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Strategy Backtest</h1>
-          <p className="page-subtitle">
-            Test strategies against historical data
-          </p>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 className="t-page-title">Strategy Backtest</h1>
+        <p className="t-sub" style={{ fontSize: 13 }}>
+          Test strategies against historical data
+        </p>
       </div>
 
-      <div className="panel" style={{ marginBottom: 24 }}>
+      <div className="t-panel" style={{ marginBottom: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
           <div>
-            <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Strategy</label>
-            <select className="select" value={strategy} onChange={(e) => setStrategy(e.target.value)}>
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Strategy</label>
+            <select className="t-select" value={strategy} onChange={(e) => setStrategy(e.target.value)}>
               {STRATEGIES.map((s) => (
                 <option key={s} value={s}>{s.replace('_', ' ').toUpperCase()}</option>
               ))}
             </select>
           </div>
           <div>
-            <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Symbol</label>
-            <input className="input" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Symbol</label>
+            <input className="t-input" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
           </div>
           <div>
-            <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Interval</label>
-            <select className="select" value={interval} onChange={(e) => setInterval(e.target.value)}>
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Interval</label>
+            <select className="t-select" value={interval} onChange={(e) => setInterval(e.target.value)}>
               <option value="5m">5 min</option>
               <option value="15m">15 min</option>
               <option value="1h">1 hour</option>
@@ -91,15 +89,15 @@ export default function BacktestPage() {
             </select>
           </div>
           <div>
-            <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Days</label>
-            <input className="input" type="number" value={days} onChange={(e) => setDays(Number(e.target.value))} min={1} max={365} />
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Days</label>
+            <input className="t-input" type="number" value={days} onChange={(e) => setDays(Number(e.target.value))} min={1} max={365} />
           </div>
           <div>
-            <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Initial Capital</label>
-            <input className="input" type="number" value={capital} onChange={(e) => setCapital(Number(e.target.value))} min={1000} />
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Initial Capital</label>
+            <input className="t-input" type="number" value={capital} onChange={(e) => setCapital(Number(e.target.value))} min={1000} />
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            <button className="btn btn-primary" onClick={handleRun} disabled={running} style={{ width: '100%' }}>
+            <button className="t-btn-primary" onClick={handleRun} disabled={running} style={{ width: '100%' }}>
               {running ? 'Running...' : 'Run Backtest'}
             </button>
           </div>
@@ -107,7 +105,7 @@ export default function BacktestPage() {
       </div>
 
       {error && (
-        <div className="panel" style={{ borderLeft: '3px solid #ef4444', marginBottom: 24 }}>
+        <div className="t-panel" style={{ borderLeft: '3px solid #ef4444', marginBottom: 24 }}>
           <p style={{ color: '#ef4444', margin: 0 }}>{error}</p>
         </div>
       )}
@@ -115,62 +113,62 @@ export default function BacktestPage() {
       {r && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Total P&L</p>
-              <p className="numeric" style={{ fontSize: 22, fontWeight: 600, margin: 0, color: r.total_pnl >= 0 ? '#22c55e' : '#ef4444' }}>
+              <p className="t-num" style={{ fontSize: 22, fontWeight: 600, margin: 0, color: r.total_pnl >= 0 ? '#22c55e' : '#ef4444' }}>
                 {r.total_pnl >= 0 ? '+' : ''}{r.total_pnl.toFixed(2)}
               </p>
             </div>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Win Rate</p>
-              <p className="numeric neon-cyan" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{r.win_rate}%</p>
+              <p className="t-num neon-cyan" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{r.win_rate}%</p>
             </div>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Total Trades</p>
-              <p className="numeric" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{r.total_trades}</p>
+              <p className="t-num" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{r.total_trades}</p>
             </div>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Sharpe</p>
-              <p className="numeric" style={{ fontSize: 22, fontWeight: 600, margin: 0, color: r.sharpe_ratio >= 1 ? '#22c55e' : '#f59e0b' }}>
+              <p className="t-num" style={{ fontSize: 22, fontWeight: 600, margin: 0, color: r.sharpe_ratio >= 1 ? '#22c55e' : '#f59e0b' }}>
                 {r.sharpe_ratio.toFixed(2)}
               </p>
             </div>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Max Drawdown</p>
-              <p className="numeric negative" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>-{r.max_drawdown.toFixed(2)}</p>
+              <p className="t-num t-down" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>-{r.max_drawdown.toFixed(2)}</p>
             </div>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Candles</p>
-              <p className="numeric" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{result.candles_analyzed.toLocaleString()}</p>
+              <p className="t-num" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{result.candles_analyzed.toLocaleString()}</p>
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Avg Win</p>
-              <p className="numeric positive" style={{ fontSize: 18, margin: 0 }}>+{r.avg_win.toFixed(2)}</p>
+              <p className="t-num t-up" style={{ fontSize: 18, margin: 0 }}>+{r.avg_win.toFixed(2)}</p>
             </div>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Avg Loss</p>
-              <p className="numeric negative" style={{ fontSize: 18, margin: 0 }}>-{r.avg_loss.toFixed(2)}</p>
+              <p className="t-num t-down" style={{ fontSize: 18, margin: 0 }}>-{r.avg_loss.toFixed(2)}</p>
             </div>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Largest Win</p>
-              <p className="numeric positive" style={{ fontSize: 18, margin: 0 }}>+{r.largest_win.toFixed(2)}</p>
+              <p className="t-num t-up" style={{ fontSize: 18, margin: 0 }}>+{r.largest_win.toFixed(2)}</p>
             </div>
-            <div className="glass-card">
+            <div className="t-panel" style={{ padding: '16px' }}>
               <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Largest Loss</p>
-              <p className="numeric negative" style={{ fontSize: 18, margin: 0 }}>{r.largest_loss.toFixed(2)}</p>
+              <p className="t-num t-down" style={{ fontSize: 18, margin: 0 }}>{r.largest_loss.toFixed(2)}</p>
             </div>
           </div>
 
           {r.trades.length > 0 && (
-            <div className="panel">
-              <div className="panel-header">
-                <h3 className="panel-title">Trade Log ({r.trades.length} trades)</h3>
+            <div className="t-panel">
+              <div className="t-panel-header">
+                <h3 className="t-panel-title">Trade Log ({r.trades.length} trades)</h3>
               </div>
               <div style={{ overflowX: 'auto', maxHeight: 400, overflowY: 'auto' }}>
-                <table className="data-table">
+                <table className="t-table">
                   <thead>
                     <tr>
                       <th>Symbol</th>
@@ -187,11 +185,11 @@ export default function BacktestPage() {
                     {r.trades.map((t, i) => (
                       <tr key={i}>
                         <td style={{ fontWeight: 600 }}>{t.symbol}</td>
-                        <td><span className={t.side === 'BUY' ? 'positive' : 'negative'}>{t.side}</span></td>
-                        <td className="numeric">{t.entry_price.toFixed(2)}</td>
-                        <td className="numeric">{t.exit_price.toFixed(2)}</td>
-                        <td className="numeric">{t.quantity}</td>
-                        <td className="numeric" style={{ color: t.pnl >= 0 ? '#22c55e' : '#ef4444' }}>
+                        <td><span className={t.side === 'BUY' ? 't-up' : 't-down'}>{t.side}</span></td>
+                        <td className="t-num">{t.entry_price.toFixed(2)}</td>
+                        <td className="t-num">{t.exit_price.toFixed(2)}</td>
+                        <td className="t-num">{t.quantity}</td>
+                        <td className="t-num" style={{ color: t.pnl >= 0 ? '#22c55e' : '#ef4444' }}>
                           {t.pnl >= 0 ? '+' : ''}{t.pnl.toFixed(2)}
                         </td>
                         <td style={{ fontSize: 12, color: '#555570' }}>{new Date(t.entry_time).toLocaleString()}</td>

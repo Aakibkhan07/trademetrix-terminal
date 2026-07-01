@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 
-/* -------- Types -------- */
-
 interface BrokerCred {
   id: string
   broker: string
@@ -31,15 +29,11 @@ interface OrderResult {
   status: string
 }
 
-/* -------- Constants -------- */
-
 const UNDERLYING = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'SENSEX']
 
 function fmt(n: number) {
   return n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
-
-/* -------- Skeleton helpers -------- */
 
 function SkeletonLine({ w, h = 12 }: { w: string; h?: number }) {
   return <div style={{ width: w, height: h, background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
@@ -47,7 +41,7 @@ function SkeletonLine({ w, h = 12 }: { w: string; h?: number }) {
 
 function SkeletonBar() {
   return (
-    <div className="panel" style={{ padding: '10px 16px', display: 'flex', gap: 12, marginBottom: 16 }}>
+    <div className="t-panel" style={{ padding: '10px 16px', display: 'flex', gap: 12, marginBottom: 16 }}>
       <SkeletonLine w="80px" h={28} />
       <SkeletonLine w="80px" h={28} />
       <SkeletonLine w="80px" h={28} />
@@ -57,7 +51,7 @@ function SkeletonBar() {
 
 function SkeletonTable() {
   return (
-    <div className="panel" style={{ padding: 14 }}>
+    <div className="t-panel" style={{ padding: 14 }}>
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} style={{ display: 'flex', gap: 16, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
           <SkeletonLine w="50px" />
@@ -71,8 +65,6 @@ function SkeletonTable() {
     </div>
   )
 }
-
-/* -------- Main page -------- */
 
 export default function TradePage() {
   const { token } = useAuth()
@@ -102,7 +94,6 @@ export default function TradePage() {
 
   const activeBroker = creds.find(c => c.is_active)
 
-  /* Load broker credentials */
   const loadCreds = useCallback(async () => {
     setCredsLoading(true)
     setCredsError('')
@@ -118,7 +109,6 @@ export default function TradePage() {
 
   useEffect(() => { if (token) loadCreds() }, [token, loadCreds])
 
-  /* Load option chain */
   const loadChain = useCallback(async (sym: string) => {
     setChainLoading(true)
     setChainError('')
@@ -144,7 +134,6 @@ export default function TradePage() {
 
   useEffect(() => { if (token) loadChain(underlying) }, [token, underlying])
 
-  /* Activate broker */
   const handleActivate = async (broker: string) => {
     try {
       await api.brokers.activate(broker)
@@ -154,7 +143,6 @@ export default function TradePage() {
     }
   }
 
-  /* Open order ticket */
   const openOrder = (strike: number, side: 'CE' | 'PE') => {
     setSelectedStrike(strike)
     setSelectedSide(side)
@@ -169,7 +157,6 @@ export default function TradePage() {
   const selectedRow = chain.find(r => r.strike === selectedStrike)
   const selectedQuote = selectedSide === 'CE' ? selectedRow?.call : selectedRow?.put
 
-  /* Check live status + confirm */
   const handleToggleLive = async () => {
     if (isLiveMode) {
       setIsLiveMode(false)
@@ -198,7 +185,6 @@ export default function TradePage() {
     }
   }
 
-  /* Place order */
   const handlePlace = async () => {
     if (!selectedStrike || !selectedSide || !expiry) return
     setPlacing(true)
@@ -243,22 +229,20 @@ export default function TradePage() {
         </div>
       </div>
 
-      {/* Broker bar */}
       {credsLoading && <SkeletonBar />}
       {credsError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{credsError}</div>}
       {!credsLoading && (
-        <div className="panel" style={{ padding: '10px 16px', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, color: '#555570', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Broker</span>
+        <div className="t-panel" style={{ marginBottom: 16 }}>
+          <div className="t-panel-body" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span className="t-faint" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em' }}>BROKER</span>
             {creds.length === 0 && (
-              <span style={{ fontSize: 12, color: '#555570' }}>No brokers connected. Go to Brokers page to add credentials.</span>
+              <span className="t-faint" style={{ fontSize: 11 }}>No brokers connected. Go to Brokers page to add credentials.</span>
             )}
             {creds.map(c => (
               <button
                 key={c.broker}
-                className={`btn btn-sm ${c.is_active ? 'btn-cyan' : 'btn-secondary'}`}
+                className={`t-btn t-btn-sm ${c.is_active ? 't-btn-primary' : 't-btn-ghost'}`}
                 onClick={() => !c.is_active && handleActivate(c.broker)}
-                style={{ fontSize: 11, textTransform: 'capitalize' }}
                 disabled={c.is_active}
               >
                 {c.is_active && <span className="live-dot active" />}
@@ -269,257 +253,261 @@ export default function TradePage() {
         </div>
       )}
 
-      {/* Underlying selector */}
-      <div className="panel" style={{ padding: '10px 16px', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: '#555570', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Underlying</span>
+      <div className="t-panel" style={{ marginBottom: 16 }}>
+        <div className="t-panel-body" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span className="t-faint" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em' }}>UNDERLYING</span>
           {UNDERLYING.map(s => (
             <button
               key={s}
-              className={`btn btn-sm ${underlying === s ? 'btn-primary' : 'btn-secondary'}`}
+              className={`t-btn t-btn-sm ${underlying === s ? 't-btn-primary' : 't-btn-ghost'}`}
               onClick={() => { setUnderlying(s); setSelectedStrike(null); setSelectedSide(null) }}
-              style={{ fontSize: 11 }}
             >
               {s}
             </button>
           ))}
           {expiries.length > 0 && (
             <>
-              <span style={{ fontSize: 11, color: '#555570', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginLeft: 8 }}>Expiry</span>
-              <select className="select" value={expiry} onChange={e => setExpiry(e.target.value)} style={{ maxWidth: 120, fontSize: 11 }}>
+              <span className="t-faint" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', marginLeft: 12 }}>EXPIRY</span>
+              <select className="t-select" value={expiry} onChange={e => setExpiry(e.target.value)} style={{ maxWidth: 120 }}>
                 {expiries.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </>
           )}
           {!liveSource && chain.length > 0 && (
-            <span style={{ fontSize: 10, color: '#f59e0b', marginLeft: 8 }}>
-              Live quotes coming soon — prices shown may be simulated
+            <span className="t-badge t-badge-amber" style={{ marginLeft: 8, fontSize: 9 }}>
+              SIMULATED
             </span>
           )}
           {chain.length > 0 && (
-            <span style={{ fontSize: 10, color: '#555570', marginLeft: 'auto' }}>
+            <span className="t-faint" style={{ marginLeft: 'auto', fontSize: 10 }}>
               {chain.length} strikes
             </span>
           )}
         </div>
       </div>
 
-      {/* Error / Loading */}
       {chainError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{chainError}</div>}
       {chainLoading && <SkeletonTable />}
 
-      {/* Option chain table */}
       {!chainLoading && !chainError && chain.length > 0 && (
-        <div className="panel" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>
-          <table className="data-table" style={{ fontSize: 11 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'center', width: 90 }}>CALL LTP</th>
-                <th style={{ textAlign: 'center', width: 60 }}>Bid</th>
-                <th style={{ textAlign: 'center', width: 60 }}>Ask</th>
-                <th style={{ textAlign: 'center', width: 60 }}>Vol</th>
-                <th style={{ textAlign: 'center', width: 70 }}>STRIKE</th>
-                <th style={{ textAlign: 'center', width: 60 }}>Vol</th>
-                <th style={{ textAlign: 'center', width: 60 }}>Bid</th>
-                <th style={{ textAlign: 'center', width: 60 }}>Ask</th>
-                <th style={{ textAlign: 'center', width: 90 }}>PUT LTP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {chain.map(r => {
-                const isSelected = selectedStrike === r.strike
-                return (
-                  <tr key={r.strike}
-                    onClick={() => openOrder(r.strike, r.call.ltp > 0 ? 'CE' : 'CE')}
-                    style={{ cursor: 'pointer', background: isSelected ? 'rgba(139,92,246,0.06)' : undefined }}
-                  >
-                    {/* CALL */}
-                    <td style={{ textAlign: 'center' }}>
-                      <button
-                        className="btn btn-sm"
-                        onClick={(e) => { e.stopPropagation(); openOrder(r.strike, 'CE') }}
-                        style={{
-                          fontSize: 10, padding: '1px 8px',
-                          background: selectedStrike === r.strike && selectedSide === 'CE' ? 'rgba(34,211,238,0.15)' : 'transparent',
-                          color: r.call.ltp > 0 ? '#22d3ee' : '#555570',
-                          border: `1px solid ${selectedStrike === r.strike && selectedSide === 'CE' ? 'rgba(34,211,238,0.3)' : 'transparent'}`,
-                          width: '100%',
-                        }}
-                      >
-                        {r.call.ltp > 0 ? fmt(r.call.ltp) : '\u2014'}
-                      </button>
-                    </td>
-                    <td style={{ textAlign: 'center', color: r.call.bid > 0 ? '#aaaac0' : '#555570' }}>{r.call.bid > 0 ? fmt(r.call.bid) : '\u2014'}</td>
-                    <td style={{ textAlign: 'center', color: r.call.ask > 0 ? '#aaaac0' : '#555570' }}>{r.call.ask > 0 ? fmt(r.call.ask) : '\u2014'}</td>
-                    <td style={{ textAlign: 'center', color: '#555570', fontSize: 10 }}>{r.call.volume || '\u2014'}</td>
-                    {/* STRIKE */}
-                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#f0f0f5' }}>{r.strike}</td>
-                    {/* PUT */}
-                    <td style={{ textAlign: 'center', color: '#555570', fontSize: 10 }}>{r.put.volume || '\u2014'}</td>
-                    <td style={{ textAlign: 'center', color: r.put.bid > 0 ? '#aaaac0' : '#555570' }}>{r.put.bid > 0 ? fmt(r.put.bid) : '\u2014'}</td>
-                    <td style={{ textAlign: 'center', color: r.put.ask > 0 ? '#aaaac0' : '#555570' }}>{r.put.ask > 0 ? fmt(r.put.ask) : '\u2014'}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <button
-                        className="btn btn-sm"
-                        onClick={(e) => { e.stopPropagation(); openOrder(r.strike, 'PE') }}
-                        style={{
-                          fontSize: 10, padding: '1px 8px',
-                          background: selectedStrike === r.strike && selectedSide === 'PE' ? 'rgba(239,68,68,0.15)' : 'transparent',
-                          color: r.put.ltp > 0 ? '#ef4444' : '#555570',
-                          border: `1px solid ${selectedStrike === r.strike && selectedSide === 'PE' ? 'rgba(239,68,68,0.3)' : 'transparent'}`,
-                          width: '100%',
-                        }}
-                      >
-                        {r.put.ltp > 0 ? fmt(r.put.ltp) : '\u2014'}
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="t-panel" style={{ marginBottom: 16 }}>
+          <div className="t-table-wrap">
+            <table className="t-table" style={{ fontSize: 10 }}>
+              <thead>
+                <tr>
+                  <th className="t-faint" style={{ textAlign: 'right', paddingRight: 4 }}>CALL</th>
+                  <th style={{ textAlign: 'right', width: 60 }}>LTP</th>
+                  <th style={{ textAlign: 'right', width: 50 }}>Bid</th>
+                  <th style={{ textAlign: 'right', width: 50 }}>Ask</th>
+                  <th style={{ textAlign: 'right', width: 40 }}>Vol</th>
+                  <th style={{ textAlign: 'right', width: 40 }}>OI</th>
+                  <th style={{ textAlign: 'center', width: 64, borderLeft: '1px solid rgba(255,255,255,0.06)', borderRight: '1px solid rgba(255,255,255,0.06)' }} className="t-faint">STRIKE</th>
+                  <th style={{ textAlign: 'left', width: 40 }}>OI</th>
+                  <th style={{ textAlign: 'left', width: 40 }}>Vol</th>
+                  <th style={{ textAlign: 'left', width: 50 }}>Bid</th>
+                  <th style={{ textAlign: 'left', width: 50 }}>Ask</th>
+                  <th style={{ textAlign: 'left', width: 60 }}>LTP</th>
+                  <th className="t-faint" style={{ textAlign: 'left', paddingLeft: 4 }}>PUT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chain.map(r => {
+                  const isSelected = selectedStrike === r.strike
+                  return (
+                    <tr key={r.strike}
+                      onClick={() => openOrder(r.strike, r.call.ltp > r.put.ltp ? 'CE' : 'PE')}
+                      className={isSelected ? 'selected' : undefined}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td colSpan={6} style={{ padding: 0 }}>
+                        <div style={{ display: 'flex', width: '100%', gap: 0, alignItems: 'center' }}>
+                          <button
+                            className={`t-btn t-btn-sm ${selectedStrike === r.strike && selectedSide === 'CE' ? 't-btn-primary' : 't-btn-ghost'}`}
+                            onClick={(e) => { e.stopPropagation(); openOrder(r.strike, 'CE') }}
+                            style={{
+                              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4,
+                              padding: '2px 4px', minWidth: 0,
+                            }}
+                          >
+                            <span className={r.call.ltp > 0 ? 't-num t-up' : 't-faint'} style={{ fontSize: 11 }}>
+                              {r.call.ltp > 0 ? fmt(r.call.ltp) : '\u2014'}
+                            </span>
+                            <span className="t-faint" style={{ fontSize: 9, width: 20, textAlign: 'right' }}>
+                              {r.call.iv > 0 ? `${r.call.iv}%` : '\u2014'}
+                            </span>
+                          </button>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: 700, borderLeft: '1px solid rgba(255,255,255,0.06)', borderRight: '1px solid rgba(255,255,255,0.06)', padding: '4px 0' }}>
+                        {r.strike}
+                      </td>
+                      <td colSpan={6} style={{ padding: 0 }}>
+                        <div style={{ display: 'flex', width: '100%', gap: 0, alignItems: 'center' }}>
+                          <button
+                            className={`t-btn t-btn-sm ${selectedStrike === r.strike && selectedSide === 'PE' ? 't-btn-danger' : 't-btn-ghost'}`}
+                            onClick={(e) => { e.stopPropagation(); openOrder(r.strike, 'PE') }}
+                            style={{
+                              flex: 1, display: 'flex', alignItems: 'center', gap: 4,
+                              padding: '2px 4px', minWidth: 0,
+                            }}
+                          >
+                            <span className="t-faint" style={{ fontSize: 9, width: 20 }}>
+                              {r.put.iv > 0 ? `${r.put.iv}%` : '\u2014'}
+                            </span>
+                            <span className={r.put.ltp > 0 ? 't-num t-down' : 't-faint'} style={{ fontSize: 11 }}>
+                              {r.put.ltp > 0 ? fmt(r.put.ltp) : '\u2014'}
+                            </span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {!chainLoading && !chainError && chain.length === 0 && (
-        <div className="panel" style={{ padding: 20, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 13, color: '#555570' }}>
+        <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--t-faint)' }}>
             No option chain data available for {underlying}.
           </p>
         </div>
       )}
 
-      {/* Order ticket */}
       {selectedStrike && selectedSide && (
-        <div className="panel" style={{ padding: 16, maxWidth: 420 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ fontFamily: 'Outfit', fontSize: 14, margin: 0 }}>
+        <div className="t-panel" style={{ maxWidth: 420, borderTop: `3px solid ${selectedSide === 'CE' ? '#22c55e' : '#ef4444'}` }}>
+          <div className="t-panel-header">
+            <span className="t-panel-title" style={{ fontSize: 12 }}>
+              <span className={selectedSide === 'CE' ? 't-badge t-badge-green' : 't-badge t-badge-red'} style={{ fontSize: 9, marginRight: 6 }}>
+                {selectedSide === 'CE' ? 'BUY' : 'SELL'}
+              </span>
               {underlying}{expiry}{selectedStrike}{selectedSide}
-            </h3>
-            <button className="btn btn-sm btn-ghost" onClick={() => { setSelectedStrike(null); setSelectedSide(null) }} style={{ fontSize: 11 }}>
+            </span>
+            <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => { setSelectedStrike(null); setSelectedSide(null) }}>
               Clear
             </button>
           </div>
-
-          {selectedQuote && (
-            <div style={{ display: 'flex', gap: 12, marginBottom: 12, fontSize: 11 }}>
-              <div>
-                <span style={{ color: '#555570' }}>LTP</span>
-                <p style={{ margin: '2px 0 0', fontWeight: 600 }}>
-                  {selectedQuote.ltp > 0 ? `\u20B9${fmt(selectedQuote.ltp)}` : '\u2014'}
-                </p>
+          <div className="t-panel-body">
+            {selectedQuote && (
+              <div className="t-row" style={{ gap: 16, marginBottom: 12 }}>
+                <div className="t-col">
+                  <span className="t-faint" style={{ fontSize: 10 }}>LTP</span>
+                  <div className="t-num" style={{ fontSize: 16, fontWeight: 700, color: selectedSide === 'CE' ? '#22c55e' : '#ef4444' }}>
+                    {selectedQuote.ltp > 0 ? `\u20B9${fmt(selectedQuote.ltp)}` : '\u2014'}
+                  </div>
+                </div>
+                <div className="t-col">
+                  <span className="t-faint" style={{ fontSize: 10 }}>Bid/Ask</span>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                    {selectedQuote.bid > 0 || selectedQuote.ask > 0
+                      ? `\u20B9${fmt(selectedQuote.bid)} / \u20B9${fmt(selectedQuote.ask)}`
+                      : '\u2014'}
+                  </div>
+                </div>
+                <div className="t-col">
+                  <span className="t-faint" style={{ fontSize: 10 }}>IV</span>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{selectedQuote.iv > 0 ? `${selectedQuote.iv}%` : '\u2014'}</div>
+                </div>
               </div>
-              <div>
-                <span style={{ color: '#555570' }}>Bid/Ask</span>
-                <p style={{ margin: '2px 0 0', fontWeight: 600 }}>
-                  {selectedQuote.bid > 0 || selectedQuote.ask > 0
-                    ? `\u20B9${fmt(selectedQuote.bid)} / \u20B9${fmt(selectedQuote.ask)}`
-                    : '\u2014'}
-                </p>
-              </div>
-              <div>
-                <span style={{ color: '#555570' }}>IV</span>
-                <p style={{ margin: '2px 0 0', fontWeight: 600 }}>{selectedQuote.iv > 0 ? `${selectedQuote.iv}%` : '\u2014'}</p>
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Side</label>
-              <span style={{ fontSize: 13, fontWeight: 700, color: selectedSide === 'CE' ? '#22d3ee' : '#ef4444' }}>
-                {selectedSide === 'CE' ? 'BUY' : 'SELL'}
-              </span>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Qty</label>
-              <input className="input" type="number" min={1} value={orderQty} onChange={e => setOrderQty(Number(e.target.value))} style={{ fontSize: 12, padding: '4px 8px' }} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Type</label>
-              <select className="select" value={orderType} onChange={e => setOrderType(e.target.value as 'MARKET' | 'LIMIT')} style={{ fontSize: 12, padding: '4px 8px' }}>
-                <option value="MARKET">Market</option>
-                <option value="LIMIT">Limit</option>
-              </select>
-            </div>
-          </div>
-
-          {orderType === 'LIMIT' && (
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Limit Price</label>
-              <input className="input" type="number" min={0} step={0.05} value={orderPrice} onChange={e => setOrderPrice(Number(e.target.value))} style={{ fontSize: 12, padding: '4px 8px' }} />
-            </div>
-          )}
-
-          {/* Paper / Live toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: 10, color: '#555570', fontWeight: 600 }}>Mode</span>
-            <button
-              className={`btn btn-sm ${!isLiveMode ? 'btn-success' : 'btn-secondary'}`}
-              onClick={() => isLiveMode && setIsLiveMode(false)}
-              style={{ fontSize: 10, opacity: !isLiveMode ? 1 : 0.5 }}
-              disabled={!isLiveMode}
-            >
-              PAPER
-            </button>
-            <button
-              className={`btn btn-sm ${isLiveMode ? 'btn-danger' : 'btn-secondary'}`}
-              onClick={handleToggleLive}
-              style={{ fontSize: 10, opacity: isLiveMode ? 1 : 0.5 }}
-            >
-              LIVE
-            </button>
-            {activeBroker && (
-              <span style={{ fontSize: 10, color: '#555570', marginLeft: 'auto' }}>
-                via {activeBroker.broker}
-              </span>
             )}
+
+            <div className="t-row" style={{ gap: 8, marginBottom: 12 }}>
+              <div className="t-col">
+                <label className="t-label">Side</label>
+                <span style={{ fontSize: 13, fontWeight: 700, color: selectedSide === 'CE' ? '#22c55e' : '#ef4444' }}>
+                  {selectedSide === 'CE' ? 'BUY' : 'SELL'}
+                </span>
+              </div>
+              <div className="t-col">
+                <label className="t-label">Qty</label>
+                <input className="t-input" type="number" min={1} value={orderQty} onChange={e => setOrderQty(Number(e.target.value))} />
+              </div>
+              <div className="t-col">
+                <label className="t-label">Type</label>
+                <select className="t-select" value={orderType} onChange={e => setOrderType(e.target.value as 'MARKET' | 'LIMIT')}>
+                  <option value="MARKET">Market</option>
+                  <option value="LIMIT">Limit</option>
+                </select>
+              </div>
+            </div>
+
+            {orderType === 'LIMIT' && (
+              <div style={{ marginBottom: 12 }}>
+                <label className="t-label">Limit Price</label>
+                <input className="t-input" type="number" min={0} step={0.05} value={orderPrice} onChange={e => setOrderPrice(Number(e.target.value))} />
+              </div>
+            )}
+
+            <div className="t-row" style={{ alignItems: 'center', gap: 6, marginBottom: 12 }}>
+              <span className="t-faint" style={{ fontSize: 10, fontWeight: 600 }}>MODE</span>
+              <button
+                className={`t-chip ${!isLiveMode ? 'active' : ''}`}
+                onClick={() => isLiveMode && setIsLiveMode(false)}
+                style={{ color: !isLiveMode ? undefined : 'var(--t-faint)' }}
+              >
+                PAPER
+              </button>
+              <button
+                className={`t-chip ${isLiveMode ? 'active' : ''}`}
+                onClick={handleToggleLive}
+                style={{ color: isLiveMode ? '#ef4444' : 'var(--t-faint)' }}
+              >
+                LIVE
+              </button>
+              {activeBroker && (
+                <span className="t-faint" style={{ fontSize: 10, marginLeft: 'auto' }}>
+                  via {activeBroker.broker}
+                </span>
+              )}
+            </div>
+
+            {confirmingLive && (
+              <div style={{
+                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                borderRadius: 8, padding: '10px 12px', marginBottom: 12,
+              }}>
+                <p style={{ margin: '0 0 8px', fontSize: 11, color: '#ef4444', fontWeight: 500 }}>
+                  Live trading is not enabled. Enable live mode to place real orders?
+                </p>
+                <div className="t-row" style={{ gap: 6 }}>
+                  <button className="t-btn t-btn-sm t-btn-danger" onClick={confirmLive}>
+                    Enable Live
+                  </button>
+                  <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => setConfirmingLive(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {orderError && (
+              <div className="alert alert-error" style={{ marginBottom: 12 }}>
+                {orderError}
+              </div>
+            )}
+
+            {orderResult && (
+              <div className={`alert ${orderResult.success ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11 }}>
+                  {orderResult.success ? 'Order placed successfully' : 'Order rejected'}
+                  {orderResult.broker_order_id && <span style={{ display: 'block', fontSize: 10, color: 'var(--t-faint)', marginTop: 2 }}>ID: {orderResult.broker_order_id}</span>}
+                  {orderResult.message && <span style={{ display: 'block', fontSize: 10, marginTop: 2 }}>{orderResult.message}</span>}
+                </div>
+              </div>
+            )}
+
+            <button
+              className={`t-btn ${isLiveMode ? 't-btn-danger' : 't-btn-primary'}`}
+              onClick={handlePlace}
+              disabled={placing}
+              style={{ width: '100%' }}
+            >
+              {placing ? 'Placing...' : `${isLiveMode ? 'LIVE ' : ''}Place ${selectedSide === 'CE' ? 'BUY' : 'SELL'} ${underlying}${expiry}${selectedStrike}${selectedSide}`}
+            </button>
           </div>
-
-          {/* Confirm live dialog */}
-          {confirmingLive && (
-            <div style={{
-              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
-              borderRadius: 8, padding: '10px 12px', marginBottom: 12,
-            }}>
-              <p style={{ margin: '0 0 8px', fontSize: 11, color: '#ef4444', fontWeight: 500 }}>
-                Live trading is not enabled. Enable live mode to place real orders?
-              </p>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button className="btn btn-sm btn-danger" onClick={confirmLive} style={{ fontSize: 10 }}>
-                  Enable Live
-                </button>
-                <button className="btn btn-sm btn-secondary" onClick={() => setConfirmingLive(false)} style={{ fontSize: 10 }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {orderError && (
-            <div className="alert alert-error" style={{ marginBottom: 12 }}>
-              {orderError}
-            </div>
-          )}
-
-          {orderResult && (
-            <div className={`alert ${orderResult.success ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11 }}>
-                {orderResult.success ? 'Order placed successfully' : 'Order rejected'}
-                {orderResult.broker_order_id && <span style={{ display: 'block', fontSize: 10, color: '#555570', marginTop: 2 }}>ID: {orderResult.broker_order_id}</span>}
-                {orderResult.message && <span style={{ display: 'block', fontSize: 10, marginTop: 2 }}>{orderResult.message}</span>}
-              </div>
-            </div>
-          )}
-
-          <button
-            className={`btn ${isLiveMode ? 'btn-danger' : 'btn-primary'}`}
-            onClick={handlePlace}
-            disabled={placing}
-            style={{ width: '100%', fontSize: 12 }}
-          >
-            {placing ? 'Placing...' : `${isLiveMode ? 'LIVE ' : ''}Place ${selectedSide === 'CE' ? 'BUY' : 'SELL'} ${underlying}${expiry}${selectedStrike}${selectedSide}`}
-          </button>
         </div>
       )}
     </div>

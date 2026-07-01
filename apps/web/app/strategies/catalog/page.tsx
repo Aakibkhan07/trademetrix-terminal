@@ -51,7 +51,7 @@ function TierBadge({ tier }: { tier: string }) {
 
 function SkeletonCard() {
   return (
-    <div className="glass-card" style={{ padding: 20, height: 140 }}>
+    <div className="t-panel" style={{ padding: 20, height: 140 }}>
       <div style={{
         width: '60%', height: 14, background: 'rgba(139,92,246,0.1)',
         borderRadius: 4, marginBottom: 12,
@@ -92,25 +92,23 @@ export default function StrategyCatalogPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Strategy Catalog</h1>
-          <p className="page-subtitle">
-            Browse all available built-in trading strategies
-          </p>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 className="t-page-title">Strategy Catalog</h1>
+        <p className="t-sub" style={{ fontSize: 13 }}>
+          Browse all available built-in trading strategies
+        </p>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <input
-          className="input"
+          className="t-input"
           placeholder="Search strategies..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ maxWidth: 300 }}
         />
         <select
-          className="select"
+          className="t-select"
           value={tierFilter}
           onChange={(e) => setTierFilter(e.target.value)}
           style={{ maxWidth: 160 }}
@@ -125,13 +123,13 @@ export default function StrategyCatalogPage() {
       </div>
 
       {error && (
-        <div className="alert alert-error" style={{ marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>
           {error.message}
         </div>
       )}
 
       {loading && (
-        <div className="grid-auto">
+        <div className="t-grid-auto">
           {Array.from({ length: 8 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -158,9 +156,9 @@ export default function StrategyCatalogPage() {
       )}
 
       {!loading && !error && filtered.length > 0 && (
-        <div className="grid-auto">
+        <div className="t-grid-auto">
           {filtered.map((s) => (
-            <div key={s.key} className="glass-card" style={{
+            <div key={s.key} className="t-panel" style={{
               padding: 20, display: 'flex', flexDirection: 'column',
             }}>
               <div style={{
@@ -177,7 +175,7 @@ export default function StrategyCatalogPage() {
                 {s.description}
               </p>
               <div style={{ marginTop: 12 }}>
-                <span className="badge badge-violet" style={{ fontSize: 9, padding: '2px 8px' }}>
+                <span className="t-badge t-badge-violet" style={{ fontSize: 9, padding: '2px 8px' }}>
                   {s.key}
                 </span>
               </div>

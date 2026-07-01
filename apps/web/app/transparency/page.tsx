@@ -43,7 +43,7 @@ export default function TransparencyPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: 0 }}>Transparency Dashboard</h1>
-        <p style={{ color: '#8888a0', fontSize: 14, margin: '4px 0 0' }}>
+        <p className="t-sub" style={{ margin: '4px 0 0' }}>
           Full order lifecycle — every signal, every check, every fill
         </p>
       </div>
@@ -51,12 +51,12 @@ export default function TransparencyPage() {
       {loading ? (
         <p style={{ color: '#8888a0' }}>Loading order data...</p>
       ) : orders.length === 0 ? (
-        <div className="panel" style={{ textAlign: 'center', padding: 48 }}>
+        <div className="t-panel" style={{ textAlign: 'center', padding: 48 }}>
           <p style={{ color: '#555570', margin: 0 }}>No orders yet. Start a strategy to see your order lifecycle here.</p>
         </div>
       ) : (
-        <div className="panel" style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+        <div className="t-panel" style={{ overflowX: 'auto' }}>
+          <table className="t-table">
             <thead>
               <tr>
                 <th>Symbol</th>
@@ -74,34 +74,34 @@ export default function TransparencyPage() {
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
-                  <td className="numeric neon-cyan">{o.symbol}</td>
+                  <td className="t-num neon-cyan">{o.symbol}</td>
                   <td>
-                    <span className={o.side === 'BUY' ? 'positive' : 'negative'}>
+                    <span className={o.side === 'BUY' ? 't-up' : 't-down'}>
                       {o.side}
                     </span>
                   </td>
-                  <td className="numeric">{o.quantity}</td>
+                  <td className="t-num">{o.quantity}</td>
                   <td>
-                    <span className={`badge ${
-                      o.status === 'FILLED' ? 'badge-green' :
-                      o.status === 'REJECTED' ? 'badge-red' :
-                      o.status === 'PENDING' ? 'badge-violet' : 'badge-cyan'
+                    <span className={`t-badge ${
+                      o.status === 'FILLED' ? 't-badge-green' :
+                      o.status === 'REJECTED' ? 't-badge-red' :
+                      o.status === 'PENDING' ? 't-badge-violet' : 't-badge-cyan'
                     }`}>
                       {o.status}
                     </span>
                   </td>
-                  <td className="numeric">{o.signal_at ? new Date(o.signal_at).toLocaleTimeString() : '-'}</td>
-                  <td className="numeric">{o.risk_checked_at ? new Date(o.risk_checked_at).toLocaleTimeString() : '-'}</td>
-                  <td className="numeric">{o.sent_at ? new Date(o.sent_at).toLocaleTimeString() : '-'}</td>
-                  <td className="numeric">{o.filled_at ? new Date(o.filled_at).toLocaleTimeString() : '-'}</td>
-                  <td className="numeric">
+                  <td className="t-num">{o.signal_at ? new Date(o.signal_at).toLocaleTimeString() : '-'}</td>
+                  <td className="t-num">{o.risk_checked_at ? new Date(o.risk_checked_at).toLocaleTimeString() : '-'}</td>
+                  <td className="t-num">{o.sent_at ? new Date(o.sent_at).toLocaleTimeString() : '-'}</td>
+                  <td className="t-num">{o.filled_at ? new Date(o.filled_at).toLocaleTimeString() : '-'}</td>
+                  <td className="t-num">
                     {o.latency_ms !== null ? (
                       <span style={{ color: (o.latency_ms || 0) < 100 ? '#22c55e' : '#f59e0b' }}>
                         {o.latency_ms.toFixed(1)}ms
                       </span>
                     ) : '-'}
                   </td>
-                  <td className="numeric">
+                  <td className="t-num">
                     {o.slippage !== null ? (
                       <span style={{ color: (o.slippage || 0) === 0 ? '#22c55e' : '#ef4444' }}>
                         {o.slippage.toFixed(2)}
@@ -116,9 +116,9 @@ export default function TransparencyPage() {
       )}
 
       <div style={{ marginTop: 24 }}>
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title">Lifecycle Legend</h3>
+        <div className="t-panel">
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Lifecycle Legend</h3>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             <div>

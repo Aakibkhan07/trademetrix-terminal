@@ -52,14 +52,14 @@ export default function StrategiesPage() {
 
   return (
     <div>
-      <div className="page-header">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h1 className="page-title">Strategies</h1>
-          <p className="page-subtitle">
+          <h1 className="t-page-title">Strategies</h1>
+          <p className="t-sub" style={{ fontSize: 13 }}>
             Create, deploy, and manage your trading strategies
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+        <button className="t-btn-primary" onClick={() => setShowCreate(true)}>
           + New Strategy
         </button>
       </div>
@@ -70,21 +70,21 @@ export default function StrategiesPage() {
             <p style={{ margin: 0, fontSize: 13, color: '#22d3ee', fontWeight: 500 }}>No strategies yet</p>
             <p style={{ margin: '2px 0 0', fontSize: 12, color: '#555570' }}>Create your first strategy or explore the built-in types below.</p>
           </div>
-          <button className="btn btn-sm btn-cyan" onClick={() => setShowCreate(true)}>Create Strategy</button>
+          <button className="t-btn t-btn-sm" onClick={() => setShowCreate(true)}>Create Strategy</button>
         </div>
       )}
 
       {showCreate && (
-        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+        <div className="t-modal-overlay" onClick={() => setShowCreate(false)}>
+          <div className="t-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
             <h2 style={{ fontFamily: 'Outfit', fontSize: 18, margin: '0 0 16px' }}>Create Strategy</h2>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Name</label>
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Strategy" />
+              <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Name</label>
+              <input className="t-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Strategy" />
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Type</label>
-              <select className="select" value={strategyType} onChange={(e) => setStrategyType(e.target.value)}>
+              <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Type</label>
+              <select className="t-select" value={strategyType} onChange={(e) => setStrategyType(e.target.value)}>
                 <option value="trend_rider">Trend Rider</option>
                 <option value="orb_pro">ORB Pro</option>
                 <option value="smc_sniper">SMC Sniper</option>
@@ -96,8 +96,8 @@ export default function StrategiesPage() {
               </select>
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ color: '#8888a0', fontSize: 12, display: 'block', marginBottom: 4 }}>Symbol</label>
-              <input className="input" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="NIFTY" />
+              <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Symbol</label>
+              <input className="t-input" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="NIFTY" />
             </div>
             <div style={{ background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.12)', borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
               <p style={{ margin: 0, fontSize: 11, color: '#22d3ee', fontWeight: 500 }}>
@@ -108,16 +108,16 @@ export default function StrategiesPage() {
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleCreate}>Request Strategy</button>
+              <button className="t-btn" onClick={() => setShowCreate(false)}>Cancel</button>
+              <button className="t-btn-primary" onClick={handleCreate}>Request Strategy</button>
             </div>
           </div>
         </div>
       )}
 
       {contactMsg && (
-        <div className="modal-overlay" onClick={() => setContactMsg(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center' }}>
+        <div className="t-modal-overlay" onClick={() => setContactMsg(false)}>
+          <div className="t-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center' }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>📞</div>
             <h2 style={{ fontFamily: 'Outfit', fontSize: 18, margin: '0 0 8px' }}>Request Submitted</h2>
             <p style={{ fontSize: 13, color: '#8888a0', margin: '0 0 16px', lineHeight: 1.6 }}>
@@ -127,7 +127,7 @@ export default function StrategiesPage() {
               <p style={{ margin: '0 0 4px', fontSize: 11, color: '#555570' }}>Account Manager</p>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#f0f0f5' }}>support@trademetrix.tech</p>
             </div>
-            <button className="btn btn-primary" onClick={() => setContactMsg(false)} style={{ width: '100%' }}>Got it</button>
+            <button className="t-btn-primary" onClick={() => setContactMsg(false)} style={{ width: '100%' }}>Got it</button>
           </div>
         </div>
       )}
@@ -139,17 +139,17 @@ export default function StrategiesPage() {
           <h2 style={{ fontFamily: 'Outfit', fontSize: 15, margin: '0 0 14px', color: '#f0f0f5' }}>
             Saved Strategies ({strategies.length})
           </h2>
-          <div className="grid-auto" style={{ marginBottom: 28 }}>
+          <div className="t-grid-auto" style={{ marginBottom: 28 }}>
             {strategies.map((s) => {
               return (
-                <div key={s.id} className="strategy-card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+                <div key={s.id} className="t-panel" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
                   <div style={{ padding: '18px', flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                       <div>
                         <h3 style={{ fontFamily: 'Outfit', fontSize: 14, margin: 0 }}>{s.name}</h3>
                         <p style={{ margin: '2px 0 0', fontSize: 11, color: '#555570' }}>{s.type}</p>
                       </div>
-                      <span className={`badge ${s.is_active ? 'badge-green' : 'badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
+                      <span className={`t-badge ${s.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
                         {s.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -158,24 +158,24 @@ export default function StrategiesPage() {
                     </p>
                   </div>
                   <div style={{ borderTop: '1px solid rgba(139,92,246,0.06)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                    <button className="btn btn-sm btn-secondary" onClick={() => handleToggle(s)} style={{ fontSize: 11 }}>
+                    <button className="t-btn t-btn-sm" onClick={() => handleToggle(s)} style={{ fontSize: 11 }}>
                       {s.is_active ? 'Pause' : 'Start'}
                     </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(s.id)} style={{ fontSize: 11 }}>
+                    <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleDelete(s.id)} style={{ fontSize: 11 }}>
                       Delete
                     </button>
-                    <Link href="/backtest" className="btn btn-sm btn-cyan" style={{ fontSize: 11 }}>Backtest</Link>
+                    <Link href="/backtest" className="t-btn t-btn-sm" style={{ fontSize: 11 }}>Backtest</Link>
                   </div>
                 </div>
               )
             })}
           </div>
 
-            <div className="panel" style={{ padding: '20px' }}>
-            <div className="panel-header" style={{ marginBottom: 12 }}>
-              <h3 className="panel-title" style={{ fontSize: 15 }}>Built-in Strategy Types</h3>
+            <div className="t-panel" style={{ padding: '20px' }}>
+            <div className="t-panel-header" style={{ marginBottom: 12 }}>
+              <h3 className="t-panel-title" style={{ fontSize: 15 }}>Built-in Strategy Types</h3>
             </div>
-            <div className="grid-2">
+            <div className="t-grid-2">
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Trend Rider</p>
                 <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>EMA crossover (9/21) trend following with momentum confirmation.</p>

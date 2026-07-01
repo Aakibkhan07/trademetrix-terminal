@@ -55,181 +55,167 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">
-            <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
-            {connected ? 'Live' : 'Connecting...'}
-            <span className="last-updated" style={{ marginLeft: 12 }}>Updated {lastRefresh}</span>
-          </p>
+      <div className="t-page-header">
+        <h1 className="t-page-title">Dashboard</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-red'}`} />
+          <span className={connected ? 't-up' : 't-down'} style={{ fontSize: 12 }}>{connected ? 'Live' : 'Connecting...'}</span>
+          <span className="t-faint" style={{ fontSize: 11 }}>Updated {lastRefresh}</span>
+          <button className="t-btn t-btn-sm t-btn-ghost" onClick={loadData}>Refresh</button>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={loadData}>Refresh</button>
       </div>
 
-      <div className="grid-4">
+      <div className="t-grid-4">
         {WATCH_SYMBOLS.map((s) => {
           const t = ticks[s.key]
           const pct = t?.change_pct ?? 0
           return (
-            <div key={s.key} className="glass-card">
-              <p className="card-label">{s.name}</p>
-              {t ? (
-                <>
-                  <p className="card-value">{t.last_price.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</p>
-                  <p className={`card-change ${pct >= 0 ? 'up' : 'down'}`}>
-                    {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
-                    <span className="card-sec"> {t.change >= 0 ? '+' : ''}{t.change.toFixed(1)}</span>
-                  </p>
-                </>
-              ) : (
-                <p className="card-placeholder">Waiting...</p>
-              )}
+            <div key={s.key} className="t-panel">
+              <div className="t-panel-body">
+                <p className="t-stat-label">{s.name}</p>
+                {t ? (
+                  <>
+                    <p className="t-stat-value" style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: 22, margin: '4px 0' }}>
+                      {t.last_price.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                    </p>
+                    <p className={pct >= 0 ? 't-up' : 't-down'} style={{ fontSize: 12, margin: 0 }}>
+                      {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                      <span className="t-faint" style={{ marginLeft: 6 }}>
+                        {t.change >= 0 ? '+' : ''}{t.change.toFixed(1)}
+                      </span>
+                    </p>
+                  </>
+                ) : (
+                  <p className="t-faint" style={{ margin: 0 }}>Waiting...</p>
+                )}
+              </div>
             </div>
           )
         })}
       </div>
 
-      <div className="grid-2" style={{ gap: 20, marginBottom: 24 }}>
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title">Portfolio Summary</h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span className={`stat-value ${totalPnl >= 0 ? 'positive' : 'negative'}`} style={{ fontSize: 16 }}>
+      <div className="t-row" style={{ marginBottom: 20 }}>
+        <div className="t-col">
+          <div className="t-panel">
+            <div className="t-panel-header">
+              <h3 className="t-panel-title">Portfolio Summary</h3>
+              <span className={`t-num ${totalPnl >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 14 }}>
                 {totalPnl >= 0 ? '+' : ''}{totalPnl?.toFixed(0) || '0'}
               </span>
-              <span className="last-updated">{lastRefresh}</span>
+            </div>
+            <div className="t-panel-body">
+              {positions.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <EquityCurve points={(() => {
+                    let cum = 0
+                    return positions.map((p: any) => {
+                      const live = ticks[p.symbol]
+                      const ltp = live?.last_price || p.last_price || 0
+                      const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
+                      cum += pnl || 0
+                      return cum
+                    })
+                  })()} height={140} />
+                </div>
+              )}
+
+              {positions.length > 1 && (
+                <div>
+                  <p className="t-stat-label" style={{ marginBottom: 8 }}>P&L by Symbol</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {positions.map((p: any) => {
+                      const live = ticks[p.symbol]
+                      const ltp = live?.last_price || p.last_price || 0
+                      const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
+                      const maxPnl = Math.max(...positions.map((x: any) => {
+                        const l = ticks[x.symbol]
+                        const lp = l?.last_price || x.last_price || 0
+                        return Math.abs(l ? (x.quantity * (lp - x.average_buy_price)) : (x.unrealised_pnl || 0))
+                      })) || 1
+                      const pct = Math.abs(pnl) / maxPnl * 100
+                      return (
+                        <div key={p.symbol} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className="t-faint" style={{ fontSize: 11, minWidth: 80 }}>{p.symbol?.split(':').pop()}</span>
+                          <div className="t-progress" style={{ flex: 1, height: 6 }}>
+                            <div className={`t-progress-fill ${pnl >= 0 ? 'green' : 'red'}`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className={`t-num ${pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 11, minWidth: 60, textAlign: 'right' }}>
+                            {pnl >= 0 ? '+' : ''}{pnl?.toFixed(0) || '0'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {positions.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <EquityCurve points={(() => {
-                let cum = 0
-                return positions.map((p: any) => {
-                  const live = ticks[p.symbol]
-                  const ltp = live?.last_price || p.last_price || 0
-                  const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
-                  cum += pnl || 0
-                  return cum
-                })
-              })()} height={140} />
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="stat-card">
-              <p className="stat-label">Total P&L</p>
-              <p className={`stat-value ${totalPnl >= 0 ? 'positive' : 'negative'}`}>
-                {totalPnl >= 0 ? '+' : ''}{totalPnl?.toFixed(0) || '0'}
-              </p>
-              <p className="stat-sub">{positions.length} positions</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-label">Available Margin</p>
-              <p className="stat-value">{(funds?.available_margin || 0).toLocaleString()}</p>
-              <p className="stat-sub">of {(funds?.total_margin || 0).toLocaleString()} total</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-label">Positions</p>
-              <p className="stat-value">{positions.length}</p>
-              <p className="stat-sub">{positions.filter((p: any) => p.quantity > 0).length} long / {positions.filter((p: any) => p.quantity < 0).length} short</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-label">Orders Today</p>
-              <p className="stat-value">{orders.length}</p>
-              <p className="stat-sub">{orders.filter((o: any) => o.status === 'FILLED').length} filled</p>
-            </div>
-          </div>
-
-          {positions.length > 1 && (
-            <div style={{ marginTop: 16 }}>
-              <p className="stat-label" style={{ marginBottom: 8 }}>P&L by Symbol</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {positions.map((p: any) => {
-                  const live = ticks[p.symbol]
-                  const ltp = live?.last_price || p.last_price || 0
-                  const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
-                  const maxPnl = Math.max(...positions.map((x: any) => {
-                    const l = ticks[x.symbol]
-                    const lp = l?.last_price || x.last_price || 0
-                    return Math.abs(l ? (x.quantity * (lp - x.average_buy_price)) : (x.unrealised_pnl || 0))
-                  })) || 1
-                  const pct = Math.abs(pnl) / maxPnl * 100
-                  return (
-                    <div key={p.symbol} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11, minWidth: 80, color: 'var(--text-sub)' }}>
-                        {p.symbol?.split(':').pop()}
-                      </span>
-                      <div style={{ flex: 1, height: 6, background: 'var(--panel-2)', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{
-                          width: `${pct}%`,
-                          height: '100%',
-                          background: pnl >= 0 ? 'var(--green)' : 'var(--red)',
-                          borderRadius: 3,
-                          transition: 'width 0.3s ease',
-                        }} />
-                      </div>
-                      <span style={{ fontSize: 11, minWidth: 60, textAlign: 'right', fontFamily: 'var(--font-mono)', color: pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                        {pnl >= 0 ? '+' : ''}{pnl?.toFixed(0) || '0'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title">Market at a Glance</h3>
-            <span className={`badge ${connected ? 'badge-green' : 'badge-red'}`}>
-              <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
-              {connected ? 'Live Feed' : 'Offline'}
-            </span>
-          </div>
-          <div style={{ padding: '8px 0' }}>
-            {ratio && (
-              <div style={{ marginBottom: 16 }}>
-                <p className="stat-label" style={{ margin: '0 0 6px' }}>NIFTY / BANKNIFTY RATIO</p>
-                <p className="stat-value" style={{ fontSize: 28, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                  {ratio.toFixed(3)}
-                </p>
-              </div>
-            )}
-            <div className="market-grid">
-              <div>
-                <p className="stat-label">NIFTY</p>
-                <p style={{ fontSize: 18, fontWeight: 600, color: (niftyTick?.change_pct ?? 0) >= 0 ? 'var(--status-up)' : 'var(--status-down)', margin: 0 }}>
-                  {niftyTick?.last_price?.toFixed(1) || '--'}
-                </p>
-              </div>
-              <div>
-                <p className="stat-label">BANKNIFTY</p>
-                <p style={{ fontSize: 18, fontWeight: 600, color: (bankNiftyTick?.change_pct ?? 0) >= 0 ? 'var(--status-up)' : 'var(--status-down)', margin: 0 }}>
-                  {bankNiftyTick?.last_price?.toFixed(1) || '--'}
-                </p>
+        <div className="t-col">
+          <div className="t-panel">
+            <div className="t-panel-header">
+              <h3 className="t-panel-title">Account Overview</h3>
+              <span className={`t-badge ${connected ? 't-badge-green' : 't-badge-red'}`}>
+                <span className={`t-dot ${connected ? 't-dot-green' : 't-dot-red'}`} />
+                {connected ? 'Live Feed' : 'Offline'}
+              </span>
+            </div>
+            <div className="t-panel-body">
+              {ratio && (
+                <div style={{ marginBottom: 20 }}>
+                  <p className="t-stat-label" style={{ marginBottom: 4 }}>NIFTY / BANKNIFTY</p>
+                  <p className="t-num" style={{ fontSize: 26, color: 'var(--accent-cyan)' }}>
+                    {ratio.toFixed(3)}
+                  </p>
+                </div>
+              )}
+
+              <div className="t-stat-row">
+                <div className="t-stat">
+                  <span className="t-stat-label">Total P&L</span>
+                  <span className={`t-stat-value ${totalPnl >= 0 ? 't-up' : 't-down'}`}>
+                    {totalPnl >= 0 ? '+' : ''}{totalPnl?.toFixed(0) || '0'}
+                  </span>
+                  <span className="t-stat-sub">{positions.length} positions</span>
+                </div>
+                <div className="t-stat">
+                  <span className="t-stat-label">Available Margin</span>
+                  <span className="t-stat-value">{(funds?.available_margin || 0).toLocaleString()}</span>
+                  <span className="t-stat-sub">of {(funds?.total_margin || 0).toLocaleString()} total</span>
+                </div>
+                <div className="t-stat">
+                  <span className="t-stat-label">Positions</span>
+                  <span className="t-stat-value">{positions.length}</span>
+                  <span className="t-stat-sub">
+                    {positions.filter((p: any) => p.quantity > 0).length} long / {positions.filter((p: any) => p.quantity < 0).length} short
+                  </span>
+                </div>
+                <div className="t-stat">
+                  <span className="t-stat-label">Orders Today</span>
+                  <span className="t-stat-value">{orders.length}</span>
+                  <span className="t-stat-sub">{orders.filter((o: any) => o.status === 'FILLED').length} filled</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="panel" style={{ padding: 0 }}>
-        <div className="panel-header" style={{ padding: '12px 16px', margin: 0 }}>
-          <h3 className="panel-title" style={{ fontSize: 14 }}>Open Positions ({positions.length})</h3>
+      <div className="t-panel">
+        <div className="t-panel-header">
+          <h3 className="t-panel-title">Open Positions ({positions.length})</h3>
         </div>
         {positions.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table">
+          <div className="t-table-wrap">
+            <table className="t-table">
               <thead>
                 <tr>
                   <th>Symbol</th>
-                  <th className="numeric">Qty</th>
-                  <th className="numeric">Avg</th>
-                  <th className="numeric">LTP</th>
-                  <th className="numeric">P&L</th>
+                  <th className="num">Qty</th>
+                  <th className="num">Avg</th>
+                  <th className="num">LTP</th>
+                  <th className="num">P&amp;L</th>
                   <th>Type</th>
                 </tr>
               </thead>
@@ -241,14 +227,14 @@ export default function DashboardPage() {
                   return (
                     <tr key={i}>
                       <td style={{ fontWeight: 600 }}>{p.symbol?.split(':').pop()}</td>
-                      <td className="numeric">{p.quantity}</td>
-                      <td className="numeric">{p.average_buy_price?.toFixed(1) || '-'}</td>
-                      <td className="numeric">{ltp?.toFixed(1) || '-'}</td>
-                      <td className={`numeric ${pnl >= 0 ? 'positive' : 'negative'}`} style={{ fontWeight: 600 }}>
+                      <td className="num">{p.quantity}</td>
+                      <td className="num">{p.average_buy_price?.toFixed(1) || '-'}</td>
+                      <td className="num">{ltp?.toFixed(1) || '-'}</td>
+                      <td className={`num ${pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 600 }}>
                         {pnl >= 0 ? '+' : ''}{pnl?.toFixed(0) || '0'}
                       </td>
                       <td>
-                        <span className={`badge ${p.instrument_type === 'OPT' ? 'badge-violet' : 'badge-cyan'}`} style={{ fontSize: 8 }}>
+                        <span className={`t-badge ${p.instrument_type === 'OPT' ? 't-badge-violet' : 't-badge-cyan'}`} style={{ fontSize: 10 }}>
                           {p.instrument_type || 'EQ'}
                         </span>
                       </td>
@@ -259,7 +245,7 @@ export default function DashboardPage() {
             </table>
           </div>
         ) : (
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, padding: 24, margin: 0, textAlign: 'center' }}>No open positions</p>
+          <p className="t-faint" style={{ textAlign: 'center', padding: 24, margin: 0 }}>No open positions</p>
         )}
       </div>
     </div>

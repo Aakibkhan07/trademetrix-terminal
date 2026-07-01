@@ -6,32 +6,18 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 
-const NAV_SECTIONS = [
-  {
-    label: 'Core',
-    items: [
-      { href: '/dashboard', label: 'Dashboard', icon: 'D' },
-      { href: '/strategies', label: 'Strategies', icon: 'S' },
-      { href: '/brokers', label: 'Brokers', icon: 'B' },
-    ],
-  },
-  {
-    label: 'Trading',
-    items: [
-      { href: '/trade', label: 'Trade', icon: 'T' },
-      { href: '/positions', label: 'Positions', icon: 'P' },
-      { href: '/marketdata', label: 'Market Data', icon: 'M' },
-      { href: '/backtest', label: 'Backtest', icon: 'B' },
-      { href: '/risk', label: 'Risk Control', icon: 'R' },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      { href: '/ai', label: 'AI Desk', icon: 'A' },
-      { href: '/transparency', label: 'Reports', icon: 'R' },
-    ],
-  },
+const NAV_ITEMS = [
+  { href: '/dashboard', label: 'Dashboard', icon: 'D' },
+  { href: '/terminal', label: 'Terminal', icon: 'T' },
+  { href: '/trade', label: 'Trade', icon: 'O' },
+  { href: '/positions', label: 'Positions', icon: 'P' },
+  { href: '/marketdata', label: 'Market', icon: 'M' },
+  { href: '/strategies', label: 'Strategies', icon: 'S' },
+  { href: '/brokers', label: 'Brokers', icon: 'B' },
+  { href: '/backtest', label: 'Backtest', icon: 'K' },
+  { href: '/risk', label: 'Risk', icon: 'R' },
+  { href: '/ai', label: 'AI', icon: 'A' },
+  { href: '/transparency', label: 'Reports', icon: 'E' },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -60,66 +46,59 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading || !isAuthenticated) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#000', color: '#8888a0' }}>
-        <p>Loading...</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', color: 'var(--text-faint)' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="app-layout">
-      <aside className="sidebar">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.label}>
-            <div className="nav-section-label">{section.label}</div>
-            {section.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`nav-item ${pathname === item.href ? 'active' : ''}`}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        ))}
+    <>
+      <nav className="t-sidebar">
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`t-nav-item ${isActive ? 'active' : ''}`}
+              title={item.label}
+            >
+              {item.icon}
+            </Link>
+          )
+        })}
 
-        <div style={{ marginTop: 'auto', padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', marginLeft: 16, marginRight: 16, paddingLeft: 0, paddingRight: 0 }}>
-          <div
-            className={`kill-switch ${killSwitchActive ? 'active' : 'inactive'}`}
-            style={{ width: '100%', justifyContent: 'center' }}
-            onClick={async () => {
-              if (killSwitchActive) {
-                await api.risk.disableKillSwitch()
-                setKillSwitchActive(false)
-              } else {
-                await api.risk.enableKillSwitch()
-                setKillSwitchActive(true)
-              }
-            }}
-          >
-            <span style={{
-              width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
-              background: killSwitchActive ? '#ef4444' : '#555570',
-              boxShadow: killSwitchActive ? '0 0 8px #ef4444' : 'none',
-            }} />
-            {killSwitchActive ? 'KILL SWITCH ON' : 'Kill Switch'}
-          </div>
+        <div className="t-nav-spacer" />
 
-          <button
-            className="btn btn-ghost"
-            style={{ width: '100%', marginTop: 8, fontSize: 12 }}
-            onClick={signout}
-          >
-            Sign Out
-          </button>
-        </div>
-      </aside>
+        <button
+          className={`t-kill ${killSwitchActive ? 'active' : 'inactive'}`}
+          style={{ width: 36, justifyContent: 'center' }}
+          onClick={async () => {
+            if (killSwitchActive) {
+              await api.risk.disableKillSwitch()
+              setKillSwitchActive(false)
+            } else {
+              await api.risk.enableKillSwitch()
+              setKillSwitchActive(true)
+            }
+          }}
+          title={killSwitchActive ? 'Kill Switch ON' : 'Kill Switch'}
+        >
+          <span className={`t-dot ${killSwitchActive ? 't-dot-red t-dot-pulse' : 't-dot-sub'}`} />
+        </button>
 
-      <main className="main-content">
-        {children}
-      </main>
-    </div>
+        <button
+          className="t-nav-item"
+          onClick={signout}
+          title="Sign Out"
+          style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 10 }}
+        >
+          X
+        </button>
+      </nav>
+
+      {children}
+    </>
   )
 }
