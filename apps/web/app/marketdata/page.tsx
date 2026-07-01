@@ -7,7 +7,7 @@ import { api } from '@/lib/api'
 type WatchItem = { symbol: string; name: string; type: string }
 
 export default function MarketDataPage() {
-  const { ticks, connected, subscribe, startFeed, stopFeed } = useMarketData()
+  const { ticks, connected, feedMode, subscribe, startFeed, stopFeed } = useMarketData()
   const [feedOn, setFeedOn] = useState(false)
   const [indices, setIndices] = useState<WatchItem[]>([])
   const [stocks, setStocks] = useState<WatchItem[]>([])
@@ -46,6 +46,9 @@ export default function MarketDataPage() {
           <p className="page-subtitle">
             <span className={`live-dot ${connected ? 'active' : 'inactive'}`} />
             {connected ? 'Connected' : 'Disconnected'} &middot; {Object.keys(ticks).length} symbols
+            {feedMode === 'simulator' && (
+              <span className="badge badge-amber" style={{ marginLeft: 8 }}>SIMULATED DATA</span>
+            )}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

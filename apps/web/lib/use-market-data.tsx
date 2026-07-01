@@ -18,9 +18,12 @@ export interface TickData {
   exchange: string
 }
 
+export type FeedMode = 'idle' | 'simulator' | 'broker'
+
 interface MarketDataContextType {
   ticks: Record<string, TickData>
   connected: boolean
+  feedMode: FeedMode
   subscribe: (symbols: string[]) => void
   unsubscribe: (symbols: string[]) => void
   startFeed: () => Promise<void>
@@ -30,6 +33,7 @@ interface MarketDataContextType {
 const MarketDataContext = createContext<MarketDataContextType>({
   ticks: {},
   connected: false,
+  feedMode: 'idle',
   subscribe: () => {},
   unsubscribe: () => {},
   startFeed: async () => {},
@@ -39,6 +43,7 @@ const MarketDataContext = createContext<MarketDataContextType>({
 export function MarketDataProvider({ children }: { children: ReactNode }) {
   const [ticks, setTicks] = useState<Record<string, TickData>>({})
   const [connected, setConnected] = useState(false)
+  const [feedMode, setFeedMode] = useState<FeedMode>('idle')
   const wsRef = useRef<WebSocket | null>(null)
   const subscribedRef = useRef<Set<string>>(new Set())
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -96,15 +101,21 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const startFeed = useCallback(async () => {
-    try { await api.post('/marketdata/feed/start') } catch {}
+    try {
+      const res = await api.post<{ broker?: string }>('/marketdata/feed/start')
+      setFeedMode(res?.broker === 'simulator' ? 'simulator' : 'broker')
+    } catch {
+      setFeedMode('idle')
+    }
   }, [])
 
   const stopFeed = useCallback(async () => {
     try { await api.post('/marketdata/feed/stop') } catch {}
+    setFeedMode('idle')
   }, [])
 
   return (
-    <MarketDataContext.Provider value={{ ticks, connected, subscribe, unsubscribe, startFeed, stopFeed }}>
+    <MarketDataContext.Provider value={{ ticks, connected, feedMode, subscribe, unsubscribe, startFeed, stopFeed }}>
       {children}
     </MarketDataContext.Provider>
   )

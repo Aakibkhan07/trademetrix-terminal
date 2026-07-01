@@ -107,7 +107,7 @@ function SkeletonRow() {
 
 export default function TerminalPage() {
   const refreshKey = 0
-  const { ticks, subscribe } = useMarketData()
+  const { ticks, feedMode, subscribe } = useMarketData()
 
   const { data: posData, loading: posLoading, error: posError } =
     useApi<{ positions: Position[] }>(`/engine/positions?_=${refreshKey}`)
@@ -143,7 +143,12 @@ export default function TerminalPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Terminal</h1>
-          <p className="page-subtitle">Real-time trading dashboard</p>
+          <p className="page-subtitle">
+            Real-time trading dashboard
+            {feedMode === 'simulator' && (
+              <span className="badge badge-amber" style={{ marginLeft: 8 }}>SIMULATED DATA</span>
+            )}
+          </p>
         </div>
       </div>
 
@@ -359,6 +364,9 @@ export default function TerminalPage() {
           <div className="panel-header" style={{ padding: '14px 16px 10px', margin: 0 }}>
             <h3 className="panel-title" style={{ fontSize: 14 }}>Indices</h3>
             <span style={{ fontSize: 11, color: '#555570' }}>{indices.length}</span>
+            {feedMode === 'simulator' && (
+              <span className="badge badge-amber" style={{ marginLeft: 8, fontSize: 9 }}>SIMULATED DATA</span>
+            )}
           </div>
           <div style={{ padding: '0 16px 16px' }}>
             {indices.length === 0 && (
