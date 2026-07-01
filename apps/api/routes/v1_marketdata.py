@@ -7,8 +7,10 @@ import random
 import httpx
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
 
+from core.db import get_supabase
 from core.deps import get_current_user
 from core.models import Tick, UserProfile
+from core.safe_query import safe_single
 from core.security import decode_access_token
 from market.data_socket import shared_socket
 from market.simulator import market_simulator
@@ -19,12 +21,14 @@ router = APIRouter(prefix="/marketdata", tags=["marketdata"])
 
 
 @router.websocket("/ws")
-async def marketdata_ws(websocket: WebSocket, token: str | None = None):
-    token = token or websocket.query_params.get("access_token") or websocket.cookies.get("tm_session") or websocket.cookies.get("access_token")
-    if not token or decode_access_token(token) is None:
+async def marketdata_ws(websocket: WebSocket):
+    session_cookie = websocket.cookies.get("tm_session")
+    if not session_cookie or decode_access_token(session_cookie) is None:
+        logger.warning("WS rejected — missing/invalid tm_session cookie")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
         return
 
+    logger.info("WS client authenticated via tm_session cookie")
     await websocket.accept()
     subscribed_symbols: set[str] = set()
     queue: asyncio.Queue[Tick] = asyncio.Queue()
@@ -126,29 +130,42 @@ async def _drain_queue(websocket: WebSocket, queue: asyncio.Queue, cancel: async
 
 @router.post("/feed/start")
 async def start_market_feed(current_user: UserProfile = Depends(get_current_user)):
-    broker_started = False
-    try:
-        await shared_socket.start_broker_feed(
-            user_id=current_user.id,
-            broker_type="fyers",
-            symbols=[s["symbol"] for s in MAJOR_INDICES + MAJOR_STOCKS],
-        )
-        broker_started = True
-        logger.info("Broker feed started successfully")
-    except Exception as e:
-        logger.warning("Broker feed unavailable (%s), falling back to simulator", e)
+    symbols = [s["symbol"] for s in MAJOR_INDICES + MAJOR_STOCKS]
 
-    if not broker_started:
-        all_symbols = [s["symbol"] for s in MAJOR_INDICES + MAJOR_STOCKS]
-        await market_simulator.start(symbols=all_symbols)
-        logger.info("Market simulator started as fallback with %d symbols", len(all_symbols))
+    supabase = get_supabase()
+    active = safe_single(
+        supabase.table("broker_credentials")
+        .select("broker")
+        .eq("user_id", current_user.id)
+        .eq("is_active", True)
+    )
 
-    return {"message": "Market feed started"}
+    if active and active["broker"] in STREAMING_SUPPORTED:
+        broker_type = active["broker"]
+        try:
+            await shared_socket.start_broker_feed(
+                user_id=current_user.id,
+                broker_type=broker_type,
+                symbols=symbols,
+            )
+            logger.info("Broker feed started for %s with %d symbols", broker_type, len(symbols))
+            return {"message": "Market feed started", "broker": broker_type}
+        except Exception as e:
+            logger.warning("Broker feed %s failed (%s), falling back to simulator", broker_type, e)
+    elif active:
+        logger.warning("Active broker %s has no streaming support — falling back to simulator", active["broker"])
+    else:
+        logger.warning("No active broker configured — falling back to simulator")
+
+    await market_simulator.start(symbols=symbols)
+    logger.info("Market simulator started with %d symbols", len(symbols))
+    return {"message": "Market feed started (simulator)", "broker": "simulator"}
 
 
 @router.post("/feed/stop")
 async def stop_market_feed():
-    await shared_socket.stop_broker_feed("fyers")
+    await shared_socket.stop_all_feeds()
+    await market_simulator.stop()
     return {"message": "Market feed stopped"}
 
 
@@ -249,6 +266,8 @@ async def get_symbols():
 async def get_watchlist():
     return {"indices": MAJOR_INDICES, "stocks": MAJOR_STOCKS}
 
+
+STREAMING_SUPPORTED = {"fyers", "angelone"}
 
 STRIKE_INTERVALS: dict[str, int] = {"NIFTY": 50, "BANKNIFTY": 100, "FINNIFTY": 50, "SENSEX": 100}
 LOT_SIZES: dict[str, int] = {"NIFTY": 65, "BANKNIFTY": 30, "FINNIFTY": 60, "SENSEX": 20}

@@ -88,7 +88,7 @@ def _log_order(user_id: str, order: NormalizedOrder) -> None:
     try:
         supabase = get_supabase()
         data = order.model_dump(mode="json")
-        for field in ("id", "run_id", "validity", "disclosed_quantity", "is_paper"):
+        for field in ("id", "run_id", "validity", "disclosed_quantity"):
             if field in data and not data[field]:
                 del data[field]
         # strategy_id is a string label in NormalizedOrder but UUID in the DB — omit it

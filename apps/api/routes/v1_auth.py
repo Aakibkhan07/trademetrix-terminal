@@ -15,7 +15,7 @@ COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 days
 COOKIE_KWARGS = dict(
     httponly=True,
     secure=True,
-    samesite="lax",
+    samesite="none",
     path="/",
     domain=settings.cookie_domain or None,
     max_age=COOKIE_MAX_AGE,
@@ -40,13 +40,10 @@ class AuthResponse(BaseModel):
 
 def _set_session_cookie(response: Response, token: str):
     response.set_cookie(key=COOKIE_NAME, value=token, **COOKIE_KWARGS)
-    # also set old name during migration so existing clients don't break
-    response.set_cookie(key="access_token", value=token, **COOKIE_KWARGS)
 
 
 def _clear_session_cookie(response: Response):
     response.delete_cookie(key=COOKIE_NAME, path="/", domain=settings.cookie_domain or None)
-    response.delete_cookie(key="access_token", path="/", domain=settings.cookie_domain or None)
 
 
 @router.post("/signup", status_code=201)
