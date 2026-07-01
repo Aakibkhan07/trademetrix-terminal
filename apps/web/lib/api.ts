@@ -172,6 +172,8 @@ export const api = {
     symbols: () => request('/marketdata/symbols'),
     watchlist: () => request('/marketdata/watchlist'),
     optionChain: (symbol: string) => request(`/marketdata/option-chain?symbol=${symbol}`),
+    historical: (symbol: string, interval = '15m', days = 7) =>
+      request(`/marketdata/historical?symbol=${symbol}&interval=${interval}&days=${days}`),
   },
 
   tradingview: {

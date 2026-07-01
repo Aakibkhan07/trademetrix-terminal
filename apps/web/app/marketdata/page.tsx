@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useMarketData } from '@/lib/use-market-data'
 import { api } from '@/lib/api'
+import Chart from '@/components/chart'
 
 type WatchItem = { symbol: string; name: string; type: string }
 
@@ -13,6 +14,7 @@ export default function MarketDataPage() {
   const [stocks, setStocks] = useState<WatchItem[]>([])
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | 'indices' | 'stocks'>('all')
+  const [chartSymbol, setChartSymbol] = useState('NSE:NIFTY50-INDEX')
 
   const loadWatchlist = useCallback(async () => {
     try {
@@ -94,6 +96,8 @@ export default function MarketDataPage() {
         </button>
       </div>
 
+      <Chart symbol={chartSymbol} height={320} />
+
       <div className="panel" style={{ padding: 0 }}>
         <div className="panel-header" style={{ padding: '10px 14px', margin: 0 }}>
           <h3 className="panel-title" style={{ fontSize: 13 }}>
@@ -128,8 +132,9 @@ export default function MarketDataPage() {
                   const pct = t?.change_pct ?? 0
                   const spread = t?.ask && t?.bid ? (t.ask - t.bid) : 0
                   return (
-                    <tr key={item.symbol}>
-                      <td style={{ fontWeight: 600, fontSize: 10 }}>{item.symbol}</td>
+                    <tr key={item.symbol} style={{ cursor: 'pointer' }}
+                      onClick={() => setChartSymbol(item.symbol)}>
+                      <td style={{ fontWeight: 600, fontSize: 10, color: chartSymbol === item.symbol ? 'var(--cyan)' : undefined }}>{item.symbol}</td>
                       <td>{item.name}</td>
                       <td><span className={`badge ${item.type === 'index' ? 'badge-violet' : 'badge-cyan'}`} style={{ fontSize: 9 }}>{item.type}</span></td>
                       <td className="numeric">{t?.last_price?.toFixed(1) || '-'}</td>
