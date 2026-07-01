@@ -18,7 +18,7 @@ async def health():
     }
 
 
-@router.get("/metrics")
+@router.get("/health/metrics")
 async def metrics():
     return get_metrics()
 
