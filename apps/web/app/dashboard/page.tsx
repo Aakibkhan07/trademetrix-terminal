@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
 import { useAuth } from '@/lib/auth-context'
+import EquityCurve from '@/components/equity-curve'
 
 const WATCH_SYMBOLS = [
   { name: 'NIFTY', key: 'NSE:NIFTY50-INDEX' },
@@ -93,8 +94,29 @@ export default function DashboardPage() {
         <div className="panel">
           <div className="panel-header">
             <h3 className="panel-title">Portfolio Summary</h3>
-            <span className="last-updated">{lastRefresh}</span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span className={`stat-value ${totalPnl >= 0 ? 'positive' : 'negative'}`} style={{ fontSize: 16 }}>
+                {totalPnl >= 0 ? '+' : ''}{totalPnl?.toFixed(0) || '0'}
+              </span>
+              <span className="last-updated">{lastRefresh}</span>
+            </div>
           </div>
+
+          {positions.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <EquityCurve points={(() => {
+                let cum = 0
+                return positions.map((p: any) => {
+                  const live = ticks[p.symbol]
+                  const ltp = live?.last_price || p.last_price || 0
+                  const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
+                  cum += pnl || 0
+                  return cum
+                })
+              })()} height={140} />
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="stat-card">
               <p className="stat-label">Total P&L</p>
@@ -104,7 +126,7 @@ export default function DashboardPage() {
               <p className="stat-sub">{positions.length} positions</p>
             </div>
             <div className="stat-card">
-              <p className="stat-label">Available</p>
+              <p className="stat-label">Available Margin</p>
               <p className="stat-value">{(funds?.available_margin || 0).toLocaleString()}</p>
               <p className="stat-sub">of {(funds?.total_margin || 0).toLocaleString()} total</p>
             </div>
@@ -119,6 +141,44 @@ export default function DashboardPage() {
               <p className="stat-sub">{orders.filter((o: any) => o.status === 'FILLED').length} filled</p>
             </div>
           </div>
+
+          {positions.length > 1 && (
+            <div style={{ marginTop: 16 }}>
+              <p className="stat-label" style={{ marginBottom: 8 }}>P&L by Symbol</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {positions.map((p: any) => {
+                  const live = ticks[p.symbol]
+                  const ltp = live?.last_price || p.last_price || 0
+                  const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
+                  const maxPnl = Math.max(...positions.map((x: any) => {
+                    const l = ticks[x.symbol]
+                    const lp = l?.last_price || x.last_price || 0
+                    return Math.abs(l ? (x.quantity * (lp - x.average_buy_price)) : (x.unrealised_pnl || 0))
+                  })) || 1
+                  const pct = Math.abs(pnl) / maxPnl * 100
+                  return (
+                    <div key={p.symbol} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 11, minWidth: 80, color: 'var(--text-sub)' }}>
+                        {p.symbol?.split(':').pop()}
+                      </span>
+                      <div style={{ flex: 1, height: 6, background: 'var(--panel-2)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${pct}%`,
+                          height: '100%',
+                          background: pnl >= 0 ? 'var(--green)' : 'var(--red)',
+                          borderRadius: 3,
+                          transition: 'width 0.3s ease',
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 11, minWidth: 60, textAlign: 'right', fontFamily: 'var(--font-mono)', color: pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {pnl >= 0 ? '+' : ''}{pnl?.toFixed(0) || '0'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="panel">

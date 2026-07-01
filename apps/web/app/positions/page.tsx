@@ -5,10 +5,12 @@ import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
 import { useAuth } from '@/lib/auth-context'
+import { useToast } from '@/lib/use-toast'
 
 export default function PositionsPage() {
   const { token } = useAuth()
   const { ticks, connected, subscribe, startFeed } = useMarketData()
+  const { toast } = useToast()
   const [positions, setPositions] = useState<any[]>([])
   const [orders, setOrders] = useState<any[]>([])
   const [funds, setFunds] = useState<any>(null)
@@ -46,6 +48,16 @@ export default function PositionsPage() {
     const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : p.unrealised_pnl
     return sum + (pnl || 0)
   }, 0)
+
+  const cancelOrder = async (orderId: string) => {
+    try {
+      await api.engine.cancelOrder(orderId)
+      toast('success', 'Order cancelled')
+      setTimeout(loadData, 500)
+    } catch {
+      toast('error', 'Failed to cancel order')
+    }
+  }
 
   const sqOff = async (symbol: string, qty: number) => {
     const side = qty > 0 ? 'SELL' : 'BUY'
@@ -183,6 +195,7 @@ export default function PositionsPage() {
                   <th className="numeric">Avg</th>
                   <th>Status</th>
                   <th>Time</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -209,6 +222,14 @@ export default function PositionsPage() {
                     </td>
                     <td style={{ fontSize: 10, color: '#555570' }}>
                       {o.created_at ? new Date(o.created_at).toLocaleTimeString() : '-'}
+                    </td>
+                    <td>
+                      {['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status) && (
+                        <button className="btn btn-sm btn-danger" style={{ fontSize: 9, padding: '2px 8px' }}
+                          onClick={() => cancelOrder(o.id)}>
+                          Cancel
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

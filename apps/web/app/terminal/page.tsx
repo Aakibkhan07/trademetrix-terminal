@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useApi } from '@/lib/use-api'
 import { useMarketData } from '@/lib/use-market-data'
+import { api } from '@/lib/api'
+import { useToast } from '@/lib/use-toast'
 
 /* -------- Types -------- */
 
@@ -108,6 +110,8 @@ function SkeletonRow() {
 export default function TerminalPage() {
   const refreshKey = 0
   const { ticks, feedMode, subscribe } = useMarketData()
+  const { toast } = useToast()
+  const [cancelling, setCancelling] = useState<string | null>(null)
 
   const { data: posData, loading: posLoading, error: posError } =
     useApi<{ positions: Position[] }>(`/engine/positions?_=${refreshKey}`)
@@ -133,6 +137,17 @@ export default function TerminalPage() {
   useEffect(() => {
     if (allSymbols.length) subscribe(allSymbols)
   }, [allSymbols, subscribe])
+
+  const handleCancel = async (orderId: string) => {
+    setCancelling(orderId)
+    try {
+      await api.engine.cancelOrder(orderId)
+      toast('success', 'Order cancelled')
+    } catch {
+      toast('error', 'Failed to cancel order')
+    }
+    setCancelling(null)
+  }
 
   const hasLive: boolean = funds !== null && (funds.total_margin > 0 || funds.available_margin > 0)
   const posCount = positions.length
@@ -327,6 +342,7 @@ export default function TerminalPage() {
                   <th>Price</th>
                   <th>Status</th>
                   <th>Time</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -351,6 +367,14 @@ export default function TerminalPage() {
                     </td>
                     <td style={{ color: '#555570', fontSize: 10 }}>
                       {o.created_at ? new Date(o.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '\u2014'}
+                    </td>
+                    <td>
+                      {['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status) && (
+                        <button className="btn btn-sm btn-danger" style={{ fontSize: 9, padding: '2px 8px' }}
+                          onClick={() => handleCancel(o.id)} disabled={cancelling === o.id}>
+                          {cancelling === o.id ? '...' : 'Cancel'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

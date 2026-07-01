@@ -266,6 +266,19 @@ async def get_watchlist():
     return {"indices": MAJOR_INDICES, "stocks": MAJOR_STOCKS}
 
 
+@router.get("/historical")
+async def get_historical(
+    symbol: str = Query("NIFTY"),
+    exchange: str = Query("NSE"),
+    interval: str = Query("15m"),
+    days: int = Query(7),
+    current_user: UserProfile = Depends(get_current_user),
+):
+    from engine.backtest import fetch_historical_data
+    candles = await fetch_historical_data(symbol, exchange, interval, days, user_id=current_user.id)
+    return {"symbol": symbol, "interval": interval, "candles": candles}
+
+
 STREAMING_SUPPORTED = {"fyers", "angelone"}
 
 STRIKE_INTERVALS: dict[str, int] = {"NIFTY": 50, "BANKNIFTY": 100, "FINNIFTY": 50, "SENSEX": 100}
