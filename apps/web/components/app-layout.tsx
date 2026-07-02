@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import Logo from '@/components/logo'
+import Header from '@/components/header'
+import MarketTicker from '@/components/market-ticker'
+import StatusBar from '@/components/status-bar'
 
 const NAV_SECTIONS = [
   {
@@ -48,6 +51,15 @@ const NAV_SECTIONS = [
   },
 ]
 
+const STANDALONE_PAGES = ['/', '/auth', '/onboarding']
+const STANDALONE_PREFIXES = ['/portal']
+
+function isStandalone(pathname: string) {
+  if (STANDALONE_PAGES.includes(pathname)) return true
+  if (STANDALONE_PREFIXES.some(p => pathname.startsWith(p))) return true
+  return false
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -55,22 +67,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [killSwitchActive, setKillSwitchActive] = useState(false)
 
   const isAuthenticated = !!user
+  const standalone = isStandalone(pathname)
 
   useEffect(() => {
-    if (!isAuthenticated || pathname === '/auth') return
+    if (!isAuthenticated || standalone) return
     api.risk.killSwitchStatus().then((d: unknown) => {
       const data = d as { kill_switch_enabled: boolean }
       setKillSwitchActive(data.kill_switch_enabled)
     }).catch(() => {})
-  }, [isAuthenticated, pathname])
+  }, [isAuthenticated, standalone])
 
   useEffect(() => {
-    if (!loading && !isAuthenticated && pathname !== '/auth' && pathname !== '/onboarding' && !pathname.startsWith('/portal')) {
+    if (!loading && !isAuthenticated && !standalone) {
       router.replace('/auth')
     }
-  }, [loading, isAuthenticated, pathname, router])
+  }, [loading, isAuthenticated, standalone, router])
 
-  if (pathname === '/auth' || pathname === '/onboarding' || pathname.startsWith('/portal')) return <>{children}</>
+  if (standalone) return <>{children}</>
 
   if (loading || !isAuthenticated) {
     return (
@@ -81,7 +94,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <>
+    <div className="t-layout">
       <nav className="t-sidebar">
         <Link href="/dashboard" className="t-sidebar-logo">
           <Logo size={24} />
@@ -133,7 +146,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      {children}
-    </>
+      <div className="t-main">
+        <Header />
+        <MarketTicker />
+        <div className="t-content">
+          {children}
+        </div>
+        <StatusBar />
+      </div>
+    </div>
   )
 }

@@ -1,9 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from './providers'
-import Header from '@/components/header'
-import MarketTicker from '@/components/market-ticker'
-import StatusBar from '@/components/status-bar'
 import AppLayout from '@/components/app-layout'
 
 export const metadata: Metadata = {
@@ -24,18 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <Providers>
-          <div className="t-layout">
-            <AppLayout>
-              <div className="t-main">
-                <Header />
-                <MarketTicker />
-                <div className="t-content">
-                  {children}
-                </div>
-                <StatusBar />
-              </div>
-            </AppLayout>
-          </div>
+          <AppLayout>{children}</AppLayout>
         </Providers>
       </body>
     </html>
