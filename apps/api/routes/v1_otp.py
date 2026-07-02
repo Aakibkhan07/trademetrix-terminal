@@ -186,7 +186,7 @@ async def verify_otp(req: VerifyOTPRequest, response: Response):
         try:
             client = await get_http_client()
             resp = await client.get(
-                f"{settings.supabase_url}/auth/v1/admin/users?email={quote(email)}",
+                f"{settings.supabase_url}/auth/v1/admin/users",
                 headers={
                     "apikey": settings.supabase_service_key,
                     "Authorization": f"Bearer {settings.supabase_service_key}",
@@ -195,8 +195,9 @@ async def verify_otp(req: VerifyOTPRequest, response: Response):
             if resp.status_code == 200:
                 users_data = resp.json()
                 auth_users = users_data.get("users", []) if isinstance(users_data, dict) else users_data if isinstance(users_data, list) else []
-                if auth_users and isinstance(auth_users, list):
-                    return auth_users[0]
+                for u in auth_users:
+                    if isinstance(u, dict) and u.get("email", "").lower() == email.lower():
+                        return u
             return None
         except Exception:
             return None
