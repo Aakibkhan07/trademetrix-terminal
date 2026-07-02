@@ -523,3 +523,53 @@ async def admin_stats(admin: UserProfile = Depends(require_admin)):
         "total_strategies": catalog_count,
         "tier_distribution": tier_counts,
     }
+
+
+@router.get("/risk")
+async def admin_risk_overview(admin: UserProfile = Depends(require_admin)):
+    supabase = get_supabase()
+    settings = safe_execute(
+        supabase.table("risk_settings").select("*")
+    ) or []
+
+    user_ids = list(set(s["user_id"] for s in settings))
+    profile_map = {}
+    if user_ids:
+        profiles = safe_execute(
+            supabase.table("profiles").select("id, email, full_name").in_("id", user_ids)
+        ) or []
+        profile_map = {p["id"]: p for p in profiles}
+
+    result = []
+    for s in settings:
+        p = profile_map.get(s["user_id"], {})
+        result.append({
+            "user_id": s["user_id"],
+            "email": p.get("email", ""),
+            "full_name": p.get("full_name", ""),
+            "max_capital": s.get("max_capital", 0.0),
+            "max_position_size": s.get("max_position_size", 0.0),
+            "max_open_positions": s.get("max_open_positions", 10),
+            "max_daily_loss": s.get("max_daily_loss", 0.0),
+            "max_drawdown_pct": s.get("max_drawdown_pct", 0.0),
+            "kill_switch_enabled": s.get("kill_switch_enabled", False),
+            "is_live": s.get("is_live", False),
+            "strategy_id": s.get("strategy_id", ""),
+        })
+
+    return {"settings": result, "count": len(result)}
+
+
+@router.get("/active-brokers")
+async def admin_active_brokers_count(admin: UserProfile = Depends(require_admin)):
+    supabase = get_supabase()
+    total = safe_execute(
+        supabase.table("broker_credentials").select("id").eq("is_active", True)
+    ) or []
+    oauthed = safe_execute(
+        supabase.table("broker_credentials").select("id").neq("encrypted_access_token", "")
+    ) or []
+    return {
+        "active_broker_count": len(total),
+        "oauthed_count": len(oauthed),
+    }

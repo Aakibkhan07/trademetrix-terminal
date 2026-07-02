@@ -119,6 +119,32 @@ function WinDonut({ wins, losses }: { wins: number; losses: number }) {
   )
 }
 
+function DrawdownChart({ points }: { points: number[] }) {
+  if (points.length < 2) return null
+  let peak = points[0]; const dd = points.map(v => { const d = peak > 0 ? ((v - peak) / peak) * 100 : 0; if (v > peak) peak = v; return d })
+  const min = Math.min(...dd, -0.1); const max = 0
+  const range = max - min || 1
+  const w = 600; const pad = { top: 16, right: 16, bottom: 24, left: 52 }
+  const cw = w - pad.left - pad.right; const ch = 100 - pad.top - pad.bottom
+  const x = (i: number) => pad.left + (i / (dd.length - 1)) * cw
+  const y = (v: number) => pad.top + ch - ((v - min) / range) * ch
+  const fill = dd.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(v)}`).join('')
+  return (
+    <svg viewBox={`0 0 ${w} ${pad.top + ch + pad.bottom}`} style={{ width: '100%', height: 'auto' }}>
+      <line x1={pad.left} y1={y(0)} x2={w - pad.right} y2={y(0)} stroke="rgba(139,92,246,0.1)" strokeWidth={1} />
+      {[-5, -10, -15, -20].filter(v => v >= min).map(v => (
+        <g key={v}>
+          <line x1={pad.left} y1={y(v)} x2={w - pad.right} y2={y(v)} stroke="rgba(239,68,68,0.06)" strokeWidth={1} />
+          <text x={pad.left - 4} y={y(v) + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">{v}%</text>
+        </g>
+      ))}
+      <path d={`${fill}L${x(dd.length - 1)},${pad.top + ch}L${x(0)},${pad.top + ch}Z`}
+        fill="rgba(239,68,68,0.08)" />
+      <path d={fill} fill="none" stroke="#ef4444" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 /* ===================================================================
    AUTHENTICATED DASHBOARD
    =================================================================== */
@@ -353,6 +379,51 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 </div>
               ))}
             </div>
+            {/* Quick Trade */}
+            <div className="t-panel" style={{ padding: '10px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#8888a0', letterSpacing: '0.03em' }}>QUICK TRADE</span>
+                <input className="t-input" placeholder="Symbol" id="qt-symbol"
+                  style={{ width: 100, fontSize: 11, fontFamily: 'var(--font-mono)' }}
+                  onKeyDown={e => { if (e.key === 'Enter') (document.getElementById('qt-qty') as HTMLInputElement)?.focus() }} />
+                <input className="t-input" type="number" placeholder="Qty" id="qt-qty"
+                  style={{ width: 60, fontSize: 11, fontFamily: 'var(--font-mono)' }}
+                  onKeyDown={e => { if (e.key === 'Enter') (document.getElementById('qt-buy') as HTMLButtonElement)?.click() }} />
+                <button id="qt-buy" className="t-btn t-btn-sm"
+                  onClick={async () => {
+                    const el = document.getElementById('qt-symbol') as HTMLInputElement
+                    const qel = document.getElementById('qt-qty') as HTMLInputElement
+                    const sym = el.value.toUpperCase().trim()
+                    const qty = parseInt(qel.value)
+                    if (!sym || !qty) return
+                    el.style.borderColor = 'var(--violet)'
+                    try {
+                      await api.engine.trade({ symbol: sym, side: 'BUY', quantity: qty })
+                    } catch (e) { alert(e instanceof Error ? e.message : 'Trade failed') }
+                    el.style.borderColor = ''; qel.value = ''; el.value = ''
+                  }}
+                  style={{ fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>
+                  BUY
+                </button>
+                <button className="t-btn t-btn-sm"
+                  onClick={async () => {
+                    const el = document.getElementById('qt-symbol') as HTMLInputElement
+                    const qel = document.getElementById('qt-qty') as HTMLInputElement
+                    const sym = el.value.toUpperCase().trim()
+                    const qty = parseInt(qel.value)
+                    if (!sym || !qty) return
+                    el.style.borderColor = '#ef4444'
+                    try {
+                      await api.engine.trade({ symbol: sym, side: 'SELL', quantity: qty })
+                    } catch (e) { alert(e instanceof Error ? e.message : 'Trade failed') }
+                    el.style.borderColor = ''; qel.value = ''; el.value = ''
+                  }}
+                  style={{ fontSize: 10, fontWeight: 700, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  SELL
+                </button>
+              </div>
+            </div>
+
             {positions.length > 0 && (
               <div className="t-panel" style={{ padding: 0 }}>
                 <div className="t-panel-header" style={{ minHeight: 28, padding: '6px 12px' }}>
@@ -533,6 +604,15 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 ? orders.filter(o => o.status === 'FILLED').map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
                 : [0, 1]}
                 height={160} />
+            </div>
+
+            {/* Drawdown Chart */}
+            <div className="t-panel" style={{ padding: '12px 14px' }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Drawdown</h3>
+              <DrawdownChart points={orders.length > 1
+                ? orders.map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
+                : [0, 1]}
+              />
             </div>
 
             {/* Monthly Returns + Win Donut */}

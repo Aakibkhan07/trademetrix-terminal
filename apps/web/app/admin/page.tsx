@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useApi } from '@/lib/use-api'
 import { useAuth } from '@/lib/auth-context'
-import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats } from '@/lib/api'
+import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting } from '@/lib/api'
 
 interface StrategyInfo {
   key: string
@@ -70,6 +70,7 @@ const TABS = [
   { key: 'brokers', label: 'Brokers' },
   { key: 'trades', label: 'Trades' },
   { key: 'audit', label: 'Audit Log' },
+  { key: 'risk', label: 'Risk' },
   { key: 'broadcast', label: 'Broadcast' },
 ]
 
@@ -158,6 +159,7 @@ function AdminDashboard() {
       {tab === 'brokers' && <BrokersTab />}
       {tab === 'trades' && <TradesTab />}
       {tab === 'audit' && <AuditTab />}
+      {tab === 'risk' && <RiskTab />}
       {tab === 'broadcast' && <BroadcastTab />}
     </div>
   )
@@ -458,10 +460,84 @@ function BrokersTab() {
   const [refreshKey, setRefreshKey] = useState(0)
   const { data, loading } = useApi<{ brokers: AdminBroker[] }>(`/admin/brokers?_=${refreshKey}`)
 
+  const [apiKey, setApiKey] = useState('')
+  const [secretKey, setSecretKey] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [fyersStatus, setFyersStatus] = useState<{ hasCreds: boolean; hasToken: boolean; isActive: boolean } | null>(null)
+  const [fyersMsg, setFyersMsg] = useState('')
+  const [authUrl, setAuthUrl] = useState('')
+
   const brokers = data?.brokers || []
+
+  useEffect(() => {
+    api.get<{ credentials: { id: string; broker: string; is_active: boolean }[] }>('/brokers/credentials')
+      .then(d => {
+        const f = d.credentials.find(c => c.broker === 'fyers')
+        setFyersStatus({ hasCreds: !!f, hasToken: false, isActive: f?.is_active || false })
+      })
+  }, [refreshKey])
+
+  const handleSaveFyers = async () => {
+    if (!apiKey || !secretKey) { setFyersMsg('Fill both App ID and Secret Key'); return }
+    setSaving(true); setFyersMsg('')
+    try {
+      await api.brokers.saveCredentials({ broker: 'fyers', api_key: apiKey, secret_key: secretKey })
+      setFyersMsg('Fyers credentials saved! Now authorize below.')
+      setFyersStatus(s => s ? { ...s, hasCreds: true } : { hasCreds: true, hasToken: false, isActive: false })
+      setApiKey(''); setSecretKey('')
+      setRefreshKey(k => k + 1)
+    } catch (err: unknown) {
+      setFyersMsg(err instanceof Error ? err.message : 'Save failed')
+    } finally { setSaving(false) }
+  }
+
+  const handleFyersAuth = async () => {
+    try {
+      const res = await api.get<{ auth_url: string }>('/brokers/fyers/auth-url')
+      setAuthUrl(res.auth_url)
+      window.open(res.auth_url, '_blank', 'width=600,height=700')
+    } catch (err: unknown) {
+      setFyersMsg(err instanceof Error ? err.message : 'Auth failed')
+    }
+  }
 
   return (
     <div>
+      {/* Admin Fyers Setup */}
+      <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: 0, color: '#f0f0f5' }}>My Fyers Credentials</h3>
+          {fyersStatus && (
+            <span style={{ fontSize: 10, color: fyersStatus.isActive ? '#22c55e' : '#8888a0' }}>
+              {fyersStatus.isActive ? 'Active' : fyersStatus.hasCreds ? 'Saved (inactive)' : 'Not configured'}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <input className="t-input" value={apiKey} onChange={e => setApiKey(e.target.value)}
+            placeholder="Fyers App ID" style={{ fontSize: 11, flex: 1 }} />
+          <input className="t-input" type="password" value={secretKey} onChange={e => setSecretKey(e.target.value)}
+            placeholder="Secret Key" style={{ fontSize: 11, flex: 1 }} />
+          <button className="t-btn t-btn-sm" onClick={handleSaveFyers} disabled={saving} style={{ fontSize: 10 }}>
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+        {fyersMsg && <p style={{ fontSize: 10, margin: '4px 0 0', color: fyersMsg.includes('saved') ? '#22c55e' : '#ef4444' }}>{fyersMsg}</p>}
+        {(fyersStatus?.hasCreds) && (
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button className="t-btn t-btn-sm" onClick={handleFyersAuth} style={{ fontSize: 10 }}>
+              {authUrl ? 'Re-authorize Fyers' : 'Authorize with Fyers'}
+            </button>
+            {authUrl && (
+              <a href={authUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--cyan)' }}>
+                Open Fyers login page
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* All user connections */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <p className="t-sub" style={{ fontSize: 12, margin: 0 }}>All users' broker connections &amp; OAuth status</p>
         <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
@@ -680,6 +756,72 @@ function AuditTab() {
                   <td style={{ padding: '6px 8px', color: '#555570' }}>{e.resource}</td>
                   <td style={{ padding: '6px 8px', fontSize: 9, color: '#555570', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {e.details ? JSON.stringify(e.details).slice(0, 80) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RiskTab() {
+  const { data, loading } = useApi<{ settings: AdminRiskSetting[]; count: number }>('/admin/risk')
+  const settings = data?.settings || []
+
+  return (
+    <div>
+      <p className="t-sub" style={{ fontSize: 11, marginBottom: 12 }}>All users' risk settings &amp; controls</p>
+      {loading && <SkeletonCard />}
+      {!loading && settings.length === 0 && (
+        <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#555570' }}>No risk settings configured.</p>
+        </div>
+      )}
+      {!loading && settings.length > 0 && (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>USER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>CAPITAL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>MAX POS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>MAX LOSS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>DRAWDOWN</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>OPEN POS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>KILL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>LIVE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {settings.map((s, i) => (
+                <tr key={s.user_id + '-' + i} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                  <td style={{ padding: '6px 8px' }}>
+                    <div style={{ fontWeight: 600, color: '#f0f0f5' }}>{s.full_name || s.email?.split('@')[0] || '—'}</div>
+                    <div style={{ fontSize: 8, color: '#555570' }}>{s.email}</div>
+                  </td>
+                  <td className="t-num" style={{ fontFamily: 'var(--font-mono)' }}>{s.max_capital ? `₹${s.max_capital.toLocaleString()}` : '—'}</td>
+                  <td className="t-num" style={{ fontFamily: 'var(--font-mono)' }}>{s.max_position_size ? `₹${s.max_position_size.toLocaleString()}` : '—'}</td>
+                  <td className="t-num" style={{ fontFamily: 'var(--font-mono)', color: s.max_daily_loss ? '#ef4444' : 'inherit' }}>
+                    {s.max_daily_loss ? `₹${s.max_daily_loss.toLocaleString()}` : '—'}
+                  </td>
+                  <td className="t-num" style={{ fontFamily: 'var(--font-mono)', color: s.max_drawdown_pct ? '#f59e0b' : 'inherit' }}>
+                    {s.max_drawdown_pct ? `${s.max_drawdown_pct}%` : '—'}
+                  </td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center' }}>{s.max_open_positions}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                    <span style={{
+                      display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                      background: s.kill_switch_enabled ? '#ef4444' : '#22c55e',
+                    }} />
+                  </td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                    {s.is_live
+                      ? <span style={{ color: '#22c55e', fontSize: 9, fontWeight: 600 }}>LIVE</span>
+                      : <span style={{ color: '#f59e0b', fontSize: 9 }}>Paper</span>
+                    }
                   </td>
                 </tr>
               ))}

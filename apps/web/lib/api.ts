@@ -10,6 +10,20 @@ export interface AdminUser {
   max_active_strategies: number
 }
 
+export interface AdminRiskSetting {
+  user_id: string
+  email: string
+  full_name: string
+  max_capital: number
+  max_position_size: number
+  max_open_positions: number
+  max_daily_loss: number
+  max_drawdown_pct: number
+  kill_switch_enabled: boolean
+  is_live: boolean
+  strategy_id: string
+}
+
 export interface AdminBroker {
   id: string
   user_id: string
@@ -195,6 +209,8 @@ export const api = {
         Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
       ).toString() : '')),
     stats: () => request<AdminStats>('/admin/stats'),
+    risk: () => request<{ settings: AdminRiskSetting[]; count: number }>('/admin/risk'),
+    activeBrokers: () => request<{ active_broker_count: number; oauthed_count: number }>('/admin/active-brokers'),
     broadcast: {
       recipients: (strategyKey: string) =>
         request<{ recipients: { user_id: string; email: string; full_name: string }[] }>(
