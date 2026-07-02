@@ -268,7 +268,7 @@ class UserProfile(BaseModel):
     id: str
     email: str
     full_name: str = ""
-    phone: str = ""
+    phone: str | None = None
     is_admin: bool = False
     subscription_tier: str = "free"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime | None = None

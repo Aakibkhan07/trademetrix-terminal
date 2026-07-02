@@ -46,7 +46,7 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User profile not found",
             )
-        profile_data = dict(result.data)
+        profile_data = {k: v for k, v in dict(result.data).items() if v is not None}
         if not profile_data.get("full_name") and profile_data.get("name"):
             profile_data["full_name"] = profile_data["name"]
         return UserProfile(**profile_data)
