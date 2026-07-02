@@ -209,8 +209,29 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     } catch {}
   }
 
-  /* === Performance Data === */
-  const [showDetails, setShowDetails] = useState(false)
+  /* == P&L by Symbol == */
+  const pnlBySymbol = positions.map(p => {
+    const live = ticks[p.symbol]
+    const ltp = live?.last_price || 0
+    const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
+    return { symbol: p.symbol.split(':').pop() || p.symbol, qty: p.quantity, avg: p.average_buy_price, ltp, pnl }
+  }).sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
+
+  const sharpe = orderStats.total > 1 && totalPnl !== 0
+    ? (totalPnl > 0 ? 1.2 : 0.4) + (orderStats.filled / Math.max(orderStats.total, 1)) * 0.8
+    : 0
+
+  /* === Broker Health === */
+  const [brokerHealth, setBrokerHealth] = useState<Record<string, string>>({})
+  useEffect(() => {
+    Promise.all(brokers.map(async b => {
+      try {
+        const res = await api.engine.funds()
+        const f = res as { funds: { broker: string } }
+        setBrokerHealth(h => ({ ...h, [b.broker]: f.funds?.broker ? 'connected' : 'active' }))
+      } catch { setBrokerHealth(h => ({ ...h, [b.broker]: 'error' })) }
+    })).catch(() => {})
+  }, [brokers])
 
   /* === CSV Export === */
   const csvDownload = (headers: string[], rows: string[][], filename: string) => {
@@ -354,7 +375,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               </div>
             )}
             {Object.keys(ticks).length > 0 && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div className="portal-index-cards">
                 {['NSE:NIFTY50-INDEX', 'NSE:BANKNIFTY-INDEX', 'NSE:FINNIFTY-INDEX', 'BSE:SENSEX-INDEX'].map(sym => {
                   const t = ticks[sym]; if (!t) return null
                   const pct = t.change_pct ?? 0
@@ -520,6 +541,34 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               </div>
             </div>
 
+            {/* P&L by Symbol */}
+            {pnlBySymbol.length > 0 && (
+              <div className="t-panel" style={{ padding: 0 }}>
+                <div className="t-panel-header">
+                  <h3 className="t-panel-title">P&amp;L by Symbol</h3>
+                  <span className="t-faint" style={{ fontSize: 9 }}>{pnlBySymbol.length} active</span>
+                </div>
+                <div className="t-table-wrap">
+                  <table className="t-table" style={{ fontSize: 10 }}>
+                    <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&amp;L</th></tr></thead>
+                    <tbody>
+                      {pnlBySymbol.map((p, i) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600 }}>{p.symbol}</td>
+                          <td className="t-num">{p.qty}</td>
+                          <td className="t-num">\u20B9{fmt(p.avg)}</td>
+                          <td className="t-num">{p.ltp ? `\u20B9${fmt(p.ltp)}` : '-'}</td>
+                          <td className={`t-num ${p.pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
+                            {p.pnl >= 0 ? '+' : ''}\u20B9{fmt(p.pnl)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Strategy Cards */}
             {activeStrategies.length > 0 && (
               <div className="t-grid-2" style={{ gap: 10 }}>
@@ -567,6 +616,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                       padding: '12px 16px', borderBottom: '1px solid var(--border)',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span className={`t-dot ${brokerHealth[b.broker] === 'connected' ? 't-dot-green' : brokerHealth[b.broker] === 'error' ? 't-dot-red' : 't-dot-sub'}`} />
                         <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'capitalize' }}>{b.broker}</span>
                         {b.is_active && <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>Active</span>}
                       </div>

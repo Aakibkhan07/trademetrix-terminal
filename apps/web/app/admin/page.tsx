@@ -226,6 +226,66 @@ function AdminDashboard() {
         </div>
       )}
 
+      {/* Stats Dashboard */}
+      {!usersLoading && !usersError && users.length > 0 && (
+        <div className="t-grid-4" style={{ gap: 10, marginBottom: 20 }}>
+          <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--cyan)' }}>
+            <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>TOTAL USERS</div>
+            <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{users.length}</div>
+          </div>
+          <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--violet)' }}>
+            <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ADMINS</div>
+            <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{users.filter(u => u.is_admin).length}</div>
+          </div>
+          <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--green)' }}>
+            <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ACTIVE ASSIGNMENTS</div>
+            <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+              {users.reduce((s, u) => s + u.active_assignments, 0)}
+            </div>
+          </div>
+          <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--amber)' }}>
+            <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>STRATEGIES</div>
+            <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{catalog.length}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Tier Distribution */}
+      {!usersLoading && users.length > 0 && (
+        <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 20 }}>
+          <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>TIER DISTRIBUTION</h3>
+          <div style={{ display: 'flex', gap: 4, height: 6, borderRadius: 3, overflow: 'hidden' }}>
+            {['free', 'starter', 'pro', 'enterprise'].map(tier => {
+              const count = users.filter(u => u.subscription_tier === tier).length
+              const pct = users.length > 0 ? (count / users.length) * 100 : 0
+              if (count === 0) return null
+              return (
+                <div key={tier} title={`${tier}: ${count} users (${pct.toFixed(0)}%)`}
+                  style={{
+                    width: `${pct}%`, height: '100%',
+                    background: tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444',
+                    borderRadius: 3,
+                  }} />
+              )
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
+            {['free', 'starter', 'pro', 'enterprise'].map(tier => {
+              const count = users.filter(u => u.subscription_tier === tier).length
+              if (count === 0) return null
+              const color = tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444'
+              return (
+                <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
+                  <span style={{ textTransform: 'capitalize', color: 'var(--text-sub)' }}>{tier}</span>
+                  <span style={{ fontWeight: 600 }}>{count}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
         <div style={{ flex: '0 0 320px', minWidth: 0 }}>
           <input
