@@ -174,9 +174,40 @@ async def verify_otp(req: VerifyOTPRequest, response: Response):
     await _delete_otp(req.email)
 
     supabase = get_supabase()
-    user = _check_user_exists(supabase, req.email)
+    profile_data = _check_user_exists(supabase, req.email)
     is_new = False
-    if not user:
+    if not profile_data:
+        try:
+            client = await get_http_client()
+            resp = await client.get(
+                f"{settings.supabase_url}/auth/v1/admin/users?email={req.email}",
+                headers={
+                    "apikey": settings.supabase_service_key,
+                    "Authorization": f"Bearer {settings.supabase_service_key}",
+                },
+            )
+            if resp.status_code == 200:
+                users_data = resp.json()
+                auth_users = users_data.get("users", []) if isinstance(users_data, dict) else []
+                if auth_users:
+                    uid = auth_users[0]["id"]
+                    await client.post(
+                        f"{settings.supabase_url}/rest/v1/profiles",
+                        headers={
+                            "apikey": settings.supabase_service_key,
+                            "Authorization": f"Bearer {settings.supabase_service_key}",
+                            "Content-Type": "application/json",
+                            "Prefer": "resolution=merge-duplicates",
+                        },
+                        json={"id": uid, "email": req.email},
+                    )
+                    profile_data = {"id": uid, "email": req.email}
+        except Exception:
+            pass
+
+    if profile_data:
+        user = UserProfile(**{k: v for k, v in profile_data.items() if v is not None})
+    else:
         is_new = True
         user = UserProfile(id="", email=req.email)
 
