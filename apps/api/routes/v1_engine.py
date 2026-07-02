@@ -155,6 +155,47 @@ async def cancel_order(
     return {"result": result.model_dump()}
 
 
+class OrderNoteRequest(BaseModel):
+    note: str
+    tags: list[str] = []
+
+
+@router.post("/orders/{order_id}/note", status_code=201)
+async def add_order_note(
+    order_id: str,
+    req: OrderNoteRequest,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    supabase = get_supabase()
+    order = safe_single(
+        supabase.table("orders").select("id").eq("id", order_id).eq("user_id", current_user.id)
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    result = supabase.table("journal_entries").insert({
+        "user_id": current_user.id,
+        "entry_type": "trade_note",
+        "content": req.note,
+        "tags": req.tags,
+        "trade_ids": [order_id],
+    }).execute()
+    return {"note": result.data[0]}
+
+
+@router.get("/orders/notes")
+async def get_order_notes(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    data = safe_execute(
+        supabase.table("journal_entries")
+        .select("*")
+        .eq("user_id", current_user.id)
+        .eq("entry_type", "trade_note")
+        .order("created_at", desc=True)
+        .limit(100)
+    ) or []
+    return {"notes": data}
+
+
 @router.get("/positions")
 async def get_positions(
     current_user: UserProfile = Depends(get_current_user),

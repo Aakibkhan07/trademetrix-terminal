@@ -574,6 +574,36 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 <span className="t-faint">No orders yet</span>
               </div>
             )}
+
+            {/* Trade Journal Notes */}
+            <div className="t-panel" style={{ padding: '10px 14px', marginTop: 8 }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600 }}>Trade Notes</h3>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                <select id="note-order-select" className="t-select" style={{ fontSize: 10, maxWidth: 120 }}>
+                  <option value="">Select order...</option>
+                  {orders.slice(0, 20).map(o => (
+                    <option key={o.id} value={o.id}>{o.symbol} #{o.id.slice(0, 6)}</option>
+                  ))}
+                </select>
+                <input id="note-tags" className="t-input" placeholder="Tags (comma)" style={{ width: 120, fontSize: 10 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <textarea id="note-content" className="t-input" placeholder="Write a note about this trade..."
+                  style={{ flex: 1, fontSize: 10, minHeight: 40, resize: 'vertical' }} />
+                <button className="t-btn t-btn-sm" onClick={async () => {
+                  const sel = document.getElementById('note-order-select') as HTMLSelectElement
+                  const txt = document.getElementById('note-content') as HTMLTextAreaElement
+                  const tagsEl = document.getElementById('note-tags') as HTMLInputElement
+                  if (!sel.value || !txt.value.trim()) return
+                  try {
+                    await api.journal.addOrderNote(sel.value, {
+                      note: txt.value, tags: tagsEl.value.split(',').map(t => t.trim()).filter(Boolean),
+                    })
+                    txt.value = ''; tagsEl.value = ''
+                  } catch (e) { alert(e instanceof Error ? e.message : 'Failed') }
+                }} style={{ fontSize: 10 }}>Save</button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -162,6 +162,37 @@ export default function BacktestPage() {
             </div>
           </div>
 
+          {r.equity_curve?.length > 1 && (
+            <div className="t-panel" style={{ padding: '12px 14px', marginBottom: 16 }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Equity Curve</h3>
+              <svg viewBox="0 0 600 160" style={{ width: '100%', height: 'auto' }}>
+                {(() => {
+                  const pts = r.equity_curve; const vals = pts.map(p => p.equity)
+                  const min = Math.min(...vals); const max = Math.max(...vals); const range = max - min || 1
+                  const pad = { top: 16, right: 16, bottom: 24, left: 52 }; const cw = 600 - pad.left - pad.right; const ch = 160 - pad.top - pad.bottom
+                  const x = (i: number) => pad.left + (i / (vals.length - 1)) * cw
+                  const y = (v: number) => pad.top + ch - ((v - min) / range) * ch
+                  const up = vals[vals.length - 1] >= vals[0]; const color = up ? '#22c55e' : '#ef4444'
+                  const line = vals.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(v)}`).join('')
+                  return (
+                    <>
+                      <defs><linearGradient id="be"><stop offset="0%" stopColor={color} stopOpacity="0.15" /><stop offset="100%" stopColor={color} stopOpacity="0.02" /></linearGradient></defs>
+                      {Array.from({ length: 5 }).map((_, i) => {
+                        const yy = pad.top + (i / 5) * ch
+                        return (<g key={i}>
+                          <line x1={pad.left} y1={yy} x2={600 - pad.right} y2={yy} stroke="rgba(139,92,246,0.06)" strokeWidth={1} />
+                          <text x={pad.left - 6} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">{(min + (range / 5) * (5 - i)).toFixed(0)}</text>
+                        </g>)
+                      })}
+                      <path d={`${line}L${x(vals.length - 1)},${pad.top + ch}L${x(0)},${pad.top + ch}Z`} fill="url(#be)" />
+                      <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </>
+                  )
+                })()}
+              </svg>
+            </div>
+          )}
+
           {r.trades.length > 0 && (
             <div className="t-panel">
               <div className="t-panel-header">

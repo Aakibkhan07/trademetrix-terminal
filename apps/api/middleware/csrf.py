@@ -23,6 +23,7 @@ SAFE_PATHS = {
     "/api/v1/admin/assignments",
     "/api/v1/admin/broadcast",
     "/api/v1/admin/broadcast/recipients",
+    "/api/v1/alerts/",
 }
 
 CSRF_COOKIE_NAME = "csrf_token"

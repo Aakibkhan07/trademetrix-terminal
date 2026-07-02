@@ -76,6 +76,27 @@ export interface AdminStats {
   tier_distribution: Record<string, number>
 }
 
+export interface Alert {
+  id: string
+  symbol: string
+  condition: string
+  target_price: number
+  is_active: boolean
+  triggered_at: string | null
+  note: string
+  created_at: string
+}
+
+export interface JournalNote {
+  id: string
+  user_id: string
+  entry_type: string
+  content: string
+  tags: string[]
+  trade_ids: string[]
+  created_at: string
+}
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -259,6 +280,20 @@ export const api = {
     optionChain: (symbol: string) => request(`/marketdata/option-chain?symbol=${symbol}`),
     historical: (symbol: string, interval = '15m', days = 7) =>
       request(`/marketdata/historical?symbol=${symbol}&interval=${interval}&days=${days}`),
+  },
+
+  alerts: {
+    list: () => request<{ alerts: Alert[] }>('/alerts/'),
+    create: (data: { symbol: string; condition: string; target_price: number; note?: string }) =>
+      request<Alert>('/alerts/', { method: 'POST', body: data }),
+    remove: (id: string) => request(`/alerts/${id}`, { method: 'DELETE' }),
+    toggle: (id: string) => request<{ is_active: boolean }>(`/alerts/${id}/toggle`, { method: 'POST' }),
+  },
+
+  journal: {
+    addOrderNote: (orderId: string, data: { note: string; tags?: string[] }) =>
+      request(`/engine/orders/${orderId}/note`, { method: 'POST', body: data }),
+    getOrderNotes: () => request<{ notes: JournalNote[] }>('/engine/orders/notes'),
   },
 
   tradingview: {

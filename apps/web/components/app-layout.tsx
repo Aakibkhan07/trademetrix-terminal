@@ -33,6 +33,7 @@ const NAV_SECTIONS = [
       { href: '/brokers', label: 'Brokers', icon: 'B' },
       { href: '/backtest', label: 'Backtest', icon: 'K' },
       { href: '/journal', label: 'Journal', icon: 'J' },
+      { href: '/alerts', label: 'Alerts', icon: '!' },
       { href: '/risk', label: 'Risk Control', icon: 'R' },
     ],
   },

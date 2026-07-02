@@ -152,6 +152,18 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.user_alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    symbol TEXT NOT NULL,
+    condition TEXT NOT NULL,
+    target_price DOUBLE PRECISION NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    triggered_at TIMESTAMPTZ,
+    note TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.symbol_master (
     id BIGSERIAL PRIMARY KEY,
     symbol TEXT NOT NULL,
