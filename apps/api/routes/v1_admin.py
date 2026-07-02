@@ -7,6 +7,7 @@ from core.audit import record_audit
 from core.db import get_supabase
 from core.deps import get_current_user, require_admin
 from core.models import AuditLogEntry, Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType as OrderTypeEnum, ProductType, StrategyAssignment, TIER_LIMITS, TIER_ORDER, UserProfile, tier_satisfies
+from core.security import decrypt_broker_credentials
 from core.safe_query import safe_execute, safe_single
 from engine.gate import execute_order, get_mirror_recipients, scaled_qty
 from strategies import get_strategy_catalog, get_strategy_tier, list_strategies
@@ -381,3 +382,144 @@ async def admin_broadcast(
             })
 
     return {"results": results, "count": len(results), "paper": req.paper}
+
+
+@router.get("/brokers")
+async def admin_list_brokers(admin: UserProfile = Depends(require_admin)):
+    supabase = get_supabase()
+    creds = safe_execute(
+        supabase.table("broker_credentials")
+        .select("id, user_id, broker, is_active, encrypted_access_token, created_at, updated_at")
+        .order("created_at", desc=True)
+    ) or []
+
+    user_ids = list(set(c["user_id"] for c in creds))
+    if not user_ids:
+        return {"brokers": []}
+
+    profiles = safe_execute(
+        supabase.table("profiles")
+        .select("id, email, full_name, is_admin")
+        .in_("id", user_ids)
+    ) or []
+    profile_map = {p["id"]: p for p in profiles}
+
+    result = []
+    for c in creds:
+        p = profile_map.get(c["user_id"], {})
+        has_token = bool(c.get("encrypted_access_token"))
+        result.append({
+            "id": c["id"],
+            "user_id": c["user_id"],
+            "email": p.get("email", ""),
+            "full_name": p.get("full_name", ""),
+            "broker": c["broker"],
+            "is_active": c.get("is_active", False),
+            "has_access_token": has_token,
+            "created_at": c.get("created_at", ""),
+            "updated_at": c.get("updated_at", ""),
+        })
+
+    return {"brokers": result}
+
+
+@router.get("/orders")
+async def admin_list_orders(
+    user_id: str = Query(""),
+    is_paper: str = Query(""),
+    limit: int = Query(50, le=200),
+    offset: int = Query(0, ge=0),
+    admin: UserProfile = Depends(require_admin),
+):
+    supabase = get_supabase()
+    query = supabase.table("orders").select("*").order("created_at", desc=True)
+    if user_id:
+        query = query.eq("user_id", user_id)
+    if is_paper in ("true", "false"):
+        query = query.eq("is_paper", is_paper == "true")
+
+    data = safe_execute(query.limit(limit).offset(offset)) or []
+
+    user_ids = list(set(o["user_id"] for o in data if o.get("user_id")))
+    profile_map = {}
+    if user_ids:
+        profiles = safe_execute(
+            supabase.table("profiles").select("id, email, full_name").in_("id", user_ids)
+        ) or []
+        profile_map = {p["id"]: p for p in profiles}
+
+    orders = []
+    for o in data:
+        p = profile_map.get(o.get("user_id", ""), {})
+        orders.append({
+            "id": o.get("id", ""),
+            "user_id": o.get("user_id", ""),
+            "email": p.get("email", ""),
+            "full_name": p.get("full_name", ""),
+            "broker": o.get("broker", ""),
+            "broker_order_id": o.get("broker_order_id", ""),
+            "symbol": o.get("symbol", ""),
+            "exchange": o.get("exchange", ""),
+            "side": o.get("side", ""),
+            "order_type": o.get("order_type", ""),
+            "product": o.get("product", ""),
+            "quantity": o.get("quantity", 0),
+            "price": o.get("price", 0.0),
+            "status": o.get("status", ""),
+            "is_paper": o.get("is_paper", True),
+            "message": o.get("message", ""),
+            "filled_quantity": o.get("filled_quantity", 0),
+            "filled_at": o.get("filled_at", ""),
+            "created_at": o.get("created_at", ""),
+        })
+
+    return {"orders": orders, "count": len(orders)}
+
+
+@router.get("/audit-log")
+async def admin_audit_log(
+    user_id: str = Query(""),
+    action: str = Query(""),
+    limit: int = Query(50, le=200),
+    offset: int = Query(0, ge=0),
+    admin: UserProfile = Depends(require_admin),
+):
+    supabase = get_supabase()
+    query = supabase.table("audit_log").select("*").order("created_at", desc=True)
+    if user_id:
+        query = query.eq("user_id", user_id)
+    if action:
+        query = query.eq("action", action)
+
+    data = safe_execute(query.limit(limit).offset(offset)) or []
+    return {"entries": data, "count": len(data)}
+
+
+@router.get("/stats")
+async def admin_stats(admin: UserProfile = Depends(require_admin)):
+    supabase = get_supabase()
+    profiles = safe_execute(
+        supabase.table("profiles").select("id, is_admin, subscription_tier, created_at")
+    ) or []
+
+    total_users = len(profiles)
+    total_admins = sum(1 for p in profiles if p.get("is_admin"))
+    tier_counts: dict[str, int] = {}
+    for p in profiles:
+        t = p.get("subscription_tier", "free")
+        tier_counts[t] = tier_counts.get(t, 0) + 1
+
+    assignments = safe_execute(
+        supabase.table("strategy_assignments").select("id").eq("active", True)
+    ) or []
+    active_assignments = len(assignments)
+
+    catalog_count = len(get_strategy_catalog())
+
+    return {
+        "total_users": total_users,
+        "total_admins": total_admins,
+        "active_assignments": active_assignments,
+        "total_strategies": catalog_count,
+        "tier_distribution": tier_counts,
+    }

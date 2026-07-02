@@ -20,6 +20,9 @@ SAFE_PATHS = {
     "/api/v1/marketdata/feed/stop",
     "/api/v1/marketdata/simulator/start",
     "/api/v1/marketdata/simulator/stop",
+    "/api/v1/admin/assignments",
+    "/api/v1/admin/broadcast",
+    "/api/v1/admin/broadcast/recipients",
 }
 
 CSRF_COOKIE_NAME = "csrf_token"

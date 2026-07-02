@@ -10,6 +10,58 @@ export interface AdminUser {
   max_active_strategies: number
 }
 
+export interface AdminBroker {
+  id: string
+  user_id: string
+  email: string
+  full_name: string
+  broker: string
+  is_active: boolean
+  has_access_token: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AdminOrder {
+  id: string
+  user_id: string
+  email: string
+  full_name: string
+  broker: string
+  broker_order_id: string
+  symbol: string
+  exchange: string
+  side: string
+  order_type: string
+  product: string
+  quantity: number
+  price: number
+  status: string
+  is_paper: boolean
+  message: string
+  filled_quantity: number
+  filled_at: string
+  created_at: string
+}
+
+export interface AdminAuditEntry {
+  id: string
+  user_id: string
+  action: string
+  resource: string
+  resource_id: string
+  details: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface AdminStats {
+  total_users: number
+  total_admins: number
+  active_assignments: number
+  total_strategies: number
+  tier_distribution: Record<string, number>
+}
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -132,6 +184,17 @@ export const api = {
         request('/admin/assignments', { method: 'POST', body: data }),
       remove: (id: string) => request(`/admin/assignments/${id}`, { method: 'DELETE' }),
     },
+    fetch: <T>(path: string) => request<T>('/admin' + path),
+    brokers: () => request<{ brokers: AdminBroker[] }>('/admin/brokers'),
+    orders: (params?: { user_id?: string; is_paper?: string; limit?: number; offset?: number }) =>
+      request<{ orders: AdminOrder[]; count: number }>('/admin/orders' + (params ? '?' + new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+      ).toString() : '')),
+    auditLog: (params?: { user_id?: string; action?: string; limit?: number; offset?: number }) =>
+      request<{ entries: AdminAuditEntry[]; count: number }>('/admin/audit-log' + (params ? '?' + new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+      ).toString() : '')),
+    stats: () => request<AdminStats>('/admin/stats'),
     broadcast: {
       recipients: (strategyKey: string) =>
         request<{ recipients: { user_id: string; email: string; full_name: string }[] }>(
