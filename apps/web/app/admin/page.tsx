@@ -127,8 +127,24 @@ export default function AdminPage() {
   return <AdminDashboard />
 }
 
+function getTabFromUrl() {
+  if (typeof window === 'undefined') return 'dashboard'
+  return new URLSearchParams(window.location.search).get('tab') || 'dashboard'
+}
+
+function setTabInUrl(tab: string) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  url.searchParams.set('tab', tab)
+  window.history.replaceState({}, '', url.toString())
+}
+
 function AdminDashboard() {
-  const [tab, setTab] = useState('dashboard')
+  const [tab, setTab] = useState(getTabFromUrl)
+  const handleTabChange = useCallback((t: string) => {
+    setTab(t)
+    setTabInUrl(t)
+  }, [])
 
   return (
     <div>
@@ -136,7 +152,7 @@ function AdminDashboard() {
         <h1 className="t-page-title">Control Center</h1>
         <p className="t-sub" style={{ fontSize: 13 }}>Full system administration</p>
       </div>
-      <TabBar active={tab} onChange={setTab} />
+      <TabBar active={tab} onChange={handleTabChange} />
       {tab === 'dashboard' && <DashboardTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'brokers' && <BrokersTab />}
