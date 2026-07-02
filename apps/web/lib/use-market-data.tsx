@@ -47,6 +47,8 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null)
   const subscribedRef = useRef<Set<string>>(new Set())
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tickBufferRef = useRef<Record<string, TickData>>({})
+  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const connect = useCallback(() => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
@@ -65,7 +67,7 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
         try {
           const msg = JSON.parse(event.data)
           if (msg.type === 'tick') {
-            setTicks((prev) => ({ ...prev, [msg.symbol]: msg }))
+            tickBufferRef.current[msg.symbol] = msg
           }
         } catch {}
       }
@@ -80,8 +82,16 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     connect()
+    flushTimerRef.current = setInterval(() => {
+      const buf = tickBufferRef.current
+      if (Object.keys(buf).length > 0) {
+        tickBufferRef.current = {}
+        setTicks((prev) => ({ ...prev, ...buf }))
+      }
+    }, 200)
     return () => {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      if (flushTimerRef.current) clearInterval(flushTimerRef.current)
       wsRef.current?.close()
     }
   }, [connect])

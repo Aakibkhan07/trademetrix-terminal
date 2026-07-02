@@ -181,6 +181,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const [connectForm, setConnectForm] = useState<{ broker: string; api_key: string; secret_key: string } | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [brokerError, setBrokerError] = useState('')
+  const [authUrl, setAuthUrl] = useState<string | null>(null)
+  const [fetchingAuthUrl, setFetchingAuthUrl] = useState(false)
 
   const handleConnectBroker = async () => {
     if (!connectForm) return
@@ -190,6 +192,14 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       setConnectForm(null)
       const bc = await api.brokers.credentials()
       setBrokers((bc as { credentials: BrokerInfo[] }).credentials || [])
+      if (connectForm.broker === 'fyers') {
+        setFetchingAuthUrl(true)
+        try {
+          const res = await api.brokers.fyersAuthUrl() as { auth_url: string }
+          setAuthUrl(res.auth_url)
+        } catch { setAuthUrl(null) }
+        setFetchingAuthUrl(false)
+      }
     } catch (e: unknown) { setBrokerError(e instanceof Error ? e.message : 'Connection failed') }
     finally { setConnecting(false) }
   }
@@ -625,6 +635,18 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                           <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleActivateBroker(b.broker)}
                             style={{ color: 'var(--cyan)' }}>Activate</button>
                         )}
+                        {b.broker === 'fyers' && (
+                          <button className="t-btn t-btn-xs t-btn-primary"
+                            onClick={async () => {
+                              try {
+                                const res = await api.brokers.fyersAuthUrl() as { auth_url: string }
+                                window.open(res.auth_url, '_blank')
+                              } catch {}
+                            }}
+                            style={{ fontSize: 9 }}>
+                            Authorize with Fyers
+                          </button>
+                        )}
                         <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleDisconnectBroker(b.broker)}
                           style={{ color: 'var(--text-red)' }}>Remove</button>
                       </div>
@@ -642,6 +664,19 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>
                 {connectForm ? `Connect ${connectForm.broker}` : 'Available Brokers'}
               </h3>
+              {authUrl && (
+                <div style={{
+                  padding: '8px 12px', borderRadius: 6, fontSize: 10, marginBottom: 10,
+                  background: 'rgba(0,200,83,0.08)', color: 'var(--text-green)',
+                  border: '1px solid rgba(0,200,83,0.12)',
+                }}>
+                  Fyers credentials saved.{' '}
+                  <a href={authUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ color: 'var(--cyan)', textDecoration: 'underline' }}>
+                    Click here to authorize with Fyers
+                  </a>
+                </div>
+              )}
               {connectForm ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div>

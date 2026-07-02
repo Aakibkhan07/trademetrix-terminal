@@ -2,6 +2,7 @@ import hashlib
 import json
 import random
 from datetime import UTC, datetime
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, field_validator
@@ -179,13 +180,13 @@ async def verify_otp(req: VerifyOTPRequest, response: Response):
     await _delete_otp(req.email)
 
     supabase = get_supabase()
-    profile_data = _check_user_exists(supabase, req.email)
     is_new = False
-    if not profile_data:
+
+    async def _lookup_auth_user(email: str) -> dict | None:
         try:
             client = await get_http_client()
             resp = await client.get(
-                f"{settings.supabase_url}/auth/v1/admin/users?email={req.email}",
+                f"{settings.supabase_url}/auth/v1/admin/users?email={quote(email)}",
                 headers={
                     "apikey": settings.supabase_service_key,
                     "Authorization": f"Bearer {settings.supabase_service_key}",
@@ -193,20 +194,34 @@ async def verify_otp(req: VerifyOTPRequest, response: Response):
             )
             if resp.status_code == 200:
                 users_data = resp.json()
-                auth_users = users_data.get("users", []) if isinstance(users_data, dict) else []
-                if auth_users:
-                    uid = auth_users[0]["id"]
-                    await client.post(
-                        f"{settings.supabase_url}/rest/v1/profiles",
-                        headers={
-                            "apikey": settings.supabase_service_key,
-                            "Authorization": f"Bearer {settings.supabase_service_key}",
-                            "Content-Type": "application/json",
-                            "Prefer": "resolution=merge-duplicates",
-                        },
-                        json={"id": uid, "email": req.email},
-                    )
-                    profile_data = {"id": uid, "email": req.email}
+                auth_users = users_data.get("users", []) if isinstance(users_data, dict) else users_data if isinstance(users_data, list) else []
+                if auth_users and isinstance(auth_users, list):
+                    return auth_users[0]
+            return None
+        except Exception:
+            return None
+
+    auth_user = await _lookup_auth_user(req.email)
+    uid = auth_user["id"] if auth_user else None
+
+    profile_data = None
+    if uid:
+        profile_data = supabase.table("profiles").select("*").eq("id", uid).maybe_single().execute().data
+
+    if not profile_data and uid:
+        try:
+            client = await get_http_client()
+            await client.post(
+                f"{settings.supabase_url}/rest/v1/profiles",
+                headers={
+                    "apikey": settings.supabase_service_key,
+                    "Authorization": f"Bearer {settings.supabase_service_key}",
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=merge-duplicates",
+                },
+                json={"id": uid, "email": req.email},
+            )
+            profile_data = {"id": uid, "email": req.email}
         except Exception:
             pass
 
@@ -214,7 +229,7 @@ async def verify_otp(req: VerifyOTPRequest, response: Response):
         user = UserProfile(**{k: v for k, v in profile_data.items() if v is not None})
     else:
         is_new = True
-        user = UserProfile(id="", email=req.email)
+        user = UserProfile(id=uid or "", email=req.email)
 
     access_token = create_access_token(subject=user.id)
     _set_session_cookie(response, access_token)
