@@ -134,6 +134,8 @@ async def start_market_feed(current_user: UserProfile = Depends(get_current_user
 
     await shared_socket.stop_all_feeds()
     await market_simulator.stop()
+    from market.alert_checker import start_alert_checker
+    await start_alert_checker()
 
     supabase = get_supabase()
     active = safe_single(
@@ -169,6 +171,8 @@ async def start_market_feed(current_user: UserProfile = Depends(get_current_user
 async def stop_market_feed():
     await shared_socket.stop_all_feeds()
     await market_simulator.stop()
+    from market.alert_checker import stop_alert_checker
+    await stop_alert_checker()
     return {"message": "Market feed stopped"}
 
 

@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api, Alert } from '@/lib/api'
+
+const CHANNELS = ['email', 'sms', 'whatsapp'] as const
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([])
@@ -13,9 +15,13 @@ export default function AlertsPage() {
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState('')
 
-  useState(() => {
+  const [notifChannels, setNotifChannels] = useState<string[]>(['email'])
+  const [notifOpen, setNotifOpen] = useState(false)
+
+  useEffect(() => {
     api.alerts.list().then(d => { setAlerts(d.alerts); setLoading(false) }).catch(() => setLoading(false))
-  })
+    api.alerts.getNotificationPrefs().then(d => setNotifChannels(d.channels)).catch(() => {})
+  }, [])
 
   const handleCreate = async () => {
     if (!symbol || !target) { setMsg('Fill symbol and target price'); return }
@@ -38,6 +44,12 @@ export default function AlertsPage() {
     setAlerts(prev => prev.filter(a => a.id !== id))
   }
 
+  const toggleChannel = (ch: string) => {
+    const next = notifChannels.includes(ch) ? notifChannels.filter(c => c !== ch) : [...notifChannels, ch]
+    setNotifChannels(next.length ? next : ['email'])
+    api.alerts.updateNotificationPrefs(next.length ? next : ['email']).catch(() => {})
+  }
+
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
@@ -45,24 +57,48 @@ export default function AlertsPage() {
         <p className="t-sub" style={{ fontSize: 12 }}>Get notified when prices cross your target</p>
       </div>
 
-      <div className="t-panel" style={{ padding: 16, maxWidth: 500, marginBottom: 20 }}>
-        <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 10px', color: '#f0f0f5' }}>New Alert</h3>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-          <input className="t-input" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())}
-            placeholder="Symbol" style={{ width: 100, fontSize: 11 }} />
-          <select className="t-select" value={condition} onChange={e => setCondition(e.target.value)} style={{ fontSize: 11, width: 80 }}>
-            <option value="above">Above</option>
-            <option value="below">Below</option>
-          </select>
-          <input className="t-input" type="number" step="0.05" value={target} onChange={e => setTarget(e.target.value)}
-            placeholder="Price" style={{ width: 100, fontSize: 11 }} />
-          <button className="t-btn t-btn-sm" onClick={handleCreate} disabled={creating} style={{ fontSize: 10 }}>
-            {creating ? '...' : 'Create'}
-          </button>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <div className="t-panel" style={{ padding: 16, flex: 1, maxWidth: 500 }}>
+          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 10px', color: '#f0f0f5' }}>New Alert</h3>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+            <input className="t-input" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())}
+              placeholder="Symbol" style={{ width: 100, fontSize: 11 }} />
+            <select className="t-select" value={condition} onChange={e => setCondition(e.target.value)} style={{ fontSize: 11, width: 80 }}>
+              <option value="above">Above</option>
+              <option value="below">Below</option>
+            </select>
+            <input className="t-input" type="number" step="0.05" value={target} onChange={e => setTarget(e.target.value)}
+              placeholder="Price" style={{ width: 100, fontSize: 11 }} />
+            <button className="t-btn t-btn-sm" onClick={handleCreate} disabled={creating} style={{ fontSize: 10 }}>
+              {creating ? '...' : 'Create'}
+            </button>
+          </div>
+          <input className="t-input" value={note} onChange={e => setNote(e.target.value)}
+            placeholder="Note (optional)" style={{ fontSize: 10, width: '100%' }} />
+          {msg && <p style={{ fontSize: 10, margin: '4px 0 0', color: msg.includes('symbol') ? '#ef4444' : '#22c55e' }}>{msg}</p>}
         </div>
-        <input className="t-input" value={note} onChange={e => setNote(e.target.value)}
-          placeholder="Note (optional)" style={{ fontSize: 10, width: '100%' }} />
-        {msg && <p style={{ fontSize: 10, margin: '4px 0 0', color: msg.includes('symbol') ? '#ef4444' : '#22c55e' }}>{msg}</p>}
+
+        <div className="t-panel" style={{ padding: 16, width: 260 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <h3 style={{ fontFamily: 'Outfit', fontSize: 12, margin: 0, color: '#f0f0f5' }}>Notifications</h3>
+            <span style={{ fontSize: 9, color: notifChannels.length ? '#22c55e' : '#8888a0' }}>
+              {notifChannels.length ? notifChannels.join(', ') : 'off'}
+            </span>
+          </div>
+          {CHANNELS.map(ch => (
+            <label key={ch} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', cursor: 'pointer', fontSize: 12 }}>
+              <input type="checkbox" checked={notifChannels.includes(ch)} onChange={() => toggleChannel(ch)}
+                style={{ accentColor: '#8b5cf6' }} />
+              <span style={{ textTransform: 'capitalize' }}>{ch}</span>
+              <span className="t-faint" style={{ fontSize: 9 }}>
+                {ch === 'email' ? 'via SMTP' : ch === 'sms' ? 'via Fast2SMS' : 'via Twilio'}
+              </span>
+            </label>
+          ))}
+          <p className="t-faint" style={{ fontSize: 9, margin: '6px 0 0' }}>
+            Alerts trigger automatically when price crosses target
+          </p>
+        </div>
       </div>
 
       {loading && <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}><span className="t-faint">Loading...</span></div>}

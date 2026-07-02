@@ -288,6 +288,9 @@ export const api = {
       request<Alert>('/alerts/', { method: 'POST', body: data }),
     remove: (id: string) => request(`/alerts/${id}`, { method: 'DELETE' }),
     toggle: (id: string) => request<{ is_active: boolean }>(`/alerts/${id}/toggle`, { method: 'POST' }),
+    getNotificationPrefs: () => request<{ channels: string[] }>('/alerts/notification-prefs'),
+    updateNotificationPrefs: (channels: string[]) =>
+      request('/alerts/notification-prefs', { method: 'PUT', body: { channels } }),
   },
 
   journal: {

@@ -108,3 +108,41 @@ async def toggle_alert(
     new_status = not alert.get("is_active", True)
     supabase.table("user_alerts").update({"is_active": new_status}).eq("id", alert_id).execute()
     return {"is_active": new_status}
+
+
+class NotificationPrefsRequest(BaseModel):
+    channels: list[str]
+
+
+@router.get("/notification-prefs")
+async def get_notification_prefs(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    prefs = safe_single(
+        supabase.table("notification_prefs").select("*").eq("user_id", current_user.id)
+    )
+    if not prefs:
+        return {"channels": ["email"]}
+    return {"channels": prefs.get("channels", ["email"])}
+
+
+@router.put("/notification-prefs")
+async def update_notification_prefs(
+    req: NotificationPrefsRequest,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    for c in req.channels:
+        if c not in ("email", "sms", "whatsapp"):
+            raise HTTPException(status_code=400, detail=f"Invalid channel: {c}")
+    supabase = get_supabase()
+    existing = safe_single(
+        supabase.table("notification_prefs").select("id").eq("user_id", current_user.id)
+    )
+    if existing:
+        supabase.table("notification_prefs").update({
+            "channels": req.channels, "updated_at": __import__("datetime").datetime.utcnow().isoformat(),
+        }).eq("id", existing["id"]).execute()
+    else:
+        supabase.table("notification_prefs").insert({
+            "user_id": current_user.id, "channels": req.channels,
+        }).execute()
+    return {"channels": req.channels}
