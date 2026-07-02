@@ -124,7 +124,7 @@ async def save_credentials(
         details={"broker": req.broker},
     ))
 
-    return BrokerCredentialResponse(id=inserted.get("id", existing["id"]), broker=req.broker, is_active=inserted.get("is_active", False))
+    return BrokerCredentialResponse(id=inserted.get("id", ""), broker=req.broker, is_active=inserted.get("is_active", False))
 
 
 @router.delete("/credentials/{broker_name}", status_code=204)
