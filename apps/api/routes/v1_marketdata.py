@@ -132,6 +132,9 @@ async def _drain_queue(websocket: WebSocket, queue: asyncio.Queue, cancel: async
 async def start_market_feed(current_user: UserProfile = Depends(get_current_user)):
     symbols = [s["symbol"] for s in MAJOR_INDICES + MAJOR_STOCKS]
 
+    await shared_socket.stop_all_feeds()
+    await market_simulator.stop()
+
     supabase = get_supabase()
     active = safe_single(
         supabase.table("broker_credentials")

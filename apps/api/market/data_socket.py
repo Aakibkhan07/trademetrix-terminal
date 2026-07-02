@@ -100,6 +100,7 @@ class SharedDataSocket:
                 await adapter.disconnect()
 
         task = asyncio.create_task(feed_runner())
+        task.add_done_callback(lambda _: self._broker_feeds.pop(broker_type, None))
         self._broker_feeds[broker_type] = task
         logger.info(f"Broker feed started for {broker_type} with {len(symbols)} symbols")
 
