@@ -1,23 +1,12 @@
 import asyncio
 import logging
 import random
-from datetime import UTC, date, datetime, time, timedelta, timezone
+from datetime import UTC, datetime
 
 from core.models import Exchange, Tick
 from market.data_socket import shared_socket
 
 logger = logging.getLogger(__name__)
-
-IST = timezone(timedelta(hours=5, minutes=30))
-MARKET_OPEN = time(9, 15)
-MARKET_CLOSE = time(15, 30)
-
-
-def _is_market_hours() -> bool:
-    now_ist = datetime.now(IST)
-    if now_ist.weekday() >= 5:
-        return False
-    return MARKET_OPEN <= now_ist.time() <= MARKET_CLOSE
 
 
 class MarketSimulator:
@@ -48,10 +37,6 @@ class MarketSimulator:
 
     async def _tick_loop(self, symbols: list[str]):
         while self._running:
-            if not _is_market_hours():
-                await asyncio.sleep(30)
-                continue
-
             for symbol in symbols:
                 price = self._prices.get(symbol, 1000)
                 change = price * random.uniform(-0.003, 0.003)

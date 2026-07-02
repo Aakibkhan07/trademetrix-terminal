@@ -98,11 +98,13 @@ async def send_otp(req: SendOTPRequest):
 
     code = _generate_otp()
     await _store_otp(req.email, code, req.phone)
-    await deliver_otp(code, req.email, req.phone)
+    delivered = await deliver_otp(code, req.email, req.phone)
 
-    if user:
-        return {"message": "OTP sent to your registered contact", "exists": True}
-    return {"message": "OTP sent. Complete registration to continue.", "exists": False}
+    result = {"message": "OTP sent to your registered contact", "exists": True} if user else \
+             {"message": "OTP sent. Complete registration to continue.", "exists": False}
+    if not delivered:
+        result["debug_otp"] = code
+    return result
 
 
 @router.post("/register-with-otp", status_code=201)
@@ -151,9 +153,12 @@ async def register_with_otp(req: RegisterWithOTPRequest):
 
     code = _generate_otp()
     await _store_otp(req.email, code, req.phone)
-    await deliver_otp(code, req.email, req.phone)
+    delivered = await deliver_otp(code, req.email, req.phone)
 
-    return {"message": "Account created. OTP sent to your registered contact.", "user_id": user_id}
+    result = {"message": "Account created. OTP sent to your registered contact.", "user_id": user_id}
+    if not delivered:
+        result["debug_otp"] = code
+    return result
 
 
 @router.post("/verify-otp")

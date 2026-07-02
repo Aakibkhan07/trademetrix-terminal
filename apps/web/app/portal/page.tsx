@@ -713,6 +713,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
   const [error, setError] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
   const [userExists, setUserExists] = useState<boolean | null>(null)
+  const [debugOtp, setDebugOtp] = useState('')
 
   useEffect(() => {
     if (resendTimer <= 0) return
@@ -727,6 +728,10 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
       const res = await api.auth.sendOTP({ email })
       setUserExists(res.exists)
       setSending(false)
+      if (res.debug_otp) {
+        setDebugOtp(res.debug_otp)
+        setOtp(res.debug_otp.split(''))
+      }
       if (res.exists) {
         setStep('otp')
         setResendTimer(30)
@@ -743,8 +748,12 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
     if (!email || !password || password.length < 6) { setError('Email and password (min 6 chars) required'); return }
     setError(''); setSending(true)
     try {
-      await api.auth.registerWithOTP({ email, password, full_name: fullName || undefined, phone: phone || undefined })
+      const res = await api.auth.registerWithOTP({ email, password, full_name: fullName || undefined, phone: phone || undefined })
       setSending(false)
+      if (res.debug_otp) {
+        setDebugOtp(res.debug_otp)
+        setOtp(res.debug_otp.split(''))
+      }
       setStep('otp')
       setResendTimer(30)
     } catch (e: unknown) {
@@ -771,8 +780,9 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
     if (resendTimer > 0) return
     setError(''); setSending(true)
     try {
-      await api.auth.sendOTP({ email })
+      const res = await api.auth.sendOTP({ email })
       setSending(false)
+      if (res.debug_otp) setDebugOtp(res.debug_otp)
       setResendTimer(30)
       setOtp(['', '', '', '', '', ''])
     } catch (e: unknown) {
@@ -875,6 +885,16 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
             }}>
               OTP sent to {email}
             </div>
+            {debugOtp && (
+              <div style={{
+                padding: '8px 12px', borderRadius: 6, fontSize: 12,
+                background: 'rgba(255,193,7,0.1)', color: '#ffc107',
+                width: '100%', textAlign: 'center', fontFamily: 'var(--font-mono)',
+                border: '1px solid rgba(255,193,7,0.2)',
+              }}>
+                Dev OTP: <strong>{debugOtp}</strong>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8 }}>
               {otp.map((d, i) => (
                 <input key={i} id={`otp-${i}`}

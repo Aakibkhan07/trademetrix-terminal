@@ -72,7 +72,7 @@ async def send_otp_email(email: str, otp: str) -> bool:
         return False
 
 
-async def deliver_otp(otp: str, email: str, phone: str = "") -> None:
+async def deliver_otp(otp: str, email: str, phone: str = "") -> bool:
     logger.info("[OTP] Code for %s: %s", email, otp)
 
     sent = False
@@ -84,3 +84,4 @@ async def deliver_otp(otp: str, email: str, phone: str = "") -> None:
         sent = await send_otp_email(email, otp)
     if not sent:
         logger.info("[DEV] OTP %s for %s (no delivery service configured)", otp, email)
+    return sent
