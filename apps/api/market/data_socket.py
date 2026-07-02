@@ -60,7 +60,7 @@ class SharedDataSocket:
     async def start_broker_feed(self, user_id: str, broker_type: str, symbols: list[str]) -> None:
         if broker_type in self._broker_feeds:
             logger.warning(f"Broker feed already running for {broker_type}")
-            return
+            raise RuntimeError(f"Broker feed already running for {broker_type}")
 
         from brokers import get_broker
         from core.db import get_supabase
@@ -74,14 +74,13 @@ class SharedDataSocket:
             .single() \
             .execute()
         if not cred.data:
-            logger.warning("No credentials found for %s/%s", user_id, broker_type)
-            return
+            raise RuntimeError(f"No broker credentials found for {broker_type}")
 
         row = cred.data
         raw_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
         if not raw_token:
-            logger.warning("No access_token stored for %s/%s — user must re-authenticate via OAuth", user_id, broker_type)
-            return
+            raise RuntimeError(f"No access_token stored for {broker_type} — user must re-authenticate via OAuth")
+
         adapter_cls = get_broker(broker_type)
         adapter = adapter_cls()
         await adapter.authenticate({

@@ -7,7 +7,6 @@ import random
 import httpx
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
 
-from core.config import settings
 from core.db import get_supabase
 from core.deps import get_current_user
 from core.models import Tick, UserProfile
@@ -132,11 +131,6 @@ async def _drain_queue(websocket: WebSocket, queue: asyncio.Queue, cancel: async
 @router.post("/feed/start")
 async def start_market_feed(current_user: UserProfile = Depends(get_current_user)):
     symbols = [s["symbol"] for s in MAJOR_INDICES + MAJOR_STOCKS]
-
-    if settings.debug:
-        await market_simulator.start(symbols=symbols)
-        logger.info("Market simulator started (debug mode) with %d symbols", len(symbols))
-        return {"message": "Market feed started (simulator)", "broker": "simulator"}
 
     supabase = get_supabase()
     active = safe_single(

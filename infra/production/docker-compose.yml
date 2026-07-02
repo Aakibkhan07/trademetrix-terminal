@@ -30,7 +30,6 @@ services:
     env_file: ../../apps/api/.env
     environment:
       ENV: production
-      DEBUG: "True"
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: https://ai.trademetrix.tech
       LOG_LEVEL: INFO
