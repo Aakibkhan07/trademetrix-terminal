@@ -9,7 +9,8 @@ set -euo pipefail
 #   bash infra/deploy.sh <branch/tag>    # Deploy specific ref
 #
 # Prerequisites:
-#   apps/api/.env  and  apps/web/.env  must exist on the VPS
+#   infra/.env.production  must exist on the VPS
+#   (copy from infra/.env.production.example and fill in values)
 # ============================================================
 
 REPO_URL="https://github.com/Aakibkhan07/trademetrix-terminal.git"
@@ -74,29 +75,26 @@ else
   ok "Repo cloned (branch: $BRANCH)"
 fi
 
-# ── Verify .env files ──
-if [ ! -f apps/api/.env ]; then
-  err "apps/api/.env not found!"
-  err "SCP it: scp apps/api/.env root@<vps>:${INSTALL_DIR}/apps/api/.env"
-  exit 1
-fi
-if [ ! -f apps/web/.env ]; then
-  err "apps/web/.env not found!"
-  err "SCP it: scp apps/web/.env root@<vps>:${INSTALL_DIR}/apps/web/.env"
+# ── Verify .env file ──
+if [ ! -f infra/.env.production ]; then
+  err "infra/.env.production not found!"
+  err "Create from template and fill in values:"
+  err "  cp infra/.env.production.example infra/.env.production"
+  err "  nano infra/.env.production"
   exit 1
 fi
 
-# Inject Gemini key into API .env if provided
+# Inject Gemini key into .env.production if provided
 if [ -n "$GEMINI_API_KEY" ]; then
-  if grep -q "GEMINI_API_KEY=" apps/api/.env; then
-    sed -i "s/^GEMINI_API_KEY=.*/GEMINI_API_KEY=$GEMINI_API_KEY/" apps/api/.env
+  if grep -q "GEMINI_API_KEY=" infra/.env.production; then
+    sed -i "s/^GEMINI_API_KEY=.*/GEMINI_API_KEY=$GEMINI_API_KEY/" infra/.env.production
   else
-    echo "GEMINI_API_KEY=$GEMINI_API_KEY" >> apps/api/.env
+    echo "GEMINI_API_KEY=$GEMINI_API_KEY" >> infra/.env.production
   fi
   ok "Gemini API key configured"
 fi
 
-ok "Environment files ready"
+ok "Environment file ready"
 
 # ── Check DNS ──
 info "Checking DNS..."

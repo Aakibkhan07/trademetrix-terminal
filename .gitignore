@@ -16,6 +16,7 @@ dist/
 fyersApi.log
 fyersRequests.log
 *.tsbuildinfo
+infra/.env.production
 infra/production/.env.production
 apps/api/brokers/angel_tokens.json.gz
 supabase/.temp/
