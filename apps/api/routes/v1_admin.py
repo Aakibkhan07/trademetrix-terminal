@@ -1,10 +1,11 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from core.audit import record_audit
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 from core.deps import get_current_user, require_admin
 from core.models import AuditLogEntry, Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType as OrderTypeEnum, ProductType, StrategyAssignment, TIER_LIMITS, TIER_ORDER, UserProfile, tier_satisfies
 from core.security import decrypt_broker_credentials
@@ -136,9 +137,9 @@ async def admin_assign_strategy(
             )
 
     if existing:
-        supabase.table("strategy_assignments").update({"active": True, "assigned_by": admin.id}).eq(
+        await async_supabase(lambda: supabase.table("strategy_assignments").update({"active": True, "assigned_by": admin.id}).eq(
             "id", existing["id"]
-        ).execute()
+        ).execute())
         record_audit(AuditLogEntry(
             user_id=admin.id,
             action="reassign_strategy",
@@ -160,7 +161,7 @@ async def admin_assign_strategy(
         "required_tier": required_tier,
         "assigned_by": admin.id,
     }
-    result = supabase.table("strategy_assignments").insert(insert_data).execute()
+    result = await async_supabase(lambda: supabase.table("strategy_assignments").insert(insert_data).execute())
     new_id = result.data[0]["id"]
 
     record_audit(AuditLogEntry(
@@ -192,7 +193,7 @@ async def admin_unassign_strategy(
     if not existing:
         raise HTTPException(status_code=404, detail="Assignment not found")
 
-    supabase.table("strategy_assignments").update({"active": False}).eq("id", assignment_id).execute()
+    await async_supabase(lambda: supabase.table("strategy_assignments").update({"active": False}).eq("id", assignment_id).execute())
 
     record_audit(AuditLogEntry(
         user_id=admin.id,
@@ -242,7 +243,7 @@ async def admin_update_user_tier(
             "message": "No change (already at this tier)",
         }
 
-    supabase.table("profiles").update({"subscription_tier": tier}).eq("id", user_id).execute()
+    await async_supabase(lambda: supabase.table("profiles").update({"subscription_tier": tier}).eq("id", user_id).execute())
 
     old_rank = TIER_ORDER.get(old_tier, 0)
     new_rank = TIER_ORDER.get(tier, 0)
@@ -260,7 +261,7 @@ async def admin_update_user_tier(
             if req_rank > new_rank:
                 deactivate_ids.append(a["id"])
         if deactivate_ids:
-            supabase.table("strategy_assignments").update({"active": False}).in_("id", deactivate_ids).execute()
+            await async_supabase(lambda: supabase.table("strategy_assignments").update({"active": False}).in_("id", deactivate_ids).execute())
             deactivated_count = len(deactivate_ids)
 
         new_limit = TIER_LIMITS.get(tier, 99)
@@ -273,7 +274,7 @@ async def admin_update_user_tier(
         ) or []
         if len(remaining) > new_limit:
             excess_ids = [a["id"] for a in remaining[new_limit:]]
-            supabase.table("strategy_assignments").update({"active": False}).in_("id", excess_ids).execute()
+            await async_supabase(lambda: supabase.table("strategy_assignments").update({"active": False}).in_("id", excess_ids).execute())
             deactivated_count += len(excess_ids)
             logger.info(
                 "Deactivated %d excess strategies on tier downgrade user=%s %s->%s (limit %d)",

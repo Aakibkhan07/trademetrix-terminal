@@ -20,14 +20,14 @@ async def test_kill_switch_toggle(client, auth_headers):
 
 @pytest.mark.asyncio
 async def test_live_mode_requires_confirmation(client, auth_headers):
-    resp = await client.post("/api/v1/risk/live/enable", headers=auth_headers)
+    resp = await client.post("/api/v1/risk/live/enable", json={"confirm": False}, headers=auth_headers)
     assert resp.status_code == 400
     assert "confirmation" in resp.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
 async def test_live_mode_toggle(client, auth_headers):
-    enable_resp = await client.post("/api/v1/risk/live/enable", headers=auth_headers)
+    enable_resp = await client.post("/api/v1/risk/live/enable", json={"confirm": False}, headers=auth_headers)
     assert enable_resp.status_code == 400
 
     status_resp = await client.get("/api/v1/risk/live/status", headers=auth_headers)

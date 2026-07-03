@@ -1,12 +1,14 @@
 import asyncio
+import inspect
 import logging
 import struct
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 
 import httpx
 
 from brokers.base import BaseBroker
+from core.config import settings
 from core.http_client import get_http_client
 from core.models import (
     Candle,
@@ -64,6 +66,7 @@ class ZerodhaAdapter(BaseBroker):
                         "checksum": self._api_key + request_token + secret_key,
                     },
                     headers={"X-Kite-Version": "3"},
+                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
                 )
                 data = resp.json()
                 if data.get("status") == "error":
@@ -98,6 +101,8 @@ class ZerodhaAdapter(BaseBroker):
             "order_type": self._map_order_type(order.order_type),
             "validity": "DAY",
         }
+        if order.client_order_id:
+            params["order_tag"] = order.client_order_id
         if order.trigger_price:
             params["trigger_price"] = order.trigger_price
 
@@ -105,6 +110,7 @@ class ZerodhaAdapter(BaseBroker):
             f"{self._base_url}/orders/{order.exchange.value}",
             data=params,
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         success = data.get("status") == "success"
@@ -120,6 +126,7 @@ class ZerodhaAdapter(BaseBroker):
             f"{self._base_url}/orders/{changes.get('exchange', 'NSE')}/{order_id}",
             data=changes,
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         return OrderResult(
@@ -133,6 +140,7 @@ class ZerodhaAdapter(BaseBroker):
         resp = await client.delete(
             f"{self._base_url}/orders/{order_id}",
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         return OrderResult(
@@ -143,13 +151,13 @@ class ZerodhaAdapter(BaseBroker):
 
     async def get_orderbook(self) -> list[NormalizedOrder]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/orders", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/orders", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         return [self._normalize_order(o) for o in data.get("data", [])]
 
     async def get_positions(self) -> list[Position]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/portfolio/positions", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/portfolio/positions", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         positions = []
         for item in data.get("data", {}).get("net", []):
@@ -158,13 +166,13 @@ class ZerodhaAdapter(BaseBroker):
 
     async def get_holdings(self) -> list[Holding]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/portfolio/holdings", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/portfolio/holdings", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         return [self._normalize_holding(h) for h in data.get("data", [])]
 
     async def get_funds(self) -> Funds:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/user/margins", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/user/margins", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         equity = data.get("data", {}).get("equity", {})
         return Funds(
@@ -180,6 +188,7 @@ class ZerodhaAdapter(BaseBroker):
             f"{self._base_url}/quote",
             params={"i": ",".join(symbols)},
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         quotes = []
@@ -195,6 +204,7 @@ class ZerodhaAdapter(BaseBroker):
             f"{self._base_url}/instruments/historical/{symbol}/{interval}",
             params={"from": start, "to": end} if start and end else {},
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         candles = []
@@ -217,40 +227,31 @@ class ZerodhaAdapter(BaseBroker):
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
         if not self._access_token:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
-
         self._running = True
-        retry_delay = 1
-
         while self._running:
             try:
-                async with httpx.AsyncClient() as client:
-                    ws_url = f"{self.KITE_WS_URL}?api_key={self._api_key}&access_token={self._access_token}"
-                    async with client.stream("GET", ws_url) as resp:
-                        if resp.status_code != 101:
-                            logger.error("Zerodha WS connect failed: %s", resp.status_code)
-                            await asyncio.sleep(retry_delay)
-                            retry_delay = min(retry_delay * 2, 30)
-                            continue
-
-                        retry_delay = 1
-
-                        async for chunk in resp.aiter_bytes():
-                            if not self._running:
-                                break
-                            if len(chunk) < 4:
-                                continue
-
-                            ticks = self._parse_binary(chunk)
-                            for tick in ticks:
-                                if asyncio.iscoroutinefunction(on_tick):
-                                    await on_tick(tick)
-                                else:
-                                    on_tick(tick)
-
-            except Exception as e:
-                logger.error("Zerodha WS error: %s, reconnecting in %ds", e, retry_delay)
-                await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 2, 30)
+                quotes = await self.get_quotes(symbols)
+                for q in quotes:
+                    tick = Tick(
+                        symbol=q.symbol,
+                        price=q.last_price,
+                        change=q.change,
+                        change_percent=q.change_percent,
+                        volume=q.volume,
+                        bid=q.bid,
+                        ask=q.ask,
+                        high=q.high,
+                        low=q.low,
+                        open=q.open,
+                        close=q.close,
+                    )
+                    if inspect.iscoroutinefunction(on_tick):
+                        await on_tick(tick)
+                    else:
+                        on_tick(tick)
+            except Exception:
+                logger.exception("Zerodha stream polling error")
+            await asyncio.sleep(1.0)
 
     async def disconnect(self) -> None:
         self._running = False
@@ -286,7 +287,7 @@ class ZerodhaAdapter(BaseBroker):
                     ask_qty=aq,
                     volume=volume,
                     oi=oi,
-                    timestamp=datetime.fromtimestamp(ltt) if ltt else datetime.utcnow(),
+                    timestamp=datetime.fromtimestamp(ltt) if ltt else datetime.now(UTC),
                     broker=self.broker_name,
                 )
                 ticks.append(tick)
@@ -378,7 +379,7 @@ class ZerodhaAdapter(BaseBroker):
             volume=int(item.get("volume", 0)),
             bid=float(item.get("depth", {}).get("buy", [{}])[0].get("price", 0)) if item.get("depth") else 0,
             ask=float(item.get("depth", {}).get("sell", [{}])[0].get("price", 0)) if item.get("depth") else 0,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             broker=self.broker_name,
             instrument_type=inst["instrument_type"],
             strike_price=inst["strike_price"],

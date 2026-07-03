@@ -1,5 +1,7 @@
+import asyncio
 import hashlib
 import json
+import logging
 import random
 from datetime import UTC, datetime
 from urllib.parse import quote
@@ -10,7 +12,9 @@ from pydantic import BaseModel, field_validator
 from core.audit import record_audit
 from core.cache import cache
 from core.config import settings
-from core.db import get_supabase
+
+logger = logging.getLogger(__name__)
+from core.db import async_supabase, get_supabase
 from core.http_client import get_http_client
 from core.models import AuditLogEntry, UserProfile
 from core.notifications import deliver_otp
@@ -67,7 +71,7 @@ def _set_session_cookie(response: Response, token: str):
 
 
 def _generate_otp() -> str:
-    return str(random.randint(100000, 999999))
+    return str(random.SystemRandom().randint(100000, 999999))
 
 
 async def _store_otp(email: str, code: str, phone: str = ""):
@@ -104,7 +108,7 @@ async def send_otp(req: SendOTPRequest):
     result = {"message": "OTP sent to your registered contact", "exists": True} if user else \
              {"message": "OTP sent. Complete registration to continue.", "exists": False}
     if not delivered:
-        result["debug_otp"] = code
+        logger.warning("OTP delivery failed for %s", req.email)
     return result
 
 
@@ -149,17 +153,16 @@ async def register_with_otp(req: RegisterWithOTPRequest):
             },
             json=profile_payload,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("OTP profile creation failed: %s", e)
 
     code = _generate_otp()
     await _store_otp(req.email, code, req.phone)
     delivered = await deliver_otp(code, req.email, req.phone)
 
-    result = {"message": "Account created. OTP sent to your registered contact.", "user_id": user_id}
     if not delivered:
-        result["debug_otp"] = code
-    return result
+        logger.warning("Registration OTP delivery failed for %s", req.email)
+    return {"message": "Account created. OTP sent to your registered contact.", "user_id": user_id}
 
 
 @router.post("/verify-otp")
@@ -207,7 +210,7 @@ async def verify_otp(req: VerifyOTPRequest, response: Response):
 
     profile_data = None
     if uid:
-        profile_data = supabase.table("profiles").select("*").eq("id", uid).maybe_single().execute().data
+        profile_data = (await async_supabase(lambda: supabase.table("profiles").select("*").eq("id", uid).maybe_single().execute())).data
 
     if not profile_data and uid:
         try:
@@ -223,8 +226,8 @@ async def verify_otp(req: VerifyOTPRequest, response: Response):
                 json={"id": uid, "email": req.email},
             )
             profile_data = {"id": uid, "email": req.email}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("OTP profile creation failed: %s", e)
 
     if profile_data:
         user = UserProfile(**{k: v for k, v in profile_data.items() if v is not None})

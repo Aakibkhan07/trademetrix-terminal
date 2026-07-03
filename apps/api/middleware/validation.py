@@ -4,7 +4,9 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-MAX_REQUEST_SIZE = 1024 * 100
+from core.config import settings
+
+MAX_REQUEST_SIZE = settings.max_request_size_bytes
 ALLOWED_CONTENT_TYPES = {"application/json", "multipart/form-data", "application/x-www-form-urlencoded", ""}
 
 
@@ -29,12 +31,4 @@ class InputValidationMiddleware(BaseHTTPMiddleware):
                     content={"detail": f"Request too large. Max {self.max_size} bytes"},
                 )
 
-        response = await call_next(request)
-
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        response.headers["Cache-Control"] = "no-store"
-
-        return response
+        return await call_next(request)

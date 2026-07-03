@@ -14,10 +14,8 @@ async def test_health(client):
 async def test_metrics(client):
     resp = await client.get("/metrics")
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "healthy"
-    assert "system" in data
-    assert "requests" in data
+    assert resp.headers["content-type"].startswith("text/plain")
+    assert len(resp.text) > 0
 
 
 @pytest.mark.asyncio

@@ -68,6 +68,9 @@ _STRATEGY_TIERS: dict[str, StrategyInfo] = {
     "expiry_hunter": StrategyInfo(
         key="expiry_hunter", name="Expiry Hunter", description="Weekly expiry theta decay and gamma scalping", required_tier="enterprise",
     ),
+    "graph_strategy": StrategyInfo(
+        key="graph_strategy", name="Graph Strategy", description="Visual strategy builder — drag, connect, deploy", required_tier="pro",
+    ),
 }
 
 register_strategy("trend_rider", TrendRider)

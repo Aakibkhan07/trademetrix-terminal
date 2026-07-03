@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from core.db import get_supabase
 from core.models import Candle, NormalizedOrder, OrderSide, OrderType
@@ -152,15 +152,10 @@ async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: st
                                  days: int = 60, user_id: str | None = None) -> list[dict]:
     if user_id:
         try:
-            from core.db import get_supabase
+            from core.db import async_supabase, get_supabase
             from core.security import decrypt_broker_credentials
             supabase = get_supabase()
-            cred = supabase.table("broker_credentials") \
-                .select("*") \
-                .eq("user_id", user_id) \
-                .eq("broker", "fyers") \
-                .single() \
-                .execute()
+            cred = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("user_id", user_id).eq("broker", "fyers").single().execute())
             if cred.data:
                 row = cred.data
                 client_id = decrypt_broker_credentials(row["encrypted_api_key"])
@@ -210,7 +205,7 @@ def _synthesize_candles(symbol: str, days: int, interval: str) -> list[dict]:
     import random
     candles = []
     base_price = random.uniform(500, 5000)
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     interval_min = _parse_interval_minutes(interval)
     total = days * 24 * 60 // interval_min
     price = base_price

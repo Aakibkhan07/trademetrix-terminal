@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import hashlib
 import json
 import logging
@@ -9,6 +10,7 @@ from datetime import UTC, datetime
 import httpx
 
 from brokers.base import BaseBroker
+from core.config import settings
 from core.http_client import get_http_client
 from core.models import (
     Candle,
@@ -67,8 +69,8 @@ class FinvasiaAdapter(BaseBroker):
                 import pyotp
                 try:
                     factor2 = pyotp.TOTP(factor2).now()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("TOTP factor2 generation failed: %s", e)
             payload = {
                 "uid": uid,
                 "pwd": pwd_encoded,
@@ -78,7 +80,7 @@ class FinvasiaAdapter(BaseBroker):
                 "imei": imei,
                 "source": "API",
             }
-            resp = await client.post(f"{self._base_url}/QuickAuth", data=payload)
+            resp = await client.post(f"{self._base_url}/QuickAuth", data=payload, timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
             data = resp.json()
             if data.get("stat") != "Ok":
                 raise ValueError(f"Shoonya login failed: {data.get('emsg', '')}")
@@ -107,6 +109,7 @@ class FinvasiaAdapter(BaseBroker):
                 "Content-Type": "text/plain",
                 "Authorization": self._access_token,
             },
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         return resp.json()
 
@@ -205,7 +208,7 @@ class FinvasiaAdapter(BaseBroker):
             try:
                 ts = datetime.fromtimestamp(int(item.get("time", 0)))
             except (ValueError, TypeError):
-                ts = datetime.utcnow()
+                ts = datetime.now(UTC)
             candles.append(
                 Candle(
                     symbol=symbol,
@@ -246,7 +249,7 @@ class FinvasiaAdapter(BaseBroker):
                                     data = data["Touchline"]
                                 tick = self._parse_tick(data)
                                 if tick:
-                                    if asyncio.iscoroutinefunction(on_tick):
+                                    if inspect.iscoroutinefunction(on_tick):
                                         await on_tick(tick)
                                     else:
                                         on_tick(tick)
@@ -273,7 +276,7 @@ class FinvasiaAdapter(BaseBroker):
                 ask_qty=int(data.get("sc", 0)),
                 volume=int(data.get("v", data.get("vol", 0))),
                 oi=int(data.get("oi", 0)),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 broker=self.broker_name,
             )
         except (ValueError, KeyError, TypeError) as e:
@@ -363,7 +366,7 @@ class FinvasiaAdapter(BaseBroker):
             volume=int(item.get("v", 0)),
             bid=float(item.get("bp", 0)),
             ask=float(item.get("sp", 0)),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             broker=self.broker_name,
             instrument_type=inst["instrument_type"],
             strike_price=inst["strike_price"],

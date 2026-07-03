@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import gzip
 import json
 import logging
@@ -8,7 +9,9 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 from brokers.base import BaseBroker
+from core.config import settings
 from core.http_client import get_http_client
+import httpx
 from core.models import (
     Candle,
     Exchange,
@@ -135,6 +138,7 @@ class AngelOneAdapter(BaseBroker):
             f"{self._base_url}/rest/auth/angelbroking/user/v1/loginByPassword",
             json=login_payload,
             headers=login_headers,
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = self._parse_response(resp)
 
@@ -252,6 +256,7 @@ class AngelOneAdapter(BaseBroker):
             f"{self._base_url}/rest/secure/angelbroking/order/v1/placeOrder",
             json=payload,
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = self._parse_response(resp)
         success = data.get("status") is True
@@ -279,6 +284,7 @@ class AngelOneAdapter(BaseBroker):
             f"{self._base_url}/rest/secure/angelbroking/order/v1/modifyOrder",
             json=payload,
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = self._parse_response(resp)
         return OrderResult(
@@ -294,6 +300,7 @@ class AngelOneAdapter(BaseBroker):
             f"{self._base_url}/rest/secure/angelbroking/order/v1/cancelOrder",
             json=payload,
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = self._parse_response(resp)
         return OrderResult(
@@ -307,6 +314,7 @@ class AngelOneAdapter(BaseBroker):
         resp = await client.get(
             f"{self._base_url}/rest/secure/angelbroking/order/v1/getOrderBook",
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = self._parse_response(resp)
         items = self._ensure_list(data.get("data"))
@@ -317,6 +325,7 @@ class AngelOneAdapter(BaseBroker):
         resp = await client.get(
             f"{self._base_url}/rest/secure/angelbroking/position/v1/getPosition",
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = self._parse_response(resp)
         items = self._ensure_list(data.get("data"))
@@ -327,6 +336,7 @@ class AngelOneAdapter(BaseBroker):
         resp = await client.get(
             f"{self._base_url}/rest/secure/angelbroking/portfolio/v1/getHolding",
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = self._parse_response(resp)
         items = self._ensure_list(data.get("data"))
@@ -337,6 +347,7 @@ class AngelOneAdapter(BaseBroker):
         resp = await client.get(
             f"{self._base_url}/rest/secure/angelbroking/user/v1/getRMS",
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = self._parse_response(resp)
         d = data.get("data", {})
@@ -364,6 +375,7 @@ class AngelOneAdapter(BaseBroker):
                 f"{self._base_url}/rest/secure/angelbroking/order/v1/getLtpData",
                 json=payload,
                 headers=self._headers(),
+                timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
             )
             data = self._parse_response(resp)
             if data.get("status") and data.get("data"):
@@ -389,6 +401,7 @@ class AngelOneAdapter(BaseBroker):
             f"{self._base_url}/rest/secure/angelbroking/historical/v1/getCandleData",
             json=payload,
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = self._parse_response(resp)
         candles = []
@@ -412,8 +425,15 @@ class AngelOneAdapter(BaseBroker):
         if not self._auth_token:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
         self._running = True
-        _prev: dict[str, float] = {}
 
+        try:
+            await self._ws_stream(symbols, on_tick)
+        except ImportError:
+            logger.info("websockets library not available, falling back to 1s polling")
+        except Exception as e:
+            logger.warning("WebSocket stream failed (%s), falling back to 1s polling", e)
+
+        _prev: dict[str, float] = {}
         while self._running:
             try:
                 quotes = await self.get_quotes(symbols)
@@ -440,14 +460,123 @@ class AngelOneAdapter(BaseBroker):
                         expiry_date=q.expiry_date,
                         option_type=q.option_type,
                     )
-                    if asyncio.iscoroutinefunction(on_tick):
+                    if inspect.iscoroutinefunction(on_tick):
                         await on_tick(tick)
                     else:
                         on_tick(tick)
                 await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                break
             except Exception as e:
                 logger.error("Angel polling error: %s", e)
                 await asyncio.sleep(5)
+
+    async def _ws_stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
+        import websockets
+
+        tokens_to_sub: list[str] = []
+        for sym in symbols:
+            t = await self._resolve_symbol_token(sym)
+            if t:
+                tokens_to_sub.append(t)
+        if not tokens_to_sub:
+            raise ValueError("No tokens resolved for WebSocket subscription")
+
+        subscribe_msg = json.dumps({
+            "action": 1,
+            "params": {
+                "mode": 2,
+                "tokenList": [{"exchangeType": 1, "tokens": tokens_to_sub}],
+            },
+        })
+
+        ws_headers = {
+            "Authorization": f"Bearer {self._auth_token}",
+            "x-api-key": self._api_key,
+            "x-client-code": self._client_code,
+            "x-feed-token": self._feed_token,
+        }
+
+        async for ws in websockets.connect(
+            self._ws_url, additional_headers=ws_headers, ping_interval=30
+        ):
+            try:
+                await ws.send(subscribe_msg)
+                async for raw in ws:
+                    if not self._running:
+                        break
+                    if isinstance(raw, bytes):
+                        tick = self._parse_protobuf_tick(raw)
+                    else:
+                        data = json.loads(raw)
+                        tick = self._parse_tick(data)
+                    if tick:
+                        if inspect.iscoroutinefunction(on_tick):
+                            await on_tick(tick)
+                        else:
+                            on_tick(tick)
+            except websockets.ConnectionClosed:
+                logger.info("Angel WS disconnected, reconnecting...")
+                continue
+
+    def _parse_protobuf_tick(self, raw: bytes) -> Tick | None:
+        try:
+            idx = 0
+            fields: dict[int, bytes] = {}
+            while idx < len(raw):
+                if idx + 1 > len(raw):
+                    break
+                key = raw[idx]
+                wire = key & 0x07
+                field_num = key >> 3
+                idx += 1
+                if wire == 0:
+                    val = 0
+                    shift = 0
+                    while idx < len(raw):
+                        byte = raw[idx]
+                        idx += 1
+                        val |= (byte & 0x7F) << shift
+                        shift += 7
+                        if not (byte & 0x80):
+                            break
+                    fields[field_num] = val
+                elif wire == 1:
+                    if idx + 8 <= len(raw):
+                        val = int.from_bytes(raw[idx:idx + 8], "little", signed=False)
+                        idx += 8
+                        fields[field_num] = val
+                elif wire == 2:
+                    if idx + 4 <= len(raw):
+                        length = int.from_bytes(raw[idx:idx + 4], "little")
+                        idx += 4
+                        if idx + length <= len(raw):
+                            fields[field_num] = raw[idx:idx + length]
+                            idx += length
+                elif wire == 5:
+                    if idx + 4 <= len(raw):
+                        val = int.from_bytes(raw[idx:idx + 4], "little", signed=False)
+                        idx += 4
+                        fields[field_num] = val
+                else:
+                    break
+
+            return Tick(
+                symbol=str(fields.get(1, b"")),
+                exchange=Exchange.NSE,
+                last_price=float(fields.get(2, 0)),
+                bid=float(fields.get(3, 0)),
+                ask=float(fields.get(4, 0)),
+                bid_qty=int(fields.get(5, 0)),
+                ask_qty=int(fields.get(6, 0)),
+                volume=int(fields.get(7, 0)),
+                oi=int(fields.get(8, 0)),
+                timestamp=datetime.now(UTC),
+                broker=self.broker_name,
+            )
+        except Exception as e:
+            logger.warning("Failed to parse Angel protobuf tick: %s", e)
+            return None
 
     async def disconnect(self) -> None:
         self._running = False
@@ -578,7 +707,7 @@ class AngelOneAdapter(BaseBroker):
 
     @staticmethod
     def _parse_instrument(symbol: str) -> dict:
-        m = re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$', symbol.upper())
+        m = _re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$', symbol.upper())
         if m:
             yy = int(m.group(2))
             month_code = m.group(3)
@@ -590,7 +719,7 @@ class AngelOneAdapter(BaseBroker):
                 "expiry_date": f"{2000 + yy}-{month_num:02d}",
                 "option_type": OptionType(m.group(5)),
             }
-        m = re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})$', symbol.upper())
+        m = _re.match(r'^([A-Z]+)(\d{2})([A-Z]{3})$', symbol.upper())
         if m:
             return {"instrument_type": InstrumentType.FUT, "strike_price": None, "expiry_date": None, "option_type": None}
         return {"instrument_type": InstrumentType.EQ, "strike_price": None, "expiry_date": None, "option_type": None}

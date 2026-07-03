@@ -127,13 +127,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <button
             className={`t-sidebar-footer-item ${killSwitchActive ? 'active' : ''}`}
             onClick={async () => {
-              if (killSwitchActive) {
-                await api.risk.disableKillSwitch()
-                setKillSwitchActive(false)
-              } else {
-                await api.risk.enableKillSwitch()
-                setKillSwitchActive(true)
-              }
+              try {
+                if (killSwitchActive) {
+                  await api.risk.disableKillSwitch()
+                  setKillSwitchActive(false)
+                } else {
+                  await api.risk.enableKillSwitch()
+                  setKillSwitchActive(true)
+                }
+              } catch { /* ignore failed toggle */ }
             }}
             style={killSwitchActive ? { color: 'var(--text-red)' } : {}}
           >

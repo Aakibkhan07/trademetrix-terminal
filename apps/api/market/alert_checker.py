@@ -1,6 +1,7 @@
 import logging
+from datetime import UTC, datetime
 
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 from core.models import Tick
 from core.safe_query import safe_execute
 from market.data_socket import shared_socket
@@ -29,10 +30,10 @@ async def _check_alerts(tick: Tick) -> None:
         if not triggered:
             continue
 
-        supabase.table("user_alerts").update({
-            "triggered_at": __import__("datetime").datetime.utcnow().isoformat(),
+        await async_supabase(lambda: supabase.table("user_alerts").update({
+            "triggered_at": datetime.now(UTC).isoformat(),
             "is_active": False,
-        }).eq("id", alert["id"]).execute()
+        }).eq("id", alert["id"]).execute())
 
         try:
             await _send_alert_notification(alert["user_id"], alert["id"], symbol, condition, target, price)
@@ -42,7 +43,7 @@ async def _check_alerts(tick: Tick) -> None:
 
 async def _send_alert_notification(user_id: str, alert_id: str, symbol: str, condition: str, target: float, current: float) -> None:
     supabase = get_supabase()
-    profile = supabase.table("profiles").select("email, full_name, phone").eq("id", user_id).single().execute()
+    profile = await async_supabase(lambda: supabase.table("profiles").select("email, full_name, phone").eq("id", user_id).single().execute())
     if not profile.data:
         return
     p = profile.data

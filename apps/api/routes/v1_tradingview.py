@@ -19,9 +19,13 @@ router = APIRouter(prefix="/tradingview", tags=["tradingview"])
 
 WEBHOOK_SECRET = os.getenv("TRADINGVIEW_WEBHOOK_SECRET", "")
 
+if not WEBHOOK_SECRET:
+    logger.warning("TRADINGVIEW_WEBHOOK_SECRET not set — webhook signatures NOT verified. Set this in production.")
+
 
 def _verify_signature(payload: bytes, signature: str) -> bool:
     if not WEBHOOK_SECRET:
+        logger.warning("Webhook received without WEBHOOK_SECRET configured — allowing unverified request")
         return True
     expected = hmac.new(WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
@@ -115,16 +119,18 @@ async def tradingview_webhook(request: Request):
         return {"results": results, "count": len(results)}
 
     if not user_id:
-        creds = safe_single(
-            get_supabase().table("broker_credentials")
-            .select("user_id")
-            .eq("is_active", True)
-            .limit(1)
-            .execute()
-        )
-        if not creds:
-            raise HTTPException(status_code=400, detail="No active broker user found")
-        user_id = creds["user_id"]
+        if not WEBHOOK_SECRET:
+            creds = safe_single(
+                get_supabase().table("broker_credentials")
+                .select("user_id")
+                .eq("is_active", True)
+                .limit(1)
+            )
+            if not creds:
+                raise HTTPException(status_code=400, detail="No active broker user found")
+            user_id = creds["user_id"]
+        else:
+            raise HTTPException(status_code=400, detail="user_id is required for authenticated webhooks")
 
     result = await _execute_for_user(
         user_id, symbol, action, quantity, price, exchange,

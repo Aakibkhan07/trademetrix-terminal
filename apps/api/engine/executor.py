@@ -46,12 +46,24 @@ class ExecutionEngine:
         return await gate_execute_order(self.user_id, signal, source="manual")
 
     async def cancel_order(self, order_id: str) -> OrderResult:
-        if not self._adapter:
-            return OrderResult(success=False, message="Engine not started")
+        from execution import execution_manager
+        from execution.models import ExecutionRequest
 
-        result = await self._adapter.cancel_order(order_id)
-        self._log_audit("cancel_order", None, extra={"order_id": order_id})
-        return result
+        req = ExecutionRequest(
+            user_id=self.user_id,
+            broker=self.broker,
+            symbol="",
+            side="",
+            quantity=0,
+            source="cancel",
+        )
+        result = await execution_manager.cancel_order(req, order_id)
+        return OrderResult(
+            success=result.success,
+            broker_order_id=order_id,
+            message=result.message,
+            status="cancelled" if result.success else "failed",
+        )
 
     async def get_positions(self):
         if not self._adapter:

@@ -1,8 +1,9 @@
 import asyncio
 import functools
+import inspect
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from typing import Any, TypeVar
 
 T = TypeVar("T")
@@ -39,7 +40,7 @@ class CircuitBreaker:
                     raise Exception(f"CircuitBreaker[{self.name}] is open")
 
         try:
-            if asyncio.iscoroutinefunction(fn):
+            if inspect.iscoroutinefunction(fn):
                 result = await fn(*args, **kwargs)
             else:
                 result = fn(*args, **kwargs)
@@ -73,7 +74,7 @@ def retry(max_attempts: int = 3, base_delay: float = 0.5, max_delay: float = 10.
             last_exc = None
             for attempt in range(1, max_attempts + 1):
                 try:
-                    if asyncio.iscoroutinefunction(fn):
+                    if inspect.iscoroutinefunction(fn):
                         return await fn(*args, **kwargs)
                     return fn(*args, **kwargs)
                 except retryable_exceptions as e:

@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import logging
 import re
@@ -8,6 +9,7 @@ from datetime import UTC, datetime
 import httpx
 
 from brokers.base import BaseBroker
+from core.config import settings
 from core.http_client import get_http_client
 from core.models import (
     Candle,
@@ -62,6 +64,7 @@ class KotakNeoAdapter(BaseBroker):
                         "grant_type": "client_credentials",
                     },
                     headers={"Content-Type": "application/json"},
+                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
                 )
                 data = resp.json()
                 self._access_token = data.get("access_token", data.get("token", ""))
@@ -107,6 +110,7 @@ class KotakNeoAdapter(BaseBroker):
             f"{self._base_url}/api/v1/orders",
             json=payload,
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         success = data.get("status") == "success" or data.get("s") == "ok"
@@ -130,6 +134,7 @@ class KotakNeoAdapter(BaseBroker):
             f"{self._base_url}/api/v1/orders/{order_id}",
             json=payload,
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         return OrderResult(
@@ -143,6 +148,7 @@ class KotakNeoAdapter(BaseBroker):
         resp = await client.delete(
             f"{self._base_url}/api/v1/orders/{order_id}",
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         return OrderResult(
@@ -153,7 +159,7 @@ class KotakNeoAdapter(BaseBroker):
 
     async def get_orderbook(self) -> list[NormalizedOrder]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/api/v1/orders", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/api/v1/orders", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("data", data.get("orders", data.get("result", [])))
         if isinstance(items, dict):
@@ -162,7 +168,7 @@ class KotakNeoAdapter(BaseBroker):
 
     async def get_positions(self) -> list[Position]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/api/v1/positions", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/api/v1/positions", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("data", data.get("positions", data.get("result", [])))
         if isinstance(items, dict):
@@ -171,7 +177,7 @@ class KotakNeoAdapter(BaseBroker):
 
     async def get_holdings(self) -> list[Holding]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/api/v1/holdings", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/api/v1/holdings", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("data", data.get("holdings", data.get("result", [])))
         if isinstance(items, dict):
@@ -180,7 +186,7 @@ class KotakNeoAdapter(BaseBroker):
 
     async def get_funds(self) -> Funds:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/api/v1/user/limits", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/api/v1/user/limits", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         limits = data.get("data", data.get("limits", data.get("result", {})))
         if isinstance(limits, list) and limits:
@@ -199,6 +205,7 @@ class KotakNeoAdapter(BaseBroker):
             f"{self._base_url}/api/v1/market/quote",
             params={"instrument_key": keys},
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         quotes = []
@@ -230,6 +237,7 @@ class KotakNeoAdapter(BaseBroker):
             f"{self._base_url}/api/v1/market/historical/{key}/{mapped}",
             params={"from": start, "to": end},
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         candles = []
@@ -244,7 +252,7 @@ class KotakNeoAdapter(BaseBroker):
                     try:
                         ts = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S") if " " in ts else datetime.strptime(ts, "%Y-%m-%d")
                     except ValueError:
-                        ts = datetime.utcnow()
+                        ts = datetime.now(UTC)
                 candles.append(
                     Candle(
                         symbol=symbol,
@@ -278,6 +286,11 @@ class KotakNeoAdapter(BaseBroker):
                             retry_delay = min(retry_delay * 2, 30)
                             continue
                         retry_delay = 1
+
+                        sub_payload = json.dumps({"action": "subscribe", "instruments": symbols}).encode()
+                        if hasattr(resp, 'send') and callable(resp.send):
+                            await resp.send(sub_payload)
+
                         async for line in resp.aiter_lines():
                             if not self._running:
                                 break
@@ -287,7 +300,7 @@ class KotakNeoAdapter(BaseBroker):
                                 data = json.loads(line)
                                 tick = self._parse_tick(data)
                                 if tick:
-                                    if asyncio.iscoroutinefunction(on_tick):
+                                    if inspect.iscoroutinefunction(on_tick):
                                         await on_tick(tick)
                                     else:
                                         on_tick(tick)
@@ -314,7 +327,7 @@ class KotakNeoAdapter(BaseBroker):
                 ask_qty=int(data.get("ask_qty", data.get("sc", 0))),
                 volume=int(data.get("volume", data.get("v", 0))),
                 oi=int(data.get("oi", 0)),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 broker=self.broker_name,
             )
         except (ValueError, KeyError, TypeError) as e:
@@ -412,7 +425,7 @@ class KotakNeoAdapter(BaseBroker):
             volume=int(item.get("volume", item.get("v", 0))),
             bid=float(item.get("bid", item.get("bp", 0))),
             ask=float(item.get("ask", item.get("sp", 0))),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             broker=self.broker_name,
             instrument_type=inst["instrument_type"],
             strike_price=inst["strike_price"],

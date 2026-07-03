@@ -1,12 +1,14 @@
 import asyncio
+import inspect
 import json
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 
 import httpx
 
 from brokers.base import BaseBroker
+from core.config import settings
 from core.http_client import get_http_client
 from core.models import (
     Candle,
@@ -51,6 +53,16 @@ class DhanAdapter(BaseBroker):
         self._client_id = credentials.get("client_id") or credentials.get("api_key") or credentials.get("dhanClientId") or ""
         if not self._access_token:
             raise ValueError("access_token required for Dhan authentication")
+
+        client = await self._get_client()
+        resp = await client.get(
+            f"{self._base_url}/orders",
+            headers=self._headers(),
+            timeout=httpx.Timeout(10, connect=5),
+        )
+        if resp.status_code == 401:
+            raise ValueError("Dhan authentication failed — invalid access_token")
+
         return Session(
             access_token=self._access_token,
             user_id=self._client_id,
@@ -71,6 +83,9 @@ class DhanAdapter(BaseBroker):
             (Exchange.NFO, InstrumentType.FUT): "NSE_FNO",
             (Exchange.NFO, InstrumentType.OPT): "NSE_FNO",
             (Exchange.BSE, InstrumentType.EQ): "BSE_EQ",
+            (Exchange.BSE, InstrumentType.FUT): "BSE_FNO",
+            (Exchange.BSE, InstrumentType.OPT): "BSE_FNO",
+            (Exchange.NFO, InstrumentType.EQ): "NSE_EQ",
         }
         seg = exchange_segment_map.get((order.exchange, order.instrument_type), "NSE_EQ")
         payload: dict = {
@@ -97,7 +112,10 @@ class DhanAdapter(BaseBroker):
                 payload["drvOptionType"] = order.option_type.value
             if order.strike_price:
                 payload["drvStrikePrice"] = order.strike_price
-        resp = await client.post(f"{self._base_url}/orders", json=payload, headers=self._headers())
+        hdrs = self._headers()
+        if order.client_order_id:
+            hdrs["correlationId"] = order.client_order_id
+        resp = await client.post(f"{self._base_url}/orders", json=payload, headers=hdrs, timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         success = data.get("status") == "success"
         return OrderResult(
@@ -118,7 +136,7 @@ class DhanAdapter(BaseBroker):
             "price": changes.get("price", 0),
             "triggerPrice": changes.get("trigger_price", 0),
         }
-        resp = await client.put(f"{self._base_url}/orders/{order_id}", json=payload, headers=self._headers())
+        resp = await client.put(f"{self._base_url}/orders/{order_id}", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         return OrderResult(
             success=data.get("status") == "success",
@@ -128,31 +146,32 @@ class DhanAdapter(BaseBroker):
 
     async def cancel_order(self, order_id: str) -> OrderResult:
         client = await self._get_client()
-        resp = await client.delete(f"{self._base_url}/orders/{order_id}", headers=self._headers())
+        resp = await client.delete(f"{self._base_url}/orders/{order_id}", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
+        success = data.get("status") == "success"
         return OrderResult(
-            success=True,
+            success=success,
             broker_order_id=order_id,
             message=data.get("message", ""),
         )
 
     async def get_orderbook(self) -> list[NormalizedOrder]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/orders", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/orders", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data if isinstance(data, list) else data.get("data", [])
         return [self._normalize_order(item) for item in items]
 
     async def get_positions(self) -> list[Position]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/positions", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/positions", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data if isinstance(data, list) else data.get("data", [])
         return [self._normalize_position(item) for item in items]
 
     async def get_holdings(self) -> list[Holding]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/holdings", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/holdings", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data if isinstance(data, list) else data.get("data", [])
         if not items and isinstance(data, dict) and "errorMessage" in data:
@@ -161,7 +180,7 @@ class DhanAdapter(BaseBroker):
 
     async def get_funds(self) -> Funds:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/fundlimit", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/fundlimit", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         total = float(data.get("sodLimit", data.get("totalBalance", 0)))
         used = float(data.get("utilizedAmount", data.get("usedBalance", 0)))
@@ -176,7 +195,8 @@ class DhanAdapter(BaseBroker):
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
         client = await self._get_client()
         resp = await client.get(
-            f"{self._base_url}/quotes", params={"symbols": ",".join(symbols)}, headers=self._headers()
+            f"{self._base_url}/quotes", params={"symbols": ",".join(symbols)}, headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         quotes = []
@@ -193,7 +213,7 @@ class DhanAdapter(BaseBroker):
             params["from"] = start
         if end:
             params["to"] = end
-        resp = await client.get(f"{self._base_url}/charts/historical", params=params, headers=self._headers())
+        resp = await client.get(f"{self._base_url}/charts/historical", params=params, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         candles = []
         for item in data.get("data", []):
@@ -266,7 +286,7 @@ class DhanAdapter(BaseBroker):
                                     data = json.loads(line)
                                     tick = self._parse_tick(data)
                                     if tick:
-                                        if asyncio.iscoroutinefunction(on_tick):
+                                        if inspect.iscoroutinefunction(on_tick):
                                             await on_tick(tick)
                                         else:
                                             on_tick(tick)
@@ -294,7 +314,7 @@ class DhanAdapter(BaseBroker):
                 ask_qty=int(data.get("askQty", 0)),
                 volume=int(data.get("volume", 0)),
                 oi=int(data.get("openInterest", 0)),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 broker=self.broker_name,
             )
         except (ValueError, KeyError, TypeError) as e:
@@ -382,7 +402,7 @@ class DhanAdapter(BaseBroker):
             volume=int(item.get("volume", 0)),
             bid=float(item.get("bid", 0)),
             ask=float(item.get("ask", 0)),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             broker=self.broker_name,
             instrument_type=inst["instrument_type"],
             strike_price=inst["strike_price"],

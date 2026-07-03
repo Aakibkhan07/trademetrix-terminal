@@ -1,9 +1,12 @@
+import logging
 
 from fastapi import APIRouter
 
 from core.cache import cache
 from core.config import settings
 from core.metrics import get_metrics, get_uptime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["health"])
 
@@ -15,6 +18,15 @@ async def health():
         "service": settings.app_name,
         "version": settings.app_version,
         "uptime_seconds": round(get_uptime(), 2),
+    }
+
+
+@router.get("/version")
+async def version():
+    return {
+        "version": settings.app_version,
+        "service": settings.app_name,
+        "env": settings.env,
     }
 
 

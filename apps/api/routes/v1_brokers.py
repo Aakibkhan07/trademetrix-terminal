@@ -1,12 +1,15 @@
 import asyncio
+from datetime import UTC, datetime
+from core.config import settings
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from brokers import list_brokers
+from brokers.registry import get_broker_metadata
 from core.audit import record_audit
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 from core.deps import get_current_user
 from core.models import AuditLogEntry, UserProfile
 from core.safe_query import safe_execute, safe_single
@@ -17,8 +20,10 @@ router = APIRouter(prefix="/brokers", tags=["brokers"])
 
 class BrokerCredentialInput(BaseModel):
     broker: str
-    api_key: str
-    secret_key: str
+    api_key: str = ""
+    secret_key: str = ""
+    client_id: str = ""
+    client_code: str = ""
     access_token: str = ""
     additional_params: dict = {}
 
@@ -36,6 +41,19 @@ class ActivateBrokerRequest(BaseModel):
 @router.get("/list")
 async def list_available_brokers():
     return {"brokers": list_brokers()}
+
+
+@router.get("/metadata")
+async def list_broker_metadata():
+    return {"brokers": get_broker_metadata()}
+
+
+@router.get("/metadata/{broker}")
+async def broker_metadata(broker: str):
+    try:
+        return get_broker_metadata(broker)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/credentials")
@@ -64,8 +82,8 @@ async def activate_broker(
     if not target:
         raise HTTPException(status_code=404, detail=f"No credentials found for broker '{req.broker}'")
 
-    supabase.table("broker_credentials").update({"is_active": False}).eq("user_id", current_user.id).neq("broker", req.broker).execute()
-    supabase.table("broker_credentials").update({"is_active": True}).eq("id", target["id"]).execute()
+    await async_supabase(lambda: supabase.table("broker_credentials").update({"is_active": False}).eq("user_id", current_user.id).neq("broker", req.broker).execute())
+    await async_supabase(lambda: supabase.table("broker_credentials").update({"is_active": True}).eq("id", target["id"]).execute())
 
     record_audit(AuditLogEntry(
         user_id=current_user.id,
@@ -86,6 +104,10 @@ async def save_credentials(
     if req.broker not in list_brokers():
         raise HTTPException(status_code=400, detail=f"Unsupported broker: {req.broker}")
 
+    api_key = req.api_key or req.client_id or req.client_code or ""
+    secret_key = req.secret_key or ""
+    access_token = req.access_token or ""
+
     supabase = get_supabase()
     existing = safe_single(
         supabase.table("broker_credentials")
@@ -93,24 +115,27 @@ async def save_credentials(
         .eq("user_id", current_user.id)
         .eq("broker", req.broker)
     )
-    payload = {
-        "encrypted_api_key": encrypt_broker_credentials(req.api_key),
-        "encrypted_secret_key": encrypt_broker_credentials(req.secret_key),
+    payload: dict = {
+        "encrypted_api_key": encrypt_broker_credentials(api_key),
+        "encrypted_secret_key": encrypt_broker_credentials(secret_key),
         "additional_params": req.additional_params,
     }
-    if req.access_token:
-        payload["encrypted_access_token"] = encrypt_broker_credentials(req.access_token)
+    if access_token:
+        payload["encrypted_access_token"] = encrypt_broker_credentials(access_token)
 
     try:
         if existing:
-            result = supabase.table("broker_credentials").update(payload).eq("id", existing["id"]).execute()
+            result = await async_supabase(lambda: supabase.table("broker_credentials").update(payload).eq("id", existing["id"]).execute())
             inserted = result.data[0] if result.data else existing
             action = "update_broker"
         else:
             payload["user_id"] = current_user.id
             payload["broker"] = req.broker
-            payload["encrypted_access_token"] = encrypt_broker_credentials(req.access_token) if req.access_token else ""
-            result = supabase.table("broker_credentials").insert(payload).execute()
+            if access_token:
+                payload["encrypted_access_token"] = encrypt_broker_credentials(access_token)
+            else:
+                payload["encrypted_access_token"] = ""
+            result = await async_supabase(lambda: supabase.table("broker_credentials").insert(payload).execute())
             inserted = result.data[0]
             action = "add_broker"
     except Exception as e:
@@ -134,7 +159,7 @@ async def delete_credentials(
 ):
     supabase = get_supabase()
     try:
-        result = supabase.table("broker_credentials").delete().eq("user_id", current_user.id).eq("broker", broker_name).execute()
+        result = await async_supabase(lambda: supabase.table("broker_credentials").delete().eq("user_id", current_user.id).eq("broker", broker_name).execute())
         if not result.data:
             raise HTTPException(status_code=404, detail="Credentials not found")
     except HTTPException:
@@ -153,7 +178,7 @@ async def delete_credentials(
     ))
 
 
-FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI", "https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback")
+FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI") or settings.fyers_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback"
 
 
 def _fyers_auth_url(client_id: str, state: str) -> str:
@@ -178,12 +203,12 @@ async def fyers_re_auth(current_user: UserProfile = Depends(get_current_user)):
     if not cred:
         raise HTTPException(status_code=400, detail="No Fyers credentials found. Save them first.")
 
-    row = supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute()
+    row = await async_supabase(lambda: supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute())
     client_id = decrypt_broker_credentials(row.data["encrypted_api_key"])
 
-    supabase.table("broker_credentials").update(
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
         {"is_active": False, "encrypted_access_token": ""}
-    ).eq("id", cred["id"]).execute()
+    ).eq("id", cred["id"]).execute())
 
     return {"auth_url": _fyers_auth_url(client_id, current_user.id)}
 
@@ -200,7 +225,7 @@ async def fyers_auth_url(current_user: UserProfile = Depends(get_current_user)):
     if not cred:
         raise HTTPException(status_code=400, detail="Save Fyers credentials first (APP ID as api_key, secret as secret_key)")
 
-    row = supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute()
+    row = await async_supabase(lambda: supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute())
     client_id = decrypt_broker_credentials(row.data["encrypted_api_key"])
     return {"auth_url": _fyers_auth_url(client_id, current_user.id)}
 
@@ -245,9 +270,9 @@ async def fyers_exchange_code(
 
     raw_token = data["access_token"]
     encrypted = encrypt_broker_credentials(raw_token)
-    supabase.table("broker_credentials").update(
-        {"encrypted_access_token": encrypted, "is_active": True, "updated_at": __import__("datetime").datetime.utcnow().isoformat()}
-    ).eq("id", cred["id"]).execute()
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
+        {"encrypted_access_token": encrypted, "is_active": True, "updated_at": datetime.now(UTC).isoformat()}
+    ).eq("id", cred["id"]).execute())
 
     return {"message": "Fyers authenticated successfully!"}
 
@@ -292,8 +317,8 @@ async def fyers_callback(
 
     raw_token = data["access_token"]
     encrypted = encrypt_broker_credentials(raw_token)
-    supabase.table("broker_credentials").update(
-        {"encrypted_access_token": encrypted, "is_active": True, "updated_at": __import__("datetime").datetime.utcnow().isoformat()}
-    ).eq("id", cred["id"]).execute()
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
+        {"encrypted_access_token": encrypted, "is_active": True, "updated_at": datetime.now(UTC).isoformat()}
+    ).eq("id", cred["id"]).execute())
 
     return RedirectResponse(url=f"{FRONTEND_URL}?auth_success=1")

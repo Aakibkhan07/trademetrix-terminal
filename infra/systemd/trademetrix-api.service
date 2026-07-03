@@ -1,0 +1,30 @@
+[Unit]
+Description=TradeMetrix Terminal — FastAPI Backend
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=app
+Group=app
+WorkingDirectory=/opt/trademetrix/apps/api
+EnvironmentFile=/opt/trademetrix/apps/api/.env
+ExecStart=/usr/local/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2 --limit-concurrency 1000 --backlog 2048 --no-access-log
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=3
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trademetrix-api
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+MemoryLimit=512M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

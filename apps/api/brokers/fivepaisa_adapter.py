@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 import httpx
 
 from brokers.base import BaseBroker
+from core.config import settings
 from core.http_client import get_http_client
 from core.models import (
     Candle,
@@ -72,7 +73,7 @@ class FivePaisaAdapter(BaseBroker):
                         "PIN": pin,
                     },
                 }
-                resp = await client.post(f"{self._base_url}/Login", json=payload)
+                resp = await client.post(f"{self._base_url}/Login", json=payload, timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
                 data = resp.json()
                 body = data.get("body", {})
                 self._access_token = body.get("JWTToken", "")
@@ -119,10 +120,10 @@ class FivePaisaAdapter(BaseBroker):
                 "ExchangeType": "C",
                 "ScripCode": self._extract_scripcode(order.symbol),
                 "IsIntraday": order.product in (ProductType.INTRADAY, ProductType.MIS),
-                "RemoteOrderID": f"TM{int(datetime.utcnow().timestamp())}",
+                "RemoteOrderID": f"TM{int(datetime.now(UTC).timestamp())}",
             },
         }
-        resp = await client.post(f"{self._base_url}/PlaceOrder", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/PlaceOrder", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         body = data.get("body", {})
         success = body.get("Message", "").lower() == "success"
@@ -153,7 +154,7 @@ class FivePaisaAdapter(BaseBroker):
                 "IsIntraday": changes.get("product", "INTRADAY") in ("INTRADAY", "MIS"),
             },
         }
-        resp = await client.put(f"{self._base_url}/ModifyOrder", json=payload, headers=self._headers())
+        resp = await client.put(f"{self._base_url}/ModifyOrder", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         body = data.get("body", {})
         return OrderResult(
@@ -178,7 +179,7 @@ class FivePaisaAdapter(BaseBroker):
                 "OrderNo": int(order_id),
             },
         }
-        resp = await client.post(f"{self._base_url}/CancelOrder", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/CancelOrder", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         return OrderResult(
             success=True,
@@ -199,7 +200,7 @@ class FivePaisaAdapter(BaseBroker):
             },
             "body": {"ClientCode": self._client_code},
         }
-        resp = await client.post(f"{self._base_url}/OrderBook", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/OrderBook", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("body", {}).get("OrderBookDetail", [])
         return [self._normalize_order(item) for item in items]
@@ -217,7 +218,7 @@ class FivePaisaAdapter(BaseBroker):
             },
             "body": {"ClientCode": self._client_code},
         }
-        resp = await client.post(f"{self._base_url}/PositionBook", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/PositionBook", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("body", {}).get("PositionBookDetail", [])
         return [self._normalize_position(item) for item in items]
@@ -238,7 +239,7 @@ class FivePaisaAdapter(BaseBroker):
             },
             "body": {"ClientCode": self._client_code},
         }
-        resp = await client.post(f"{self._base_url}/Margin", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/Margin", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         body = data.get("body", {})
         return Funds(
@@ -249,7 +250,54 @@ class FivePaisaAdapter(BaseBroker):
         )
 
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
-        return []
+        if not symbols or not self._access_token:
+            return []
+        client = await self._get_client()
+        scrap_codes = [self._extract_scripcode(s) for s in symbols]
+        payload = {
+            "head": {
+                "AppName": self._app_name,
+                "AppVer": "1.0.0",
+                "Key": "",
+                "OSName": "Web",
+                "RequestCode": "GetMarketFeed",
+                "UserID": self._client_code,
+            },
+            "body": {
+                "ClientCode": self._client_code,
+                "Count": len(scrap_codes),
+                "MarketFeedData": [
+                    {"Exchange": "N", "ScripCode": sc, "ScripType": 1 if sc < 99999 else 2}
+                    for sc in scrap_codes if sc > 0
+                ],
+            },
+        }
+        if not payload["body"]["MarketFeedData"]:
+            return []
+        try:
+            resp = await client.post(f"{self._base_url}/MarketFeed", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
+            data = resp.json()
+            items = data.get("body", {}).get("Data", [])
+            quotes = []
+            for item in items:
+                ltp = float(item.get("LastTradedPrice", item.get("LTP", 0)))
+                quotes.append(Quote(
+                    symbol=str(item.get("ScripCode", "")),
+                    last_price=ltp,
+                    change=float(item.get("NetPriceChange", 0)),
+                    change_percent=float(item.get("PercentageChange", 0)),
+                    volume=item.get("Volume", 0),
+                    bid=float(item.get("BuyPrice", item.get("Bid", 0))),
+                    ask=float(item.get("SellPrice", item.get("Ask", 0))),
+                    high=float(item.get("High", 0)),
+                    low=float(item.get("Low", 0)),
+                    open=float(item.get("Open", 0)),
+                    close=float(item.get("PreviousClose", 0)),
+                ))
+            return quotes
+        except Exception:
+            logger.exception("5Paisa get_quotes failed")
+            return []
 
     async def get_historical(
         self, symbol: str, interval: str, start: str | None = None, end: str | None = None, range: str | None = None
@@ -257,7 +305,30 @@ class FivePaisaAdapter(BaseBroker):
         return []
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
-        pass
+        if not symbols:
+            return
+        self._running = True
+        while self._running:
+            try:
+                quotes = await self.get_quotes(symbols)
+                for q in quotes:
+                    tick = Tick(
+                        symbol=q.symbol,
+                        price=q.last_price,
+                        change=q.change,
+                        change_percent=q.change_percent,
+                        volume=q.volume,
+                        bid=q.bid,
+                        ask=q.ask,
+                        high=q.high,
+                        low=q.low,
+                        open=q.open,
+                        close=q.close,
+                    )
+                    on_tick(tick)
+            except Exception:
+                logger.exception("5Paisa stream polling error")
+            await asyncio.sleep(1.0)
 
     async def disconnect(self) -> None:
         self._running = False

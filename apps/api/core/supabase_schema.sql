@@ -1,5 +1,8 @@
--- Trade Metrix Terminal — Supabase Schema + RLS
--- Run this in Supabase SQL Editor to bootstrap.
+-- ⚠ DEPRECATED — Use Alembic instead.
+-- The canonical schema source is: alembic/versions/001_initial_schema.py
+-- Run migrations with: alembic upgrade head
+--
+-- Trade Metrix Terminal — Supabase Schema + RLS (ARCHIVED REFERENCE ONLY)
 
 -- 0. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

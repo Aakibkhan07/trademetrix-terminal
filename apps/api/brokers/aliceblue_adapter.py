@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import hashlib
 import json
 import logging
@@ -10,6 +11,7 @@ from datetime import UTC, datetime
 import httpx
 
 from brokers.base import BaseBroker
+from core.config import settings
 from core.http_client import get_http_client
 from core.models import (
     Candle,
@@ -65,7 +67,7 @@ class AliceBlueAdapter(BaseBroker):
                     "userId": self._user_id,
                     "userData": f"{self._user_id}|{api_key}|{totp}|{checksum}",
                 }
-                resp = await client.post(f"{self._base_url}/api/customer/account/login", json=payload)
+                resp = await client.post(f"{self._base_url}/api/customer/account/login", json=payload, timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
                 data = resp.json()
                 self._access_token = data.get("token", data.get("accessToken", data.get("sessionToken", "")))
                 if not self._access_token:
@@ -103,7 +105,7 @@ class AliceBlueAdapter(BaseBroker):
             "triggerPrice": str(order.trigger_price or 0),
             "validity": "DAY",
         }
-        resp = await client.post(f"{self._base_url}/api/order/place", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/api/order/place", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         success = data.get("success", data.get("status", "") == "success")
         return OrderResult(
@@ -123,7 +125,7 @@ class AliceBlueAdapter(BaseBroker):
             "orderType": self._map_order_type_str(changes.get("order_type", "MARKET")),
             "validity": "DAY",
         }
-        resp = await client.post(f"{self._base_url}/api/order/modify", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/api/order/modify", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         return OrderResult(
             success=data.get("success", data.get("status", "") == "success"),
@@ -134,7 +136,7 @@ class AliceBlueAdapter(BaseBroker):
     async def cancel_order(self, order_id: str) -> OrderResult:
         client = await self._get_client()
         payload = {"userId": self._user_id, "orderId": order_id}
-        resp = await client.post(f"{self._base_url}/api/order/cancel", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/api/order/cancel", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         return OrderResult(
             success=True,
@@ -145,7 +147,7 @@ class AliceBlueAdapter(BaseBroker):
     async def get_orderbook(self) -> list[NormalizedOrder]:
         client = await self._get_client()
         payload = {"userId": self._user_id}
-        resp = await client.post(f"{self._base_url}/api/order/book", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/api/order/book", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("data", data.get("result", data.get("orderBook", [])))
         if isinstance(items, dict):
@@ -155,7 +157,7 @@ class AliceBlueAdapter(BaseBroker):
     async def get_positions(self) -> list[Position]:
         client = await self._get_client()
         payload = {"userId": self._user_id}
-        resp = await client.post(f"{self._base_url}/api/position/getPosition", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/api/position/getPosition", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("data", data.get("result", data.get("positionBook", [])))
         if isinstance(items, dict):
@@ -165,7 +167,7 @@ class AliceBlueAdapter(BaseBroker):
     async def get_holdings(self) -> list[Holding]:
         client = await self._get_client()
         payload = {"userId": self._user_id}
-        resp = await client.post(f"{self._base_url}/api/holding/getHolding", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/api/holding/getHolding", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("data", data.get("result", data.get("holdingBook", [])))
         if isinstance(items, dict):
@@ -175,7 +177,7 @@ class AliceBlueAdapter(BaseBroker):
     async def get_funds(self) -> Funds:
         client = await self._get_client()
         payload = {"userId": self._user_id}
-        resp = await client.post(f"{self._base_url}/api/limits/getLimits", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/api/limits/getLimits", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         limits = data.get("data", data.get("result", {}))
         if isinstance(limits, list) and limits:
@@ -220,7 +222,7 @@ class AliceBlueAdapter(BaseBroker):
                                 data = json.loads(line)
                                 tick = self._parse_tick(data)
                                 if tick:
-                                    if asyncio.iscoroutinefunction(on_tick):
+                                    if inspect.iscoroutinefunction(on_tick):
                                         await on_tick(tick)
                                     else:
                                         on_tick(tick)
@@ -247,7 +249,7 @@ class AliceBlueAdapter(BaseBroker):
                 ask_qty=int(data.get("askQty", data.get("sc", 0))),
                 volume=int(data.get("volume", data.get("v", 0))),
                 oi=int(data.get("openInterest", data.get("oi", 0))),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 broker=self.broker_name,
             )
         except (ValueError, KeyError, TypeError) as e:

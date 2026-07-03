@@ -9,7 +9,6 @@ import Chart from '@/components/chart'
 type WatchItem = { symbol: string; name: string; type: string }
 
 const STORAGE_KEY = 'tm_watchlist_custom'
-const ALERTS_KEY = 'tm_price_alerts'
 
 function loadCustomWatchlist(): WatchItem[] {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
@@ -26,13 +25,7 @@ interface PriceAlert {
   direction: 'above' | 'below'
   triggered: boolean
   triggeredAt?: string
-}
-
-function loadAlerts(): PriceAlert[] {
-  try { return JSON.parse(localStorage.getItem(ALERTS_KEY) || '[]') } catch { return [] }
-}
-function saveAlerts(alerts: PriceAlert[]) {
-  localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts))
+  backendId?: string
 }
 
 const ALL_SYMBOLS: WatchItem[] = [
@@ -87,31 +80,51 @@ export default function MarketDataPage() {
   const [alertTarget, setAlertTarget] = useState(0)
   const [alertDirection, setAlertDirection] = useState<'above' | 'below'>('above')
 
-  useEffect(() => {
-    setCustomItems(loadCustomWatchlist())
-    setAlerts(loadAlerts())
+  const loadAlertsFromApi = useCallback(async () => {
+    try {
+      const data = await api.alerts.list()
+      const mapped: PriceAlert[] = (data.alerts || []).map(a => ({
+        id: a.id,
+        symbol: a.symbol,
+        name: a.note || a.symbol,
+        target: a.target_price,
+        direction: (a.condition === 'below' ? 'below' : 'above') as 'above' | 'below',
+        triggered: !!a.triggered_at,
+        triggeredAt: a.triggered_at || undefined,
+        backendId: a.id,
+      }))
+      setAlerts(mapped)
+    } catch {
+      setAlerts([])
+    }
   }, [])
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const current = loadAlerts()
-      let changed = false
-      const updated = current.map(a => {
-        if (a.triggered) return a
-        const t = ticks[a.symbol]
-        if (!t?.last_price) return a
-        const price = t.last_price
-        if ((a.direction === 'above' && price >= a.target) || (a.direction === 'below' && price <= a.target)) {
-          changed = true
-          toast('info', `Alert: ${a.name || a.symbol} ${a.direction === 'above' ? 'crossed above' : 'dropped below'} \u20B9${a.target} (current: \u20B9${price})`)
-          return { ...a, triggered: true, triggeredAt: new Date().toISOString() }
-        }
-        return a
+    setCustomItems(loadCustomWatchlist())
+    loadAlertsFromApi()
+  }, [loadAlertsFromApi])
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      setAlerts(prev => {
+        let changed = false
+        const updated = prev.map(a => {
+          if (a.triggered) return a
+          const t = ticks[a.symbol]
+          if (!t?.last_price) return a
+          const price = t.last_price
+          if ((a.direction === 'above' && price >= a.target) || (a.direction === 'below' && price <= a.target)) {
+            changed = true
+            if (a.backendId) {
+              api.alerts.toggle(a.backendId).catch(() => {})
+            }
+            toast('info', `Alert: ${a.name || a.symbol} ${a.direction === 'above' ? 'crossed above' : 'dropped below'} \u20B9${a.target} (current: \u20B9${price})`)
+            return { ...a, triggered: true, triggeredAt: new Date().toISOString() }
+          }
+          return a
+        })
+        return changed ? updated : prev
       })
-      if (changed) {
-        saveAlerts(updated)
-        setAlerts(updated)
-      }
     }, 2000)
     return () => clearInterval(interval)
   }, [ticks, toast])
@@ -173,26 +186,37 @@ export default function MarketDataPage() {
     setShowAlertModal(true)
   }
 
-  const createAlert = () => {
-    const alert: PriceAlert = {
-      id: Date.now().toString(),
-      symbol: alertSymbol,
-      name: alertName,
-      target: alertTarget,
-      direction: alertDirection,
-      triggered: false,
+  const createAlert = async () => {
+    try {
+      const result = await api.alerts.create({
+        symbol: alertSymbol,
+        condition: alertDirection,
+        target_price: alertTarget,
+        note: alertName,
+      })
+      const alert: PriceAlert = {
+        id: result.id,
+        symbol: alertSymbol,
+        name: alertName,
+        target: alertTarget,
+        direction: alertDirection,
+        triggered: false,
+        backendId: result.id,
+      }
+      setAlerts(prev => [...prev, alert])
+      setShowAlertModal(false)
+      toast('success', `Alert set: ${alertName} ${alertDirection === 'above' ? '>' : '<'} \u20B9${alertTarget}`)
+    } catch {
+      toast('error', 'Failed to create alert')
     }
-    const updated = [...alerts, alert]
-    saveAlerts(updated)
-    setAlerts(updated)
-    setShowAlertModal(false)
-    toast('success', `Alert set: ${alertName} ${alertDirection === 'above' ? '>' : '<'} \u20B9${alertTarget}`)
   }
 
-  const removeAlert = (id: string) => {
-    const updated = alerts.filter(a => a.id !== id)
-    saveAlerts(updated)
-    setAlerts(updated)
+  const removeAlert = async (id: string) => {
+    const alert = alerts.find(a => a.id === id)
+    setAlerts(prev => prev.filter(a => a.id !== id))
+    if (alert?.backendId) {
+      try { await api.alerts.remove(alert.backendId) } catch {}
+    }
   }
 
   const isCustom = (symbol: string) => customItems.some(c => c.symbol === symbol)

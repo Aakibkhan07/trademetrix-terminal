@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 
@@ -7,6 +9,8 @@ from core.deps import get_current_user
 from core.http_client import get_http_client
 from core.models import AuditLogEntry, UserProfile
 from core.security import create_access_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -84,8 +88,8 @@ async def signup(req: SignUpRequest, response: Response):
             },
             json={"id": user_id, "full_name": req.full_name, "email": req.email},
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to create auth profile for user %s: %s", user_id, e)
 
     access_token = create_access_token(subject=user_id)
     _set_session_cookie(response, access_token)

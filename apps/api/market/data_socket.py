@@ -1,8 +1,10 @@
 import asyncio
+import inspect
 import logging
 from collections.abc import Callable
 
 from core.models import Tick
+from market.observability import market_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +25,41 @@ class SharedDataSocket:
         self._subscribers: dict[str, list[Callable]] = {}
         self._broker_feeds: dict[str, asyncio.Task] = {}
         self._running = False
+        self._active_connections = 0
+        self._heartbeat_task: asyncio.Task | None = None
+
+    @property
+    def active_connections(self) -> int:
+        return self._active_connections
+
+    def increment_connections(self) -> None:
+        self._active_connections += 1
+        market_metrics.set_active_connections(self._active_connections)
+
+    def decrement_connections(self) -> None:
+        self._active_connections = max(0, self._active_connections - 1)
+        market_metrics.set_active_connections(self._active_connections)
 
     async def start(self):
         self._running = True
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         logger.info("SharedDataSocket started")
 
     async def stop(self):
         self._running = False
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            self._heartbeat_task = None
         for task in self._broker_feeds.values():
             task.cancel()
         self._broker_feeds.clear()
         logger.info("SharedDataSocket stopped")
+
+    async def _heartbeat_loop(self):
+        while self._running:
+            await asyncio.sleep(30)
+            logger.debug("DataSocket heartbeat: %d active connections, %d subscribed symbols",
+                         self._active_connections, len(self._subscribers))
 
     def subscribe(self, symbol: str, callback: Callable[[Tick], None]) -> None:
         if symbol not in self._subscribers:
@@ -47,10 +73,16 @@ class SharedDataSocket:
                 del self._subscribers[symbol]
 
     async def broadcast_tick(self, tick: Tick) -> None:
+        from market.cache import market_cache
+        from market.observability import market_metrics
+
+        market_cache.put_tick(tick)
+        market_metrics.increment_ticks_processed(tick.broker or "unknown")
+
         callbacks = self._subscribers.get(tick.symbol, []) + self._subscribers.get("*", [])
         for cb in callbacks:
             try:
-                if asyncio.iscoroutinefunction(cb):
+                if inspect.iscoroutinefunction(cb):
                     await cb(tick)
                 else:
                     cb(tick)
@@ -63,16 +95,11 @@ class SharedDataSocket:
             raise RuntimeError(f"Broker feed already running for {broker_type}")
 
         from brokers import get_broker
-        from core.db import get_supabase
+        from core.db import async_supabase, get_supabase
         from core.security import decrypt_broker_credentials
 
         supabase = get_supabase()
-        cred = supabase.table("broker_credentials") \
-            .select("*") \
-            .eq("user_id", user_id) \
-            .eq("broker", broker_type) \
-            .single() \
-            .execute()
+        cred = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("user_id", user_id).eq("broker", broker_type).single().execute())
         if not cred.data:
             raise RuntimeError(f"No broker credentials found for {broker_type}")
 
@@ -117,6 +144,14 @@ class SharedDataSocket:
     @property
     def subscribed_symbols(self) -> set[str]:
         return set(self._subscribers.keys()) - {"*"}
+
+    def get_stats(self) -> dict:
+        return {
+            "active_connections": self._active_connections,
+            "subscribed_symbols": len(self._subscribers),
+            "running_feeds": list(self._broker_feeds.keys()),
+            "heartbeat_running": self._heartbeat_task is not None and not self._heartbeat_task.done(),
+        }
 
 
 shared_socket = SharedDataSocket()

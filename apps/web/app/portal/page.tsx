@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { api } from '@/lib/api'
+import { useEffect, useState, useCallback } from 'react'
+import { api, BrokerMeta, BrokerFieldMeta } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 
 /* ========== Types ========== */
@@ -204,30 +204,50 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const activeStrategies = strategies.filter(() => true)
 
   /* === Broker Connect State === */
-  const [connectForm, setConnectForm] = useState<{ broker: string; api_key: string; secret_key: string } | null>(null)
+  const [brokerMeta, setBrokerMeta] = useState<BrokerMeta[]>([])
+  const [connectForm, setConnectForm] = useState<{
+    broker: string; fields: Record<string, string>; additional_params: Record<string, string>
+  } | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [brokerError, setBrokerError] = useState('')
   const [authUrl, setAuthUrl] = useState<string | null>(null)
-  const [fetchingAuthUrl, setFetchingAuthUrl] = useState(false)
+
+  const getBrokerMeta = useCallback((b: string) => brokerMeta.find(m => m.broker === b), [brokerMeta])
+
+  useEffect(() => {
+    api.brokers.metadata().then(r => setBrokerMeta(r.brokers)).catch(() => {})
+  }, [])
 
   const handleConnectBroker = async () => {
     if (!connectForm) return
     setConnecting(true); setBrokerError('')
     try {
-      await api.brokers.saveCredentials(connectForm)
-      setConnectForm(null)
-      const bc = await api.brokers.credentials()
-      setBrokers((bc as { credentials: BrokerInfo[] }).credentials || [])
-      if (connectForm.broker === 'fyers') {
-        setFetchingAuthUrl(true)
+      const f = connectForm.fields
+      const ap = connectForm.additional_params
+      const payload: Record<string, unknown> = { broker: connectForm.broker }
+      if (f.api_key) payload.api_key = f.api_key
+      if (f.secret_key) payload.secret_key = f.secret_key
+      if (f.client_id) payload.client_id = f.client_id
+      if (f.client_code) payload.client_code = f.client_code
+      if (f.access_token) payload.access_token = f.access_token
+      if (Object.keys(ap).length > 0) payload.additional_params = ap
+
+      await api.brokers.saveCredentials(payload as Parameters<typeof api.brokers.saveCredentials>[0])
+
+      const meta = getBrokerMeta(connectForm.broker)
+      if (meta?.oauth_available) {
         try {
-          const res = await api.brokers.fyersAuthUrl() as { auth_url: string }
-          setAuthUrl(res.auth_url)
-        } catch { setAuthUrl(null) }
-        setFetchingAuthUrl(false)
+          if (connectForm.broker === 'fyers') {
+            const authRes = await api.brokers.fyersAuthUrl() as { auth_url: string }
+            setAuthUrl(authRes.auth_url)
+          }
+        } catch {}
       }
-    } catch (e: unknown) { setBrokerError(e instanceof Error ? e.message : 'Connection failed') }
-    finally { setConnecting(false) }
+      await loadData()
+      setConnectForm(null)
+    } catch (e: unknown) {
+      setBrokerError(e instanceof Error ? e.message : 'Failed to connect')
+    } finally { setConnecting(false) }
   }
 
   const handleDisconnectBroker = async (broker: string) => {
@@ -275,6 +295,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob); a.download = filename; a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href!), 1000)
   }
 
   return (
@@ -439,7 +460,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                         const ltp = live?.last_price || 0
                         const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
                         return (
-                          <tr key={i}>
+                          <tr key={p.symbol}>
                             <td style={{ fontWeight: 600 }}>{p.symbol.split(':').pop()}</td>
                             <td className="t-num">{p.quantity}</td>
                             <td className="t-num">\u20B9{fmt(p.average_buy_price)}</td>
@@ -730,38 +751,45 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               </div>
               {brokers.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {brokers.map(b => (
-                    <div key={b.id} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '12px 16px', borderBottom: '1px solid var(--border)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span className={`t-dot ${brokerHealth[b.broker] === 'connected' ? 't-dot-green' : brokerHealth[b.broker] === 'error' ? 't-dot-red' : 't-dot-sub'}`} />
-                        <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'capitalize' }}>{b.broker}</span>
-                        {b.is_active && <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>Active</span>}
+                  {brokers.map(b => {
+                    const meta = getBrokerMeta(b.broker)
+                    const displayName = meta?.display_name || b.broker
+                    return (
+                      <div key={b.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 16px', borderBottom: '1px solid var(--border)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span className={`t-dot ${brokerHealth[b.broker] === 'connected' ? 't-dot-green' : brokerHealth[b.broker] === 'error' ? 't-dot-red' : 't-dot-sub'}`} />
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{displayName}</span>
+                          {b.is_active && <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>Active</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {!b.is_active && (
+                            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleActivateBroker(b.broker)}
+                              style={{ color: 'var(--cyan)' }}>Activate</button>
+                          )}
+                          {meta?.oauth_available && (
+                            <button className="t-btn t-btn-xs t-btn-primary" style={{ fontSize: 9 }}
+                              onClick={async () => {
+                                try {
+                                  let url = ''
+                                  if (b.broker === 'fyers') {
+                                    const r = await api.brokers.fyersAuthUrl() as { auth_url: string }
+                                    url = r.auth_url
+                                  }
+                                  if (url) window.open(url, '_blank')
+                                } catch {}
+                              }}>
+                              Authorize
+                            </button>
+                          )}
+                          <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleDisconnectBroker(b.broker)}
+                            style={{ color: 'var(--text-red)' }}>Remove</button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {!b.is_active && (
-                          <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleActivateBroker(b.broker)}
-                            style={{ color: 'var(--cyan)' }}>Activate</button>
-                        )}
-                        {b.broker === 'fyers' && (
-                          <button className="t-btn t-btn-xs t-btn-primary"
-                            onClick={async () => {
-                              try {
-                                const res = await api.brokers.fyersAuthUrl() as { auth_url: string }
-                                window.open(res.auth_url, '_blank')
-                              } catch {}
-                            }}
-                            style={{ fontSize: 9 }}>
-                            Authorize with Fyers
-                          </button>
-                        )}
-                        <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleDisconnectBroker(b.broker)}
-                          style={{ color: 'var(--text-red)' }}>Remove</button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="t-panel-body" style={{ textAlign: 'center', padding: 20 }}>
@@ -772,7 +800,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
 
             <div className="t-panel" style={{ padding: '14px 16px' }}>
               <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>
-                {connectForm ? `Connect ${connectForm.broker}` : 'Available Brokers'}
+                {connectForm ? `Connect ${(getBrokerMeta(connectForm.broker)?.display_name || connectForm.broker)}` : 'Available Brokers'}
               </h3>
               {authUrl && (
                 <div style={{
@@ -780,46 +808,89 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                   background: 'rgba(0,200,83,0.08)', color: 'var(--text-green)',
                   border: '1px solid rgba(0,200,83,0.12)',
                 }}>
-                  Fyers credentials saved.{' '}
+                  Credentials saved.{' '}
                   <a href={authUrl} target="_blank" rel="noopener noreferrer"
                     style={{ color: 'var(--cyan)', textDecoration: 'underline' }}>
-                    Click here to authorize with Fyers
+                    Click here to authorize via OAuth
                   </a>
                 </div>
               )}
-              {connectForm ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div>
-                    <label className="t-label" style={{ fontSize: 10 }}>API Key / App ID</label>
-                    <input className="t-input" style={{ width: '100%' }} value={connectForm.api_key}
-                      onChange={e => setConnectForm({ ...connectForm, api_key: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="t-label" style={{ fontSize: 10 }}>Secret Key</label>
-                    <input className="t-input" style={{ width: '100%' }} type="password" value={connectForm.secret_key}
-                      onChange={e => setConnectForm({ ...connectForm, secret_key: e.target.value })} />
-                  </div>
-                  {brokerError && <span className="t-down" style={{ fontSize: 10 }}>{brokerError}</span>}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="t-btn t-btn-sm t-btn-primary" onClick={handleConnectBroker} disabled={connecting}>
-                      {connecting ? 'Connecting...' : 'Connect'}
-                    </button>
-                    <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => { setConnectForm(null); setBrokerError('') }}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {availBrokers.map(b => {
-                    const connected = brokers.some(c => c.broker === b)
-                    return (
-                      <button key={b} className={`t-btn t-btn-xs ${connected ? 't-btn-ghost' : 't-btn-sub'}`}
-                        style={{ textTransform: 'capitalize' }}
-                        onClick={() => !connected && setConnectForm({ broker: b, api_key: '', secret_key: '' })}
-                        disabled={connected}>
-                        {b} {connected ? '\u2713' : '+ Add'}
+              {connectForm ? (() => {
+                const meta = getBrokerMeta(connectForm.broker)
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {meta?.instructions && (
+                      <div style={{ fontSize: 10, color: 'var(--text-faint)', whiteSpace: 'pre-line', lineHeight: 1.5, padding: '6px 10px', background: 'var(--bg-sub)', borderRadius: 6 }}>
+                        {meta.instructions}
+                      </div>
+                    )}
+                    {meta?.fields.map((field: BrokerFieldMeta) => (
+                      <div key={field.key}>
+                        <label className="t-label" style={{ fontSize: 10 }}>{field.label}</label>
+                        <input className="t-input" style={{ width: '100%' }}
+                          type={field.type === 'password' ? 'password' : 'text'}
+                          placeholder={field.placeholder || ''}
+                          value={connectForm.fields[field.key] || ''}
+                          onChange={e => setConnectForm({
+                            ...connectForm,
+                            fields: { ...connectForm.fields, [field.key]: e.target.value },
+                          })} />
+                      </div>
+                    ))}
+                    {meta?.has_additional_params && meta.additional_params_fields?.map((field: BrokerFieldMeta) => (
+                      <div key={field.key}>
+                        <label className="t-label" style={{ fontSize: 10 }}>{field.label}</label>
+                        <input className="t-input" style={{ width: '100%' }}
+                          type={field.type === 'password' ? 'password' : 'text'}
+                          placeholder={field.placeholder || ''}
+                          value={connectForm.additional_params[field.key] || ''}
+                          onChange={e => setConnectForm({
+                            ...connectForm,
+                            additional_params: { ...connectForm.additional_params, [field.key]: e.target.value },
+                          })} />
+                      </div>
+                    ))}
+                    {brokerError && <span className="t-down" style={{ fontSize: 10 }}>{brokerError}</span>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="t-btn t-btn-sm t-btn-primary" onClick={handleConnectBroker} disabled={connecting}>
+                        {connecting ? 'Connecting...' : 'Connect'}
                       </button>
+                      <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => { setConnectForm(null); setBrokerError('') }}>
+                        Cancel
+                      </button>
+                    </div>
+                    {meta?.oauth_available && (
+                      <div className="t-faint" style={{ fontSize: 9, lineHeight: 1.4 }}>
+                        After saving credentials, you'll need to authorize via OAuth.
+                      </div>
+                    )}
+                  </div>
+                )
+              })() : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {brokerMeta.filter(m => availBrokers.includes(m.broker)).map(m => {
+                    const connected = brokers.some(c => c.broker === m.broker)
+                    return (
+                      <div key={m.broker} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 12px', borderRadius: 6,
+                        background: 'var(--bg-sub)', border: '1px solid var(--border)',
+                      }}>
+                        <div>
+                          <span style={{ fontWeight: 600, fontSize: 12 }}>{m.display_name}</span>
+                          <span className="t-faint" style={{ fontSize: 9, marginLeft: 6, textTransform: 'none' }}>({m.auth_type})</span>
+                          <p style={{ margin: '2px 0 0', fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.3 }}>{m.description}</p>
+                        </div>
+                        <button className={`t-btn t-btn-xs ${connected ? 't-btn-ghost' : 't-btn-primary'}`}
+                          onClick={() => {
+                            if (!connected) {
+                              setConnectForm({ broker: m.broker, fields: {}, additional_params: {} })
+                            }
+                          }}
+                          disabled={connected}>
+                          {connected ? '\u2713 Connected' : '+ Connect'}
+                        </button>
+                      </div>
                     )
                   })}
                 </div>

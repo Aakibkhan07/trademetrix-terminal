@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import UTC, datetime
 
@@ -5,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from core.audit import record_audit
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 from core.deps import get_current_user
 from core.models import AuditLogEntry, UserProfile
 from core.safe_query import safe_execute, safe_single
@@ -61,7 +62,7 @@ async def create_alert(
         "target_price": req.target_price,
         "note": req.note,
     }
-    result = supabase.table("user_alerts").insert(payload).execute()
+    result = await async_supabase(lambda: supabase.table("user_alerts").insert(payload).execute())
     new = result.data[0]
 
     record_audit(AuditLogEntry(
@@ -91,7 +92,7 @@ async def delete_alert(
     )
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
-    supabase.table("user_alerts").delete().eq("id", alert_id).execute()
+    await async_supabase(lambda: supabase.table("user_alerts").delete().eq("id", alert_id).execute())
 
 
 @router.post("/{alert_id}/toggle")
@@ -106,7 +107,7 @@ async def toggle_alert(
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
     new_status = not alert.get("is_active", True)
-    supabase.table("user_alerts").update({"is_active": new_status}).eq("id", alert_id).execute()
+    await async_supabase(lambda: supabase.table("user_alerts").update({"is_active": new_status}).eq("id", alert_id).execute())
     return {"is_active": new_status}
 
 
@@ -138,11 +139,11 @@ async def update_notification_prefs(
         supabase.table("notification_prefs").select("id").eq("user_id", current_user.id)
     )
     if existing:
-        supabase.table("notification_prefs").update({
-            "channels": req.channels, "updated_at": __import__("datetime").datetime.utcnow().isoformat(),
-        }).eq("id", existing["id"]).execute()
+        await async_supabase(lambda: supabase.table("notification_prefs").update({
+            "channels": req.channels, "updated_at": datetime.now(UTC).isoformat(),
+        }).eq("id", existing["id"]).execute())
     else:
-        supabase.table("notification_prefs").insert({
+        await async_supabase(lambda: supabase.table("notification_prefs").insert({
             "user_id": current_user.id, "channels": req.channels,
-        }).execute()
+        }).execute())
     return {"channels": req.channels}

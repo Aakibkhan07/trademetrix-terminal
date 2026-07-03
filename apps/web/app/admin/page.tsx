@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useApi } from '@/lib/use-api'
 import { useAuth } from '@/lib/auth-context'
-import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting } from '@/lib/api'
+import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta } from '@/lib/api'
 
 interface StrategyInfo {
   key: string
@@ -460,86 +460,130 @@ function BrokersTab() {
   const [refreshKey, setRefreshKey] = useState(0)
   const { data, loading } = useApi<{ brokers: AdminBroker[] }>(`/admin/brokers?_=${refreshKey}`)
 
-  const [apiKey, setApiKey] = useState('')
-  const [secretKey, setSecretKey] = useState('')
+  const [brokerMeta, setBrokerMeta] = useState<BrokerMeta[]>([])
+  const [selectedBroker, setSelectedBroker] = useState('')
+  const [fields, setFields] = useState<Record<string, string>>({})
+  const [additionalParams, setAdditionalParams] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  const [fyersStatus, setFyersStatus] = useState<{ hasCreds: boolean; hasToken: boolean; isActive: boolean } | null>(null)
-  const [fyersMsg, setFyersMsg] = useState('')
+  const [msg, setMsg] = useState('')
   const [authUrl, setAuthUrl] = useState('')
 
   const brokers = data?.brokers || []
 
-  useEffect(() => {
-    api.get<{ credentials: { id: string; broker: string; is_active: boolean }[] }>('/brokers/credentials')
-      .then(d => {
-        const f = d.credentials.find(c => c.broker === 'fyers')
-        setFyersStatus({ hasCreds: !!f, hasToken: false, isActive: f?.is_active || false })
-      })
-  }, [refreshKey])
+  useEffect(() => { api.brokers.metadata().then(r => setBrokerMeta(r.brokers)).catch(() => {}) }, [])
 
-  const handleSaveFyers = async () => {
-    if (!apiKey || !secretKey) { setFyersMsg('Fill both App ID and Secret Key'); return }
-    setSaving(true); setFyersMsg('')
-    try {
-      await api.brokers.saveCredentials({ broker: 'fyers', api_key: apiKey, secret_key: secretKey })
-      setFyersMsg('Fyers credentials saved! Now authorize below.')
-      setFyersStatus(s => s ? { ...s, hasCreds: true } : { hasCreds: true, hasToken: false, isActive: false })
-      setApiKey(''); setSecretKey('')
-      setRefreshKey(k => k + 1)
-    } catch (err: unknown) {
-      setFyersMsg(err instanceof Error ? err.message : 'Save failed')
-    } finally { setSaving(false) }
-  }
+  const getMeta = useCallback((b: string) => brokerMeta.find(m => m.broker === b), [brokerMeta])
 
-  const handleFyersAuth = async () => {
-    try {
-      const res = await api.get<{ auth_url: string }>('/brokers/fyers/auth-url')
-      setAuthUrl(res.auth_url)
-      window.open(res.auth_url, '_blank', 'width=600,height=700')
-    } catch (err: unknown) {
-      setFyersMsg(err instanceof Error ? err.message : 'Auth failed')
+  const handleSave = async () => {
+    const meta = getMeta(selectedBroker)
+    if (!meta) return
+    for (const f of meta.fields) {
+      if (f.required && !fields[f.key]) { setMsg(`Fill ${f.label}`); return }
     }
+    setSaving(true); setMsg('')
+    try {
+      const payload: Record<string, unknown> = { broker: selectedBroker }
+      if (fields.api_key) payload.api_key = fields.api_key
+      if (fields.secret_key) payload.secret_key = fields.secret_key
+      if (fields.client_id) payload.client_id = fields.client_id
+      if (fields.client_code) payload.client_code = fields.client_code
+      if (fields.access_token) payload.access_token = fields.access_token
+      if (Object.keys(additionalParams).length > 0) payload.additional_params = additionalParams
+      await api.brokers.saveCredentials(payload as Parameters<typeof api.brokers.saveCredentials>[0])
+      setMsg(`${meta.display_name} credentials saved!`)
+      setFields({}); setAdditionalParams({}); setRefreshKey(k => k + 1)
+
+      if (meta.oauth_available && selectedBroker === 'fyers') {
+        const res = await api.get<{ auth_url: string }>('/brokers/fyers/auth-url')
+        setAuthUrl(res.auth_url)
+      }
+    } catch (err: unknown) {
+      setMsg(err instanceof Error ? err.message : 'Save failed')
+    } finally { setSaving(false) }
   }
 
   return (
     <div>
-      {/* Admin Fyers Setup */}
+      {/* Admin Broker Credentials Setup */}
       <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: 0, color: '#f0f0f5' }}>My Fyers Credentials</h3>
-          {fyersStatus && (
-            <span style={{ fontSize: 10, color: fyersStatus.isActive ? '#22c55e' : '#8888a0' }}>
-              {fyersStatus.isActive ? 'Active' : fyersStatus.hasCreds ? 'Saved (inactive)' : 'Not configured'}
-            </span>
-          )}
+          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: 0, color: '#f0f0f5' }}>My Broker Credentials</h3>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-          <input className="t-input" value={apiKey} onChange={e => setApiKey(e.target.value)}
-            placeholder="Fyers App ID" style={{ fontSize: 11, flex: 1 }} />
-          <input className="t-input" type="password" value={secretKey} onChange={e => setSecretKey(e.target.value)}
-            placeholder="Secret Key" style={{ fontSize: 11, flex: 1 }} />
-          <button className="t-btn t-btn-sm" onClick={handleSaveFyers} disabled={saving} style={{ fontSize: 10 }}>
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+        <div style={{ marginBottom: 10 }}>
+          <label className="t-label" style={{ fontSize: 10, marginBottom: 4 }}>Select Broker</label>
+          <select className="t-input" style={{ fontSize: 11, width: '100%' }}
+            value={selectedBroker}
+            onChange={e => { setSelectedBroker(e.target.value); setFields({}); setAdditionalParams({}); setMsg(''); setAuthUrl('') }}>
+            <option value="">-- Choose a broker --</option>
+            {brokerMeta.map(m => (
+              <option key={m.broker} value={m.broker}>{m.display_name} ({m.auth_type})</option>
+            ))}
+          </select>
         </div>
-        {fyersMsg && <p style={{ fontSize: 10, margin: '4px 0 0', color: fyersMsg.includes('saved') ? '#22c55e' : '#ef4444' }}>{fyersMsg}</p>}
-        {(fyersStatus?.hasCreds) && (
-          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button className="t-btn t-btn-sm" onClick={handleFyersAuth} style={{ fontSize: 10 }}>
-              {authUrl ? 'Re-authorize Fyers' : 'Authorize with Fyers'}
-            </button>
-            {authUrl && (
-              <a href={authUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--cyan)' }}>
-                Open Fyers login page
-              </a>
-            )}
-          </div>
-        )}
+        {selectedBroker && (() => {
+          const meta = getMeta(selectedBroker)
+          if (!meta) return null
+          return (
+            <>
+              {meta.instructions && (
+                <div style={{ fontSize: 10, color: '#8888a0', lineHeight: 1.5, marginBottom: 10, padding: 8, background: 'rgba(139,92,246,0.06)', borderRadius: 6, whiteSpace: 'pre-line' }}>
+                  {meta.instructions}
+                </div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+                {meta.fields.map(f => (
+                  <input key={f.key} className="t-input"
+                    type={f.type === 'password' ? 'password' : 'text'}
+                    value={fields[f.key] || ''}
+                    placeholder={f.placeholder || f.label}
+                    style={{ fontSize: 11, width: '100%' }}
+                    onChange={e => setFields(s => ({ ...s, [f.key]: e.target.value }))} />
+                ))}
+                {meta.has_additional_params && meta.additional_params_fields?.map(f => (
+                  <input key={f.key} className="t-input"
+                    type={f.type === 'password' ? 'password' : 'text'}
+                    value={additionalParams[f.key] || ''}
+                    placeholder={f.placeholder || f.label}
+                    style={{ fontSize: 11, width: '100%' }}
+                    onChange={e => setAdditionalParams(s => ({ ...s, [f.key]: e.target.value }))} />
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className="t-btn t-btn-sm" onClick={handleSave} disabled={saving} style={{ fontSize: 10 }}>
+                  {saving ? 'Saving...' : 'Save Credentials'}
+                </button>
+                {meta.oauth_available && (
+                  <button className="t-btn t-btn-sm" style={{ fontSize: 10 }}
+                    onClick={async () => {
+                      try {
+                        if (selectedBroker === 'fyers') {
+                          const res = await api.get<{ auth_url: string }>('/brokers/fyers/auth-url')
+                          setAuthUrl(res.auth_url)
+                          window.open(res.auth_url, '_blank', 'width=600,height=700')
+                        }
+                      } catch (err: unknown) {
+                        setMsg(err instanceof Error ? err.message : 'Auth failed')
+                      }
+                    }}>
+                    {authUrl ? 'Re-authorize' : `Authorize with ${meta.display_name}`}
+                  </button>
+                )}
+              </div>
+              {authUrl && (
+                <a href={authUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-block', marginTop: 8, fontSize: 10, color: 'var(--cyan)' }}>
+                  Open {getMeta(selectedBroker)?.display_name || selectedBroker} login page
+                </a>
+              )}
+              {msg && <p style={{ fontSize: 10, margin: '4px 0 0', color: msg.includes('saved') || msg.includes('success') ? '#22c55e' : '#ef4444' }}>{msg}</p>}
+            </>
+          )
+        })()}
       </div>
 
       {/* All user connections */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <p className="t-sub" style={{ fontSize: 12, margin: 0 }}>All users' broker connections &amp; OAuth status</p>
+        <p className="t-sub" style={{ fontSize: 12, margin: 0 }}>All users' broker connections</p>
         <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
       </div>
       {loading && <SkeletonCard />}
@@ -556,35 +600,51 @@ function BrokersTab() {
                 <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>USER</th>
                 <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>BROKER</th>
                 <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ACTIVE</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>OAUTH</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>AUTH</th>
                 <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>CONNECTED</th>
               </tr>
             </thead>
             <tbody>
-              {brokers.map(b => (
-                <tr key={b.id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
-                  <td style={{ padding: '8px 10px' }}>
-                    <div style={{ fontWeight: 600, color: '#f0f0f5' }}>{b.full_name || b.email?.split('@')[0] || '—'}</div>
-                    <div style={{ fontSize: 9, color: '#555570' }}>{b.email}</div>
-                  </td>
-                  <td style={{ padding: '8px 10px', textTransform: 'capitalize' }}>{b.broker}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                    <span style={{
-                      display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                      background: b.is_active ? '#22c55e' : '#555570',
-                    }} />
-                  </td>
-                  <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                    {b.has_access_token
-                      ? <span style={{ color: '#22c55e', fontSize: 10 }}>Authenticated</span>
-                      : <span style={{ color: '#ef4444', fontSize: 10 }}>Not authorized</span>
-                    }
-                  </td>
-                  <td style={{ padding: '8px 10px', fontSize: 10, color: '#555570' }}>
-                    {b.created_at ? new Date(b.created_at).toLocaleDateString() : '—'}
-                  </td>
-                </tr>
-              ))}
+              {brokers.map(b => {
+                const meta = getMeta(b.broker)
+                return (
+                  <tr key={b.id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                    <td style={{ padding: '8px 10px' }}>
+                      <div style={{ fontWeight: 600, color: '#f0f0f5' }}>{b.full_name || b.email?.split('@')[0] || '—'}</div>
+                      <div style={{ fontSize: 9, color: '#555570' }}>{b.email}</div>
+                    </td>
+                    <td style={{ padding: '8px 10px' }}>
+                      <span>{meta?.display_name || b.broker}</span>
+                      {b.broker === 'fyers' && !b.has_access_token && (
+                        <button className="t-btn t-btn-xs" style={{ marginLeft: 6, fontSize: 8 }}
+                          onClick={async () => {
+                            try {
+                              const res = await api.get<{ auth_url: string }>('/brokers/fyers/auth-url')
+                              window.open(res.auth_url, '_blank', 'width=600,height=700')
+                            } catch {}
+                          }}>
+                          OAuth
+                        </button>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                      <span style={{
+                        display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                        background: b.is_active ? '#22c55e' : '#555570',
+                      }} />
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                      {b.has_access_token
+                        ? <span style={{ color: '#22c55e', fontSize: 10 }}>Authenticated</span>
+                        : <span style={{ color: '#ef4444', fontSize: 10 }}>Not authorized</span>
+                      }
+                    </td>
+                    <td style={{ padding: '8px 10px', fontSize: 10, color: '#555570' }}>
+                      {b.created_at ? new Date(b.created_at).toLocaleDateString() : '—'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

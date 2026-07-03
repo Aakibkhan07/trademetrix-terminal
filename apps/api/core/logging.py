@@ -15,6 +15,14 @@ class StructuredFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+        try:
+            from core.tracing import get_trace_ctx
+            ctx = get_trace_ctx()
+            if ctx:
+                log_entry["trace_id"] = ctx.trace_id
+                log_entry["span_id"] = ctx.span_id
+        except Exception:
+            pass
         if hasattr(record, "extra") and record.extra:
             log_entry["extra"] = record.extra
         if record.exc_info and record.exc_info[0]:

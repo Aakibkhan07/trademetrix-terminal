@@ -23,14 +23,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             while window and window[0] < cutoff:
                 window.pop(0)
 
+            remaining = max(0, self.rpm - len(window))
+
             if len(window) >= self.rpm:
                 from fastapi.responses import JSONResponse
-                return JSONResponse(
+                resp = JSONResponse(
                     status_code=429,
                     content={"detail": "Rate limit exceeded. Try again in 60 seconds."},
-                    headers={"Retry-After": "60"},
+                    headers={
+                        "Retry-After": "60",
+                        "X-RateLimit-Limit": str(self.rpm),
+                        "X-RateLimit-Remaining": "0",
+                        "X-RateLimit-Reset": str(int(cutoff + 60)),
+                    },
                 )
+                return resp
 
             window.append(now)
 
-        return await call_next(next)
+        response = await call_next(request)
+        if request.url.path.startswith(("/api/v1",)):
+            response.headers["X-RateLimit-Limit"] = str(self.rpm)
+            response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return response

@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import logging
 import re
@@ -8,6 +9,7 @@ from datetime import UTC, datetime
 import httpx
 
 from brokers.base import BaseBroker
+from core.config import settings
 from core.http_client import get_http_client
 from core.models import (
     Candle,
@@ -48,15 +50,88 @@ class UpstoxAdapter(BaseBroker):
         return self._client
 
     async def authenticate(self, credentials: dict) -> Session:
-        self._access_token = credentials.get("access_token") or credentials.get("secret_key") or ""
-        self._client_id = credentials.get("client_id") or credentials.get("api_key") or ""
+        access_token = credentials.get("access_token", "")
+        refresh_token = credentials.get("refresh_token", "")
+        api_key = credentials.get("client_id") or credentials.get("api_key", "")
+        secret_key = credentials.get("secret_key", "")
+
+        if not access_token and api_key and secret_key:
+            try:
+                return await self._login(api_key, secret_key)
+            except Exception as e:
+                raise ValueError(f"Upstox login failed: {e}")
+
+        self._access_token = access_token
+        self._client_id = api_key
+
         if not self._access_token:
             raise ValueError("access_token required for Upstox authentication")
+
+        client = await self._get_client()
+        resp = await client.get(
+            f"{self._base_url}/user/profile",
+            headers=self._headers(),
+            timeout=httpx.Timeout(10, connect=5),
+        )
+        if resp.status_code == 401 and refresh_token:
+            return await self._refresh_login(refresh_token)
+        if resp.status_code == 401:
+            raise ValueError("Upstox authentication failed — invalid access_token")
+        profile = resp.json().get("data", {}) or {}
+        self._client_id = self._client_id or profile.get("user_id", "")
+
         return Session(
             access_token=self._access_token,
             user_id=self._client_id,
             broker=self.broker_name,
             authenticated=True,
+        )
+
+    async def _login(self, api_key: str, secret_key: str) -> Session:
+        client = await self._get_client()
+        resp = await client.post(
+            f"{self._base_url}/login/authorization/token",
+            data={
+                "client_id": api_key,
+                "client_secret": secret_key,
+                "grant_type": "client_credentials",
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
+        if resp.status_code != 200 or not data.get("access_token"):
+            raise ValueError(f"Upstox login failed: {data.get('message', resp.status_code)}")
+        self._access_token = data["access_token"]
+        self._client_id = api_key
+        return Session(
+            access_token=self._access_token,
+            user_id=api_key,
+            broker=self.broker_name,
+            authenticated=True,
+        )
+
+    async def _refresh_login(self, refresh_token: str) -> Session:
+        client = await self._get_client()
+        resp = await client.post(
+            f"{self._base_url}/login/authorization/token",
+            data={
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
+        if resp.status_code != 200 or not data.get("access_token"):
+            raise ValueError(f"Upstox token refresh failed: {data.get('message', resp.status_code)}")
+        self._access_token = data["access_token"]
+        return Session(
+            access_token=self._access_token,
+            user_id=self._client_id,
+            broker=self.broker_name,
+            authenticated=True,
+            expires_at=data.get("expires_in"),
         )
 
     def _headers(self) -> dict:
@@ -77,7 +152,7 @@ class UpstoxAdapter(BaseBroker):
             "product": self._map_product(order.product),
             "validity": "DAY",
             "price": order.price or 0,
-            "tag": "TradeMetrix",
+            "tag": order.client_order_id or "TradeMetrix",
             "instrument_token": self._ensure_upstox_key(order.symbol),
             "order_type": self._map_order_type(order.order_type),
             "transaction_type": self._map_side(order.side),
@@ -88,7 +163,7 @@ class UpstoxAdapter(BaseBroker):
         if order.trigger_price and order.trigger_price > 0:
             payload["trigger_price"] = order.trigger_price
 
-        resp = await client.post(f"{self._base_url}/order/place", json=payload, headers=self._headers())
+        resp = await client.post(f"{self._base_url}/order/place", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         success = data.get("status") == "success"
         return OrderResult(
@@ -106,7 +181,7 @@ class UpstoxAdapter(BaseBroker):
             "trigger_price": changes.get("trigger_price", 0),
             "validity": "DAY",
         }
-        resp = await client.put(f"{self._base_url}/order/modify", json=payload, headers=self._headers())
+        resp = await client.put(f"{self._base_url}/order/modify", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         return OrderResult(
             success=data.get("status") == "success",
@@ -120,38 +195,40 @@ class UpstoxAdapter(BaseBroker):
             f"{self._base_url}/order/cancel",
             params={"order_id": order_id},
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
+        success = data.get("status") == "success"
         return OrderResult(
-            success=True,
+            success=success,
             broker_order_id=order_id,
             message=data.get("message", ""),
         )
 
     async def get_orderbook(self) -> list[NormalizedOrder]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/order/retrieve-all", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/order/retrieve-all", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("data", []) if isinstance(data.get("data"), list) else []
         return [self._normalize_order(item) for item in items]
 
     async def get_positions(self) -> list[Position]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/portfolio/short-term-positions", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/portfolio/short-term-positions", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("data", []) if isinstance(data.get("data"), list) else []
         return [self._normalize_position(item) for item in items]
 
     async def get_holdings(self) -> list[Holding]:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/portfolio/long-term-holdings", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/portfolio/long-term-holdings", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         items = data.get("data", []) if isinstance(data.get("data"), list) else []
         return [self._normalize_holding(item) for item in items]
 
     async def get_funds(self) -> Funds:
         client = await self._get_client()
-        resp = await client.get(f"{self._base_url}/user/get-funds-and-margin", headers=self._headers())
+        resp = await client.get(f"{self._base_url}/user/get-funds-and-margin", headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         equity = data.get("data", {}).get("equity", {}) or {}
         return Funds(
@@ -168,6 +245,7 @@ class UpstoxAdapter(BaseBroker):
             f"{self._base_url}/market-quote/quotes",
             params={"instrument_key": keys},
             headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
         quotes = []
@@ -191,7 +269,7 @@ class UpstoxAdapter(BaseBroker):
         if not start:
             start = datetime.now(UTC).replace(day=1).strftime("%Y-%m-%d")
         url = f"{self._base_url}/historical-candle/{key}/{mapped}/{end}/{start}"
-        resp = await client.get(url, headers=self._headers())
+        resp = await client.get(url, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         candles = []
         for item in data.get("data", {}).get("candles", []):
@@ -254,7 +332,7 @@ class UpstoxAdapter(BaseBroker):
                                     data = json.loads(line)
                                     tick = self._parse_tick(data)
                                     if tick:
-                                        if asyncio.iscoroutinefunction(on_tick):
+                                        if inspect.iscoroutinefunction(on_tick):
                                             await on_tick(tick)
                                         else:
                                             on_tick(tick)
@@ -286,7 +364,7 @@ class UpstoxAdapter(BaseBroker):
                     ask_qty=int(ff.get("sc", 0)),
                     volume=int(ff.get("v", 0)),
                     oi=int(ff.get("oi", 0)),
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(UTC),
                     broker=self.broker_name,
                 )
         except (ValueError, KeyError, TypeError, AttributeError) as e:
@@ -397,7 +475,7 @@ class UpstoxAdapter(BaseBroker):
             volume=int(item.get("volume", 0)),
             bid=bid,
             ask=ask,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             broker=self.broker_name,
             instrument_type=inst["instrument_type"],
             strike_price=inst["strike_price"],

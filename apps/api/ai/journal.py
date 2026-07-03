@@ -1,10 +1,10 @@
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Optional
 
 from core.config import settings
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +73,9 @@ Important guidelines:
 
     async def _get_recent_trades(self, lookback_days: int) -> list:
         supabase = get_supabase()
-        result = supabase.table("trades").select("*").eq("user_id", self.user_id).gte(
-            "created_at", datetime.utcnow().isoformat()
-        ).limit(100).execute()
+        result = await async_supabase(lambda: supabase.table("trades").select("*").eq("user_id", self.user_id).gte(
+            "created_at", datetime.now(UTC).isoformat()
+        ).limit(100).execute())
         return result.data or []
 
     def _compute_stats(self, trades: list, lookback_days: int = 7) -> dict:
@@ -108,6 +108,6 @@ Important guidelines:
             "trade_ids": trade_ids,
         }
         try:
-            supabase.table("journal_entries").insert(entry).execute()
+            await async_supabase(lambda: supabase.table("journal_entries").insert(entry).execute())
         except Exception as e:
             logger.warning("Failed to save journal entry: %s", e)

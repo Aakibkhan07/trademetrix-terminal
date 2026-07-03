@@ -27,9 +27,8 @@ export default function TransparencyPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/v1/engine/runs', { credentials: 'include' })
-        const data = await res.json()
-        setOrders((data.runs || []) as OrderItem[])
+        const data = await api.engine.runs() as { runs?: OrderItem[] }
+        setOrders(data.runs || [])
       } catch {
         setOrders([])
       } finally {

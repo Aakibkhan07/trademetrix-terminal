@@ -19,7 +19,7 @@ BASE_ORDER = dict(
 @pytest.mark.asyncio
 async def test_idempotency_duplicate_order():
     with (
-        patch("engine.gate.safe_single") as mock_single,
+        patch("engine.gate.async_safe_single") as mock_single,
         patch("engine.gate.get_supabase") as mock_sb,
     ):
         mock_single.return_value = {"id": "existing_order", "broker_order_id": "brk_001"}
@@ -35,10 +35,10 @@ async def test_idempotency_duplicate_order():
 @pytest.mark.asyncio
 async def test_kill_switch_rejects():
     with (
-        patch("engine.gate.safe_single") as mock_single,
-        patch("engine.gate.get_supabase") as mock_sb,
+        patch("engine.gate.async_safe_single") as mock_single,
+        patch("engine.gate.async_supabase") as mock_sb,
     ):
-        mock_single.side_effect = [None, {"kill_switch_enabled": True}]
+        mock_single.return_value = None
         mock_risk = MagicMock()
         mock_risk.check_order = AsyncMock(return_value={"allowed": False, "reason": "Kill switch is active"})
         mock_risk._load_settings = AsyncMock()
@@ -55,10 +55,10 @@ async def test_kill_switch_rejects():
 @pytest.mark.asyncio
 async def test_daily_loss_cap_rejects():
     with (
-        patch("engine.gate.safe_single") as mock_single,
-        patch("engine.gate.get_supabase") as mock_sb,
+        patch("engine.gate.async_safe_single") as mock_single,
+        patch("engine.gate.async_supabase") as mock_sb,
     ):
-        mock_single.side_effect = [None]
+        mock_single.return_value = None
         mock_risk = MagicMock()
         mock_risk.check_order = AsyncMock(return_value={"allowed": False, "reason": "Daily loss limit exceeded"})
         mock_risk._load_settings = AsyncMock()
@@ -75,20 +75,22 @@ async def test_daily_loss_cap_rejects():
 @pytest.mark.asyncio
 async def test_paper_mode_routes_to_paper():
     with (
-        patch("engine.gate.safe_single") as mock_single,
-        patch("engine.gate.get_supabase") as mock_sb,
+        patch("engine.gate.async_safe_single") as mock_single,
+        patch("engine.gate.async_supabase") as mock_sb,
+        patch("execution.execution_manager") as mock_exec_mgr,
     ):
         mock_single.side_effect = [None, {"broker": "angelone"}]
         mock_risk = MagicMock()
-        mock_risk.check_order = AsyncMock(return_value={"allowed": False, "reason": "not live"})
-        mock_risk._load_settings = AsyncMock()
+        mock_risk.check_order = AsyncMock(return_value={"allowed": True})
+        mock_risk._load_settings = AsyncMock(return_value=MagicMock(is_live=False))
+        mock_exec_mgr.place_order = AsyncMock(return_value=MagicMock(success=True, broker_order_id="paper_abc123", message="Paper order placed", latency_ms=0.0, state=MagicMock(value="FILLED")))
         with patch("engine.gate.RiskGuard", return_value=mock_risk):
             from engine.gate import execute_order
             result = await execute_order(
                 user_id="test-user",
                 order=NormalizedOrder(**BASE_ORDER, client_order_id="test_005", source="manual", reason="test paper"),
             )
-            assert result.status == "paper"
+            assert result.status == "FILLED"
             assert "paper" in result.message.lower()
             assert result.broker_order_id.startswith("paper_")
 
@@ -96,10 +98,10 @@ async def test_paper_mode_routes_to_paper():
 @pytest.mark.asyncio
 async def test_live_route_no_active_broker():
     with (
-        patch("engine.gate.safe_single") as mock_single,
-        patch("engine.gate.get_supabase") as mock_sb,
+        patch("engine.gate.async_safe_single") as mock_single,
+        patch("engine.gate.async_supabase") as mock_sb,
     ):
-        mock_single.side_effect = [None, None]
+        mock_single.return_value = None
         mock_risk = MagicMock()
         mock_risk.check_order = AsyncMock(return_value={"allowed": True})
         mock_risk._load_settings = AsyncMock(return_value=MagicMock(is_live=True))

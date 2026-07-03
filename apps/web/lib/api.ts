@@ -1,5 +1,25 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
+export interface BrokerFieldMeta {
+  key: string
+  label: string
+  type?: string
+  placeholder?: string
+  required: boolean
+}
+
+export interface BrokerMeta {
+  broker: string
+  display_name: string
+  auth_type: string
+  description: string
+  fields: BrokerFieldMeta[]
+  has_additional_params: boolean
+  additional_params_fields?: BrokerFieldMeta[]
+  instructions: string
+  oauth_available: boolean
+}
+
 export interface AdminUser {
   id: string
   email: string
@@ -174,9 +194,17 @@ export const api = {
 
   brokers: {
     list: () => request('/brokers/list'),
+    metadata: () => request<{ brokers: BrokerMeta[] }>('/brokers/metadata'),
     credentials: () => request('/brokers/credentials'),
-    saveCredentials: (data: { broker: string; api_key: string; secret_key: string; additional_params?: Record<string, string> }) =>
-      request('/brokers/credentials', { method: 'POST', body: data }),
+    saveCredentials: (data: {
+      broker: string;
+      api_key?: string;
+      secret_key?: string;
+      client_id?: string;
+      client_code?: string;
+      access_token?: string;
+      additional_params?: Record<string, string>;
+    }) => request('/brokers/credentials', { method: 'POST', body: data }),
     deleteCredentials: (broker: string) => request(`/brokers/credentials/${broker}`, { method: 'DELETE' }),
     fyersAuthUrl: () => request('/brokers/fyers/auth-url'),
     fyersExchangeCode: (authCode: string) => request('/brokers/fyers/exchange-code', { method: 'POST', body: { auth_code: authCode } }),
@@ -306,5 +334,33 @@ export const api = {
   backtest: {
     run: (data: Record<string, unknown>) => request('/backtest/run', { method: 'POST', body: data }),
     strategies: () => request('/backtest/strategies'),
+  },
+
+  builder: {
+    blocks: (category?: string) => request(category ? `/builder/blocks?category=${category}` : '/builder/blocks'),
+    categories: () => request('/builder/blocks/categories'),
+    getBlock: (blockType: string) => request(`/builder/blocks/${blockType}`),
+    create: (data: { name?: string; description?: string; template?: string }) =>
+      request('/builder/strategies', { method: 'POST', body: data }),
+    list: (status?: string) => request(status ? `/builder/strategies?status=${status}` : '/builder/strategies'),
+    get: (id: string) => request(`/builder/strategies/${id}`),
+    update: (id: string, data: Record<string, unknown>) => request(`/builder/strategies/${id}`, { method: 'PUT', body: data }),
+    delete: (id: string) => request(`/builder/strategies/${id}`, { method: 'DELETE' }),
+    compile: (id: string) => request(`/builder/strategies/${id}/compile`, { method: 'POST' }),
+    validate: (id: string) => request(`/builder/strategies/${id}/validate`, { method: 'POST' }),
+    preview: (id: string) => request(`/builder/strategies/${id}/preview`),
+    publish: (id: string) => request(`/builder/strategies/${id}/publish`, { method: 'POST' }),
+    archive: (id: string) => request(`/builder/strategies/${id}/archive`, { method: 'POST' }),
+    clone: (id: string) => request(`/builder/strategies/${id}/clone`, { method: 'POST' }),
+    rollback: (id: string, version: number) => request(`/builder/strategies/${id}/rollback/${version}`, { method: 'POST' }),
+    versions: (id: string) => request(`/builder/strategies/${id}/versions`),
+    templates: () => request('/builder/templates'),
+    getTemplate: (key: string) => request(`/builder/templates/${key}`),
+    import: (data: Record<string, unknown>) => request('/builder/import', { method: 'POST', body: data }),
+    export: (id: string, format?: string) => request(`/builder/strategies/${id}/export${format ? `?format=${format}` : ''}`),
+  },
+
+  events: {
+    stream: () => `${API_BASE}/events/stream`,
   },
 }

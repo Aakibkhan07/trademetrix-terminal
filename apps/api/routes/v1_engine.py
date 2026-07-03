@@ -1,11 +1,11 @@
 import asyncio
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 from core.deps import get_current_user
 from core.models import OrderResult, UserProfile
 from core.safe_query import safe_execute, safe_single
@@ -74,10 +74,10 @@ async def start_engine(
         "mode": req.mode,
         "symbols": req.symbols,
         "status": "running",
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
     }
     try:
-        result = supabase.table("strategy_runs").insert(payload).execute()
+        result = await async_supabase(lambda: supabase.table("strategy_runs").insert(payload).execute())
         return {"run_id": result.data[0]["id"], "status": "running"}
     except Exception as e:
         logger = __import__("logging").getLogger(__name__)
@@ -92,9 +92,9 @@ async def stop_engine(
 ):
     supabase = get_supabase()
     try:
-        supabase.table("strategy_runs").update(
-            {"status": "stopped", "stopped_at": datetime.utcnow().isoformat()}
-        ).eq("id", run_id).eq("user_id", current_user.id).execute()
+        await async_supabase(lambda: supabase.table("strategy_runs").update(
+            {"status": "stopped", "stopped_at": datetime.now(UTC).isoformat()}
+        ).eq("id", run_id).eq("user_id", current_user.id).execute())
     except Exception as e:
         logger = __import__("logging").getLogger(__name__)
         logger.warning("Failed to update strategy run: %s", e)
@@ -143,6 +143,9 @@ async def cancel_order(
     order_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
+    from execution import execution_manager
+    from execution.models import ExecutionRequest
+
     supabase = get_supabase()
     creds = safe_single(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
@@ -150,8 +153,15 @@ async def cancel_order(
     if not creds:
         raise HTTPException(status_code=400, detail="No active broker configured")
 
-    engine = await _get_engine(current_user.id, creds["broker"])
-    result = await engine.cancel_order(order_id)
+    req = ExecutionRequest(
+        user_id=current_user.id,
+        broker=creds["broker"],
+        symbol="",
+        side="",
+        quantity=0,
+        source="cancel",
+    )
+    result = await execution_manager.cancel_order(req, order_id)
     return {"result": result.model_dump()}
 
 
@@ -172,13 +182,13 @@ async def add_order_note(
     )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    result = supabase.table("journal_entries").insert({
+    result = await async_supabase(lambda: supabase.table("journal_entries").insert({
         "user_id": current_user.id,
         "entry_type": "trade_note",
         "content": req.note,
         "tags": req.tags,
         "trade_ids": [order_id],
-    }).execute()
+    }).execute())
     return {"note": result.data[0]}
 
 

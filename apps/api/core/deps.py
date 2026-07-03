@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 from core.models import UserProfile
 from core.security import decode_access_token
 
@@ -40,7 +40,7 @@ async def get_current_user(
 
     try:
         supabase = get_supabase()
-        result = supabase.table("profiles").select("*").eq("id", user_id).maybe_single().execute()
+        result = await async_supabase(lambda: supabase.table("profiles").select("*").eq("id", user_id).maybe_single().execute())
         if not result or not result.data:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 
 from argon2 import PasswordHasher
@@ -5,6 +6,8 @@ from cryptography.fernet import Fernet
 from jose import JWTError, jwt
 
 from core.config import settings
+
+logger = logging.getLogger(__name__)
 
 _ph = PasswordHasher()
 
@@ -32,7 +35,11 @@ def encrypt_broker_credentials(plaintext: str) -> str:
 
 
 def decrypt_broker_credentials(ciphertext: str) -> str:
-    return _fernet.decrypt(ciphertext.encode()).decode()
+    try:
+        return _fernet.decrypt(ciphertext.encode()).decode()
+    except Exception as e:
+        logger.error("Failed to decrypt broker credentials: %s", e)
+        raise
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:

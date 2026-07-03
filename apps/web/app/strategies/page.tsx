@@ -19,7 +19,8 @@ export default function StrategiesPage() {
   const [name, setName] = useState('')
   const [strategyType, setStrategyType] = useState('trend_rider')
   const [symbol, setSymbol] = useState('NIFTY')
-  const [contactMsg, setContactMsg] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
 
   const load = async () => {
     try {
@@ -34,10 +35,20 @@ export default function StrategiesPage() {
 
   useEffect(() => { load() }, [])
 
-  const handleCreate = () => {
-    setShowCreate(false)
-    setContactMsg(true)
-    setName('')
+  const handleCreate = async () => {
+    if (!name.trim()) return
+    setCreating(true)
+    setCreateError('')
+    try {
+      await api.strategies.create({ name, type: strategyType, config: { symbol } })
+      setShowCreate(false)
+      setName('')
+      load()
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'Failed to create strategy')
+    } finally {
+      setCreating(false)
+    }
   }
 
   const handleToggle = async (s: Strategy) => {
@@ -99,35 +110,17 @@ export default function StrategiesPage() {
               <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Symbol</label>
               <input className="t-input" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="NIFTY" />
             </div>
-            <div style={{ background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.12)', borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
-              <p style={{ margin: 0, fontSize: 11, color: '#22d3ee', fontWeight: 500 }}>
-                Strategy deployment requires account manager approval.
-              </p>
-              <p style={{ margin: '4px 0 0', fontSize: 11, color: '#8888a0' }}>
-                Please contact your account manager to activate and deploy this strategy.
-              </p>
-            </div>
+            {createError && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: '#ef4444' }}>
+                {createError}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="t-btn" onClick={() => setShowCreate(false)}>Cancel</button>
-              <button className="t-btn-primary" onClick={handleCreate}>Request Strategy</button>
+              <button className="t-btn" onClick={() => setShowCreate(false)} disabled={creating}>Cancel</button>
+              <button className="t-btn-primary" onClick={handleCreate} disabled={creating}>
+                {creating ? 'Creating...' : 'Create Strategy'}
+              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {contactMsg && (
-        <div className="t-modal-overlay" onClick={() => setContactMsg(false)}>
-          <div className="t-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>📞</div>
-            <h2 style={{ fontFamily: 'Outfit', fontSize: 18, margin: '0 0 8px' }}>Request Submitted</h2>
-            <p style={{ fontSize: 13, color: '#8888a0', margin: '0 0 16px', lineHeight: 1.6 }}>
-              Your strategy request has been noted. Please contact your account manager for approval and deployment.
-            </p>
-            <div style={{ background: 'rgba(139,92,246,0.06)', borderRadius: 8, padding: '12px', marginBottom: 16 }}>
-              <p style={{ margin: '0 0 4px', fontSize: 11, color: '#555570' }}>Account Manager</p>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#f0f0f5' }}>support@trademetrix.tech</p>
-            </div>
-            <button className="t-btn-primary" onClick={() => setContactMsg(false)} style={{ width: '100%' }}>Got it</button>
           </div>
         </div>
       )}

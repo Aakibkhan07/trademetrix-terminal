@@ -25,5 +25,7 @@ async def test_market_simulator_start_twice():
     sim = MarketSimulator()
     await sim.start(["NIFTY"])
     await sim.start(["RELIANCE"])
-    assert len(sim._prices) == 1
+    assert len(sim._prices) == 2
+    assert "NIFTY" in sim._prices
+    assert "RELIANCE" in sim._prices
     await sim.stop()

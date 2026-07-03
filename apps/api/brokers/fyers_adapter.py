@@ -1,10 +1,16 @@
 import asyncio
+import inspect
 import json
 import logging
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+import httpx
+
 from brokers.base import BaseBroker
+from core.config import settings
+from core.http_client import get_http_client
 from core.models import (
     Candle,
     Exchange,
@@ -23,22 +29,39 @@ from core.models import (
     Session,
     Tick,
 )
-from fyers_apiv3 import fyersModel
 
 logger = logging.getLogger(__name__)
-
-_FY_ID_CACHE: dict[str, str] = {}
 
 
 class FyersAdapter(BaseBroker):
     broker_name = "fyers"
 
     def __init__(self):
+        self._client: httpx.AsyncClient | None = None
         self._client_id: str = ""
         self._access_token: str = ""
         self._user_id: str = ""
-        self._fyers: fyersModel.FyersModel | None = None
+        self._base_url = "https://api.fyers.in/api/v2"
+        self._ws_url = "wss://socket.fyers.in/socket"
         self._running = False
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = await get_http_client()
+        return self._client
+
+    def _headers(self) -> dict:
+        return {
+            "Authorization": f"{self._client_id}:{self._access_token}",
+            "Content-Type": "application/json",
+        }
+
+    def _ensure_fyers_symbol(self, symbol: str) -> str:
+        if ":" in symbol:
+            return symbol.upper()
+        if symbol.startswith("NSE:") or symbol.startswith("BSE:") or symbol.startswith("NFO:") or symbol.startswith("MCX:"):
+            return symbol.upper()
+        return f"NSE:{symbol.upper()}"
 
     async def authenticate(self, credentials: dict) -> Session:
         client_id = credentials.get("client_id", "")
@@ -48,49 +71,49 @@ class FyersAdapter(BaseBroker):
         self._access_token = raw_token
 
         if raw_token:
-            payload = self._decode_jwt_payload(raw_token)
-            self._user_id = payload.get("fy_id", "")
+            client = await self._get_client()
+            resp = await client.get(
+                f"{self._base_url}/profile",
+                headers=self._headers(),
+                timeout=httpx.Timeout(10, connect=5),
+            )
+            if resp.status_code == 401:
+                raise ValueError("Fyers authentication failed — invalid access_token")
+            data = resp.json()
+            if data.get("s") != "ok":
+                raise ValueError(f"Fyers auth validation failed: {data.get('message', 'unknown')}")
+            self._user_id = data.get("data", {}).get("fy_id", "") or data.get("fy_id", "")
         else:
             auth_code = credentials.get("auth_code", "")
-            if not auth_code:
-                raise ValueError("auth_code required for Fyers authentication when no access_token is stored")
             app_secret = credentials.get("secret_key", "")
-            from fyers_apiv3 import fyersModel as fm
-
-            session = fm.SessionModel(
-                client_id=client_id,
-                secret_key=app_secret,
-                redirect_uri="https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback",
-                grant_type="authorization_code",
+            if not auth_code or not app_secret:
+                raise ValueError("auth_code and secret_key required for Fyers OAuth flow")
+            client = await self._get_client()
+            resp = await client.post(
+                f"{self._base_url}/token",
+                json={
+                    "grant_type": "authorization_code",
+                    "appIdHash": client_id,
+                    "secret_key": app_secret,
+                    "auth_code": auth_code,
+                },
+                timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
             )
-            session.set_token(auth_code)
-            token_resp = session.generate_token()
-            raw_token = token_resp.get("access_token", "")
+            data = resp.json()
+            if data.get("s") != "ok":
+                raise ValueError(f"Fyers token exchange failed: {data.get('message', 'unknown')}")
+            raw_token = data.get("access_token", "")
             self._access_token = raw_token
-            payload = self._decode_jwt_payload(raw_token)
-            self._user_id = payload.get("fy_id", "")
 
-        self._fyers = fyersModel.FyersModel(
-            client_id=client_id,
-            token=self._access_token,
-            log_path="",
-        )
         return Session(
             access_token=raw_token,
-            user_id=self._user_id,
+            user_id=self._user_id or client_id,
             broker=self.broker_name,
             authenticated=True,
         )
 
-    def _ensure_fyers_symbol(self, symbol: str) -> str:
-        if ":" not in symbol:
-            exchange_prefix = "NSE"
-            return f"{exchange_prefix}:{symbol.upper()}"
-        return symbol.upper()
-
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
-        if not self._fyers:
-            return OrderResult(success=False, message="Not authenticated")
+        client = await self._get_client()
         payload = {
             "symbol": self._ensure_fyers_symbol(order.symbol),
             "qty": order.quantity,
@@ -103,8 +126,15 @@ class FyersAdapter(BaseBroker):
             "offlineOrder": False,
             "stopLoss": 0,
             "takeProfit": 0,
+            "orderTag": order.client_order_id or "",
         }
-        data = await self._sync(self._fyers.place_order, payload)
+        resp = await client.post(
+            f"{self._base_url}/orders",
+            json=payload,
+            headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
         success = data.get("s") == "ok"
         return OrderResult(
             success=success,
@@ -113,10 +143,15 @@ class FyersAdapter(BaseBroker):
         )
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
-        if not self._fyers:
-            return OrderResult(success=False, message="Not authenticated")
+        client = await self._get_client()
         payload = {"id": order_id, **changes}
-        data = await self._sync(self._fyers.modify_order, payload)
+        resp = await client.put(
+            f"{self._base_url}/orders",
+            json=payload,
+            headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
         return OrderResult(
             success=data.get("s") == "ok",
             broker_order_id=order_id,
@@ -124,9 +159,13 @@ class FyersAdapter(BaseBroker):
         )
 
     async def cancel_order(self, order_id: str) -> OrderResult:
-        if not self._fyers:
-            return OrderResult(success=False, message="Not authenticated")
-        data = await self._sync(self._fyers.cancel_order, {"id": order_id})
+        client = await self._get_client()
+        resp = await client.delete(
+            f"{self._base_url}/orders/{order_id}",
+            headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
         return OrderResult(
             success=data.get("s") == "ok",
             broker_order_id=order_id,
@@ -134,36 +173,52 @@ class FyersAdapter(BaseBroker):
         )
 
     async def get_orderbook(self) -> list[NormalizedOrder]:
-        if not self._fyers:
-            return []
-        data = await self._sync(self._fyers.orderbook)
+        client = await self._get_client()
+        resp = await client.get(
+            f"{self._base_url}/orders",
+            headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
         orders = []
         for item in data.get("orderBook", []):
             orders.append(self._normalize_order(item))
         return orders
 
     async def get_positions(self) -> list[Position]:
-        if not self._fyers:
-            return []
-        data = await self._sync(self._fyers.positions)
+        client = await self._get_client()
+        resp = await client.get(
+            f"{self._base_url}/positions",
+            headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
         positions = []
         for item in data.get("netPositions", []):
             positions.append(self._normalize_position(item))
         return positions
 
     async def get_holdings(self) -> list[Holding]:
-        if not self._fyers:
-            return []
-        data = await self._sync(self._fyers.holdings)
+        client = await self._get_client()
+        resp = await client.get(
+            f"{self._base_url}/holdings",
+            headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
         holdings = []
         for item in data.get("holdings", []):
             holdings.append(self._normalize_holding(item))
         return holdings
 
     async def get_funds(self) -> Funds:
-        if not self._fyers:
-            return Funds(broker=self.broker_name)
-        data = await self._sync(self._fyers.funds)
+        client = await self._get_client()
+        resp = await client.get(
+            f"{self._base_url}/funds",
+            headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
         fund_limit = data.get("fund_limit", [])
         total = 0.0
         used = 0.0
@@ -185,9 +240,14 @@ class FyersAdapter(BaseBroker):
         )
 
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
-        if not self._fyers:
-            return []
-        data = await self._sync(self._fyers.quotes, {"symbols": ",".join(symbols)})
+        client = await self._get_client()
+        resp = await client.post(
+            f"{self._base_url}/quotes",
+            json={"symbols": ",".join(self._ensure_fyers_symbol(s) for s in symbols)},
+            headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
         quotes = []
         for item in data.get("d", []):
             quotes.append(self._normalize_quote(item))
@@ -196,22 +256,25 @@ class FyersAdapter(BaseBroker):
     async def get_historical(
         self, symbol: str, interval: str, start: str | None = None, end: str | None = None, range: str | None = None
     ) -> list[Candle]:
-        if not self._fyers:
-            return []
-        params = {"symbol": symbol, "resolution": interval, "date_format": "0"}
-        if start:
-            params["range_from"] = str(int(float(start)))
-        if end:
-            params["range_to"] = str(int(float(end)))
+        client = await self._get_client()
+        params: dict = {
+            "symbol": self._ensure_fyers_symbol(symbol),
+            "resolution": interval,
+            "date_format": "0",
+        }
+        now_ts = int(time.time())
         if range:
             params["range"] = range
-        if "range_from" not in params and "range" not in params:
-            import time
-            params["range_from"] = str(int(time.time()) - 86400 * 60)
-        if "range_to" not in params and "range" not in params:
-            import time
-            params["range_to"] = str(int(time.time()))
-        data = await self._sync(self._fyers.history, params)
+        else:
+            params["range_from"] = start or str(now_ts - 86400 * 60)
+            params["range_to"] = end or str(now_ts)
+        resp = await client.post(
+            f"{self._base_url}/history",
+            json=params,
+            headers=self._headers(),
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
         candles = []
         for item in data.get("candles", []):
             candles.append(
@@ -230,21 +293,62 @@ class FyersAdapter(BaseBroker):
         return candles
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
-        if not self._fyers:
+        if not self._access_token:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
         self._running = True
-        sym_map: dict[str, str] = {}
-        for s in symbols:
-            f = s.replace("-INDEX", "")
-            sym_map[f] = s
+        retry_delay = 1
 
         while self._running:
             try:
-                data = await self._sync(self._fyers.quotes, {"symbols": ",".join(sym_map)})
+                async with httpx.AsyncClient() as client:
+                    ws_url = f"{self._ws_url}?token={self._access_token}&client_id={self._client_id}"
+                    async with client.stream("GET", ws_url) as resp:
+                        if resp.status_code != 101:
+                            logger.error("Fyers WS connect failed: %s", resp.status_code)
+                            await asyncio.sleep(retry_delay)
+                            retry_delay = min(retry_delay * 2, 30)
+                            continue
+
+                        retry_delay = 1
+                        subscribe_msg = json.dumps({
+                            "type": "subscribe",
+                            "symbols": [self._ensure_fyers_symbol(s) for s in symbols],
+                        })
+                        async with client.stream("POST", ws_url, content=subscribe_msg) as ws:
+                            async for line in ws.aiter_lines():
+                                if not self._running:
+                                    break
+                                if not line.strip():
+                                    continue
+                                try:
+                                    data = json.loads(line)
+                                    tick = self._parse_tick(data)
+                                    if tick:
+                                        if inspect.iscoroutinefunction(on_tick):
+                                            await on_tick(tick)
+                                        else:
+                                            on_tick(tick)
+                                except json.JSONDecodeError:
+                                    continue
+
+            except Exception as e:
+                logger.error("Fyers WS error: %s, reconnecting in %ds", e, retry_delay)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30)
+
+        retry_delay = 1
+        while self._running:
+            try:
+                resp = await client.post(
+                    f"{self._base_url}/quotes",
+                    json={"symbols": ",".join(self._ensure_fyers_symbol(s) for s in symbols)},
+                    headers=self._headers(),
+                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+                )
+                data = resp.json()
                 for item in data.get("d", []):
                     v = item.get("v", {})
                     sym = v.get("symbol") or item.get("n", "")
-                    sym = sym_map.get(sym, sym)
                     lp = float(v.get("lp", 0))
                     change = float(v.get("ch", 0))
                     change_pct = float(v.get("chp", 0))
@@ -277,7 +381,7 @@ class FyersAdapter(BaseBroker):
                         expiry_date=expiry,
                         option_type=opt_type,
                     )
-                    if asyncio.iscoroutinefunction(on_tick):
+                    if inspect.iscoroutinefunction(on_tick):
                         await on_tick(tick)
                     else:
                         on_tick(tick)
@@ -286,27 +390,33 @@ class FyersAdapter(BaseBroker):
                 break
             except Exception as e:
                 logger.error("Fyers polling error: %s", e)
-                await asyncio.sleep(5)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30)
 
     async def disconnect(self) -> None:
         self._running = False
+        self._client = None
 
-    async def _sync(self, method, *args, **kwargs):
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, lambda: method(*args, **kwargs))
-
-    @staticmethod
-    def _decode_jwt_payload(token: str) -> dict:
+    def _parse_tick(self, data: dict) -> Tick | None:
         try:
-            parts = token.split(".")
-            if len(parts) != 3:
-                return {}
-            padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
-            import base64
-
-            return json.loads(base64.urlsafe_b64decode(padded))
-        except Exception:
-            return {}
+            v = data.get("v", {}) if "v" in data else data
+            sym = v.get("symbol") or data.get("symbol", "")
+            return Tick(
+                symbol=sym,
+                exchange=Exchange.NSE,
+                last_price=float(v.get("lp", v.get("last_price", 0))),
+                bid=float(v.get("bid", v.get("bidPrice", 0))),
+                ask=float(v.get("ask", v.get("askPrice", 0))),
+                bid_qty=int(v.get("bid_size", v.get("bidQty", 0))),
+                ask_qty=int(v.get("ask_size", v.get("askQty", 0))),
+                volume=int(v.get("volume", 0)),
+                oi=int(v.get("oi", 0)),
+                timestamp=datetime.now(UTC),
+                broker=self.broker_name,
+            )
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+            logger.warning("Failed to parse Fyers tick: %s", e)
+            return None
 
     def _normalize_order(self, item: dict) -> NormalizedOrder:
         inst = self._parse_instrument(item.get("symbol", ""))

@@ -30,6 +30,7 @@ async def marketdata_ws(websocket: WebSocket):
 
     logger.info("WS client authenticated via tm_session cookie")
     await websocket.accept()
+    shared_socket.increment_connections()
     subscribed_symbols: set[str] = set()
     queue: asyncio.Queue[Tick] = asyncio.Queue()
     stop_event = asyncio.Event()
@@ -103,6 +104,7 @@ async def marketdata_ws(websocket: WebSocket):
         stop_event.set()
         drain_task.cancel()
         shared_socket.unsubscribe("*", tick_handler)
+        shared_socket.decrement_connections()
 
 
 async def _drain_queue(websocket: WebSocket, queue: asyncio.Queue, cancel: asyncio.Event):
@@ -286,7 +288,7 @@ async def get_historical(
     return {"symbol": symbol, "interval": interval, "candles": candles}
 
 
-STREAMING_SUPPORTED = {"fyers", "angelone"}
+from core.config import STREAMING_SUPPORTED
 
 STRIKE_INTERVALS: dict[str, int] = {"NIFTY": 50, "BANKNIFTY": 100, "FINNIFTY": 50, "SENSEX": 100}
 LOT_SIZES: dict[str, int] = {"NIFTY": 65, "BANKNIFTY": 30, "FINNIFTY": 60, "SENSEX": 20}

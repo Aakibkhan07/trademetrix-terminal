@@ -1,0 +1,29 @@
+/opt/trademetrix/logs/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y%m%d
+    extension .log
+    copytruncate
+    maxsize 100M
+}
+
+/var/log/nginx/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y%m%d
+    copytruncate
+    maxsize 100M
+    postrotate
+        nginx -s reopen > /dev/null 2>&1 || true
+    endscript
+}
