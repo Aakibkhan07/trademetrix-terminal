@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from './providers'
 import AppLayout from '@/components/app-layout'
+import ClarityScript from '@/components/clarity'
+import FeedbackButtonWrapper from '@/components/feedback-wrapper'
 
 export const metadata: Metadata = {
   title: 'Trade Metrix Terminal',
@@ -20,9 +22,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <ClarityScript />
         <Providers>
           <AppLayout>{children}</AppLayout>
         </Providers>
+        <FeedbackButtonWrapper />
       </body>
     </html>
   )

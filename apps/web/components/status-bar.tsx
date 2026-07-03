@@ -27,6 +27,9 @@ export default function StatusBar() {
         <span className="t-status-item">
           SYS: OK
         </span>
+        <span className="t-status-item" style={{ fontFamily: 'var(--font-mono)', fontSize: 9 }}>
+          v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
+        </span>
       </div>
       <div className="t-statusbar-right">
         <span>{time} UTC</span>

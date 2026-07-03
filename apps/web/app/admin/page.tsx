@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useApi } from '@/lib/use-api'
 import { useAuth } from '@/lib/auth-context'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta } from '@/lib/api'
+import { AppVersion } from '@/components/app-version'
 
 interface StrategyInfo {
   key: string
@@ -72,25 +73,42 @@ const TABS = [
   { key: 'audit', label: 'Audit Log' },
   { key: 'risk', label: 'Risk' },
   { key: 'broadcast', label: 'Broadcast' },
+  { key: 'founder', label: 'Founder', href: '/admin/founder' },
 ]
 
 function TabBar({ active, onChange }: { active: string; onChange: (k: string) => void }) {
   return (
     <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid rgba(139,92,246,0.15)', overflowX: 'auto' }}>
-      {TABS.map(t => (
-        <button
-          key={t.key}
-          onClick={() => onChange(t.key)}
-          style={{
-            padding: '8px 16px', fontSize: 12, fontWeight: active === t.key ? 600 : 400,
-            background: 'none', border: 'none', borderBottom: active === t.key ? '2px solid var(--violet)' : '2px solid transparent',
-            color: active === t.key ? 'var(--violet)' : '#8888a0', cursor: 'pointer', whiteSpace: 'nowrap',
-            fontFamily: 'inherit',
-          }}
-        >
-          {t.label}
-        </button>
-      ))}
+      {TABS.map(t => {
+        if ('href' in t) {
+          return (
+            <a key={t.key} href={t.href}
+              style={{
+                padding: '8px 16px', fontSize: 12, fontWeight: 400, textDecoration: 'none',
+                background: 'none', border: 'none', borderBottom: '2px solid transparent',
+                color: '#8888a0', cursor: 'pointer', whiteSpace: 'nowrap',
+                fontFamily: 'inherit',
+              }}
+            >
+              {t.label}
+            </a>
+          )
+        }
+        return (
+          <button
+            key={t.key}
+            onClick={() => onChange(t.key)}
+            style={{
+              padding: '8px 16px', fontSize: 12, fontWeight: active === t.key ? 600 : 400,
+              background: 'none', border: 'none', borderBottom: active === t.key ? '2px solid var(--violet)' : '2px solid transparent',
+              color: active === t.key ? 'var(--violet)' : '#8888a0', cursor: 'pointer', whiteSpace: 'nowrap',
+              fontFamily: 'inherit',
+            }}
+          >
+            {t.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -151,7 +169,7 @@ function AdminDashboard() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 className="t-page-title">Control Center</h1>
-        <p className="t-sub" style={{ fontSize: 13 }}>Full system administration</p>
+        <p className="t-sub" style={{ fontSize: 13 }}>Full system administration · <AppVersion /></p>
       </div>
       <TabBar active={tab} onChange={handleTabChange} />
       {tab === 'dashboard' && <DashboardTab />}

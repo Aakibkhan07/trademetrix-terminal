@@ -944,10 +944,6 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
       const res = await api.auth.sendOTP({ email })
       setUserExists(res.exists)
       setSending(false)
-      if (res.debug_otp) {
-        setDebugOtp(res.debug_otp)
-        setOtp(res.debug_otp.split(''))
-      }
       if (res.exists) {
         setStep('otp')
         setResendTimer(30)
@@ -966,10 +962,6 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
     try {
       const res = await api.auth.registerWithOTP({ email, password, full_name: fullName || undefined, phone: phone || undefined })
       setSending(false)
-      if (res.debug_otp) {
-        setDebugOtp(res.debug_otp)
-        setOtp(res.debug_otp.split(''))
-      }
       setStep('otp')
       setResendTimer(30)
     } catch (e: unknown) {
@@ -998,7 +990,6 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
     try {
       const res = await api.auth.sendOTP({ email })
       setSending(false)
-      if (res.debug_otp) setDebugOtp(res.debug_otp)
       setResendTimer(30)
       setOtp(['', '', '', '', '', ''])
     } catch (e: unknown) {

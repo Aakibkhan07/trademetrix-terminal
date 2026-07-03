@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from ai.desk import AIDesk
 from ai.journal import AIJournal
+from ai.copilot import AICopilot
 from core.deps import get_current_user
 from core.models import UserProfile
 
@@ -11,6 +12,10 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 
 class CommandRequest(BaseModel):
     command: str
+
+
+class CopilotRequest(BaseModel):
+    messages: list[dict]
 
 
 @router.post("/desk")
@@ -44,3 +49,13 @@ async def get_journal_entries(
         supabase.table("journal_entries").select("*").eq("user_id", current_user.id).order("created_at", desc=True).limit(50)
     )
     return {"entries": data or []}
+
+
+@router.post("/copilot")
+async def ai_copilot_chat(
+    req: CopilotRequest,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    copilot = AICopilot(current_user.id)
+    response = await copilot.chat(req.messages)
+    return {"response": response}

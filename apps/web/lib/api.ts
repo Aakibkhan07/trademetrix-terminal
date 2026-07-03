@@ -185,9 +185,9 @@ export const api = {
     signout: () => request('/auth/signout', { method: 'POST' }),
     me: () => request<{ id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string; is_admin?: boolean }>('/auth/me'),
     sendOTP: (data: { email: string; phone?: string }) =>
-      request<{ message: string; exists: boolean; debug_otp?: string }>('/auth/send-otp', { method: 'POST', body: data }),
+      request<{ message: string; exists: boolean }>('/auth/send-otp', { method: 'POST', body: data }),
     registerWithOTP: (data: { email: string; password: string; full_name?: string; phone?: string }) =>
-      request<{ message: string; user_id: string; debug_otp?: string }>('/auth/register-with-otp', { method: 'POST', body: data }),
+      request<{ message: string; user_id: string }>('/auth/register-with-otp', { method: 'POST', body: data }),
     verifyOTP: (data: { email: string; otp: string }) =>
       request<{ access_token: string; user: { id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string }; is_new: boolean }>('/auth/verify-otp', { method: 'POST', body: data }),
   },
@@ -296,6 +296,8 @@ export const api = {
     desk: (command: string) => request('/ai/desk', { method: 'POST', body: { command } }),
     journal: (lookbackDays = 7) => request(`/ai/journal?lookback_days=${lookbackDays}`),
     journalEntries: () => request('/ai/journal/entries'),
+    copilot: (messages: { role: string; content: string }[]) =>
+      request<{ response: string }>('/ai/copilot', { method: 'POST', body: { messages } }),
   },
 
   marketdata: {

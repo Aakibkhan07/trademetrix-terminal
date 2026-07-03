@@ -41,18 +41,32 @@ const NAV_SECTIONS = [
     label: 'Intelligence',
     items: [
       { href: '/ai', label: 'AI Desk', icon: 'A' },
+      { href: '/copilot', label: 'Copilot', icon: 'C' },
+      { href: '/analytics', label: 'Analytics', icon: 'N' },
       { href: '/transparency', label: 'Reports', icon: 'E' },
+    ],
+  },
+  {
+    label: 'Resources',
+    items: [
+      { href: '/help', label: 'Help Center', icon: '?' },
+      { href: '/changelog', label: 'Changelog', icon: '~' },
+      { href: '/feedback', label: 'Feedback', icon: '!' },
     ],
   },
   {
     label: 'System',
     items: [
       { href: '/account', label: 'Account', icon: 'U' },
+      { href: '/settings', label: 'Settings', icon: '*' },
+      { href: '/pricing', label: 'Pricing', icon: '$' },
+      { href: '/admin', label: 'Admin', icon: '#' },
+      { href: '/status', label: 'Status', icon: '!' },
     ],
   },
 ]
 
-const STANDALONE_PAGES = ['/', '/auth', '/onboarding']
+const STANDALONE_PAGES = ['/', '/auth', '/onboarding', '/status']
 const STANDALONE_PREFIXES = ['/portal']
 
 function isStandalone(pathname: string) {
