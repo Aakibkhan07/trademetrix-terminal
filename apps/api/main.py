@@ -56,7 +56,10 @@ async def lifespan(app: FastAPI):
     init_sentry()
     init_vault()
     await cache.init()
+    from engine.user_strategy_runner import user_strategy_runner
+    await user_strategy_runner.start()
     yield
+    await user_strategy_runner.stop()
     await market_simulator.stop()
     await cache.close()
     from core.db import close_supabase
