@@ -6,7 +6,8 @@ from pydantic import BaseModel
 
 from core.audit import record_audit
 from core.db import async_supabase, get_supabase
-from core.deps import get_current_user, require_admin
+from core.deps import get_current_user, require_admin, require_super_admin
+from core.models import ADMIN_ROLES, role_satisfies
 from core.models import AuditLogEntry, Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType as OrderTypeEnum, ProductType, StrategyAssignment, TIER_LIMITS, TIER_ORDER, UserProfile, tier_satisfies
 from core.security import decrypt_broker_credentials
 from core.safe_query import safe_execute, safe_single
@@ -35,7 +36,7 @@ class AssignResponse(BaseModel):
 async def admin_list_users(admin: UserProfile = Depends(require_admin)):
     supabase = get_supabase()
     profiles = safe_execute(
-        supabase.table("profiles").select("id, email, full_name, is_admin, subscription_tier, created_at")
+        supabase.table("profiles").select("id, email, full_name, is_admin, role, subscription_tier, created_at")
     ) or []
 
     all_assignments = safe_execute(
@@ -55,6 +56,7 @@ async def admin_list_users(admin: UserProfile = Depends(require_admin)):
             "email": p.get("email", ""),
             "full_name": p.get("full_name", ""),
             "is_admin": p.get("is_admin", False),
+            "role": p.get("role", ""),
             "subscription_tier": tier,
             "active_assignments": count_map.get(p["id"], 0),
             "max_active_strategies": TIER_LIMITS.get(tier, 99),
@@ -574,3 +576,124 @@ async def admin_active_brokers_count(admin: UserProfile = Depends(require_admin)
         "active_broker_count": len(total),
         "oauthed_count": len(oauthed),
     }
+
+
+class SetAdminRoleRequest(BaseModel):
+    email: str
+    role: str
+
+
+class UpdateAdminRoleRequest(BaseModel):
+    role: str
+
+
+@router.get("/admins")
+async def admin_list_admins(admin: UserProfile = Depends(require_admin)):
+    supabase = get_supabase()
+    profiles = safe_execute(
+        supabase.table("profiles").select("id, email, full_name, is_admin, role, created_at")
+        .or_("is_admin.eq.true,role.gte." + "a")
+    ) or []
+    result = []
+    for p in profiles:
+        p.pop("created_at", None)
+        result.append(p)
+    return {"admins": result}
+
+
+@router.post("/admins", status_code=201)
+async def admin_create_admin(
+    req: SetAdminRoleRequest,
+    admin: UserProfile = Depends(require_super_admin),
+):
+    if req.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(ADMIN_ROLES)}")
+
+    supabase = get_supabase()
+    profile = safe_single(
+        supabase.table("profiles").select("id, email, is_admin, role").eq("email", req.email)
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    supabase.table("profiles").update({
+        "is_admin": True,
+        "role": req.role,
+    }).eq("id", profile["id"]).execute()
+
+    record_audit(AuditLogEntry(
+        user_id=admin.id,
+        action="admin_create",
+        resource="admin",
+        details={"target_email": req.email, "role": req.role},
+    ))
+
+    return {"message": f"User promoted to {req.role}"}
+
+
+@router.patch("/admins/{user_id}")
+async def admin_update_role(
+    user_id: str,
+    req: UpdateAdminRoleRequest,
+    admin: UserProfile = Depends(require_super_admin),
+):
+    if req.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(ADMIN_ROLES)}")
+
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot change your own role")
+
+    supabase = get_supabase()
+    profile = safe_single(
+        supabase.table("profiles").select("id, is_admin, role").eq("id", user_id)
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+    if profile["role"] == "super_admin":
+        raise HTTPException(status_code=400, detail="Cannot modify a super admin")
+
+    supabase.table("profiles").update({
+        "is_admin": req.role in ADMIN_ROLES,
+        "role": req.role,
+    }).eq("id", user_id).execute()
+
+    record_audit(AuditLogEntry(
+        user_id=admin.id,
+        action="admin_update_role",
+        resource="admin",
+        details={"target_user": user_id, "new_role": req.role},
+    ))
+
+    return {"message": f"Role updated to {req.role}"}
+
+
+@router.delete("/admins/{user_id}")
+async def admin_remove_admin(
+    user_id: str,
+    admin: UserProfile = Depends(require_super_admin),
+):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot remove yourself")
+
+    supabase = get_supabase()
+    profile = safe_single(
+        supabase.table("profiles").select("id, role").eq("id", user_id)
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+    if profile["role"] == "super_admin":
+        raise HTTPException(status_code=400, detail="Cannot remove a super admin")
+
+    supabase.table("profiles").update({
+        "is_admin": False,
+        "role": "",
+    }).eq("id", user_id).execute()
+
+    record_audit(AuditLogEntry(
+        user_id=admin.id,
+        action="admin_remove",
+        resource="admin",
+        details={"target_user": user_id},
+    ))
+
+    return {"message": "Admin access removed"}

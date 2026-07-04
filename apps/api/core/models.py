@@ -264,11 +264,44 @@ def tier_satisfies(user_tier: str, required_tier: str) -> bool:
     return TIER_ORDER.get(user_tier, -1) >= TIER_ORDER.get(required_tier, 99)
 
 
+ADMIN_ROLES = ["super_admin", "admin", "support", "analyst"]
+
+ROLE_PERMISSIONS: dict[str, list[str]] = {
+    "super_admin": ["*"],
+    "admin": [
+        "users:read", "users:write",
+        "trades:read", "trades:write",
+        "brokers:read", "brokers:write",
+        "broadcast", "audit:read",
+        "risk:read", "strategies:read", "strategies:write",
+    ],
+    "support": ["users:read", "audit:read", "trades:read"],
+    "analyst": ["dashboard:read", "trades:read", "analytics:read"],
+}
+
+ROLE_HIERARCHY: dict[str, int] = {
+    "super_admin": 100,
+    "admin": 80,
+    "support": 40,
+    "analyst": 20,
+}
+
+
+def role_has_permission(role: str, permission: str) -> bool:
+    perms = ROLE_PERMISSIONS.get(role, [])
+    return "*" in perms or permission in perms
+
+
+def role_satisfies(role: str, min_role: str) -> bool:
+    return ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get(min_role, 0)
+
+
 class UserProfile(BaseModel):
     id: str
     email: str
     full_name: str = ""
     phone: str | None = None
     is_admin: bool = False
+    role: str = ""
     subscription_tier: str = "free"
     created_at: datetime | None = None

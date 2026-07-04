@@ -13,6 +13,7 @@ const TABS = [
   { key: 'audit', label: 'Audit Log' },
   { key: 'risk', label: 'Risk' },
   { key: 'founder', label: 'Founder', href: '/admin/founder' },
+  { key: 'admins', label: 'Admins', href: '/admin/admins' },
   { key: 'beta', label: 'Beta', href: '/admin/beta' },
 ]
 

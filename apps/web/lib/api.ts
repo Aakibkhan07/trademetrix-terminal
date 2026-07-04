@@ -25,6 +25,7 @@ export interface AdminUser {
   email: string
   full_name: string
   is_admin: boolean
+  role: string
   subscription_tier: string
   active_assignments: number
   max_active_strategies: number
@@ -260,6 +261,15 @@ export const api = {
     stats: () => request<AdminStats>('/admin/stats'),
     risk: () => request<{ settings: AdminRiskSetting[]; count: number }>('/admin/risk'),
     activeBrokers: () => request<{ active_broker_count: number; oauthed_count: number }>('/admin/active-brokers'),
+    admins: {
+      list: () => request<{ admins: { id: string; email: string; full_name: string; is_admin: boolean; role: string }[] }>('/admin/admins'),
+      create: (data: { email: string; role: string }) =>
+        request<{ message: string }>('/admin/admins', { method: 'POST', body: data }),
+      updateRole: (userId: string, data: { role: string }) =>
+        request<{ message: string }>(`/admin/admins/${userId}`, { method: 'PATCH', body: data }),
+      remove: (userId: string) =>
+        request<{ message: string }>(`/admin/admins/${userId}`, { method: 'DELETE' }),
+    },
     broadcast: {
       recipients: (strategyKey: string) =>
         request<{ recipients: { user_id: string; email: string; full_name: string }[] }>(

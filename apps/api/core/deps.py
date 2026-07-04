@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from core.db import async_supabase, get_supabase
-from core.models import UserProfile
+from core.models import UserProfile, role_satisfies, role_has_permission
 from core.security import decode_access_token
 
 _bearer = HTTPBearer(auto_error=False)
@@ -62,9 +62,29 @@ async def get_current_user(
 
 
 async def require_admin(user: UserProfile = Depends(get_current_user)) -> UserProfile:
-    if not user.is_admin:
+    if not user.is_admin and not role_satisfies(user.role, "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
     return user
+
+
+async def require_super_admin(user: UserProfile = Depends(get_current_user)) -> UserProfile:
+    if not role_satisfies(user.role, "super_admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin access required",
+        )
+    return user
+
+
+def require_permission(permission: str):
+    async def checker(user: UserProfile = Depends(get_current_user)) -> UserProfile:
+        if not role_has_permission(user.role, permission) and not user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: {permission}",
+            )
+        return user
+    return checker
