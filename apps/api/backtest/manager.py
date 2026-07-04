@@ -41,6 +41,7 @@ class BacktestManager:
         self._current_run: BacktestResult | None = None
         self._current_strategy = None
         self._bt_user_id = ""
+        self._history: list[BacktestResult] = []
 
     @property
     def current_run(self) -> BacktestResult | None:
@@ -133,13 +134,15 @@ class BacktestManager:
             self._cleanup(bt_user_id, exec_mgr)
 
             self._current_run = result
+            self._history.append(result)
             return result
-
+    
         except asyncio.CancelledError:
             result.status = BacktestStatus.CANCELLED
             result.completed_at = datetime.now(UTC).isoformat()
             self._cleanup(bt_user_id, exec_mgr)
             self._current_run = result
+            self._history.append(result)
             return result
 
         except Exception as e:
@@ -149,6 +152,7 @@ class BacktestManager:
             result.completed_at = datetime.now(UTC).isoformat()
             self._cleanup(bt_user_id, exec_mgr)
             self._current_run = result
+            self._history.append(result)
             return result
 
     async def pause(self) -> bool:
@@ -178,6 +182,34 @@ class BacktestManager:
             self._current_run.status = BacktestStatus.CANCELLED
             self._current_run.completed_at = datetime.now(UTC).isoformat()
         return True
+
+    def list_runs(self, strategy_id: str | None = None) -> list[dict]:
+        runs = self._history[:]
+        if strategy_id:
+            runs = [r for r in runs if r.config and r.config.strategy_type == strategy_id]
+        return [
+            {
+                "run_id": r.run_id,
+                "strategy_type": r.config.strategy_type if r.config else "",
+                "symbol": r.config.symbol if r.config else "",
+                "status": r.status.value,
+                "total_trades": r.total_trades,
+                "net_pnl": r.net_pnl,
+                "win_rate": r.win_rate,
+                "return_pct": r.return_pct,
+                "sharpe_ratio": r.sharpe_ratio,
+                "started_at": r.started_at,
+                "completed_at": r.completed_at,
+                "duration_seconds": r.duration_seconds,
+            }
+            for r in reversed(runs)
+        ]
+
+    def get_run(self, run_id: str) -> BacktestResult | None:
+        for r in self._history:
+            if r.run_id == run_id:
+                return r
+        return None
 
     def get_status(self) -> dict:
         if not self._current_run:

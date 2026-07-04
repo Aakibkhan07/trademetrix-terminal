@@ -357,8 +357,10 @@ export const api = {
   },
 
   backtest: {
-    run: (data: Record<string, unknown>) => request('/backtest/run', { method: 'POST', body: data }),
-    strategies: () => request('/backtest/strategies'),
+    list: () => request('/backtests/'),
+    get: (runId: string) => request(`/backtests/${runId}`),
+    run: (data: Record<string, unknown>) => request('/backtests/run', { method: 'POST', body: data }),
+    strategies: () => request('/backtests/strategies'),
   },
 
   builder: {

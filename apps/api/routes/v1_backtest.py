@@ -1,17 +1,19 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from backtest.manager import backtest_manager
 from backtest.models import BacktestConfig, BacktestStatus, ReplaySpeed
-from core.deps import get_current_user
+from core.deps import get_current_user, require_tier
 from core.models import UserProfile
 from engine.backtest import BacktestEngine, fetch_historical_data
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/backtest", tags=["backtest"])
+router = APIRouter(prefix="/backtests", tags=["backtests"])
+
+MIN_TIER = "pro"
 
 
 class BacktestRequest(BaseModel):
@@ -24,8 +26,17 @@ class BacktestRequest(BaseModel):
     config: dict = {}
 
 
+# ─── Static routes (must precede /{run_id}) ───
+
+
+@router.get("/strategies")
+async def list_backtest_strategies():
+    from strategies import list_strategies
+    return {"strategies": list_strategies()}
+
+
 @router.post("/run")
-async def run_backtest(
+async def run_backtest_legacy(
     req: BacktestRequest,
     current_user: UserProfile = Depends(get_current_user),
 ):
@@ -61,13 +72,7 @@ async def run_backtest(
         raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
 
 
-@router.get("/strategies")
-async def list_backtest_strategies():
-    from strategies import list_strategies
-    return {"strategies": list_strategies()}
-
-
-# ─── V2 Backtest Engine (reuses full execution pipeline) ───
+# ─── V2 Backtest Engine ───
 
 
 class BacktestV2Request(BaseModel):
@@ -196,3 +201,62 @@ async def backtest_v2_stop():
     if not success:
         raise HTTPException(status_code=400, detail="No running backtest to stop")
     return {"status": "stopped"}
+
+
+# ─── New CRUD routes (auth-protected) ───
+
+
+@router.get("/")
+async def list_backtests(
+    strategy_id: str | None = None,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    return {"backtests": backtest_manager.list_runs(strategy_id=strategy_id)}
+
+
+@router.post("/", status_code=201)
+async def create_backtest(
+    req: BacktestRequest,
+    current_user: UserProfile = Depends(require_tier(MIN_TIER)),
+):
+    try:
+        candles = await fetch_historical_data(
+            symbol=req.symbol,
+            exchange=req.exchange,
+            interval=req.interval,
+            days=req.days,
+            user_id=current_user.id,
+        )
+
+        engine = BacktestEngine(
+            strategy_type=req.strategy_type,
+            config=req.config,
+            initial_capital=req.initial_capital,
+        )
+
+        result = await engine.run(candles)
+        return {
+            "symbol": req.symbol,
+            "strategy": req.strategy_type,
+            "interval": req.interval,
+            "days": req.days,
+            "initial_capital": req.initial_capital,
+            "candles_analyzed": len(candles),
+            "results": result.to_dict(),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Backtest failed")
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+
+
+@router.get("/{run_id}")
+async def get_backtest(
+    run_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    run = backtest_manager.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Backtest run not found")
+    return run
