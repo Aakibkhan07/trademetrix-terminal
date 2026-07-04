@@ -40,7 +40,7 @@ services:
     env_file: ./.env.production
     environment:
       ENV: production
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://:tm_redis_prod_2026@redis:6379/0
     depends_on:
       redis: { condition: service_healthy }
     healthcheck:
