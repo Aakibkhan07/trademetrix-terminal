@@ -25,8 +25,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ClarityScript />
         <Providers>
           <AppLayout>{children}</AppLayout>
+          <FeedbackButtonWrapper />
         </Providers>
-        <FeedbackButtonWrapper />
       </body>
     </html>
   )
