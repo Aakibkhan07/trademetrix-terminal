@@ -98,7 +98,7 @@ docker build -t trademetrix-web:latest apps/web
 
 # Run
 docker run -d --name trademetrix-web -p 3000:3000 \
-  -e NEXT_PUBLIC_API_URL="https://api.trademetrix.com" \
+  -e NEXT_PUBLIC_API_URL="https://api.ai.trademetrix.tech" \
   trademetrix-web:latest
 ```
 

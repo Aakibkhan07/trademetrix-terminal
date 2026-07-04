@@ -92,14 +92,14 @@ export default function FounderDashboard() {
     } catch {}
 
     try {
-      const res = await fetch('http://localhost:9090/-/healthy', { signal: AbortSignal.timeout(3000) })
+      const res = await fetch('http://prometheus:9090/-/healthy', { signal: AbortSignal.timeout(3000) })
       setPrometheusHealth(res.ok ? 'OK' : 'error')
     } catch {
       setPrometheusHealth('unreachable')
     }
 
     try {
-      const res = await fetch('http://localhost:3000/api/health', { signal: AbortSignal.timeout(3000) })
+      const res = await fetch('http://grafana:3000/api/health', { signal: AbortSignal.timeout(3000) })
       setGrafanaHealth(res.ok ? 'OK' : 'error')
     } catch {
       setGrafanaHealth('unreachable')

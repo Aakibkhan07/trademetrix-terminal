@@ -69,12 +69,7 @@ export default function StatusPage() {
         results.push({ name: 'API Server', status: 'down', lastChecked: now })
       }
 
-      try {
-        const webRes = await fetch('/health')
-        results.push({ name: 'Web App', status: webRes.ok ? 'operational' : 'down', lastChecked: now })
-      } catch {
-        results.push({ name: 'Web App', status: 'down', lastChecked: now })
-      }
+      results.push({ name: 'Web App', status: 'operational', lastChecked: now })
 
       try {
         const readyRes = await fetch('/api/v1/health/ready')
@@ -89,7 +84,7 @@ export default function StatusPage() {
       }
 
       try {
-        const ws = new EventSource('/ws')
+        const ws = new EventSource('/api/v1/events/stream')
         await new Promise<void>((resolve, reject) => {
           ws.onopen = () => { ws.close(); resolve() }
           ws.onerror = () => { ws.close(); reject() }

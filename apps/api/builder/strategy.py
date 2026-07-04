@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import math
 from collections import defaultdict
-from typing import Any
+from typing import Any, Callable
 
 from core.models import Candle, Exchange, NormalizedOrder, OrderSide, OrderType, ProductType, Tick
 from strategies.base import BaseStrategy, SignalResult
@@ -574,7 +574,7 @@ def _compute_lowest(ctx: dict) -> float:
     return 0
 
 
-_COMPUTE_FUNCTIONS: dict[str, callable] = {
+_COMPUTE_FUNCTIONS: dict[str, Callable] = {
     "indicator.sma": _compute_sma,
     "indicator.ema": _compute_ema,
     "indicator.rsi": _compute_rsi,

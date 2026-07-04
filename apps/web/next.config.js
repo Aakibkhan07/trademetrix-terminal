@@ -11,7 +11,10 @@ const securityHeaders = [
 
 const nextConfig = {
   images: {
-    domains: ['trademetrix.com'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'ai.trademetrix.tech' },
+      { protocol: 'https', hostname: 'api.ai.trademetrix.tech' },
+    ],
   },
   poweredByHeader: false,
   async headers() {

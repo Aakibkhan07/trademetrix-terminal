@@ -1,7 +1,5 @@
 'use client'
 
-import { api } from './api'
-
 let sessionId: string | null = null
 
 function getSessionId(): string {

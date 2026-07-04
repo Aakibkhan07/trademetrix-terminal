@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { api } from '@/lib/api'
 import { useToast } from '@/lib/use-toast'
 import { useAuth } from '@/lib/auth-context'
 
@@ -80,13 +81,7 @@ export default function FeedbackButton() {
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : '',
         screen: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : '',
       }
-      const res = await fetch('/api/v1/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ category, title, description, metadata }),
-      })
-      if (!res.ok) throw new Error('Failed to submit')
+      await api.post('/feedback', { category, title, description, metadata })
       toast('success', category === 'bug' ? 'Bug report submitted' : 'Feature request submitted')
       setTitle('')
       setDescription('')

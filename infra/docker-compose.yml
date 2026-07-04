@@ -69,7 +69,7 @@ services:
     depends_on:
       api: { condition: service_healthy }
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/"]
       <<: *healthcheck
     logging: *default-logging
     mem_limit: 512m
