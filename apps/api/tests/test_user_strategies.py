@@ -268,6 +268,8 @@ class TestValidation:
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from core.db import async_supabase
+from main import app
+from core.deps import get_current_user
 from routes.v1_user_strategies import BUILDER_MIN_TIER
 
 
@@ -629,3 +631,76 @@ async def test_deploy_live_blocked(client, auth_headers):
     )
     assert deploy_resp.status_code == 403
     assert "not enabled yet" in deploy_resp.json()["detail"].lower()
+
+
+class TestSuperAdminBypass:
+    """super_admin bypasses tier gating and strategy limits."""
+
+    @pytest.fixture(autouse=True)
+    def _override_restore(self):
+        """Override get_current_user in test, then restore original."""
+        original = app.dependency_overrides.get(get_current_user)
+        yield
+        if original:
+            app.dependency_overrides[get_current_user] = original
+        else:
+            app.dependency_overrides.pop(get_current_user, None)
+
+    @pytest.mark.asyncio
+    async def test_super_admin_free_tier_can_create(self, client, auth_headers):
+        """super_admin on a free plan can create strategies (tier gate + limit bypassed)."""
+        from fastapi import Request
+
+        admin_id = "super-admin-test-id"
+
+        async def _super_admin_user(request: Request):
+            from core.models import UserProfile
+            return UserProfile(
+                id=admin_id,
+                email="superadmin@test.com",
+                full_name="Super Admin",
+                subscription_tier="free",
+                role="super_admin",
+            )
+
+        app.dependency_overrides[get_current_user] = _super_admin_user
+        payload = {
+            "name": "Super Admin Strategy",
+            "index_symbol": "NIFTY",
+            "entry_time": "10:00",
+            "exit_time": "14:00",
+            "legs": [{"leg_order": 1, "segment": "options", "position": "buy", "option_type": "CE",
+                       "lots": 1, "expiry": "weekly", "strike_criteria": "atm_offset", "strike_value": 0.0}],
+        }
+        resp = await client.post("/api/v1/user-strategies/", json=payload, headers=auth_headers)
+        assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
+
+    @pytest.mark.asyncio
+    async def test_non_admin_free_user_blocked(self, client, auth_headers):
+        """Non-admin free-tier user gets 403 from tier gate."""
+        from fastapi import Request
+
+        free_id = "free-test-id"
+
+        async def _free_user(request: Request):
+            from core.models import UserProfile
+            return UserProfile(
+                id=free_id,
+                email="freeuser@test.com",
+                full_name="Free User",
+                subscription_tier="free",
+                role="",
+            )
+
+        app.dependency_overrides[get_current_user] = _free_user
+        payload = {
+            "name": "Free User Strategy",
+            "index_symbol": "NIFTY",
+            "entry_time": "10:00",
+            "exit_time": "14:00",
+            "legs": [{"leg_order": 1, "segment": "options", "position": "buy", "option_type": "CE",
+                       "lots": 1, "expiry": "weekly", "strike_criteria": "atm_offset", "strike_value": 0.0}],
+        }
+        resp = await client.post("/api/v1/user-strategies/", json=payload, headers=auth_headers)
+        assert resp.status_code == 403
+        assert "plan" in resp.json()["detail"].lower()

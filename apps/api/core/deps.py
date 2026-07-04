@@ -92,6 +92,8 @@ def require_permission(permission: str):
 
 def require_tier(min_tier: str):
     async def checker(user: UserProfile = Depends(get_current_user)) -> UserProfile:
+        if user.role == "super_admin":
+            return user
         if TIER_ORDER.get(user.subscription_tier, -1) < TIER_ORDER.get(min_tier, 99):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

@@ -47,16 +47,17 @@ async def create_user_strategy(
     req: CreateUserStrategyRequest,
     current_user: UserProfile = Depends(require_tier(BUILDER_MIN_TIER)),
 ):
-    max_strategies = TIER_LIMITS.get(current_user.subscription_tier, 1)
     supabase = get_supabase()
-    existing = await async_safe_execute(
-        supabase.table("user_strategies").select("id").eq("user_id", current_user.id).neq("status", "draft")
-    )
-    if existing and len(existing) >= max_strategies:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Your plan allows a maximum of {max_strategies} active strategies. Upgrade your plan or delete existing strategies.",
+    if current_user.role != "super_admin":
+        max_strategies = TIER_LIMITS.get(current_user.subscription_tier, 1)
+        existing = await async_safe_execute(
+            supabase.table("user_strategies").select("id").eq("user_id", current_user.id).neq("status", "draft")
         )
+        if existing and len(existing) >= max_strategies:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Your plan allows a maximum of {max_strategies} active strategies. Upgrade your plan or delete existing strategies.",
+            )
 
     strategy = UserStrategy(
         user_id=current_user.id,
