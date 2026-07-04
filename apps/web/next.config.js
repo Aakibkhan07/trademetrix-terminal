@@ -10,7 +10,6 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
-  output: 'standalone',
   images: {
     domains: ['trademetrix.com'],
   },
