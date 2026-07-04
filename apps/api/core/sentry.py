@@ -6,10 +6,11 @@ logger = logging.getLogger(__name__)
 
 
 def init_sentry():
-    dsn = getattr(settings, "sentry_dsn", "")
+    raw_dsn = getattr(settings, "sentry_dsn", "") or ""
+    dsn = raw_dsn.strip(" \t\"'")
     env = getattr(settings, "sentry_env", "development")
 
-    if not dsn:
+    if not dsn or not dsn.startswith("https://"):
         logger.info("Sentry DSN not configured, skipping")
         return
 
