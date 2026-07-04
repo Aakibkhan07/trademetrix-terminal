@@ -1,4 +1,5 @@
 import logging
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
@@ -174,6 +175,22 @@ async def signout(response: Response, current_user: UserProfile = Depends(get_cu
     ))
 
     return {"message": "Signed out"}
+
+
+@router.get("/csrf")
+async def get_csrf_token(response: Response):
+    """Set csrf_token cookie for clients that don't have one yet (CSRF bootstrap)."""
+    token = secrets.token_hex(32)
+    response.set_cookie(
+        key="csrf_token",
+        value=token,
+        httponly=False,
+        secure=True,
+        samesite="lax",
+        path="/",
+        domain=settings.cookie_domain or None,
+    )
+    return {"csrf_token": token}
 
 
 @router.get("/me")

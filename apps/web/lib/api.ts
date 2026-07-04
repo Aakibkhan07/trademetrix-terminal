@@ -139,6 +139,15 @@ function getCSRFToken(): string {
   return match ? decodeURIComponent(match[1]) : ''
 }
 
+let _csrfBootstrapped = false
+
+async function _ensureCSRF(): Promise<void> {
+  if (_csrfBootstrapped) return
+  _csrfBootstrapped = true
+  if (getCSRFToken()) return
+  await fetch(`${API_BASE}/auth/csrf`, { credentials: 'include' })
+}
+
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {}, signal } = options
 
@@ -147,8 +156,12 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     ...headers,
   }
 
-  const csrf = getCSRFToken()
-  if (csrf && method !== 'GET') {
+  if (method !== 'GET') {
+    await _ensureCSRF()
+    const csrf = getCSRFToken()
+    if (!csrf) {
+      throw new ApiError(0, 'CSRF token not available — refresh or sign in again')
+    }
     finalHeaders['X-CSRF-Token'] = csrf
   }
 
