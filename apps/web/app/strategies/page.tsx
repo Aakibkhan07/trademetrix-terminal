@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import Link from 'next/link'
+import { SkeletonCard } from '@/components/skeleton'
+import { ErrorMessage } from '@/components/error-message'
 
 interface Strategy {
   id: string
@@ -15,6 +17,7 @@ interface Strategy {
 export default function StrategiesPage() {
   const [strategies, setStrategies] = useState<Strategy[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [strategyType, setStrategyType] = useState('trend_rider')
@@ -23,10 +26,13 @@ export default function StrategiesPage() {
   const [createError, setCreateError] = useState('')
 
   const load = async () => {
+    setLoading(true)
+    setError('')
     try {
       const d = await api.strategies.list()
       setStrategies((d as { strategies: Strategy[] }).strategies || [])
-    } catch {
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load strategies')
       setStrategies([])
     } finally {
       setLoading(false)
@@ -63,7 +69,7 @@ export default function StrategiesPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
         <div>
           <h1 className="t-page-title">Strategies</h1>
           <p className="t-sub" style={{ fontSize: 13 }}>
@@ -126,7 +132,11 @@ export default function StrategiesPage() {
       )}
 
       {loading ? (
-        <p style={{ color: '#8888a0' }}>Loading strategies...</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      ) : error ? (
+        <ErrorMessage message={error} onRetry={load} />
       ) : (
         <>
           <h2 style={{ fontFamily: 'Outfit', fontSize: 15, margin: '0 0 14px', color: '#f0f0f5' }}>

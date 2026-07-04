@@ -348,7 +348,7 @@ export default function TerminalPage() {
         </div>
 
         {/* Your Strategies */}
-        <div className="t-panel" style={{ flex: '0 0 280px', padding: 0, overflow: 'hidden' }}>
+        <div className="t-panel" style={{ flex: '1 1 280px', maxWidth: 320, minWidth: 240, padding: 0, overflow: 'hidden' }}>
           <div className="t-panel-header">
             <h3 className="t-panel-title">Your Strategies</h3>
             <span className="t-faint">{activeStrats} active</span>
@@ -461,7 +461,7 @@ export default function TerminalPage() {
         </div>
 
         {/* Indices / Watchlist */}
-        <div className="t-panel" style={{ flex: '0 0 200px', padding: 0, overflow: 'hidden' }}>
+        <div className="t-panel" style={{ flex: '1 1 200px', maxWidth: 240, minWidth: 160, padding: 0, overflow: 'hidden' }}>
           <div className="t-panel-header">
             <h3 className="t-panel-title">Indices</h3>
             <span className="t-faint">{indices.length}</span>

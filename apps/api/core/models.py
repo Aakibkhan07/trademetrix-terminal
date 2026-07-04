@@ -350,6 +350,10 @@ class SLTargetType(StrEnum):
     points = "points"
     premium = "premium"
 
+class ReentryMode(StrEnum):
+    RE_ASAP = "RE_ASAP"
+    RE_COST = "RE_COST"
+
 
 class UserStrategyLeg(BaseModel):
     id: str = ""
@@ -369,6 +373,8 @@ class UserStrategyLeg(BaseModel):
     trailing_sl_type: SLTargetType | None = None
     trailing_sl_value: float | None = None
     trailing_activation: float | None = None
+    reentry_mode: ReentryMode | None = None
+    max_reentries: int = 3
 
 
 class UserStrategy(BaseModel):

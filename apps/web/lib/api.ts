@@ -401,6 +401,7 @@ export const api = {
     update: (id: string, data: Record<string, unknown>) => request(`/user-strategies/${id}`, { method: 'PATCH', body: data }),
     delete: (id: string) => request(`/user-strategies/${id}`, { method: 'DELETE' }),
     deploy: (id: string, mode: string) => request(`/user-strategies/${id}/deploy`, { method: 'POST', body: { mode } }),
+    activity: (id: string) => request(`/user-strategies/${id}/activity`),
   },
 
   marginEstimate: (data: { index_symbol: string; legs: Record<string, unknown>[]; broker?: string }) =>

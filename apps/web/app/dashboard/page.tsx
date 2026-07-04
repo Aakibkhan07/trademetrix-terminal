@@ -5,6 +5,8 @@ import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
 import { useAuth } from '@/lib/auth-context'
+import { SkeletonCard, SkeletonTable } from '@/components/skeleton'
+import { ErrorMessage } from '@/components/error-message'
 import EquityCurve from '@/components/equity-curve'
 
 const WATCH_SYMBOLS = [
@@ -21,19 +23,27 @@ export default function DashboardPage() {
   const [funds, setFunds] = useState<Record<string, number> | null>(null)
   const [orders, setOrders] = useState<any[]>([])
   const [lastRefresh, setLastRefresh] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true)
+    setError('')
     try {
       const [p, f, o] = await Promise.all([
-        api.engine.positions().catch(() => ({ positions: [] })),
-        api.engine.funds().catch(() => ({ funds: null })),
-        api.engine.orders().catch(() => ({ orders: [] })),
+        api.engine.positions(),
+        api.engine.funds(),
+        api.engine.orders(),
       ])
       setPositions((p as any).positions || [])
       setFunds((f as any).funds || null)
       setOrders((o as any).orders || [])
       setLastRefresh(new Date().toLocaleTimeString())
-    } catch {}
+    } catch {
+      setError('Failed to load dashboard data')
+    } finally {
+      if (isInitial) setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -41,7 +51,8 @@ export default function DashboardPage() {
     startFeed()
   }, [subscribe, startFeed])
 
-  usePolling(loadData, 4000, !!token)
+  useEffect(() => { if (token) loadData(true) }, [token, loadData])
+  usePolling(() => loadData(), 4000, !!token)
 
   const totalPnl = positions.reduce((sum: number, p: any) => {
     const live = ticks[p.symbol]
@@ -55,15 +66,29 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="t-page-header">
+      <div className="t-page-header" style={{ flexWrap: 'wrap', gap: 8 }}>
         <h1 className="t-page-title">Dashboard</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-red'}`} />
           <span className={connected ? 't-up' : 't-down'} style={{ fontSize: 12 }}>{connected ? 'Live' : 'Connecting...'}</span>
+          {!connected && <span className="t-badge t-badge-amber" style={{ fontSize: 9 }}>SIMULATED DATA</span>}
           <span className="t-faint" style={{ fontSize: 11 }}>Updated {lastRefresh}</span>
-          <button className="t-btn t-btn-sm t-btn-ghost" onClick={loadData}>Refresh</button>
+          <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => loadData(true)}>Refresh</button>
         </div>
       </div>
+
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+          <SkeletonCard />
+          <SkeletonTable rows={4} />
+        </div>
+      ) : error ? (
+        <ErrorMessage message={error} onRetry={() => loadData(true)} />
+      ) : (
+      <>
 
       <div className="t-grid-4">
         {WATCH_SYMBOLS.map((s) => {
@@ -248,6 +273,8 @@ export default function DashboardPage() {
           <p className="t-faint" style={{ textAlign: 'center', padding: 24, margin: 0 }}>No open positions</p>
         )}
       </div>
+        </>
+      )}
     </div>
   )
 }

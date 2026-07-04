@@ -125,6 +125,27 @@ async def get_user_strategy(
     return _row_to_strategy(row)
 
 
+@router.get("/{strategy_id}/activity")
+async def get_strategy_activity(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    supabase = get_supabase()
+    rows = await async_safe_execute(
+        supabase.table("audit_log")
+        .select("*")
+        .eq("user_id", current_user.id)
+        .order("created_at", desc=True)
+        .limit(50)
+    ) or []
+    filtered = [
+        r for r in rows
+        if r.get("resource") == f"strategy/{strategy_id}"
+        or (r.get("resource") == "order" and r.get("strategy_id") == strategy_id)
+    ]
+    return {"activity": filtered}
+
+
 @router.patch("/{strategy_id}")
 async def update_user_strategy(
     strategy_id: str,

@@ -51,6 +51,8 @@ interface StrategyLeg {
   trailing_sl_type: string | null
   trailing_sl_value: number | null
   trailing_activation: number | null
+  reentry_mode: 'RE_ASAP' | 'RE_COST' | null
+  max_reentries: number
 }
 
 interface OptionChain {
@@ -128,6 +130,8 @@ function freshLeg(leg_order: number): StrategyLeg {
     trailing_sl_type: null,
     trailing_sl_value: null,
     trailing_activation: null,
+    reentry_mode: null,
+    max_reentries: 3,
   }
 }
 
@@ -423,6 +427,72 @@ function LegCard({
               disabled={disabled || !leg.leg_target_type}
               style={{ height: 26, fontSize: 10, padding: '2px 6px' }} />
           </div>
+
+          {/* ── Trailing SL ── */}
+          <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 4 }}>
+            <label className="t-label" style={{ fontSize: 10, color: 'var(--cyan)', marginBottom: 4, display: 'block' }}>
+              Trailing SL
+            </label>
+            <div className="t-builder-leg-grid">
+              <div>
+                <label className="t-label">Type</label>
+                <select className="t-select" value={leg.trailing_sl_type || ''}
+                  onChange={e => onChange({ ...leg, trailing_sl_type: e.target.value || null, trailing_sl_value: e.target.value ? leg.trailing_sl_value : null })}
+                  disabled={disabled}
+                  style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                  {SL_TARGET_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="t-label">Trail By</label>
+                <input className="t-input" type="number" value={leg.trailing_sl_value ?? ''}
+                  onChange={e => onChange({ ...leg, trailing_sl_value: parseFloat(e.target.value) || null })}
+                  disabled={disabled || !leg.trailing_sl_type}
+                  style={{ height: 26, fontSize: 10, padding: '2px 6px' }} />
+              </div>
+              <div>
+                <label className="t-label">Activation (%)</label>
+                <input className="t-input" type="number" value={leg.trailing_activation ?? ''}
+                  onChange={e => onChange({ ...leg, trailing_activation: parseFloat(e.target.value) || null })}
+                  disabled={disabled || !leg.trailing_sl_type}
+                  style={{ height: 26, fontSize: 10, padding: '2px 6px' }}
+                  placeholder="e.g. 1.5" />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Re-entry ── */}
+          <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 4 }}>
+            <label className="t-label" style={{ fontSize: 10, color: 'var(--amber)', marginBottom: 4, display: 'block' }}>
+              Re-entry
+            </label>
+            <div className="t-builder-leg-grid">
+              <div>
+                <label className="t-label">Mode</label>
+                <select className="t-select" value={leg.reentry_mode || ''}
+                  onChange={e => onChange({ ...leg, reentry_mode: (e.target.value || null) as StrategyLeg['reentry_mode'] })}
+                  disabled={disabled}
+                  style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                  <option value="">None</option>
+                  <option value="RE_ASAP">ASAP</option>
+                  <option value="RE_COST">Cost-Based</option>
+                </select>
+              </div>
+              <div>
+                <label className="t-label">Max Re-entries</label>
+                <select className="t-select" value={leg.max_reentries}
+                  onChange={e => onChange({ ...leg, max_reentries: parseInt(e.target.value) || 3 })}
+                  disabled={disabled || !leg.reentry_mode}
+                  style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                  {[1, 2, 3].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -545,11 +615,14 @@ function PayoffPreview({
 
 function StrategyList({
   strategies, loading, error, onRetry, onEdit, onDelete, onDeploy, deploying,
+  fetchActivity, activeStrategyId, activityLoading, strategyActivity,
 }: {
   strategies: Strategy[]; loading: boolean; error: string | null
   onRetry: () => void; onEdit: (s: Strategy) => void
   onDelete: (s: Strategy) => void; onDeploy: (s: Strategy) => void
   deploying: string | null
+  fetchActivity: (id: string) => void; activeStrategyId: string | null
+  activityLoading: boolean; strategyActivity: Record<string, { created_at: string; event: string; details: string }[]>
 }) {
   if (loading) {
     return (
@@ -602,10 +675,32 @@ function StrategyList({
                   title="LIVE coming soon" disabled style={{ opacity: 0.35, cursor: 'default' }}>
                   LIVE
                 </button>
+                <button className="t-btn t-btn-xs" onClick={() => fetchActivity(s.id)}>
+                  {activeStrategyId === s.id ? '▲ Activity' : 'Activity'}
+                </button>
                 <button className="t-btn t-btn-xs" onClick={() => onEdit(s)}>Edit</button>
                 <button className="t-btn t-btn-xs t-btn-danger" onClick={() => onDelete(s)}>&times;</button>
               </div>
             </div>
+            {activeStrategyId === s.id && (
+              <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                <p style={{ fontSize: 10, color: 'var(--text-sub)', marginBottom: 4 }}>Activity Feed</p>
+                {activityLoading ? (
+                  <p style={{ fontSize: 10, color: 'var(--text-faint)' }}>Loading...</p>
+                ) : strategyActivity[s.id]?.length ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+                    {strategyActivity[s.id].map((e, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-sub)', padding: '2px 0', borderBottom: '1px solid var(--border)' }}>
+                        <span>{e.event.replace(/_/g, ' ')}</span>
+                        <span style={{ color: 'var(--text-faint)', fontSize: 9 }}>{new Date(e.created_at).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 10, color: 'var(--text-faint)' }}>No activity yet</p>
+                )}
+              </div>
+            )}
           </div>
         )
       })}
@@ -679,6 +774,11 @@ export default function BuilderPage() {
   const [listLoading, setListLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
   const [deploying, setDeploying] = useState<string | null>(null)
+
+  /* ── Activity state ── */
+  const [activeStrategyId, setActiveStrategyId] = useState<string | null>(null)
+  const [strategyActivity, setStrategyActivity] = useState<Record<string, { created_at: string; event: string; details: string }[]>>({})
+  const [activityLoading, setActivityLoading] = useState(false)
 
   /* ── Editor state ── */
   const [form, setForm] = useState(DEFAULT_FORM)
@@ -844,6 +944,22 @@ export default function BuilderPage() {
     })
   }
 
+  /* ── Activity ── */
+  const fetchActivity = async (strategyId: string) => {
+    if (activeStrategyId === strategyId) {
+      setActiveStrategyId(null)
+      return
+    }
+    setActiveStrategyId(strategyId)
+    if (strategyActivity[strategyId]) return
+    setActivityLoading(true)
+    try {
+      const res = await api.userStrategies.activity(strategyId) as { activity: { created_at: string; event: string; details: string }[] }
+      setStrategyActivity(prev => ({ ...prev, [strategyId]: res.activity }))
+    } catch { }
+    setActivityLoading(false)
+  }
+
   /* ── Deploy ── */
   const deployStrategy = async (s: Strategy) => {
     setDeploying(s.id)
@@ -954,6 +1070,10 @@ export default function BuilderPage() {
           onDelete={promptDelete}
           onDeploy={deployStrategy}
           deploying={deploying}
+          fetchActivity={fetchActivity}
+          activeStrategyId={activeStrategyId}
+          activityLoading={activityLoading}
+          strategyActivity={strategyActivity}
         />
 
         {confirm && (
