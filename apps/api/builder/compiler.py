@@ -179,8 +179,8 @@ def compile_dsl(dsl: StrategyDSL) -> tuple[ExecutionGraph | None, ValidationResu
 def validate(dsl: StrategyDSL) -> ValidationResult:
     issues: list[ValidationIssue] = []
     cycles: list[list[str]] = []
-    missing_inputs: list[dict] = []
-    type_mismatches: list[dict] = []
+    missing_inputs: list = []
+    type_mismatches: list = []
 
     node_map = {n.id: n for n in dsl.nodes}
 

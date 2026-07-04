@@ -803,7 +803,7 @@ def list_blocks(category: BlockCategory | None = None) -> list[BlockDef]:
     return list(BLOCK_DEFINITIONS.values())
 
 
-def list_categories() -> list[dict]:
+def list_categories() -> list:
     seen = set()
     cats = []
     for b in BLOCK_DEFINITIONS.values():

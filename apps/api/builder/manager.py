@@ -19,8 +19,8 @@ from builder.preview import generate_preview
 
 logger = logging.getLogger(__name__)
 
-_strategies: dict[str, dict[str, Any]] = {}
-_versions: dict[str, list[dict[str, Any]]] = {}
+_strategies: dict = {}
+_versions: dict = {}
 
 
 class BuilderManager:
@@ -99,7 +99,7 @@ class BuilderManager:
             return True
         return False
 
-    async def list(self, status: str | None = None) -> list[dict]:
+    async def list(self, status: str | None = None) -> list:
         results = []
         for sid, data in _strategies.items():
             if status and data.get("status") != status:
@@ -172,7 +172,7 @@ class BuilderManager:
         _versions[strategy_id].append({"version": dsl.version_number, "data": dsl.model_dump(mode="json"), "saved_at": dsl.updated_at})
         return dsl
 
-    async def get_versions(self, strategy_id: str) -> list[dict]:
+    async def get_versions(self, strategy_id: str) -> list:
         return [{"version": v["version"], "saved_at": v["saved_at"]} for v in _versions.get(strategy_id, [])]
 
     # ─── Templates ───
