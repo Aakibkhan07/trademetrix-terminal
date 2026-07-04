@@ -1,5 +1,4 @@
 /** @type {import('next').NextConfig} */
-const { withSentryConfig } = require("@sentry/nextjs");
 
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
@@ -29,13 +28,4 @@ const nextConfig = {
   },
 }
 
-module.exports = withSentryConfig(nextConfig, {
-  silent: true,
-  hideSourceMaps: true,
-  widenClientFileUpload: true,
-  webpack: {
-    treeshake: {
-      removeDebugLogging: true,
-    },
-  },
-})
+module.exports = nextConfig
