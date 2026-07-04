@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useApi } from '@/lib/use-api'
 import { useAuth } from '@/lib/auth-context'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta } from '@/lib/api'
-import { AppVersion } from '@/components/app-version'
+
 
 interface StrategyInfo {
   key: string
@@ -65,53 +66,7 @@ function SkeletonCard() {
   )
 }
 
-const TABS = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'users', label: 'Users' },
-  { key: 'brokers', label: 'Brokers' },
-  { key: 'trades', label: 'Trades' },
-  { key: 'audit', label: 'Audit Log' },
-  { key: 'risk', label: 'Risk' },
-  { key: 'broadcast', label: 'Broadcast' },
-  { key: 'founder', label: 'Founder', href: '/admin/founder' },
-]
 
-function TabBar({ active, onChange }: { active: string; onChange: (k: string) => void }) {
-  return (
-    <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid rgba(139,92,246,0.15)', overflowX: 'auto' }}>
-      {TABS.map(t => {
-        if ('href' in t) {
-          return (
-            <a key={t.key} href={t.href}
-              style={{
-                padding: '8px 16px', fontSize: 12, fontWeight: 400, textDecoration: 'none',
-                background: 'none', border: 'none', borderBottom: '2px solid transparent',
-                color: '#8888a0', cursor: 'pointer', whiteSpace: 'nowrap',
-                fontFamily: 'inherit',
-              }}
-            >
-              {t.label}
-            </a>
-          )
-        }
-        return (
-          <button
-            key={t.key}
-            onClick={() => onChange(t.key)}
-            style={{
-              padding: '8px 16px', fontSize: 12, fontWeight: active === t.key ? 600 : 400,
-              background: 'none', border: 'none', borderBottom: active === t.key ? '2px solid var(--violet)' : '2px solid transparent',
-              color: active === t.key ? 'var(--violet)' : '#8888a0', cursor: 'pointer', whiteSpace: 'nowrap',
-              fontFamily: 'inherit',
-            }}
-          >
-            {t.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 function NotAuthorized() {
   return (
@@ -143,43 +98,26 @@ export default function AdminPage() {
 
   if (!isAdmin) return <NotAuthorized />
 
-  return <AdminDashboard />
-}
-
-function getTabFromUrl() {
-  if (typeof window === 'undefined') return 'dashboard'
-  return new URLSearchParams(window.location.search).get('tab') || 'dashboard'
-}
-
-function setTabInUrl(tab: string) {
-  if (typeof window === 'undefined') return
-  const url = new URL(window.location.href)
-  url.searchParams.set('tab', tab)
-  window.history.replaceState({}, '', url.toString())
+  return (
+    <Suspense fallback={<SkeletonCard />}>
+      <AdminDashboard />
+    </Suspense>
+  )
 }
 
 function AdminDashboard() {
-  const [tab, setTab] = useState(getTabFromUrl)
-  const handleTabChange = useCallback((t: string) => {
-    setTab(t)
-    setTabInUrl(t)
-  }, [])
+  const searchParams = useSearchParams()
+  const tab = searchParams.get('tab') || 'dashboard'
 
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 className="t-page-title">Control Center</h1>
-        <p className="t-sub" style={{ fontSize: 13 }}>Full system administration · <AppVersion /></p>
-      </div>
-      <TabBar active={tab} onChange={handleTabChange} />
+    <>
       {tab === 'dashboard' && <DashboardTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'brokers' && <BrokersTab />}
       {tab === 'trades' && <TradesTab />}
       {tab === 'audit' && <AuditTab />}
       {tab === 'risk' && <RiskTab />}
-      {tab === 'broadcast' && <BroadcastTab />}
-    </div>
+    </>
   )
 }
 
@@ -911,148 +849,4 @@ function RiskTab() {
   )
 }
 
-function BroadcastTab() {
-  const [strategyKey, setStrategyKey] = useState('')
-  const [symbol, setSymbol] = useState('')
-  const [action, setAction] = useState('BUY')
-  const [quantity, setQuantity] = useState(1)
-  const [price, setPrice] = useState(0)
-  const [exchange, setExchange] = useState('NSE')
-  const [orderType, setOrderType] = useState('MARKET')
-  const [product, setProduct] = useState('INTRADAY')
-  const [reason, setReason] = useState('')
-  const [paper, setPaper] = useState(true)
-  const [sending, setSending] = useState(false)
-  const [result, setResult] = useState<any>(null)
-  const [error, setError] = useState('')
 
-  const { data: catalogData } = useApi<{ strategies: StrategyInfo[] }>('/strategies/list-builtin')
-  const catalog = catalogData?.strategies || []
-
-  const handleBroadcast = async () => {
-    if (!strategyKey || !symbol || !action || !quantity) {
-      setError('Fill required fields')
-      return
-    }
-    setSending(true)
-    setError('')
-    setResult(null)
-    try {
-      const res = await api.admin.broadcast.send({
-        strategy_key: strategyKey, symbol, action, quantity,
-        price: price || undefined, exchange, order_type: orderType,
-        product, reason, paper,
-      })
-      setResult(res)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Broadcast failed')
-    } finally {
-      setSending(false)
-    }
-  }
-
-  return (
-    <div>
-      <div className="t-panel" style={{ padding: 16, maxWidth: 600 }}>
-        <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Broadcast Trade to Strategy Recipients</h3>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-          <div>
-            <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Strategy</label>
-            <select className="t-select" value={strategyKey} onChange={e => setStrategyKey(e.target.value)} style={{ fontSize: 11, width: '100%' }}>
-              <option value="">Select...</option>
-              {catalog.map(s => <option key={s.key} value={s.key}>{s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Symbol</label>
-            <input className="t-input" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} placeholder="e.g. RELIANCE" style={{ fontSize: 11, width: '100%' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Action</label>
-            <select className="t-select" value={action} onChange={e => setAction(e.target.value)} style={{ fontSize: 11, width: '100%' }}>
-              <option value="BUY">BUY</option>
-              <option value="SELL">SELL</option>
-            </select>
-          </div>
-          <div>
-            <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Quantity</label>
-            <input className="t-input" type="number" value={quantity} onChange={e => setQuantity(Number(e.target.value))} style={{ fontSize: 11, width: '100%' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Price</label>
-            <input className="t-input" type="number" step="0.01" value={price} onChange={e => setPrice(Number(e.target.value))} placeholder="0 = market" style={{ fontSize: 11, width: '100%' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Exchange</label>
-            <select className="t-select" value={exchange} onChange={e => setExchange(e.target.value)} style={{ fontSize: 11, width: '100%' }}>
-              <option>NSE</option>
-              <option>BSE</option>
-              <option>NFO</option>
-              <option>MCX</option>
-            </select>
-          </div>
-          <div>
-            <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Order Type</label>
-            <select className="t-select" value={orderType} onChange={e => setOrderType(e.target.value)} style={{ fontSize: 11, width: '100%' }}>
-              <option>MARKET</option>
-              <option>LIMIT</option>
-              <option>SL</option>
-              <option>SL-M</option>
-            </select>
-          </div>
-          <div>
-            <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Product</label>
-            <select className="t-select" value={product} onChange={e => setProduct(e.target.value)} style={{ fontSize: 11, width: '100%' }}>
-              <option>INTRADAY</option>
-              <option>DELIVERY</option>
-              <option>FNO</option>
-              <option>CURRENCY</option>
-            </select>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Reason (optional)</label>
-          <input className="t-input" value={reason} onChange={e => setReason(e.target.value)} style={{ fontSize: 11, width: '100%' }} />
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <input type="checkbox" id="paper-mode" checked={paper} onChange={e => setPaper(e.target.checked)}
-            style={{ accentColor: '#8b5cf6' }} />
-          <label htmlFor="paper-mode" style={{ fontSize: 11, color: '#8888a0' }}>Paper trade (simulated)</label>
-        </div>
-
-        {error && (
-          <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 11, marginBottom: 12 }}>
-            {error}
-          </div>
-        )}
-
-        <button className="t-btn" onClick={handleBroadcast} disabled={sending}
-          style={{ fontSize: 12, padding: '8px 20px' }}>
-          {sending ? 'Broadcasting...' : 'Broadcast Trade'}
-        </button>
-
-        {result && (
-          <div style={{ marginTop: 16 }}>
-            <h4 style={{ fontSize: 11, color: '#f0f0f5', margin: '0 0 8px' }}>
-              Results ({result.count} recipients, {result.paper ? 'paper' : 'live'})
-            </h4>
-            {result.results?.map((r: any, i: number) => (
-              <div key={i} className="t-panel" style={{
-                padding: '8px 10px', marginBottom: 4, fontSize: 10,
-                borderLeft: r.success ? '3px solid #22c55e' : '3px solid #ef4444',
-              }}>
-                <div style={{ fontWeight: 600, color: '#f0f0f5' }}>{r.full_name || r.email}</div>
-                <div style={{ color: r.success ? '#22c55e' : '#ef4444' }}>
-                  {r.success ? `✓ Order placed (${r.broker_order_id})` : `✗ ${r.message}`}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
