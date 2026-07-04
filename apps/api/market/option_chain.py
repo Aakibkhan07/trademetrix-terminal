@@ -32,16 +32,18 @@ class OptionChainEngine:
         cache_key = f"option_chain:{symbol.upper()}:{expiry}"
         cached = market_cache.get_option_chain(cache_key)
         if cached:
-            return cached
+            return {**cached, "is_simulated": cached.get("is_simulated", True)}
 
         data = await self._fetch_nse_option_chain(symbol.upper())
         if data:
+            data["is_simulated"] = False
             market_cache.put_option_chain(cache_key, data)
             return data
 
         spot = self._estimate_spot(symbol.upper())
         expiry_date = expiry or self._next_expiry(symbol.upper())
         result = self._generate_option_chain(symbol.upper(), spot, expiry_date)
+        result["is_simulated"] = True
         market_cache.put_option_chain(cache_key, result)
         return result
 

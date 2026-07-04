@@ -25,6 +25,7 @@ const NAV_SECTIONS = [
       { href: '/positions', label: 'Positions', icon: 'P' },
       { href: '/marketdata', label: 'Market Data', icon: 'M' },
       { href: '/strategies', label: 'Strategies', icon: 'S' },
+      { href: '/terminal/option-chain', label: 'Option Chain', icon: 'C' },
     ],
   },
   {

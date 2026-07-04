@@ -323,6 +323,12 @@ export const api = {
       request<{ response: string }>('/ai/copilot', { method: 'POST', body: { messages } }),
   },
 
+  market: {
+    optionChain: (symbol: string, expiry = '') =>
+      request(`/market/option-chain?symbol=${symbol}${expiry ? `&expiry=${expiry}` : ''}`),
+    status: () => request('/market/status'),
+  },
+
   marketdata: {
     startSimulator: () => request('/marketdata/simulator/start', { method: 'POST' }),
     stopSimulator: () => request('/marketdata/simulator/stop', { method: 'POST' }),
