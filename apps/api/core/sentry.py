@@ -13,7 +13,11 @@ def init_sentry():
         logger.info("Sentry DSN not configured, skipping")
         return
 
-    import sentry_sdk
+    try:
+        import sentry_sdk  # type: ignore
+    except ImportError:
+        logger.warning("sentry-sdk not installed, skipping Sentry initialization")
+        return
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.logging import LoggingIntegration
 
