@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from builder.models import StrategyDSL, GraphNode, GraphEdge, StrategySettings, Position
 
 

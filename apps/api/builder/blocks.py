@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from builder.models import BlockCategory, BlockDef, DataType, ParamDef, PortDef
 
 
