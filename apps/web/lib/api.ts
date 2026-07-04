@@ -395,6 +395,9 @@ export const api = {
     deploy: (id: string, mode: string) => request(`/user-strategies/${id}/deploy`, { method: 'POST', body: { mode } }),
   },
 
+  marginEstimate: (data: { index_symbol: string; legs: Record<string, unknown>[]; broker?: string }) =>
+    request('/margin-estimate/', { method: 'POST', body: data }),
+
   events: {
     stream: () => `${API_BASE}/events/stream`,
   },

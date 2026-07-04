@@ -33,6 +33,16 @@ from core.models import (
 logger = logging.getLogger(__name__)
 
 
+_MARGIN_SIDE_MAP = {OrderSide.BUY: 1, OrderSide.SELL: -1}
+_MARGIN_TYPE_MAP = {OrderType.MARKET: 1, OrderType.LIMIT: 2, OrderType.SL: 3, OrderType.SLM: 4}
+_MARGIN_PRODUCT_MAP = {
+    ProductType.INTRADAY: "INTRADAY",
+    ProductType.MIS: "INTRADAY",
+    ProductType.DELIVERY: "CNC",
+    ProductType.NRML: "CNC",
+}
+
+
 class FyersAdapter(BaseBroker):
     broker_name = "fyers"
 
@@ -42,6 +52,7 @@ class FyersAdapter(BaseBroker):
         self._access_token: str = ""
         self._user_id: str = ""
         self._base_url = "https://api.fyers.in/api/v2"
+        self._v3_url = "https://api.fyers.in/api/v3"
         self._ws_url = "wss://socket.fyers.in/socket"
         self._running = False
 
@@ -392,6 +403,57 @@ class FyersAdapter(BaseBroker):
                 logger.error("Fyers polling error: %s", e)
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, 30)
+
+    async def get_margin_estimate(self, legs: list[dict]) -> dict:
+        if not self._access_token:
+            return {"supported": False, "broker": self.broker_name}
+        client = await self._get_client()
+        total_span = 0.0
+        total_exposure = 0.0
+        for leg in legs:
+            symbol = leg.get("symbol", "")
+            qty = leg.get("quantity", 0)
+            side_raw = leg.get("side", "BUY")
+            side = _MARGIN_SIDE_MAP.get(side_raw, 1) if isinstance(side_raw, OrderSide) else (1 if str(side_raw).upper() == "BUY" else -1)
+            order_type_raw = leg.get("order_type", "MARKET")
+            order_type = _MARGIN_TYPE_MAP.get(order_type_raw, 1) if isinstance(order_type_raw, OrderType) else (2 if str(order_type_raw).upper() == "LIMIT" else 1)
+            product_raw = leg.get("product", "INTRADAY")
+            product = _MARGIN_PRODUCT_MAP.get(product_raw, "INTRADAY") if isinstance(product_raw, ProductType) else _MARGIN_PRODUCT_MAP.get(ProductType(product_raw.upper()), "INTRADAY") if isinstance(product_raw, str) and product_raw.upper() in [p.value for p in ProductType] else "INTRADAY"
+            product = str(product).upper()
+            price = float(leg.get("price", 0))
+            payload = {
+                "symbol": self._ensure_fyers_symbol(symbol),
+                "qty": qty,
+                "side": side,
+                "type": order_type,
+                "productType": product,
+            }
+            if price > 0:
+                payload["limitPrice"] = price
+            try:
+                resp = await client.post(
+                    f"{self._v3_url}/span_margin",
+                    json=payload,
+                    headers=self._headers(),
+                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+                )
+                data = resp.json()
+                if data.get("s") != "ok":
+                    logger.warning("Fyers margin estimate failed for %s: %s", symbol, data.get("message", ""))
+                    return {"supported": False, "broker": self.broker_name, "error": data.get("message", "margin estimate failed")}
+                total_span += float(data.get("span_margin", data.get("span", 0)))
+                total_exposure += float(data.get("exposure_margin", data.get("exposure", 0)))
+            except Exception as e:
+                logger.warning("Fyers margin estimate error for %s: %s", symbol, e)
+                return {"supported": False, "broker": self.broker_name, "error": str(e)}
+        return {
+            "supported": True,
+            "broker": self.broker_name,
+            "total_margin": round(total_span + total_exposure, 2),
+            "span_margin": round(total_span, 2),
+            "exposure_margin": round(total_exposure, 2),
+            "currency": "INR",
+        }
 
     async def disconnect(self) -> None:
         self._running = False

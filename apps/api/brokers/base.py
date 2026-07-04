@@ -64,3 +64,6 @@ class BaseBroker(ABC):
     @abstractmethod
     async def disconnect(self) -> None:
         ...
+
+    async def get_margin_estimate(self, legs: list[dict]) -> dict:
+        return {"supported": False, "broker": self.broker_name}

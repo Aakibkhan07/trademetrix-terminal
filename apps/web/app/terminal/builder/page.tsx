@@ -692,6 +692,13 @@ export default function BuilderPage() {
   const [optionChain, setOptionChain] = useState<OptionChain | null>(null)
   const [chainLoading, setChainLoading] = useState(false)
 
+  /* ── Margin estimate state ── */
+  const [marginEstimate, setMarginEstimate] = useState<{
+    total_margin: number; span_margin: number; exposure_margin: number
+    supported: boolean; broker: string; error?: string
+  } | null>(null)
+  const [marginLoading, setMarginLoading] = useState(false)
+
   /* ── Confirm dialog state ── */
   const [confirm, setConfirm] = useState<{
     title: string; message: string; confirmLabel?: string; confirmClass?: string
@@ -848,6 +855,35 @@ export default function BuilderPage() {
       toast('error', err instanceof ApiError ? err.message : 'Deploy failed')
     } finally {
       setDeploying(null)
+    }
+  }
+
+  /* ── Margin estimate ── */
+  const fetchMarginEstimate = async () => {
+    setMarginLoading(true)
+    setMarginEstimate(null)
+    try {
+      const payload = {
+        index_symbol: form.index_symbol,
+        legs: legs.map(l => ({
+          segment: l.segment,
+          position: l.position,
+          lots: l.lots,
+          option_type: l.segment === 'options' ? l.option_type : null,
+          expiry: l.expiry,
+          strike_criteria: l.strike_criteria,
+          strike_value: l.strike_value,
+        })),
+      }
+      const res = await api.marginEstimate(payload) as {
+        supported: boolean; broker: string; total_margin: number
+        span_margin: number; exposure_margin: number; error?: string
+      }
+      setMarginEstimate(res)
+    } catch {
+      setMarginEstimate({ supported: false, broker: '', total_margin: 0, span_margin: 0, exposure_margin: 0, error: 'Failed to fetch estimate' })
+    } finally {
+      setMarginLoading(false)
     }
   }
 
@@ -1095,6 +1131,53 @@ export default function BuilderPage() {
             indexSymbol={form.index_symbol}
             isSimulated={optionChain?.is_simulated}
           />
+
+          {/* Margin Estimate */}
+          <div className="t-panel">
+            <div className="t-panel-header">
+              <span className="t-panel-title" style={{ fontSize: 12 }}>Margin Estimate</span>
+            </div>
+            <div className="t-panel-body" style={{ padding: '8px 10px' }}>
+              <button className="t-btn t-btn-sm t-btn-primary" onClick={fetchMarginEstimate}
+                disabled={marginLoading || legs.length === 0}
+                style={{ width: '100%', marginBottom: marginEstimate ? 8 : 0 }}>
+                {marginLoading ? 'Estimating...' : 'Estimate'}
+              </button>
+              {marginEstimate && (
+                <div style={{ fontSize: 11, lineHeight: 1.6 }}>
+                  {marginEstimate.supported ? (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px solid var(--border)' }}>
+                        <span style={{ color: 'var(--text-sub)' }}>Total Margin</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--cyan)' }}>
+                          &fnof; {marginEstimate.total_margin.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                        <span style={{ color: 'var(--text-sub)' }}>SPAN</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                          &fnof; {marginEstimate.span_margin.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                        <span style={{ color: 'var(--text-sub)' }}>Exposure</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                          &fnof; {marginEstimate.exposure_margin.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 4 }}>
+                        Via {marginEstimate.broker.toUpperCase()}
+                      </div>
+                    </>
+                  ) : (
+                    <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0, textAlign: 'center' }}>
+                      {marginEstimate.error || 'Margin estimate not available for this broker'}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── Right: Leg Cards ── */}
