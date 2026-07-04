@@ -29,7 +29,7 @@ def _row_to_strategy(row: dict) -> UserStrategy:
     return strategy
 
 
-@router.get("")
+@router.get("/")
 async def list_user_strategies(
     current_user: UserProfile = Depends(get_current_user),
     status_filter: str | None = None,
@@ -42,7 +42,7 @@ async def list_user_strategies(
     return {"strategies": [UserStrategy(**{k: v for k, v in row.items() if v is not None}) for row in (data or [])]}
 
 
-@router.post("", status_code=201)
+@router.post("/", status_code=201)
 async def create_user_strategy(
     req: CreateUserStrategyRequest,
     current_user: UserProfile = Depends(require_tier(BUILDER_MIN_TIER)),

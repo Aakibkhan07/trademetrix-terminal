@@ -463,7 +463,7 @@ async def test_create_strategy_endpoint(client, auth_headers):
              "expiry": "weekly", "strike_criteria": "atm_offset", "strike_value": 2.0},
         ],
     }
-    resp = await client.post("/api/v1/user-strategies", json=payload, headers=auth_headers)
+    resp = await client.post("/api/v1/user-strategies/", json=payload, headers=auth_headers)
     assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
     data = resp.json()
     assert "id" in data
@@ -472,7 +472,7 @@ async def test_create_strategy_endpoint(client, auth_headers):
 @pytest.mark.asyncio
 async def test_list_strategies_endpoint(client, auth_headers):
     """List own strategies."""
-    resp = await client.get("/api/v1/user-strategies", headers=auth_headers)
+    resp = await client.get("/api/v1/user-strategies/", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert "strategies" in data
@@ -481,7 +481,7 @@ async def test_list_strategies_endpoint(client, auth_headers):
 @pytest.mark.asyncio
 async def test_list_with_status_filter(client, auth_headers):
     """List strategies filtered by status."""
-    resp = await client.get("/api/v1/user-strategies?status_filter=draft", headers=auth_headers)
+    resp = await client.get("/api/v1/user-strategies/?status_filter=draft", headers=auth_headers)
     assert resp.status_code == 200
     assert "strategies" in resp.json()
 
@@ -526,7 +526,7 @@ async def test_create_and_get(client, auth_headers):
              "expiry": "weekly", "strike_criteria": "atm_offset", "strike_value": 0.0},
         ],
     }
-    create_resp = await client.post("/api/v1/user-strategies", json=payload, headers=auth_headers)
+    create_resp = await client.post("/api/v1/user-strategies/", json=payload, headers=auth_headers)
     assert create_resp.status_code == 201
     sid = create_resp.json()["id"]
 
@@ -554,7 +554,7 @@ async def test_update_strategy(client, auth_headers):
         "legs": [{"leg_order": 1, "segment": "options", "position": "buy", "option_type": "CE",
                    "lots": 1, "expiry": "weekly", "strike_criteria": "atm_offset", "strike_value": 0.0}],
     }
-    create_resp = await client.post("/api/v1/user-strategies", json=payload, headers=auth_headers)
+    create_resp = await client.post("/api/v1/user-strategies/", json=payload, headers=auth_headers)
     sid = create_resp.json()["id"]
 
     update_resp = await client.patch(f"/api/v1/user-strategies/{sid}", json={"name": "After Update", "status": "paused"}, headers=auth_headers)
@@ -575,7 +575,7 @@ async def test_delete_strategy(client, auth_headers):
         "legs": [{"leg_order": 1, "segment": "options", "position": "buy", "option_type": "CE",
                    "lots": 1, "expiry": "weekly", "strike_criteria": "atm_offset", "strike_value": 0.0}],
     }
-    create_resp = await client.post("/api/v1/user-strategies", json=payload, headers=auth_headers)
+    create_resp = await client.post("/api/v1/user-strategies/", json=payload, headers=auth_headers)
     sid = create_resp.json()["id"]
     del_resp = await client.delete(f"/api/v1/user-strategies/{sid}", headers=auth_headers)
     assert del_resp.status_code == 204
@@ -592,7 +592,7 @@ async def test_deploy_paper_success(client, auth_headers):
         "legs": [{"leg_order": 1, "segment": "options", "position": "buy", "option_type": "CE",
                    "lots": 1, "expiry": "weekly", "strike_criteria": "atm_offset", "strike_value": 0.0}],
     }
-    create_resp = await client.post("/api/v1/user-strategies", json=payload, headers=auth_headers)
+    create_resp = await client.post("/api/v1/user-strategies/", json=payload, headers=auth_headers)
     assert create_resp.status_code == 201
     sid = create_resp.json()["id"]
 
@@ -619,7 +619,7 @@ async def test_deploy_live_blocked(client, auth_headers):
         "legs": [{"leg_order": 1, "segment": "options", "position": "buy", "option_type": "CE",
                    "lots": 1, "expiry": "weekly", "strike_criteria": "atm_offset", "strike_value": 0.0}],
     }
-    create_resp = await client.post("/api/v1/user-strategies", json=payload, headers=auth_headers)
+    create_resp = await client.post("/api/v1/user-strategies/", json=payload, headers=auth_headers)
     sid = create_resp.json()["id"]
 
     deploy_resp = await client.post(

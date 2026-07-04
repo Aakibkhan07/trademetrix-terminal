@@ -374,8 +374,8 @@ export const api = {
 
   userStrategies: {
     list: (statusFilter?: string) =>
-      request(statusFilter ? `/user-strategies?status_filter=${statusFilter}` : '/user-strategies'),
-    create: (data: Record<string, unknown>) => request('/user-strategies', { method: 'POST', body: data }),
+      request(statusFilter ? `/user-strategies/?status_filter=${statusFilter}` : '/user-strategies/'),
+    create: (data: Record<string, unknown>) => request('/user-strategies/', { method: 'POST', body: data }),
     get: (id: string) => request(`/user-strategies/${id}`),
     update: (id: string, data: Record<string, unknown>) => request(`/user-strategies/${id}`, { method: 'PATCH', body: data }),
     delete: (id: string) => request(`/user-strategies/${id}`, { method: 'DELETE' }),
