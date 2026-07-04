@@ -56,6 +56,7 @@ class Settings(BaseSettings):
 
     broker_request_timeout: int = 15
     broker_connect_timeout: int = 10
+    user_strategy_max_lots: int = 10
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from core.db import async_supabase, get_supabase
-from core.models import UserProfile, role_satisfies, role_has_permission
+from core.models import TIER_ORDER, UserProfile, role_satisfies, role_has_permission
 from core.security import decode_access_token
 
 _bearer = HTTPBearer(auto_error=False)
@@ -85,6 +85,17 @@ def require_permission(permission: str):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permission denied: {permission}",
+            )
+        return user
+    return checker
+
+
+def require_tier(min_tier: str):
+    async def checker(user: UserProfile = Depends(get_current_user)) -> UserProfile:
+        if TIER_ORDER.get(user.subscription_tier, -1) < TIER_ORDER.get(min_tier, 99):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Your plan ({user.subscription_tier}) does not support this feature. Minimum required tier: {min_tier}.",
             )
         return user
     return checker

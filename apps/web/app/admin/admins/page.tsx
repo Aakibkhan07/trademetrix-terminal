@@ -57,7 +57,7 @@ export default function AdminsPage() {
   const [newRole, setNewRole] = useState('admin')
   const [submitting, setSubmitting] = useState(false)
 
-  const isSuperAdmin = currentUser?.role === 'super_admin'
+  const isSuperAdmin = (currentUser as unknown as Record<string, unknown>)?.role === 'super_admin'
 
   const fetchAdmins = useCallback(async () => {
     setLoading(true); setError('')

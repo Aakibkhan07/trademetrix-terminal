@@ -142,37 +142,6 @@ class RiskGuard:
         if current_dd >= settings.max_drawdown_pct:
             return {"allowed": False, "reason": f"Drawdown {current_dd:.1f}% exceeds max {settings.max_drawdown_pct:.1f}% Auto-pause triggered"}
         return {"allowed": True, "reason": ""}
-        order_value = order.quantity * (order.price or 0)
-        current_usage = self._get_current_capital_usage()
-        if current_usage + order_value > settings.max_capital:
-            return {"allowed": False, "reason": f"Order value {order_value:.2f} would exceed max capital {settings.max_capital:.2f}"}
-        return {"allowed": True, "reason": ""}
-
-    def _check_max_position_size(self, order: NormalizedOrder, settings: RiskSettings) -> dict:
-        if settings.max_position_size <= 0:
-            return {"allowed": True, "reason": ""}
-        order_value = order.quantity * (order.price or 0)
-        if order_value > settings.max_position_size:
-            return {"allowed": False, "reason": f"Order value {order_value:.2f} exceeds max position size {settings.max_position_size:.2f}"}
-        return {"allowed": True, "reason": ""}
-
-    def _check_max_open_positions(self, order: NormalizedOrder, settings: RiskSettings) -> dict:
-        if settings.max_open_positions <= 0:
-            return {"allowed": True, "reason": ""}
-        open_count = self._get_open_position_count()
-        if open_count >= settings.max_open_positions:
-            return {"allowed": False, "reason": f"Open positions {open_count} >= max {settings.max_open_positions}"}
-        return {"allowed": True, "reason": ""}
-
-    def _check_max_daily_loss(self, settings: RiskSettings) -> dict:
-        max_loss = settings.max_daily_loss
-        if max_loss <= 0:
-            tier = self._get_user_tier()
-            max_loss = TIER_DAILY_LOSS.get(tier, 2000.0)
-        today_pnl = self._get_today_pnl()
-        if today_pnl <= -max_loss:
-            return {"allowed": False, "reason": f"Daily loss {today_pnl:.2f} exceeds max {max_loss:.2f}. Circuit breaker triggered."}
-        return {"allowed": True, "reason": ""}
 
     async def _get_user_tier(self) -> str:
         profile = await async_safe_single(
@@ -181,14 +150,6 @@ class RiskGuard:
             .eq("id", self.user_id)
         )
         return profile.get("subscription_tier", "free") if profile else "free"
-
-    def _check_drawdown(self, settings: RiskSettings) -> dict:
-        if settings.max_drawdown_pct <= 0:
-            return {"allowed": True, "reason": ""}
-        current_dd = self._get_current_drawdown()
-        if current_dd >= settings.max_drawdown_pct:
-            return {"allowed": False, "reason": f"Drawdown {current_dd:.1f}% exceeds max {settings.max_drawdown_pct:.1f}% Auto-pause triggered"}
-        return {"allowed": True, "reason": ""}
 
     async def _get_current_capital_usage(self) -> float:
         rows = await async_safe_execute(get_supabase().table("positions_snapshot").select("*").eq("user_id", self.user_id))

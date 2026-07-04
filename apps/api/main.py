@@ -39,6 +39,7 @@ from routes.v1_admin import router as admin_router
 from routes.v1_alerts import router as alerts_router
 from routes.v1_otp import router as otp_router
 from routes.v1_tradingview import router as tradingview_router
+from routes.v1_user_strategies import router as user_strategies_router
 from routes.v1_builder import router as builder_router
 from routes.v1_events import router as events_router
 from routes.v1_analytics import router as analytics_router
@@ -130,6 +131,7 @@ app.include_router(events_router, prefix="/api/v1")
 app.include_router(analytics_router)
 app.include_router(feedback_router)
 app.include_router(prometheus_router)
+app.include_router(user_strategies_router, prefix="/api/v1")
 
 
 @app.exception_handler(AppException)

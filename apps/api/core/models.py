@@ -305,3 +305,134 @@ class UserProfile(BaseModel):
     role: str = ""
     subscription_tier: str = "free"
     created_at: datetime | None = None
+
+
+# ── User-Created Visual Strategy Builder Models ──
+
+class UserStrategyStatus(StrEnum):
+    draft = "draft"
+    active = "active"
+    paused = "paused"
+
+class StrategyType(StrEnum):
+    intraday = "intraday"
+    positional = "positional"
+
+class UnderlyingFrom(StrEnum):
+    cash = "cash"
+    futures = "futures"
+
+class LegSegment(StrEnum):
+    options = "options"
+    futures = "futures"
+
+class LegPosition(StrEnum):
+    buy = "buy"
+    sell = "sell"
+
+class LegOptionType(StrEnum):
+    ce = "CE"
+    pe = "PE"
+
+class LegExpiry(StrEnum):
+    weekly = "weekly"
+    next_weekly = "next_weekly"
+    monthly = "monthly"
+
+class StrikeCriteria(StrEnum):
+    atm_offset = "atm_offset"
+    premium_closest = "premium_closest"
+    premium_range = "premium_range"
+    delta = "delta"
+
+class SLTargetType(StrEnum):
+    percent = "percent"
+    points = "points"
+    premium = "premium"
+
+
+class UserStrategyLeg(BaseModel):
+    id: str = ""
+    strategy_id: str = ""
+    leg_order: int
+    segment: LegSegment
+    position: LegPosition
+    option_type: LegOptionType | None = None
+    lots: int = 1
+    expiry: LegExpiry
+    strike_criteria: StrikeCriteria
+    strike_value: float
+    leg_sl_type: SLTargetType | None = None
+    leg_sl_value: float | None = None
+    leg_target_type: SLTargetType | None = None
+    leg_target_value: float | None = None
+    trailing_sl_type: SLTargetType | None = None
+    trailing_sl_value: float | None = None
+    trailing_activation: float | None = None
+
+
+class UserStrategy(BaseModel):
+    id: str = ""
+    user_id: str = ""
+    name: str
+    status: UserStrategyStatus = UserStrategyStatus.draft
+    strategy_type: StrategyType = StrategyType.intraday
+    index_symbol: str
+    underlying_from: UnderlyingFrom = UnderlyingFrom.cash
+    entry_time: str  # HH:MM format
+    exit_time: str   # HH:MM format
+    days_of_week: list[int] = [1, 2, 3, 4, 5]
+    overall_sl_type: SLTargetType | None = None
+    overall_sl_value: float | None = None
+    overall_target_type: SLTargetType | None = None
+    overall_target_value: float | None = None
+    legs: list[UserStrategyLeg] = []
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class CreateUserStrategyRequest(BaseModel):
+    name: str
+    strategy_type: StrategyType = StrategyType.intraday
+    index_symbol: str
+    underlying_from: UnderlyingFrom = UnderlyingFrom.cash
+    entry_time: str
+    exit_time: str
+    days_of_week: list[int] = [1, 2, 3, 4, 5]
+    overall_sl_type: SLTargetType | None = None
+    overall_sl_value: float | None = None
+    overall_target_type: SLTargetType | None = None
+    overall_target_value: float | None = None
+    legs: list[UserStrategyLeg]
+
+
+class UpdateUserStrategyRequest(BaseModel):
+    name: str | None = None
+    status: UserStrategyStatus | None = None
+    strategy_type: StrategyType | None = None
+    index_symbol: str | None = None
+    underlying_from: UnderlyingFrom | None = None
+    entry_time: str | None = None
+    exit_time: str | None = None
+    days_of_week: list[int] | None = None
+    overall_sl_type: SLTargetType | None = None
+    overall_sl_value: float | None = None
+    overall_target_type: SLTargetType | None = None
+    overall_target_value: float | None = None
+    legs: list[UserStrategyLeg] | None = None
+
+
+class DeployStrategyRequest(BaseModel):
+    mode: str  # "PAPER" or "LIVE"
+
+
+class ExecutionPlan(BaseModel):
+    orders: list[NormalizedOrder]
+    legs: list[UserStrategyLeg]
+    strategy_id: str
+    total_lots: int
+    is_simulated: bool = False
+
+    @property
+    def total_quantity(self) -> int:
+        return sum(o.quantity for o in self.orders)

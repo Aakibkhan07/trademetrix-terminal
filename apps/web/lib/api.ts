@@ -372,6 +372,16 @@ export const api = {
     export: (id: string, format?: string) => request(`/builder/strategies/${id}/export${format ? `?format=${format}` : ''}`),
   },
 
+  userStrategies: {
+    list: (statusFilter?: string) =>
+      request(statusFilter ? `/user-strategies?status_filter=${statusFilter}` : '/user-strategies'),
+    create: (data: Record<string, unknown>) => request('/user-strategies', { method: 'POST', body: data }),
+    get: (id: string) => request(`/user-strategies/${id}`),
+    update: (id: string, data: Record<string, unknown>) => request(`/user-strategies/${id}`, { method: 'PATCH', body: data }),
+    delete: (id: string) => request(`/user-strategies/${id}`, { method: 'DELETE' }),
+    deploy: (id: string, mode: string) => request(`/user-strategies/${id}/deploy`, { method: 'POST', body: { mode } }),
+  },
+
   events: {
     stream: () => `${API_BASE}/events/stream`,
   },

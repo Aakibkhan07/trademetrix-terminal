@@ -57,7 +57,7 @@ def _apply_test_mocks():
                 id=test_user_id,
                 email=test_email,
                 full_name="Test User",
-                subscription_tier="free",
+                subscription_tier="enterprise",
             )
         from fastapi import HTTPException, status
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")

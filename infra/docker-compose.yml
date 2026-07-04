@@ -16,15 +16,16 @@ services:
     container_name: trademetrix_redis
     restart: unless-stopped
     networks: [trademetrix]
+    env_file: ./.env.production
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "$REDIS_PASSWORD", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
     volumes:
       - redis-data:/data
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    command: ["sh", "-c", "redis-server /usr/local/etc/redis/redis.conf --requirepass \"$REDIS_PASSWORD\""]
     logging: *default-logging
     mem_limit: 256m
     mem_reservation: 128m
@@ -38,9 +39,6 @@ services:
     restart: unless-stopped
     networks: [trademetrix]
     env_file: ./.env.production
-    environment:
-      ENV: production
-      REDIS_URL: redis://:tm_redis_prod_2026@redis:6379/0
     depends_on:
       redis: { condition: service_healthy }
     healthcheck:

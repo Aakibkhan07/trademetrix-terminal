@@ -880,3 +880,40 @@
 .data-table th { padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-sub); font-size: 9px; border-bottom: 1px solid var(--border); }
 .data-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
 .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+
+/* ===== BUILDER ===== */
+.t-builder-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.t-builder-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.t-builder-legs {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.t-builder-leg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.t-builder-err {
+  font-size: 10px;
+  color: #ef4444;
+  margin: 2px 0 0;
+  line-height: 1.2;
+}
+@media (max-width: 900px) {
+  .t-builder-layout { grid-template-columns: 1fr; }
+  .t-builder-settings { order: 1; }
+  .t-builder-legs { order: 0; }
+}
+@media (max-width: 640px) {
+  .t-builder-leg-grid { grid-template-columns: 1fr; }
+}
