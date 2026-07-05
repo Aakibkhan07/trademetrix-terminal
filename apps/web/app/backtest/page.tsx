@@ -316,7 +316,7 @@ export default function BacktestPage() {
                 {kpiCard('Sharpe', r.sharpe_ratio.toFixed(2), r.sharpe_ratio >= 1 ? 'Good' : 'Below threshold', r.sharpe_ratio >= 1 ? 'var(--text-green)' : 'var(--amber)')}
                 {kpiCard('Max DD', `-${r.max_drawdown.toFixed(1)}%`, drawdowns[0] ? `${drawdowns[0].depth.toFixed(1)}% deepest` : '', 'var(--text-red)')}
                 {kpiCard('Avg Win / Loss', `+${r.avg_win.toFixed(0)} / -${r.avg_loss.toFixed(0)}`, `Best: +${r.largest_win.toFixed(0)} / Worst: ${r.largest_loss.toFixed(0)}`)}
-                {kpiCard('Candles', r.candles_analyzed.toLocaleString(), `${result!.symbol} ${result!.interval}`)}
+                {kpiCard('Candles', result!.candles_analyzed.toLocaleString(), `${result!.symbol} ${result!.interval}`)}
               </div>
 
               {/* Charts Row */}
