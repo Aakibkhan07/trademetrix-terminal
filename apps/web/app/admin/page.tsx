@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useApi } from '@/lib/use-api'
 import { useAuth } from '@/lib/auth-context'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta } from '@/lib/api'
@@ -84,6 +84,13 @@ function NotAuthorized() {
 
 export default function AdminPage() {
   const { isAdmin, loading: authLoading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!authLoading && !isAdmin) {
+      router.replace('/dashboard')
+    }
+  }, [authLoading, isAdmin, router])
 
   if (authLoading) {
     return (
@@ -96,7 +103,7 @@ export default function AdminPage() {
     )
   }
 
-  if (!isAdmin) return <NotAuthorized />
+  if (!isAdmin) return null
 
   return (
     <Suspense fallback={<SkeletonCard />}>
@@ -122,65 +129,93 @@ function AdminDashboard() {
 }
 
 function DashboardTab() {
-  const { data: statsData } = useApi<AdminStats>('/admin/stats')
+  const { data: statsData, loading, error } = useApi<AdminStats>('/admin/stats')
+
+  if (loading) {
+    return (
+      <div className="t-grid-4" style={{ gap: 10 }}>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="t-panel" style={{ padding: '14px 16px' }}>
+            <SkeletonLine w="40%" />
+            <div style={{ height: 8 }} />
+            <SkeletonLine w="60%" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--red)' }}>
+        <div className="t-faint" style={{ fontSize: 9, fontWeight: 600 }}>ERROR</div>
+        <div style={{ fontSize: 13, marginTop: 4 }}>Failed to load dashboard stats.</div>
+        <div className="t-faint" style={{ fontSize: 11, marginTop: 4 }}>{error.message}</div>
+      </div>
+    )
+  }
+
+  if (!statsData) {
+    return (
+      <div className="t-panel" style={{ padding: '14px 16px' }}>
+        <div className="t-faint" style={{ fontSize: 12 }}>No stats available yet.</div>
+      </div>
+    )
+  }
 
   return (
     <div>
-      {statsData && (
-        <div className="t-grid-4" style={{ gap: 10, marginBottom: 20 }}>
-          <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--cyan)' }}>
-            <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>TOTAL USERS</div>
-            <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.total_users}</div>
-          </div>
-          <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--violet)' }}>
-            <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ADMINS</div>
-            <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.total_admins}</div>
-          </div>
-          <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--green)' }}>
-            <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ACTIVE ASSIGNMENTS</div>
-            <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.active_assignments}</div>
-          </div>
-          <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--amber)' }}>
-            <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>STRATEGIES</div>
-            <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.total_strategies}</div>
-          </div>
+      <div className="t-grid-4" style={{ gap: 10, marginBottom: 20 }}>
+        <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--cyan)' }}>
+          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>TOTAL USERS</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.total_users}</div>
         </div>
-      )}
+        <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--violet)' }}>
+          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ADMINS</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.total_admins}</div>
+        </div>
+        <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--green)' }}>
+          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ACTIVE ASSIGNMENTS</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.active_assignments}</div>
+        </div>
+        <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--amber)' }}>
+          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>STRATEGIES</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.total_strategies}</div>
+        </div>
+      </div>
 
-      {statsData && (
-        <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 20 }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>TIER DISTRIBUTION</h3>
-          <div style={{ display: 'flex', gap: 4, height: 6, borderRadius: 3, overflow: 'hidden' }}>
-            {['free', 'starter', 'pro', 'enterprise'].map(tier => {
-              const count = statsData.tier_distribution[tier] || 0
-              const pct = statsData.total_users > 0 ? (count / statsData.total_users) * 100 : 0
-              if (count === 0) return null
-              return (
-                <div key={tier} title={`${tier}: ${count} users (${pct.toFixed(0)}%)`}
-                  style={{
-                    width: `${pct}%`, height: '100%',
-                    background: tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444',
-                    borderRadius: 3,
-                  }} />
-              )
-            })}
-          </div>
-          <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
-            {['free', 'starter', 'pro', 'enterprise'].map(tier => {
-              const count = statsData.tier_distribution[tier] || 0
-              if (count === 0) return null
-              const color = tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444'
-              return (
-                <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
-                  <span style={{ textTransform: 'capitalize', color: 'var(--text-sub)' }}>{tier}</span>
-                  <span style={{ fontWeight: 600 }}>{count}</span>
-                </div>
-              )
-            })}
-          </div>
+      <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 20 }}>
+        <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>TIER DISTRIBUTION</h3>
+        <div style={{ display: 'flex', gap: 4, height: 6, borderRadius: 3, overflow: 'hidden' }}>
+          {['free', 'starter', 'pro', 'enterprise'].map(tier => {
+            const count = statsData.tier_distribution[tier] || 0
+            const pct = statsData.total_users > 0 ? (count / statsData.total_users) * 100 : 0
+            if (count === 0) return null
+            return (
+              <div key={tier} title={`${tier}: ${count} users (${pct.toFixed(0)}%)`}
+                style={{
+                  width: `${pct}%`, height: '100%',
+                  background: tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444',
+                  borderRadius: 3,
+                }} />
+            )
+          })}
         </div>
-      )}
+        <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
+          {['free', 'starter', 'pro', 'enterprise'].map(tier => {
+            const count = statsData.tier_distribution[tier] || 0
+            if (count === 0) return null
+            const color = tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444'
+            return (
+              <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
+                <span style={{ textTransform: 'capitalize', color: 'var(--text-sub)' }}>{tier}</span>
+                <span style={{ fontWeight: 600 }}>{count}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

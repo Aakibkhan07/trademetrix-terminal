@@ -2,9 +2,8 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { api } from '@/lib/api'
 import Logo from '@/components/logo'
 import Header from '@/components/header'
 import MarketTicker from '@/components/market-ticker'
@@ -12,57 +11,28 @@ import StatusBar from '@/components/status-bar'
 
 const NAV_SECTIONS = [
   {
-    label: 'Overview',
+    label: 'Trading',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: 'D' },
       { href: '/terminal', label: 'Terminal', icon: 'T' },
-    ],
-  },
-  {
-    label: 'Trading',
-    items: [
-      { href: '/trade', label: 'Trade', icon: 'O' },
       { href: '/positions', label: 'Positions', icon: 'P' },
-      { href: '/marketdata', label: 'Market Data', icon: 'M' },
       { href: '/strategies', label: 'Strategies', icon: 'S' },
+      { href: '/backtest', label: 'Backtest', icon: 'K' },
       { href: '/terminal/option-chain', label: 'Option Chain', icon: 'C' },
     ],
   },
   {
-    label: 'Management',
+    label: 'Tools',
     items: [
-      { href: '/brokers', label: 'Brokers', icon: 'B' },
-      { href: '/backtest', label: 'Backtest', icon: 'K' },
       { href: '/journal', label: 'Journal', icon: 'J' },
-      { href: '/alerts', label: 'Alerts', icon: '!' },
+      { href: '/ai', label: 'AI Assistant', icon: 'A' },
       { href: '/risk', label: 'Risk Control', icon: 'R' },
     ],
   },
   {
-    label: 'Intelligence',
+    label: 'Account',
     items: [
-      { href: '/ai', label: 'AI Desk', icon: 'A' },
-      { href: '/copilot', label: 'Copilot', icon: 'C' },
-      { href: '/analytics', label: 'Analytics', icon: 'N' },
-      { href: '/transparency', label: 'Reports', icon: 'E' },
-    ],
-  },
-  {
-    label: 'Resources',
-    items: [
-      { href: '/help', label: 'Help Center', icon: '?' },
-      { href: '/changelog', label: 'Changelog', icon: '~' },
-      { href: '/feedback', label: 'Feedback', icon: '!' },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      { href: '/account', label: 'Account', icon: 'U' },
       { href: '/settings', label: 'Settings', icon: '*' },
-      { href: '/pricing', label: 'Pricing', icon: '$' },
-      { href: '/admin', label: 'Admin', icon: '#' },
-      { href: '/status', label: 'Status', icon: '!' },
     ],
   },
 ]
@@ -79,19 +49,10 @@ function isStandalone(pathname: string) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, loading, signout } = useAuth()
-  const [killSwitchActive, setKillSwitchActive] = useState(false)
+  const { user, loading, isAdmin, signout } = useAuth()
 
   const isAuthenticated = !!user
   const standalone = isStandalone(pathname)
-
-  useEffect(() => {
-    if (!isAuthenticated || standalone) return
-    api.risk.killSwitchStatus().then((d: unknown) => {
-      const data = d as { kill_switch_enabled: boolean }
-      setKillSwitchActive(data.kill_switch_enabled)
-    }).catch(() => {})
-  }, [isAuthenticated, standalone])
 
   useEffect(() => {
     if (!loading && !isAuthenticated && !standalone) {
@@ -138,25 +99,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         ))}
 
+        {isAdmin && (
+          <div>
+            <div className="t-sidebar-section">
+              <div className="t-sidebar-label">Admin</div>
+            </div>
+            <Link
+              href="/admin"
+              className={`t-nav-item ${pathname.startsWith('/admin') ? 'active' : ''}`}
+            >
+              <span className="t-nav-icon">#</span>
+              <span className="t-nav-text">Admin Panel</span>
+            </Link>
+          </div>
+        )}
+
         <div className="t-sidebar-footer">
-          <button
-            className={`t-sidebar-footer-item ${killSwitchActive ? 'active' : ''}`}
-            onClick={async () => {
-              try {
-                if (killSwitchActive) {
-                  await api.risk.disableKillSwitch()
-                  setKillSwitchActive(false)
-                } else {
-                  await api.risk.enableKillSwitch()
-                  setKillSwitchActive(true)
-                }
-              } catch { /* ignore failed toggle */ }
-            }}
-            style={killSwitchActive ? { color: 'var(--text-red)' } : {}}
-          >
-            <span className={`t-dot ${killSwitchActive ? 't-dot-red t-dot-pulse' : 't-dot-sub'}`} />
-            <span>{killSwitchActive ? 'KILL SWITCH ON' : 'Kill Switch'}</span>
-          </button>
           <button className="t-sidebar-footer-item" onClick={signout}>
             <span style={{ fontSize: 11 }}>X</span>
             <span>Sign Out</span>

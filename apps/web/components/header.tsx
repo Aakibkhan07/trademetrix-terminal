@@ -10,15 +10,12 @@ const PAGE_TABS: Record<string, { label: string; tabs: { key: string; label: str
   '/terminal': { label: 'Terminal', tabs: [{ key: 'overview', label: 'Overview' }, { key: 'positions', label: 'Positions' }, { key: 'orders', label: 'Orders' }] },
   '/trade': { label: 'Trade', tabs: [{ key: 'options', label: 'Options' }, { key: 'futures', label: 'Futures' }] },
   '/positions': { label: 'Positions', tabs: [{ key: 'positions', label: 'Positions' }, { key: 'orders', label: 'Orders' }, { key: 'holdings', label: 'Holdings' }] },
-  '/marketdata': { label: 'Market Data', tabs: [{ key: 'watch', label: 'Watch' }, { key: 'chain', label: 'Chain' }] },
   '/strategies': { label: 'Strategies', tabs: [] },
-  '/brokers': { label: 'Brokers', tabs: [] },
   '/backtest': { label: 'Backtest', tabs: [] },
   '/journal': { label: 'Journal', tabs: [] },
-  '/account': { label: 'Account', tabs: [] },
   '/risk': { label: 'Risk', tabs: [] },
-  '/ai': { label: 'AI Desk', tabs: [] },
-  '/transparency': { label: 'Reports', tabs: [] },
+  '/ai': { label: 'AI Assistant', tabs: [] },
+  '/settings': { label: 'Settings', tabs: [] },
 }
 
 export default function Header() {
@@ -66,8 +63,8 @@ export default function Header() {
       <div className="t-header-right">
         <button className="t-btn t-btn-xs t-btn-ghost" onClick={toggleTheme}
           title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          style={{ fontSize: 13, padding: '2px 6px' }}>
-          {theme === 'dark' ? 'Light' : 'Dark'}
+          style={{ fontSize: 15, padding: '2px 6px', lineHeight: 1 }}>
+          {theme === 'dark' ? '\u2600' : '\u263D'}
         </button>
 
         {nifty && (
