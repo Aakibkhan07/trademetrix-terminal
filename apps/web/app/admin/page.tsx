@@ -145,10 +145,13 @@ function DashboardTab() {
   const [health, setHealth] = useState<HealthData | null>(null)
   const [healthReady, setHealthReady] = useState<HealthReady | null>(null)
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+  const API_ROOT = API_BASE.replace('/api/v1', '')
+
   useEffect(() => {
-    api.get<HealthData>('/health').then(setHealth).catch(() => {})
-    api.get<HealthReady>('/health/ready').then(setHealthReady).catch(() => {})
-  }, [])
+    fetch(`${API_ROOT}/health`).then(r => r.json()).then(setHealth).catch(() => {})
+    fetch(`${API_ROOT}/health/ready`).then(r => r.json()).then(setHealthReady).catch(() => {})
+  }, [API_ROOT])
 
   if (loading) {
     return (

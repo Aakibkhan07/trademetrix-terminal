@@ -8,8 +8,8 @@ from core.security import decrypt_broker_credentials, encrypt_broker_credentials
 
 logger = logging.getLogger(__name__)
 
-TOKEN_REFRESH_TIMEOUT = 30.0
-TOKEN_REFRESH_MAX_RETRIES = 3
+TOKEN_REFRESH_TIMEOUT = 10.0
+TOKEN_REFRESH_MAX_RETRIES = 1
 TOKEN_REFRESH_BASE_DELAY = 1.0
 TOKEN_EXPIRY_BUFFER_MINUTES = 5
 

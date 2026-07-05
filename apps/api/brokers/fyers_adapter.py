@@ -86,7 +86,7 @@ class FyersAdapter(BaseBroker):
             resp = await client.get(
                 f"{self._base_url}/profile",
                 headers=self._headers(),
-                timeout=httpx.Timeout(10, connect=5),
+                timeout=httpx.Timeout(5, connect=3),
             )
             if resp.status_code == 401:
                 raise ValueError("Fyers authentication failed — invalid access_token")

@@ -58,9 +58,9 @@ class Settings(BaseSettings):
 
     request_timeout_seconds: int = 60
     max_request_size_bytes: int = 102400
+    broker_request_timeout: int = 8
 
-    broker_request_timeout: int = 15
-    broker_connect_timeout: int = 10
+    broker_connect_timeout: int = 5
     user_strategy_max_lots: int = 10
 
     @property
