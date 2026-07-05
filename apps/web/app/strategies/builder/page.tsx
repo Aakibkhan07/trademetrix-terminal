@@ -215,7 +215,7 @@ export default function StrategyBuilderPage() {
           config: b.config,
         })),
       }
-      await api.strategies.create({ name: strategyName, type: 'visual_builder', config })
+      await api.strategies.create({ name: strategyName, type: 'visual', config })
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Failed to save')
     } finally {
