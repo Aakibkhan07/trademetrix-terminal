@@ -270,7 +270,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from core.db import async_supabase
 from main import app
 from core.deps import get_current_user
-from routes.v1_user_strategies import BUILDER_MIN_TIER
 
 
 @pytest.fixture(autouse=True)

@@ -10,6 +10,7 @@ import time
 from datetime import UTC, datetime
 
 from core.cache import cache
+from core.capabilities import resolve_capabilities_by_id
 from core.models import (
     AuditLogEntry, NormalizedOrder, OrderSide, OrderStatus, OrderType,
     ProductType, SLTargetType, UserStrategyLeg,
@@ -187,6 +188,9 @@ async def handle_trailing_sl(
 
     Returns: {"action": "trailed" | "triggered" | "none", "details": ...}
     """
+    caps = await resolve_capabilities_by_id(user_id)
+    if not caps.trailing_sl_allowed:
+        return {"action": "none", "details": "trailing_sl_not_in_plan"}
     _, current_stop, is_active = await compute_trailing_stop(leg, entry_price, current_price, side)
     if current_stop is None:
         return {"action": "none", "details": "no_trailing_sl"}
@@ -256,6 +260,9 @@ async def handle_reentry(
 
     Returns: {"action": "re_entered" | "skipped" | "blocked", ...}
     """
+    caps = await resolve_capabilities_by_id(user_id)
+    if not caps.reentry_squareoff_allowed:
+        return {"action": "blocked", "details": "reentry_not_in_plan"}
     reentry_count = await _get_reentry_count(user_id, strategy_id, leg.leg_order)
     if reentry_count >= max_reentries:
         return {"action": "skipped", "details": "max_reentries_reached"}

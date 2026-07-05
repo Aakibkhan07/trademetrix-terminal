@@ -5,7 +5,7 @@ square-off trigger, kill-switch cancellation.
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from core.models import (
     LegOptionType, LegPosition, LegSegment, SLTargetType, StrikeCriteria,
@@ -164,7 +164,8 @@ def test_build_square_off_order_sell_to_buy():
 async def test_reentry_asap():
     """RE_ASAP: re-enters immediately after SL hit."""
     leg = make_leg()
-    with patch("risk.leg_controls._get_reentry_count", AsyncMock(return_value=0)), \
+    with patch("risk.leg_controls.resolve_capabilities_by_id", AsyncMock(return_value=Mock(spec=["reentry_squareoff_allowed"], reentry_squareoff_allowed=True))), \
+         patch("risk.leg_controls._get_reentry_count", AsyncMock(return_value=0)), \
          patch("risk.leg_controls._set_reentry_count", AsyncMock()), \
          patch("risk.leg_controls.execute_leg_control", AsyncMock(return_value={"success": True, "reason": ""})):
 
@@ -180,7 +181,8 @@ async def test_reentry_asap():
 async def test_reentry_cost_waits():
     """RE_COST: waits until price returns to entry before re-entering."""
     leg = make_leg()
-    with patch("risk.leg_controls._get_reentry_count", AsyncMock(return_value=0)), \
+    with patch("risk.leg_controls.resolve_capabilities_by_id", AsyncMock(return_value=Mock(reentry_squareoff_allowed=True))), \
+         patch("risk.leg_controls._get_reentry_count", AsyncMock(return_value=0)), \
          patch("risk.leg_controls._set_reentry_count", AsyncMock()) as mock_set, \
          patch("risk.leg_controls.execute_leg_control", AsyncMock(return_value={"success": True, "reason": ""})):
 
@@ -197,7 +199,8 @@ async def test_reentry_cost_waits():
 async def test_reentry_cost_blocks_above_entry():
     """RE_COST: blocks re-entry when price is above entry (for buy)."""
     leg = make_leg()
-    with patch("risk.leg_controls._get_reentry_count", AsyncMock(return_value=0)), \
+    with patch("risk.leg_controls.resolve_capabilities_by_id", AsyncMock(return_value=Mock(reentry_squareoff_allowed=True))), \
+         patch("risk.leg_controls._get_reentry_count", AsyncMock(return_value=0)), \
          patch("risk.leg_controls.execute_leg_control", AsyncMock()) as mock_exec:
 
         result = await handle_reentry(
@@ -212,7 +215,8 @@ async def test_reentry_cost_blocks_above_entry():
 async def test_reentry_max_reentries_hard_cap():
     """Hard cap MAX_REENTRIES prevents infinite re-entries."""
     leg = make_leg()
-    with patch("risk.leg_controls._get_reentry_count", AsyncMock(return_value=MAX_REENTRIES)), \
+    with patch("risk.leg_controls.resolve_capabilities_by_id", AsyncMock(return_value=Mock(reentry_squareoff_allowed=True))), \
+         patch("risk.leg_controls._get_reentry_count", AsyncMock(return_value=MAX_REENTRIES)), \
          patch("risk.leg_controls.execute_leg_control", AsyncMock()) as mock_exec:
 
         result = await handle_reentry(
@@ -236,7 +240,8 @@ async def test_reentry_count_persists():
         nonlocal _counter
         _counter = args[3]  # count is 4th positional arg
 
-    with patch("risk.leg_controls._get_reentry_count", side_effect=mock_get), \
+    with patch("risk.leg_controls.resolve_capabilities_by_id", AsyncMock(return_value=Mock(reentry_squareoff_allowed=True))), \
+         patch("risk.leg_controls._get_reentry_count", side_effect=mock_get), \
          patch("risk.leg_controls._set_reentry_count", side_effect=mock_set), \
          patch("risk.leg_controls.execute_leg_control", AsyncMock(return_value={"success": True, "reason": ""})):
 
@@ -291,7 +296,8 @@ async def test_restart_safety_persists_counter():
         assert count == 2
 
     # Process B: tries re-entry, blocked at max (counter=3 = MAX_REENTRIES)
-    with patch.object(lc, "_get_reentry_count", AsyncMock(return_value=MAX_REENTRIES)), \
+    with patch.object(lc, "resolve_capabilities_by_id", AsyncMock(return_value=Mock(reentry_squareoff_allowed=True))), \
+         patch.object(lc, "_get_reentry_count", AsyncMock(return_value=MAX_REENTRIES)), \
          patch.object(lc, "execute_leg_control", AsyncMock()) as mock_exec:
         result = await handle_reentry(
             "user-r", "strat-r", leg, ReentryMode.RE_ASAP,

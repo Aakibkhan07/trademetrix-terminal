@@ -1,8 +1,9 @@
 import logging
 from datetime import UTC, datetime, timedelta, timezone
 
+from core.capabilities import resolve_capabilities_by_id
 from core.db import async_supabase, get_supabase
-from core.models import NormalizedOrder, RiskSettings, TIER_DAILY_LOSS
+from core.models import NormalizedOrder, RiskSettings
 from core.safe_query import async_safe_execute, async_safe_insert, async_safe_single, async_safe_update, safe_execute, safe_insert, safe_single, safe_update
 
 logger = logging.getLogger(__name__)
@@ -128,8 +129,8 @@ class RiskGuard:
     async def _check_max_daily_loss(self, settings: RiskSettings) -> dict:
         max_loss = settings.max_daily_loss
         if max_loss <= 0:
-            tier = await self._get_user_tier()
-            max_loss = TIER_DAILY_LOSS.get(tier, 2000.0)
+            caps = await resolve_capabilities_by_id(self.user_id)
+            max_loss = caps.daily_loss_floor
         today_pnl = await self._get_today_pnl()
         if today_pnl <= -max_loss:
             return {"allowed": False, "reason": f"Daily loss {today_pnl:.2f} exceeds max {max_loss:.2f}. Circuit breaker triggered."}
@@ -142,14 +143,6 @@ class RiskGuard:
         if current_dd >= settings.max_drawdown_pct:
             return {"allowed": False, "reason": f"Drawdown {current_dd:.1f}% exceeds max {settings.max_drawdown_pct:.1f}% Auto-pause triggered"}
         return {"allowed": True, "reason": ""}
-
-    async def _get_user_tier(self) -> str:
-        profile = await async_safe_single(
-            get_supabase().table("profiles")
-            .select("subscription_tier")
-            .eq("id", self.user_id)
-        )
-        return profile.get("subscription_tier", "free") if profile else "free"
 
     async def _get_current_capital_usage(self) -> float:
         rows = await async_safe_execute(get_supabase().table("positions_snapshot").select("*").eq("user_id", self.user_id))

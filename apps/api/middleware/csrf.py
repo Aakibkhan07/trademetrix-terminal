@@ -16,6 +16,7 @@ SAFE_PATHS = {
     "/api/v1/auth/register-with-otp",
     "/api/v1/auth/verify-otp",
     "/api/v1/tradingview/webhook",
+    "/api/v1/subscriptions/webhook/",
     "/api/v1/marketdata/feed/start",
     "/api/v1/marketdata/feed/stop",
     "/api/v1/marketdata/simulator/start",

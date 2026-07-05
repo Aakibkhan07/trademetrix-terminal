@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from core.capabilities import Capabilities, resolve_capabilities
 from core.db import async_supabase, get_supabase
 from core.models import TIER_ORDER, UserProfile, role_satisfies, role_has_permission
 from core.security import decode_access_token
@@ -90,7 +91,35 @@ def require_permission(permission: str):
     return checker
 
 
+async def get_capabilities(
+    user: UserProfile = Depends(get_current_user),
+) -> Capabilities:
+    return await resolve_capabilities(user)
+
+
+def require_feature(feature: str):
+    """Require a specific capability feature.
+
+    Example: require_feature("builder"), require_feature("trailing_sl")
+    """
+    async def checker(
+        user: UserProfile = Depends(get_current_user),
+        caps: Capabilities = Depends(get_capabilities),
+    ) -> UserProfile:
+        if user.role == "super_admin":
+            return user
+        allowed = getattr(caps, f"{feature}_allowed", None)
+        if allowed is not True:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Your plan ({caps.tier}) does not include '{feature}'. Please upgrade to access this feature.",
+            )
+        return user
+    return checker
+
+
 def require_tier(min_tier: str):
+    """Legacy tier gate — delegates to capabilities resolver for subscription check."""
     async def checker(user: UserProfile = Depends(get_current_user)) -> UserProfile:
         if user.role == "super_admin":
             return user

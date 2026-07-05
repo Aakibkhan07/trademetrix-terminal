@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from core.audit import record_audit
+from core.capabilities import CAP_MAP, FREE, Capabilities, resolve_capabilities_by_id
 from core.db import async_supabase, get_supabase
 from core.deps import get_current_user, require_admin, require_super_admin
 from core.models import ADMIN_ROLES, role_satisfies
-from core.models import AuditLogEntry, Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType as OrderTypeEnum, ProductType, StrategyAssignment, TIER_LIMITS, TIER_ORDER, UserProfile, tier_satisfies
+from core.models import AuditLogEntry, Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType as OrderTypeEnum, ProductType, StrategyAssignment, TIER_ORDER, UserProfile, tier_satisfies
 from core.security import decrypt_broker_credentials
 from core.safe_query import safe_execute, safe_single
 from engine.gate import execute_order, get_mirror_recipients, scaled_qty
@@ -48,18 +49,22 @@ async def admin_list_users(admin: UserProfile = Depends(require_admin)):
         uid = row["user_id"]
         count_map[uid] = count_map.get(uid, 0) + 1
 
+    tier_cache: dict[str, int] = {}
     result = []
     for p in profiles:
-        tier = p.get("subscription_tier", "free")
+        uid = p["id"]
+        if uid not in tier_cache:
+            caps = await resolve_capabilities_by_id(uid)
+            tier_cache[uid] = caps.max_active_strategies
         result.append({
-            "id": p["id"],
+            "id": uid,
             "email": p.get("email", ""),
             "full_name": p.get("full_name", ""),
             "is_admin": p.get("is_admin", False),
             "role": p.get("role", ""),
-            "subscription_tier": tier,
-            "active_assignments": count_map.get(p["id"], 0),
-            "max_active_strategies": TIER_LIMITS.get(tier, 99),
+            "subscription_tier": p.get("subscription_tier", "free"),
+            "active_assignments": count_map.get(uid, 0),
+            "max_active_strategies": tier_cache[uid],
         })
 
     return {"users": result}
@@ -101,11 +106,11 @@ async def admin_assign_strategy(
     if not required_tier:
         raise HTTPException(status_code=500, detail="Strategy tier not found in catalog")
 
-    user_tier = target_user.get("subscription_tier", "free")
-    if not tier_satisfies(user_tier, required_tier):
+    target_caps = await resolve_capabilities_by_id(req.user_id)
+    if not tier_satisfies(target_caps.tier, required_tier) and target_caps.tier != "super_admin":
         raise HTTPException(
             status_code=400,
-            detail=f"User tier '{user_tier}' is below required tier '{required_tier}' for strategy '{req.strategy_key}'. "
+            detail=f"User tier '{target_caps.tier}' is below required tier '{required_tier}' for strategy '{req.strategy_key}'. "
             f"User needs at least '{required_tier}' subscription.",
         )
 
@@ -124,7 +129,7 @@ async def admin_assign_strategy(
             message="Already assigned and active (no-op)",
         )
 
-    limit = TIER_LIMITS.get(user_tier, 0)
+    limit = target_caps.max_active_strategies
     if limit > 0:
         current_active = safe_execute(
             supabase.table("strategy_assignments")
@@ -135,7 +140,7 @@ async def admin_assign_strategy(
         if len(current_active) >= limit:
             raise HTTPException(
                 status_code=400,
-                detail=f"{user_tier} tier allows {limit} active strategies; unassign one first",
+                detail=f"{target_caps.tier} tier allows {limit} active strategies; unassign one first",
             )
 
     if existing:
@@ -213,6 +218,13 @@ class UpdateTierRequest(BaseModel):
 
 
 ALLOWED_TIERS = {"free", "starter", "pro", "enterprise"}
+# Maps legacy tier names to new subscription tiers for capability resolution
+LEGACY_TIER_TO_SUB: dict[str, str] = {
+    "free": "",
+    "starter": "monthly",
+    "pro": "halfyearly",
+    "enterprise": "yearly",
+}
 
 
 @router.patch("/users/{user_id}")
@@ -266,7 +278,9 @@ async def admin_update_user_tier(
             await async_supabase(lambda: supabase.table("strategy_assignments").update({"active": False}).in_("id", deactivate_ids).execute())
             deactivated_count = len(deactivate_ids)
 
-        new_limit = TIER_LIMITS.get(tier, 99)
+        mapped_sub = LEGACY_TIER_TO_SUB.get(tier, "")
+        new_caps = CAP_MAP.get(mapped_sub, FREE) if mapped_sub else FREE
+        new_limit = new_caps.max_active_strategies
         remaining = safe_execute(
             supabase.table("strategy_assignments")
             .select("id, created_at")
@@ -509,7 +523,12 @@ async def admin_stats(admin: UserProfile = Depends(require_admin)):
     total_admins = sum(1 for p in profiles if p.get("is_admin"))
     tier_counts: dict[str, int] = {}
     for p in profiles:
-        t = p.get("subscription_tier", "free")
+        uid = p["id"]
+        try:
+            caps = await resolve_capabilities_by_id(uid) if "id" in p else FREE
+            t = caps.tier
+        except Exception:
+            t = p.get("subscription_tier", "free")
         tier_counts[t] = tier_counts.get(t, 0) + 1
 
     assignments = safe_execute(

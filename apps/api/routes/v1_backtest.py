@@ -5,15 +5,13 @@ from pydantic import BaseModel
 
 from backtest.manager import backtest_manager
 from backtest.models import BacktestConfig, BacktestStatus, ReplaySpeed
-from core.deps import get_current_user, require_tier
+from core.deps import get_current_user, require_feature
 from core.models import UserProfile
 from engine.backtest import BacktestEngine, fetch_historical_data
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
-
-MIN_TIER = "pro"
 
 
 class BacktestRequest(BaseModel):
@@ -217,7 +215,7 @@ async def list_backtests(
 @router.post("/", status_code=201)
 async def create_backtest(
     req: BacktestRequest,
-    current_user: UserProfile = Depends(require_tier(MIN_TIER)),
+    current_user: UserProfile = Depends(require_feature("backtest")),
 ):
     try:
         candles = await fetch_historical_data(

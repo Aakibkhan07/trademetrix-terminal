@@ -64,8 +64,39 @@ def _apply_test_mocks():
 
     app.dependency_overrides[get_current_user] = _override_get_current_user
 
+    # ── Patch capabilities resolver ──
+    from core.capabilities import CAP_MAP, Capabilities, FREE, SUPER_ADMIN
+
+    TEST_CAPS = Capabilities(
+        tier="enterprise",
+        max_active_strategies=15,
+        trailing_sl_allowed=True,
+        reentry_squareoff_allowed=True,
+        builder_allowed=True,
+        custom_strategy_dev_allowed=True,
+        backtest_allowed=True,
+        backtest_years=5,
+        daily_loss_floor=10000.0,
+        live_trading_allowed=True,
+    )
+
+    async def _mock_resolve_capabilities(user):
+        if user.role == "super_admin":
+            return SUPER_ADMIN
+        if user.subscription_tier == "enterprise":
+            return TEST_CAPS
+        return FREE
+
+    # Patch core.deps.resolve_capabilities for route-level capability checks
+    import core.deps as deps_module
+    patch.object(deps_module, "resolve_capabilities", _mock_resolve_capabilities).start()
+
     # ── Patch riskguard DB functions ──
     import risk.riskguard as rg
+    import routes.v1_admin as admin_routes
+
+    patch.object(rg, "resolve_capabilities_by_id", AsyncMock(return_value=TEST_CAPS)).start()
+    patch.object(admin_routes, "resolve_capabilities_by_id", AsyncMock(return_value=TEST_CAPS)).start()
 
     async def mock_single(query_builder):
         entry = _risk_settings_db.get(test_user_id)

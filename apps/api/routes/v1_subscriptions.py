@@ -1,13 +1,16 @@
+import hashlib
+import hmac
+import json
 import logging
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from core.config import settings
 from core.db import async_supabase, get_supabase
 from core.deps import get_current_user
-from core.models import SUBSCRIPTION_TIER_FEATURES, SUBSCRIPTION_TIER_ORDER, SUBSCRIPTION_TIER_PLANS, SUBSCRIPTION_TIER_PRICES, SubscriptionStatus, SubscriptionTier, UserProfile
+from core.models import SUBSCRIPTION_TIER_FEATURES, SUBSCRIPTION_TIER_PLANS, SUBSCRIPTION_TIER_PRICES, SubscriptionStatus, SubscriptionTier, UserProfile
 from core.safe_query import async_safe_execute, async_safe_single
 from payments.razorpay import RazorpayClient
 
@@ -77,6 +80,186 @@ def _plan_id_for_tier(tier: str) -> str:
     if not plan_id:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Plan not configured")
     return plan_id
+
+
+# ─── Webhook signature verification ───
+
+
+def _verify_webhook_signature(body: bytes, signature: str) -> bool:
+    if not settings.razorpay_webhook_secret:
+        logger.warning("RAZORPAY_WEBHOOK_SECRET not set — skipping signature verification")
+        return True
+    expected = hmac.new(settings.razorpay_webhook_secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(f"sha256={expected}", signature)
+
+
+async def _is_event_processed(event_id: str) -> bool:
+    row = await async_safe_single(
+        get_supabase().table("processed_webhooks")
+        .select("id")
+        .eq("event_id", event_id)
+        .limit(1)
+    )
+    return row is not None
+
+
+async def _mark_event_processed(event_id: str, event_type: str):
+    now = datetime.now(UTC).isoformat()
+    try:
+        await async_supabase(lambda: get_supabase().table("processed_webhooks").insert({
+            "event_id": event_id,
+            "event_type": event_type,
+            "processed_at": now,
+        }).execute())
+    except Exception as e:
+        logger.warning("Failed to record processed event %s: %s", event_id, e)
+
+
+async def _update_subscription_row(
+    razorpay_sub_id: str,
+    updates: dict,
+):
+    updates["updated_at"] = datetime.now(UTC).isoformat()
+    try:
+        await async_supabase(lambda: get_supabase().table("subscriptions").update(updates).eq("razorpay_subscription_id", razorpay_sub_id).execute())
+    except Exception as e:
+        logger.error("Failed to update subscription %s: %s", razorpay_sub_id, e)
+        raise
+
+
+async def _insert_subscription_row(data: dict):
+    now = datetime.now(UTC).isoformat()
+    data.setdefault("created_at", now)
+    data.setdefault("updated_at", now)
+    try:
+        result = await async_supabase(lambda: get_supabase().table("subscriptions").insert(data).execute())
+        return result.data[0] if result and result.data else None
+    except Exception as e:
+        logger.error("Failed to insert subscription: %s", e)
+        raise
+
+
+# ─── Webhook endpoint ───
+
+
+@router.post("/webhook/")
+async def handle_webhook(request: Request):
+    body = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+
+    if not _verify_webhook_signature(body, signature):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid webhook signature")
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON body")
+
+    event = payload.get("event", "")
+    event_id = payload.get("id", "")
+
+    if not event or not event_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing event or id")
+
+    if await _is_event_processed(event_id):
+        logger.info("Webhook event %s (%s) already processed — skipping", event_id, event)
+        return {"status": "already_processed"}
+
+    sub_entity = payload.get("payload", {}).get("subscription", {}).get("entity", {})
+    if not sub_entity:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing subscription entity")
+
+    razorpay_sub_id = sub_entity.get("id", "")
+    plan_id = sub_entity.get("plan_id", "")
+    notes = sub_entity.get("notes", None) or {}
+
+    tier = _tier_for_plan(plan_id)
+    if not tier:
+        logger.warning("Unknown plan_id %s in webhook event %s", plan_id, event_id)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown plan_id: {plan_id}")
+
+    user_id = notes.get("user_id", "")
+
+    now_ts = datetime.now(UTC)
+    current_start = sub_entity.get("current_start")
+    current_end = sub_entity.get("current_end")
+
+    def _ts(val) -> str | None:
+        if val:
+            return datetime.fromtimestamp(int(val), tz=UTC).isoformat()
+        return None
+
+    period_start = _ts(current_start)
+    period_end = _ts(current_end)
+
+    if event == "subscription.activated":
+        if not current_end:
+            period_end = _ts(sub_entity.get("end_at"))
+        await _update_subscription_row(razorpay_sub_id, {
+            "status": SubscriptionStatus.active.value,
+            "tier": tier,
+            "current_period_start": period_start,
+            "current_period_end": period_end,
+        })
+        logger.info("Subscription %s activated — tier %s (period: %s → %s)", razorpay_sub_id, tier, period_start, period_end)
+
+    elif event == "subscription.authenticated":
+        if not current_end:
+            period_end = _ts(sub_entity.get("end_at"))
+        await _update_subscription_row(razorpay_sub_id, {
+            "status": SubscriptionStatus.active.value,
+            "tier": tier,
+            "current_period_start": period_start,
+            "current_period_end": period_end,
+        })
+        logger.info("Subscription %s authenticated — activated as %s", razorpay_sub_id, tier)
+
+    elif event == "subscription.charged":
+        if current_end:
+            await _update_subscription_row(razorpay_sub_id, {
+                "current_period_end": period_end,
+                "current_period_start": period_start,
+            })
+            logger.info("Subscription %s charged — period extended to %s", razorpay_sub_id, period_end)
+
+    elif event in ("subscription.pending", "subscription.halted"):
+        if event == "subscription.pending":
+            new_status = SubscriptionStatus.halted.value
+        else:
+            new_status = SubscriptionStatus.halted.value
+        await _update_subscription_row(razorpay_sub_id, {
+            "status": new_status,
+        })
+        logger.warning("Subscription %s halted — payment issue", razorpay_sub_id)
+
+    elif event == "subscription.cancelled":
+        await _update_subscription_row(razorpay_sub_id, {
+            "status": SubscriptionStatus.cancelled.value,
+            "current_period_end": period_end,
+        })
+        logger.info("Subscription %s cancelled — access until %s", razorpay_sub_id, period_end)
+
+    elif event == "subscription.completed":
+        await _update_subscription_row(razorpay_sub_id, {
+            "status": SubscriptionStatus.completed.value,
+            "current_period_end": period_end,
+        })
+        logger.info("Subscription %s completed — downgrading to free", razorpay_sub_id)
+
+    else:
+        logger.info("Unhandled webhook event type: %s", event)
+
+    await _mark_event_processed(event_id, event)
+
+    return {
+        "status": "processed",
+        "event": event,
+        "subscription_id": razorpay_sub_id,
+        "tier": tier,
+    }
+
+
+# ─── User-facing endpoints ───
 
 
 @router.get("/plans/")

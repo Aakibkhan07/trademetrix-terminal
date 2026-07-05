@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from core.db import get_supabase
-from core.deps import get_current_user
-from core.models import RiskSettings, TIER_DAILY_LOSS, UserProfile
+from core.capabilities import Capabilities
+from core.deps import get_capabilities, get_current_user
+from core.models import RiskSettings, UserProfile
 from core.safe_query import safe_execute
 from risk.riskguard import RiskGuard
 
@@ -30,13 +31,14 @@ async def get_risk_settings(current_user: UserProfile = Depends(get_current_user
 async def update_risk_settings(
     req: UpdateRiskRequest,
     current_user: UserProfile = Depends(get_current_user),
+    caps: Capabilities = Depends(get_capabilities),
 ):
+    tier_floor = caps.daily_loss_floor
     if req.max_daily_loss == 0:
         raise HTTPException(
             status_code=400,
-            detail=f"Daily loss cap cannot be disabled. Minimum is your tier default of ₹{TIER_DAILY_LOSS.get(current_user.subscription_tier, 2000):.0f}.",
+            detail=f"Daily loss cap cannot be disabled. Minimum is your tier default of ₹{tier_floor:.0f}.",
         )
-    tier_floor = TIER_DAILY_LOSS.get(current_user.subscription_tier, 2000.0)
     if req.max_daily_loss < tier_floor:
         raise HTTPException(
             status_code=400,

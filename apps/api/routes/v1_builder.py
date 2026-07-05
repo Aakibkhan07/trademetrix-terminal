@@ -16,7 +16,7 @@ from builder.models import (
 )
 from builder.preview import generate_preview
 from builder.templates import STRATEGY_TEMPLATES
-from core.deps import get_current_user
+from core.deps import get_current_user, require_feature
 from core.models import UserProfile
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ async def get_builder_block(block_type: str):
 @router.post("/strategies")
 async def create_strategy(
     req: CreateStrategyRequest,
-    current_user: UserProfile = Depends(get_current_user),
+    current_user: UserProfile = Depends(require_feature("builder")),
 ):
     dsl = await builder_manager.create(
         name=req.name,
