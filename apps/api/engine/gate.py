@@ -244,25 +244,17 @@ async def execute_order(
         await _write_audit(user_id, "rejected", order, source=source, reason=reason_code)
         return OrderResult(success=False, message=reason_code, status="rejected")
 
-    if order.is_paper:
-        order.broker = "paper"
-    else:
-        settings = await riskguard._load_settings(order.strategy_id)
-        is_live = bool(settings and settings.is_live)
-        if is_live:
-            broker = await _resolve_broker(user_id)
-            if not broker:
-                order.status = OrderStatus.REJECTED
-                order.message = "NO_ACTIVE_BROKER"
-                await _log_order(user_id, order)
-                await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
-                return OrderResult(success=False, message="No active broker configured", status="rejected")
-            order.broker = broker
-            broker_symbol = await symbol_master.resolve_symbol(order.symbol, broker)
-            order.symbol = broker_symbol or order.symbol
-        else:
-            order.broker = "paper"
-            order.is_paper = True
+    broker = await _resolve_broker(user_id)
+    if not broker:
+        order.status = OrderStatus.REJECTED
+        order.message = "NO_ACTIVE_BROKER"
+        await _log_order(user_id, order)
+        await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
+        return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
+    order.broker = broker
+    order.is_paper = False
+    broker_symbol = await symbol_master.resolve_symbol(order.symbol, broker)
+    order.symbol = broker_symbol or order.symbol
 
     req = _normalized_to_execution_request(user_id, order, order.broker, source)
     exec_result = await execution_manager.place_order(req)
@@ -272,10 +264,6 @@ async def execute_order(
         order.status = OrderStatus.FILLED
         order.filled_at = datetime.now(UTC)
         order.message = exec_result.message or "Order placed successfully"
-        if order.is_paper:
-            order.average_price = order.price or 0.0
-            order.filled_quantity = order.quantity
-            order.total_value = order.quantity * (order.price or 0.0)
     else:
         order.status = OrderStatus.REJECTED
         order.message = exec_result.message or "PLACEMENT_FAILED"

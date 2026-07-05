@@ -247,12 +247,8 @@ async def deploy_user_strategy(
 
     plan = compile_user_strategy(strategy)
 
-    if plan.is_simulated:
-        logger.warning("Deploying strategy %s with simulated market data", strategy_id)
-
     results = []
     for i, order in enumerate(plan.orders):
-        order.is_paper = True
         try:
             result = await execute_order(
                 user_id=current_user.id,
@@ -284,4 +280,4 @@ async def deploy_user_strategy(
     if all(r["success"] for r in results):
         await async_supabase(lambda: supabase.table("user_strategies").update({"status": "active"}).eq("id", strategy_id).execute())
 
-    return {"strategy_id": strategy_id, "results": results, "is_simulated": plan.is_simulated}
+    return {"strategy_id": strategy_id, "results": results}

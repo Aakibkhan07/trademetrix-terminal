@@ -411,12 +411,7 @@ class ExecutionManager:
                 health = await adapter.health()
                 if health.get("authenticated"):
                     return adapter
-            adapter = PaperBroker(user_id)
-            connected = await adapter.connect()
-            if connected:
-                self._adapters[key] = adapter
-                return adapter
-            return None
+            return self._adapters.get(key)
 
         key = f"{user_id}:{broker}"
         if key in self._adapters:

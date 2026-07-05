@@ -22,7 +22,6 @@ from core.ratelimit import RateLimitMiddleware
 from core.response import error_response
 from core.sentry import init_sentry
 from core.vault import init_vault
-from market.simulator import market_simulator
 from middleware.validation import InputValidationMiddleware
 from middleware.csrf import CSRFProtectMiddleware
 from routes.v1_ai import router as ai_router
@@ -62,7 +61,6 @@ async def lifespan(app: FastAPI):
     await user_strategy_runner.start()
     yield
     await user_strategy_runner.stop()
-    await market_simulator.stop()
     await cache.close()
     from core.db import close_supabase
     await close_supabase()

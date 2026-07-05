@@ -175,12 +175,12 @@ async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: st
                 if candles:
                     logger.info("Backtest using %d real candles from Fyers for %s", len(candles), fyers_symbol)
                     return [_candle_to_dict(c) for c in candles]
-                logger.warning("Fyers returned 0 candles for %s, falling back to synthetic", fyers_symbol)
+                logger.warning("Fyers returned 0 candles for %s", fyers_symbol)
         except Exception as e:
-            logger.warning("Failed to fetch real data from Fyers (%s), using synthesized data", e)
+            logger.warning("Failed to fetch real data from Fyers (%s)", e)
 
-    logger.info("Backtest using synthesized data for %s", symbol)
-    return _synthesize_candles(symbol, days, interval)
+    logger.error("No historical data available for backtest — connect a broker with Fyers credentials")
+    return []
 
 
 def _parse_interval_minutes(interval: str) -> int:
@@ -199,37 +199,6 @@ def _parse_interval_minutes(interval: str) -> int:
         return int(interval)
     except ValueError:
         return 15
-
-
-def _synthesize_candles(symbol: str, days: int, interval: str) -> list[dict]:
-    import random
-    candles = []
-    base_price = random.uniform(500, 5000)
-    now = datetime.now(UTC)
-    interval_min = _parse_interval_minutes(interval)
-    total = days * 24 * 60 // interval_min
-    price = base_price
-    for i in range(total):
-        ts = now - timedelta(minutes=(total - i) * interval_min)
-        change = price * random.uniform(-0.015, 0.015)
-        o = price
-        h = o + abs(change) * random.uniform(0.5, 1.5)
-        low = o - abs(change) * random.uniform(0.5, 1.5)
-        c = o + change
-        price = c
-        candles.append({
-            "symbol": symbol,
-            "exchange": "NSE",
-            "interval": interval,
-            "open": round(o, 2),
-            "high": round(h, 2),
-            "low": round(low, 2),
-            "close": round(c, 2),
-            "volume": random.randint(10000, 500000),
-            "timestamp": ts.isoformat(),
-            "oi": random.randint(100000, 5000000),
-        })
-    return candles
 
 
 def _map_to_fyers_symbol(symbol: str, exchange: str) -> str:

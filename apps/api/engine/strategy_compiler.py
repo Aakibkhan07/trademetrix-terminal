@@ -226,7 +226,6 @@ def compile_user_strategy(
     strategy: UserStrategy,
     spot_price: float | None = None,
     option_chain: dict | None = None,
-    is_simulated: bool | None = None,
 ) -> ExecutionPlan:
     """Compiles a UserStrategy into an ExecutionPlan with resolved strikes and NormalizedOrders.
 
@@ -239,15 +238,15 @@ def compile_user_strategy(
     Returns:
         ExecutionPlan containing NormalizedOrders ready for the pipeline.
     """
-    if is_simulated is None:
-        is_simulated = spot_price is None or option_chain is None
+    if spot_price is None:
+        raise ValueError(f"Cannot compile strategy: spot price required for {strategy.index_symbol}")
 
     symbol = strategy.index_symbol
     interval = STRIKE_INTERVALS.get(symbol, 50)
     lot_size = LOT_SIZES.get(symbol, 65)
 
-    if spot_price is None:
-        spot_price = _estimate_spot(symbol)
+    if not option_chain:
+        raise ValueError(f"Cannot compile strategy: option chain required for {symbol}")
 
     resolved_strikes = resolve_strikes(strategy.legs, symbol, spot_price, option_chain)
 
@@ -272,7 +271,6 @@ def compile_user_strategy(
             strike_price=strike_price if leg.segment == LegSegment.options else None,
             expiry_date=expiry_str if leg.segment == LegSegment.options else None,
             option_type=OptionType.CE if is_ce else (OptionType.PE if leg.option_type == LegOptionType.pe else None),
-            is_paper=True,
         )
         orders.append(order)
 
@@ -281,10 +279,7 @@ def compile_user_strategy(
         legs=list(strategy.legs),
         strategy_id=strategy.id,
         total_lots=sum(leg.lots for leg in strategy.legs),
-        is_simulated=is_simulated,
     )
 
 
-def _estimate_spot(symbol: str) -> float:
-    prices: dict[str, float] = {"NIFTY": 24000.0, "BANKNIFTY": 52000.0, "FINNIFTY": 22000.0, "SENSEX": 80000.0}
-    return prices.get(symbol, 24000.0)
+

@@ -106,7 +106,7 @@ def build_square_off_order(
         strategy_id=strategy_id,
         user_id=user_id,
         source="leg_control",
-        is_paper=True,
+        is_paper=False,
     )
 
 async def _get_reentry_count(user_id: str, strategy_id: str, leg_order: int) -> int:
@@ -295,7 +295,7 @@ async def handle_reentry(
         strategy_id=strategy_id,
         user_id=user_id,
         source="re_entry",
-        is_paper=True,
+        is_paper=False,
     )
     result = await execute_leg_control(user_id, strategy_id, order, "re_entry")
     new_count = reentry_count + 1

@@ -21,9 +21,6 @@ class RiskGuard:
         if settings.kill_switch_enabled:
             return {"allowed": False, "reason": "Kill switch is enabled. All trading halted."}
 
-        if not settings.is_live and not self._is_paper_safe():
-            return {"allowed": False, "reason": "LIVE trading not enabled in risk settings."}
-
         checks = [
             await self._check_max_capital(order, settings),
             await self._check_max_position_size(order, settings),
@@ -229,11 +226,6 @@ class RiskGuard:
         if peak <= 0:
             return 0
         return max(0, (peak - current) / peak * 100)
-
-    @staticmethod
-    def _is_paper_safe() -> bool:
-        return True
-
 
 def record_audit_entry(user_id: str, action: str, resource: str) -> None:
     try:

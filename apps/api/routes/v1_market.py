@@ -51,7 +51,7 @@ async def get_option_chain(
         "expiries": expiries,
         "pcr": pcr,
         "max_pain": max_pain,
-        "is_simulated": data.get("is_simulated", True),
+        "is_simulated": data.get("is_simulated", False),
         "data": data,
     }
 

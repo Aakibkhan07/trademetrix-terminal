@@ -40,12 +40,8 @@ class OptionChainEngine:
             market_cache.put_option_chain(cache_key, data)
             return data
 
-        spot = self._estimate_spot(symbol.upper())
-        expiry_date = expiry or self._next_expiry(symbol.upper())
-        result = self._generate_option_chain(symbol.upper(), spot, expiry_date)
-        result["is_simulated"] = True
-        market_cache.put_option_chain(cache_key, result)
-        return result
+        logger.warning("Option chain unavailable for %s (NSE fetch failed)", symbol)
+        return {}
 
     async def get_expiries(self, symbol: str) -> list[str]:
         cache_key = f"expiries:{symbol.upper()}"
@@ -209,59 +205,5 @@ class OptionChainEngine:
                     "put_oi_change": (cur_row.get("put") or {}).get("oi", 0) - (prev_row.get("put") or {}).get("oi", 0),
                 })
         return result
-
-    def _generate_option_chain(self, symbol: str, spot_price: float, expiry: str) -> dict:
-        interval = STRIKE_INTERVALS.get(symbol, 50)
-        strikes = self._strikes_near_spot(spot_price, interval, 16)
-        chain = []
-        for strike in strikes:
-            moneyness = (strike - spot_price) / spot_price
-            call_prem = max(0.05, abs(spot_price - strike) * 0.3 + 10 * (1 + moneyness))
-            put_prem = max(0.05, abs(spot_price - strike) * 0.3 + 10 * (1 - moneyness))
-            iv = 15 + random.uniform(-3, 5)
-            chain.append({
-                "strike": strike,
-                "call": {
-                    "ltp": round(call_prem, 1),
-                    "change": round(random.uniform(-10, 15), 1),
-                    "change_pct": round(random.uniform(-5, 8), 1),
-                    "bid": round(call_prem * 0.95, 1),
-                    "ask": round(call_prem * 1.05, 1),
-                    "volume": random.randint(1000, 500000),
-                    "oi": random.randint(50000, 5000000),
-                    "iv": round(iv, 1),
-                },
-                "put": {
-                    "ltp": round(put_prem, 1),
-                    "change": round(random.uniform(-10, 15), 1),
-                    "change_pct": round(random.uniform(-5, 8), 1),
-                    "bid": round(put_prem * 0.95, 1),
-                    "ask": round(put_prem * 1.05, 1),
-                    "volume": random.randint(1000, 500000),
-                    "oi": random.randint(50000, 5000000),
-                    "iv": round(iv, 1),
-                },
-            })
-        return {"optionChain": chain, "expiries": [expiry]}
-
-    def _strikes_near_spot(self, spot: float, interval: int, count: int = 12) -> list[int]:
-        nearest = round(spot / interval) * interval
-        start = nearest - (count // 2) * interval
-        return [start + i * interval for i in range(count)]
-
-    def _estimate_spot(self, symbol: str) -> float:
-        prices = {"NIFTY": 24000, "BANKNIFTY": 52000, "FINNIFTY": 22000, "SENSEX": 80000}
-        return prices.get(symbol, 24000)
-
-    def _next_expiry(self, symbol: str) -> str:
-        WEEKLY_EXPIRY = {"NIFTY": 1, "BANKNIFTY": 1, "FINNIFTY": 1, "SENSEX": 3}
-        target = WEEKLY_EXPIRY.get(symbol, 1)
-        today = datetime.date.today()
-        days = (target - today.weekday()) % 7
-        if days == 0:
-            days = 7
-        expiry = today + datetime.timedelta(days=days)
-        return expiry.strftime("%d%b").upper()
-
 
 option_chain_engine = OptionChainEngine()

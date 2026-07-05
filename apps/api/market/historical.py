@@ -37,7 +37,8 @@ class HistoricalDataEngine:
 
         candles = await self._fetch_from_broker(symbol, exchange, interval, days, user_id)
         if not candles:
-            candles = self._synthesize(symbol, days, interval)
+            logger.warning("No historical data available for %s from broker", symbol)
+            return []
 
         market_cache.put_quote(cache_key, {"candles": candles})
         return candles
@@ -87,38 +88,6 @@ class HistoricalDataEngine:
         except Exception as e:
             logger.warning("Broker historical fetch failed: %s", e)
         return []
-
-    def _synthesize(self, symbol: str, days: int, interval: str) -> list[dict]:
-        import random
-        from datetime import UTC, datetime, timedelta
-
-        candles = []
-        base_price = random.uniform(500, 5000)
-        now = datetime.now(UTC)
-        interval_min = self._parse_interval_minutes(interval)
-        total = days * 24 * 60 // interval_min
-        price = base_price
-        for i in range(total):
-            ts = now - timedelta(minutes=(total - i) * interval_min)
-            change = price * random.uniform(-0.015, 0.015)
-            o = price
-            h = o + abs(change) * random.uniform(0.5, 1.5)
-            low = o - abs(change) * random.uniform(0.5, 1.5)
-            c = o + change
-            price = c
-            candles.append({
-                "symbol": symbol,
-                "exchange": "NSE",
-                "interval": interval,
-                "open": round(o, 2),
-                "high": round(h, 2),
-                "low": round(low, 2),
-                "close": round(c, 2),
-                "volume": random.randint(10000, 500000),
-                "timestamp": ts.isoformat(),
-                "oi": random.randint(100000, 5000000),
-            })
-        return candles
 
     def _interval_ttl(self, interval: str) -> int:
         mins = self._parse_interval_minutes(interval)

@@ -2,10 +2,8 @@ import asyncio
 import datetime
 import json
 import logging
-import random
-
 import httpx
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
 from core.db import get_supabase
 from core.deps import get_current_user
@@ -13,8 +11,6 @@ from core.models import Tick, UserProfile
 from core.safe_query import safe_single
 from core.security import decode_access_token
 from market.data_socket import shared_socket
-from market.simulator import market_simulator
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/marketdata", tags=["marketdata"])
@@ -135,7 +131,6 @@ async def start_market_feed(current_user: UserProfile = Depends(get_current_user
     symbols = [s["symbol"] for s in MAJOR_INDICES + MAJOR_STOCKS]
 
     await shared_socket.stop_all_feeds()
-    await market_simulator.stop()
     from market.alert_checker import start_alert_checker
     await start_alert_checker()
 
@@ -147,47 +142,32 @@ async def start_market_feed(current_user: UserProfile = Depends(get_current_user
         .eq("is_active", True)
     )
 
-    if active and active["broker"] in STREAMING_SUPPORTED:
-        broker_type = active["broker"]
-        try:
-            await shared_socket.start_broker_feed(
-                user_id=current_user.id,
-                broker_type=broker_type,
-                symbols=symbols,
-            )
-            logger.info("Broker feed started for %s with %d symbols", broker_type, len(symbols))
-            return {"message": "Market feed started", "broker": broker_type}
-        except Exception as e:
-            logger.warning("Broker feed %s failed (%s), falling back to simulator", broker_type, e)
-    elif active:
-        logger.warning("Active broker %s has no streaming support — falling back to simulator", active["broker"])
-    else:
-        logger.warning("No active broker configured — falling back to simulator")
+    if not active:
+        raise HTTPException(status_code=400, detail="No active broker configured. Connect a broker first.")
 
-    await market_simulator.start(symbols=symbols)
-    logger.info("Market simulator started with %d symbols", len(symbols))
-    return {"message": "Market feed started (simulator)", "broker": "simulator"}
+    if active["broker"] not in STREAMING_SUPPORTED:
+        raise HTTPException(status_code=400, detail=f"Broker {active['broker']} does not support live streaming")
+
+    broker_type = active["broker"]
+    try:
+        await shared_socket.start_broker_feed(
+            user_id=current_user.id,
+            broker_type=broker_type,
+            symbols=symbols,
+        )
+        logger.info("Broker feed started for %s with %d symbols", broker_type, len(symbols))
+        return {"message": "Market feed started", "broker": broker_type}
+    except Exception as e:
+        logger.error("Broker feed %s failed: %s", broker_type, e)
+        raise HTTPException(status_code=502, detail=f"Broker feed failed: {e}")
 
 
 @router.post("/feed/stop")
 async def stop_market_feed():
     await shared_socket.stop_all_feeds()
-    await market_simulator.stop()
     from market.alert_checker import stop_alert_checker
     await stop_alert_checker()
     return {"message": "Market feed stopped"}
-
-
-@router.post("/simulator/start")
-async def start_simulator(current_user: UserProfile = Depends(get_current_user)):
-    await market_simulator.start()
-    return {"message": "Market simulator started"}
-
-
-@router.post("/simulator/stop")
-async def stop_simulator(current_user: UserProfile = Depends(get_current_user)):
-    await market_simulator.stop()
-    return {"message": "Market simulator stopped"}
 
 
 MAJOR_INDICES = [
@@ -289,53 +269,6 @@ async def get_historical(
 
 
 from core.config import STREAMING_SUPPORTED
-
-STRIKE_INTERVALS: dict[str, int] = {"NIFTY": 50, "BANKNIFTY": 100, "FINNIFTY": 50, "SENSEX": 100}
-LOT_SIZES: dict[str, int] = {"NIFTY": 65, "BANKNIFTY": 30, "FINNIFTY": 60, "SENSEX": 20}
-
-
-def _strikes_near_spot(spot: float, interval: int, count: int = 12) -> list[int]:
-    nearest = round(spot / interval) * interval
-    start = nearest - (count // 2) * interval
-    return [start + i * interval for i in range(count)]
-
-
-def _generate_option_chain(symbol: str, spot_price: float, expiry: str) -> dict:
-    interval = STRIKE_INTERVALS.get(symbol.upper(), 50)
-    strikes = _strikes_near_spot(spot_price, interval, 16)
-
-    chain = []
-    for strike in strikes:
-        moneyness = (strike - spot_price) / spot_price
-        call_prem = max(0.05, abs(spot_price - strike) * 0.3 + 10 * (1 + moneyness))
-        put_prem = max(0.05, abs(spot_price - strike) * 0.3 + 10 * (1 - moneyness))
-        iv = 15 + random.uniform(-3, 5)
-
-        chain.append({
-            "strike": strike,
-            "call": {
-                "ltp": round(call_prem, 1),
-                "change": round(random.uniform(-10, 15), 1),
-                "change_pct": round(random.uniform(-5, 8), 1),
-                "bid": round(call_prem * 0.95, 1),
-                "ask": round(call_prem * 1.05, 1),
-                "volume": random.randint(1000, 500000),
-                "oi": random.randint(50000, 5000000),
-                "iv": round(iv, 1),
-            },
-            "put": {
-                "ltp": round(put_prem, 1),
-                "change": round(random.uniform(-10, 15), 1),
-                "change_pct": round(random.uniform(-5, 8), 1),
-                "bid": round(put_prem * 0.95, 1),
-                "ask": round(put_prem * 1.05, 1),
-                "volume": random.randint(1000, 500000),
-                "oi": random.randint(50000, 5000000),
-                "iv": round(iv, 1),
-            },
-        })
-    return {"optionChain": chain, "expiries": [expiry]}
-
 
 NSE_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY"}
 
@@ -490,14 +423,4 @@ async def get_option_chain(
     if nse_data:
         return nse_data
 
-    spot_prices = {"NIFTY": 24000, "BANKNIFTY": 52000, "FINNIFTY": 22000, "SENSEX": 80000}
-    spot = spot_prices.get(symbol.upper(), 24000)
-
-    WEEKLY_EXPIRY = {"NIFTY": 1, "BANKNIFTY": 1, "FINNIFTY": 1, "SENSEX": 3}
-    target = WEEKLY_EXPIRY.get(symbol.upper(), 1)
-    today = datetime.date.today()
-    days = (target - today.weekday()) % 7
-    if days == 0: days = 7
-    expiry = (today + datetime.timedelta(days=days)).strftime("%d%b").upper()
-
-    return _generate_option_chain(symbol, spot, expiry)
+    raise HTTPException(status_code=503, detail=f"Option chain unavailable for {symbol}")
