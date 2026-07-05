@@ -350,53 +350,54 @@ class FyersAdapter(BaseBroker):
         retry_delay = 1
         while self._running:
             try:
-                resp = await client.post(
-                    f"{self._base_url}/quotes",
-                    json={"symbols": ",".join(self._ensure_fyers_symbol(s) for s in symbols)},
-                    headers=self._headers(),
-                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
-                )
-                data = resp.json()
-                for item in data.get("d", []):
-                    v = item.get("v", {})
-                    sym = v.get("symbol") or item.get("n", "")
-                    lp = float(v.get("lp", 0))
-                    change = float(v.get("ch", 0))
-                    change_pct = float(v.get("chp", 0))
-                    inst_type = InstrumentType.EQ
-                    strike = None
-                    expiry = None
-                    opt_type = None
-                    if ":" in sym:
-                        parsed = self._parse_instrument(sym)
-                        inst_type = parsed["instrument_type"]
-                        strike = parsed["strike_price"]
-                        expiry = parsed["expiry_date"]
-                        opt_type = parsed["option_type"]
-                    tick = Tick(
-                        symbol=sym,
-                        exchange=Exchange.NSE,
-                        last_price=lp,
-                        bid=float(v.get("bid", 0)),
-                        ask=float(v.get("ask", 0)),
-                        bid_qty=int(v.get("bid_size", 0)),
-                        ask_qty=int(v.get("ask_size", 0)),
-                        volume=int(v.get("volume", 0)),
-                        oi=int(v.get("oi", 0)),
-                        change=round(change, 2),
-                        change_pct=round(change_pct, 2),
-                        timestamp=datetime.now(UTC),
-                        broker=self.broker_name,
-                        instrument_type=inst_type,
-                        strike_price=strike,
-                        expiry_date=expiry,
-                        option_type=opt_type,
+                async with httpx.AsyncClient() as poll_client:
+                    resp = await poll_client.post(
+                        f"{self._base_url}/quotes",
+                        json={"symbols": ",".join(self._ensure_fyers_symbol(s) for s in symbols)},
+                        headers=self._headers(),
+                        timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
                     )
-                    if inspect.iscoroutinefunction(on_tick):
-                        await on_tick(tick)
-                    else:
-                        on_tick(tick)
-                await asyncio.sleep(1)
+                    data = resp.json()
+                    for item in data.get("d", []):
+                        v = item.get("v", {})
+                        sym = v.get("symbol") or item.get("n", "")
+                        lp = float(v.get("lp", 0))
+                        change = float(v.get("ch", 0))
+                        change_pct = float(v.get("chp", 0))
+                        inst_type = InstrumentType.EQ
+                        strike = None
+                        expiry = None
+                        opt_type = None
+                        if ":" in sym:
+                            parsed = self._parse_instrument(sym)
+                            inst_type = parsed["instrument_type"]
+                            strike = parsed["strike_price"]
+                            expiry = parsed["expiry_date"]
+                            opt_type = parsed["option_type"]
+                        tick = Tick(
+                            symbol=sym,
+                            exchange=Exchange.NSE,
+                            last_price=lp,
+                            bid=float(v.get("bid", 0)),
+                            ask=float(v.get("ask", 0)),
+                            bid_qty=int(v.get("bid_size", 0)),
+                            ask_qty=int(v.get("ask_size", 0)),
+                            volume=int(v.get("volume", 0)),
+                            oi=int(v.get("oi", 0)),
+                            change=round(change, 2),
+                            change_pct=round(change_pct, 2),
+                            timestamp=datetime.now(UTC),
+                            broker=self.broker_name,
+                            instrument_type=inst_type,
+                            strike_price=strike,
+                            expiry_date=expiry,
+                            option_type=opt_type,
+                        )
+                        if inspect.iscoroutinefunction(on_tick):
+                            await on_tick(tick)
+                        else:
+                            on_tick(tick)
+                    await asyncio.sleep(1)
             except asyncio.CancelledError:
                 break
             except Exception as e:

@@ -284,7 +284,7 @@ async def fyers_callback(
 ):
     from fastapi.responses import RedirectResponse
 
-    FRONTEND_URL = "https://ai.trademetrix.tech/brokers"
+    FRONTEND_URL = f"{settings.frontend_url or 'https://ai.trademetrix.tech'}/brokers"
 
     supabase = get_supabase()
     cred = safe_single(

@@ -33,6 +33,7 @@ const NAV_SECTIONS = [
     label: 'Account',
     items: [
       { href: '/settings', label: 'Settings', icon: '*' },
+      { href: '/brokers', label: 'Brokers', icon: 'B' },
     ],
   },
 ]

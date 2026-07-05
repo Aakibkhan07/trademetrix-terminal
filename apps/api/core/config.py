@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     dotenv_key: str = ""
     env: str = "development"
     tradingview_webhook_secret: str = ""
+    frontend_url: str = "https://ai.trademetrix.tech"
     fyers_redirect_uri: str = ""
 
     request_timeout_seconds: int = 60
