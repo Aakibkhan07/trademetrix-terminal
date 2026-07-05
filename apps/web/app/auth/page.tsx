@@ -27,17 +27,15 @@ export default function AuthPage() {
     setOauthLoading(provider)
     setError('')
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      })
-      if (error) setError(error.message)
+      const cb = `${window.location.origin}/auth/callback`
+      window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(cb)}`
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'OAuth failed')
+      setOauthLoading(null)
     }
-    setOauthLoading(null)
   }
+
+
 
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
   const isValidPassword = (v: string) => v.length >= 6
