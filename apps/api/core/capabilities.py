@@ -16,6 +16,7 @@ class Capabilities(BaseModel):
     backtest_years: int = 0
     daily_loss_floor: float = 2000.0
     live_trading_allowed: bool = False
+    paper_crypto_forex_allowed: bool = False
 
 
 FREE = Capabilities()
@@ -26,6 +27,7 @@ MONTHLY = Capabilities(
     backtest_allowed=True,
     backtest_years=1,
     live_trading_allowed=True,
+    paper_crypto_forex_allowed=True,
 )
 
 QUARTERLY = Capabilities(
@@ -36,6 +38,7 @@ QUARTERLY = Capabilities(
     backtest_years=2,
     daily_loss_floor=3000.0,
     live_trading_allowed=True,
+    paper_crypto_forex_allowed=True,
 )
 
 HALFYEARLY = Capabilities(
@@ -48,6 +51,7 @@ HALFYEARLY = Capabilities(
     backtest_years=5,
     daily_loss_floor=5000.0,
     live_trading_allowed=True,
+    paper_crypto_forex_allowed=True,
 )
 
 YEARLY = Capabilities(
@@ -61,6 +65,7 @@ YEARLY = Capabilities(
     backtest_years=5,
     daily_loss_floor=10000.0,
     live_trading_allowed=True,
+    paper_crypto_forex_allowed=True,
 )
 
 SUPER_ADMIN = Capabilities(
@@ -74,6 +79,7 @@ SUPER_ADMIN = Capabilities(
     backtest_years=5,
     daily_loss_floor=100000.0,
     live_trading_allowed=True,
+    paper_crypto_forex_allowed=True,
 )
 
 CAP_MAP: dict[str, Capabilities] = {

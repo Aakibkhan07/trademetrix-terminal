@@ -417,4 +417,26 @@ export const api = {
   events: {
     stream: () => `${API_BASE}/events/stream`,
   },
+
+  crypto: {
+    pairs: () => request<{ pairs: { symbol: string; price: number; change_pct: number; volume: number }[] }>('/crypto/pairs'),
+    order: (data: { symbol: string; side: string; quantity: number; order_type?: string; price?: number }) =>
+      request('/crypto/order', { method: 'POST', body: data }),
+    account: () => request('/crypto/account'),
+    positions: () => request('/crypto/positions'),
+    orders: () => request('/crypto/orders'),
+    resetAccount: (initial_balance = 10000) =>
+      request('/crypto/account/reset', { method: 'POST', body: { initial_balance } }),
+  },
+
+  forex: {
+    pairs: () => request<{ pairs: { symbol: string; price: number }[] }>('/forex/pairs'),
+    order: (data: { symbol: string; side: string; quantity: number; order_type?: string; price?: number }) =>
+      request('/forex/order', { method: 'POST', body: data }),
+    account: () => request('/forex/account'),
+    positions: () => request('/forex/positions'),
+    orders: () => request('/forex/orders'),
+    resetAccount: (initial_balance = 10000) =>
+      request('/forex/account/reset', { method: 'POST', body: { initial_balance } }),
+  },
 }

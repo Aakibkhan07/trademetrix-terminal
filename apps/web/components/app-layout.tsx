@@ -33,6 +33,13 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'Paper Trading',
+    items: [
+      { href: '/terminal/crypto', label: 'Crypto', icon: '✦' },
+      { href: '/terminal/forex', label: 'Forex', icon: '✦' },
+    ],
+  },
+  {
     label: 'Analytics',
     items: [
       { href: '/analytics', label: 'Performance', icon: '■' },
