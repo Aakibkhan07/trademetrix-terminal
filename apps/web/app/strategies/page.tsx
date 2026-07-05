@@ -94,7 +94,7 @@ export default function StrategiesPage() {
       {showCreate && (
         <div className="t-modal-overlay" onClick={() => setShowCreate(false)}>
           <div className="t-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <h2 style={{ fontFamily: 'Outfit', fontSize: 18, margin: '0 0 16px' }}>Create Strategy</h2>
+            <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: 18, margin: '0 0 16px' }}>Create Strategy</h2>
             <div style={{ marginBottom: 12 }}>
               <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Name</label>
               <input className="t-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Strategy" />
@@ -139,7 +139,7 @@ export default function StrategiesPage() {
         <ErrorMessage message={error} onRetry={load} />
       ) : (
         <>
-          <h2 style={{ fontFamily: 'Outfit', fontSize: 15, margin: '0 0 14px', color: '#f0f0f5' }}>
+            <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: 15, margin: '0 0 14px', color: 'var(--text)' }}>
             Saved Strategies ({strategies.length})
           </h2>
           <div className="t-grid-auto" style={{ marginBottom: 28 }}>
@@ -149,7 +149,7 @@ export default function StrategiesPage() {
                   <div style={{ padding: '18px', flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                       <div>
-                        <h3 style={{ fontFamily: 'Outfit', fontSize: 14, margin: 0 }}>{s.name}</h3>
+                        <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, margin: 0 }}>{s.name}</h3>
                         <p style={{ margin: '2px 0 0', fontSize: 11, color: '#555570' }}>{s.type}</p>
                       </div>
                       <span className={`t-badge ${s.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>

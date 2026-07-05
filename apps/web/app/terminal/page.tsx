@@ -1,616 +1,368 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useApi } from '@/lib/use-api'
-import { useMarketData } from '@/lib/use-market-data'
 import { api } from '@/lib/api'
+import { useMarketData } from '@/lib/use-market-data'
 import { useToast } from '@/lib/use-toast'
 
-/* -------- Types -------- */
-
 interface Position {
-  symbol: string
-  exchange: string
-  quantity: number
-  average_buy_price: number
-  average_sell_price: number
-  unrealised_pnl: number
-  realised_pnl: number
-  m2m: number
-  product: string
-  instrument_type: string
-  multiplier: number
+  symbol: string; exchange: string; quantity: number
+  average_buy_price: number; unrealised_pnl: number; m2m: number
+  product: string; instrument_type: string
 }
 
 interface Order {
-  id: string
-  symbol: string
-  side: string
-  order_type: string
-  quantity: number
-  price: number
-  status: string
-  filled_quantity: number
-  average_price: number
-  total_value: number
-  message: string
-  is_paper: boolean
-  created_at: string
+  id: string; symbol: string; side: string; order_type: string
+  quantity: number; price: number; status: string
+  filled_quantity: number; average_price: number
+  message: string; created_at: string
 }
 
-interface Funds {
-  total_margin: number
-  used_margin: number
-  available_margin: number
-  payin: number
-  payout: number
-  broker: string
-}
-
-interface AssignedStrategy {
-  strategy_key: string
-  name: string
-  description: string
-  required_tier: string
-}
-
-interface WatchlistItem {
-  symbol: string
-  name: string
-  type: string
-}
-
-/* -------- Helpers -------- */
+interface Funds { total_margin: number; used_margin: number; available_margin: number; broker: string }
 
 const STATUS_BADGE: Record<string, string> = {
-  FILLED: 't-badge-green',
-  REJECTED: 't-badge-red',
-  CANCELLED: 't-badge-amber',
-  PENDING: 't-badge-cyan',
-  OPEN: 't-badge-cyan',
-  PARTIALLY_FILLED: 't-badge-amber',
-  EXPIRED: 't-badge-sub',
+  FILLED: 't-badge-green', REJECTED: 't-badge-red', CANCELLED: 't-badge-amber',
+  PENDING: 't-badge-cyan', OPEN: 't-badge-cyan', PARTIALLY_FILLED: 't-badge-amber', EXPIRED: 't-badge-sub',
 }
-
-function statusBadge(s: string) { return STATUS_BADGE[s.toUpperCase()] || 't-badge-sub' }
-
-function fmt(n: number) {
-  return n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-}
-
-/* -------- Skeletons -------- */
-
-function SkeletonLine({ w, h = 12 }: { w: string; h?: number }) {
-  return <div style={{ width: w, height: h, background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
-}
-
-function SkeletonCard({ h = 80 }: { h?: number }) {
-  return (
-    <div className="t-stat" style={{ padding: 14, height: h, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <SkeletonLine w="40%" />
-      <SkeletonLine w="60%" />
-    </div>
-  )
-}
-
-function SkeletonRow() {
-  return (
-    <div style={{ padding: '8px 14px', display: 'flex', gap: 12, borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-      <SkeletonLine w="80px" />
-      <SkeletonLine w="50px" />
-      <SkeletonLine w="40px" />
-      <SkeletonLine w="60px" />
-      <SkeletonLine w="50px" />
-    </div>
-  )
-}
-
-/* -------- Page -------- */
 
 export default function TerminalPage() {
-  const refreshKey = 0
-  const { ticks, feedMode, subscribe } = useMarketData()
+  const { ticks, subscribe, startFeed } = useMarketData()
   const { toast } = useToast()
+  const [positions, setPositions] = useState<Position[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [funds, setFunds] = useState<Funds | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState<string | null>(null)
 
-  const { data: posData, loading: posLoading, error: posError } =
-    useApi<{ positions: Position[] }>(`/engine/positions?_=${refreshKey}`)
-  const { data: ordData, loading: ordLoading, error: ordError } =
-    useApi<{ orders: Order[] }>(`/engine/orders?_=${refreshKey}`)
-  const { data: fundData, loading: fundLoading, error: fundError } =
-    useApi<{ funds: Funds }>(`/engine/funds?_=${refreshKey}`)
-  const { data: stratData, loading: stratLoading, error: stratError } =
-    useApi<{ strategies: AssignedStrategy[] }>(`/strategies/assigned?_=${refreshKey}`)
-  const { data: wlData } =
-    useApi<{ indices: WatchlistItem[]; stocks: WatchlistItem[] }>(`/marketdata/watchlist?_=${refreshKey}`)
+  const [symbol, setSymbol] = useState('')
+  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY')
+  const [qty, setQty] = useState(1)
+  const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT'>('MARKET')
+  const [limitPrice, setLimitPrice] = useState(0)
+  const [product, setProduct] = useState<'INTRADAY' | 'NRML'>('INTRADAY')
+  const [placing, setPlacing] = useState(false)
+  const [orderError, setOrderError] = useState('')
 
-  const positions = posData?.positions || []
-  const orders = ordData?.orders || []
-  const funds = fundData?.funds || null
-  const assignedStrats = stratData?.strategies || []
-  const indices = wlData?.indices || []
+  const loadData = async () => {
+    try {
+      const [p, f, o] = await Promise.all([
+        api.engine.positions(),
+        api.engine.funds(),
+        api.engine.orders(),
+      ])
+      setPositions((p as any).positions || [])
+      setFunds((f as any).funds || null)
+      setOrders((o as any).orders || [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const allSymbols = [
-    ...(wlData?.indices || []).map(i => i.symbol),
-    ...(wlData?.stocks || []).map(s => s.symbol),
-  ]
-  useEffect(() => {
-    if (allSymbols.length) subscribe(allSymbols)
-  }, [allSymbols, subscribe])
+  useEffect(() => { loadData(); startFeed() }, [])
+  useEffect(() => { if (symbol) subscribe([symbol]) }, [symbol])
+
+  const liveTick = symbol ? ticks[symbol] : null
 
   const handleCancel = async (orderId: string) => {
     setCancelling(orderId)
-    try {
-      await api.engine.cancelOrder(orderId)
-      toast('success', 'Order cancelled')
-    } catch {
-      toast('error', 'Failed to cancel order')
-    }
-    setCancelling(null)
-  }
-
-  const hasLive: boolean = funds !== null && (funds.total_margin > 0 || funds.available_margin > 0)
-  const posCount = positions.length
-  const activeStrats = assignedStrats.length
-
-  /* -------- Order Ticket State -------- */
-  const [showOrderTicket, setShowOrderTicket] = useState(false)
-  const [orderSymbol, setOrderSymbol] = useState('')
-  const [orderSide, setOrderSide] = useState<'BUY' | 'SELL'>('BUY')
-  const [orderQty, setOrderQty] = useState(1)
-  const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT'>('MARKET')
-  const [orderPrice, setOrderPrice] = useState(0)
-  const [orderProduct, setOrderProduct] = useState<'INTRADAY' | 'NRML'>('INTRADAY')
-  const [isLiveMode, setIsLiveMode] = useState(false)
-  const [placing, setPlacing] = useState(false)
-  const [orderError, setOrderError] = useState('')
-  const [confirmingLive, setConfirmingLive] = useState(false)
-
-  const handleToggleLive = async () => {
-    if (isLiveMode) {
-      setIsLiveMode(false)
-      return
-    }
-    try {
-      const status = await api.risk.liveStatus() as { is_live: boolean }
-      if (status.is_live) {
-        setIsLiveMode(true)
-      } else {
-        setConfirmingLive(true)
-      }
-    } catch {
-      setConfirmingLive(true)
-    }
-  }
-
-  const confirmLive = async () => {
-    try {
-      await api.risk.enableLive()
-      setIsLiveMode(true)
-      setConfirmingLive(false)
-    } catch (e) {
-      setOrderError(String(e))
-      setConfirmingLive(false)
-    }
+    try { await api.engine.cancelOrder(orderId); toast('success', 'Order cancelled') }
+    catch { toast('error', 'Cancel failed') }
+    finally { setCancelling(null); loadData() }
   }
 
   const handlePlaceOrder = async () => {
-    if (!orderSymbol) { setOrderError('Enter a symbol'); return }
-    setPlacing(true)
-    setOrderError('')
+    if (!symbol) { setOrderError('Symbol required'); return }
+    setPlacing(true); setOrderError('')
     try {
       const res = await api.engine.trade({
-        symbol: orderSymbol,
-        side: orderSide,
-        quantity: orderQty,
-        price: orderType === 'LIMIT' ? orderPrice : 0,
-        order_type: orderType,
-        product: orderProduct,
-      }) as { result?: { success: boolean; broker_order_id: string; message: string; status: string } }
+        symbol, side, quantity: qty,
+        price: orderType === 'LIMIT' ? limitPrice : 0,
+        order_type: orderType, product,
+      }) as { result?: { success: boolean; message: string } }
       if (res.result?.success) {
-        toast('success', `${orderSide} ${orderQty} ${orderSymbol} placed`)
-        setOrderSymbol('')
+        toast('success', `${side} ${qty} ${symbol}`)
+        setSymbol('')
+        loadData()
       } else {
         setOrderError(res.result?.message || 'Order failed')
       }
-    } catch (e) {
-      setOrderError(String(e))
-    } finally {
-      setPlacing(false)
-    }
+    } catch (e) { setOrderError(String(e)) }
+    finally { setPlacing(false) }
   }
 
+  const tickPct = liveTick?.change_pct ?? null
+
   return (
-    <div>
-      <div className="t-page-header">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="t-page-title">Terminal</h1>
-          <p className="t-sub">
-            Real-time trading dashboard
-            {feedMode === 'simulator' && (
-              <span className="t-badge t-badge-amber" style={{ marginLeft: 8 }}>SIMULATED DATA</span>
-            )}
+          <h1 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Terminal</h1>
+          <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
+            Real-time order placement & execution
+            {funds && <span style={{ marginLeft: 8, color: 'var(--text-faint)' }}>• {funds.broker || 'No broker'}</span>}
           </p>
         </div>
-        <button className={`t-btn t-btn-sm ${showOrderTicket ? 't-btn-danger' : 't-btn-primary'}`}
-          onClick={() => setShowOrderTicket(!showOrderTicket)}>
-          {showOrderTicket ? 'Close Order' : '+ New Order'}
-        </button>
       </div>
 
-      {(posError || ordError || fundError || stratError) && (
-        <div className="t-panel" style={{ marginBottom: 16, padding: 12, borderLeft: '3px solid #ef4444' }}>
-          <span className="t-down">{posError?.message || ordError?.message || fundError?.message || stratError?.message}</span>
-        </div>
+      {error && (
+        <div style={{
+          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)',
+          borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12,
+        }}>{error}</div>
       )}
 
-      {/* KPI row */}
-      <div className="t-grid-4" style={{ marginBottom: 20 }}>
-        {fundLoading ? (
-          <>
-            <SkeletonCard h={70} />
-            <SkeletonCard h={70} />
-            <SkeletonCard h={70} />
-            <SkeletonCard h={70} />
-          </>
-        ) : (
-          <>
-            <div className="t-stat">
-              <div className="t-stat-row">
-                <span className={`t-dot ${hasLive ? 't-dot-cyan t-dot-pulse' : 't-dot-sub'}`} />
-                <span className="t-stat-label">Total Margin</span>
-              </div>
-              <p className="t-stat-value">
-                {funds ? `\u20B9${fmt(funds.total_margin)}` : '\u2014'}
-              </p>
-              {funds && <p className="t-stat-sub">{funds.broker || 'N/A'}</p>}
-            </div>
-            <div className="t-stat">
-              <div className="t-stat-row">
-                <span className="t-dot t-dot-green" />
-                <span className="t-stat-label">Available Margin</span>
-              </div>
-              <p className="t-stat-value">
-                {funds ? `\u20B9${fmt(funds.available_margin)}` : '\u2014'}
-              </p>
-            </div>
-            <div className="t-stat">
-              <div className="t-stat-row">
-                <span className="t-dot t-dot-sub" />
-                <span className="t-stat-label">Open Positions</span>
-              </div>
-              <p className="t-stat-value">{posLoading ? '\u2014' : posCount}</p>
-            </div>
-            <div className="t-stat">
-              <div className="t-stat-row">
-                <span className="t-dot t-dot-violet" />
-                <span className="t-stat-label">Active Strategies</span>
-              </div>
-              <p className="t-stat-value">{stratLoading ? '\u2014' : activeStrats}</p>
-              {!stratLoading && activeStrats > 0 && (
-                <p className="t-stat-sub">{assignedStrats.map(s => s.name).join(', ')}</p>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="t-row" style={{ gap: 20, marginBottom: 20 }}>
-        {/* Open Positions */}
-        <div className="t-panel" style={{ flex: 1, minWidth: 0, padding: 0, overflow: 'hidden' }}>
-          <div className="t-panel-header">
-            <h3 className="t-panel-title">Open Positions</h3>
-            <span className="t-faint">{posCount} open</span>
-          </div>
-          {posLoading && (
-            <div className="t-panel-body">
-              <SkeletonRow /><SkeletonRow /><SkeletonRow />
-            </div>
-          )}
-          {posError && (
-            <div className="t-panel-body">
-              <p className="t-down">{posError.message}</p>
-            </div>
-          )}
-          {!posLoading && !posError && positions.length === 0 && (
-            <div className="t-panel-body">
-              <p className="t-faint">No open positions.</p>
-            </div>
-          )}
-          {!posLoading && positions.length > 0 && (
-            <div className="t-table-wrap">
-              <table className="t-table">
-                <thead>
-                  <tr>
-                    <th>Symbol</th>
-                    <th>Qty</th>
-                    <th>Avg</th>
-                    <th>P&amp;L</th>
-                    <th>Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {positions.map((p, i) => (
-                    <tr key={i}>
-                      <td style={{ fontWeight: 600 }}>{p.symbol}</td>
-                      <td className="t-num">{p.quantity}</td>
-                      <td className="t-num">{(p.average_buy_price || p.average_sell_price) ? `\u20B9${fmt(p.average_buy_price || p.average_sell_price)}` : '\u2014'}</td>
-                      <td className={`t-num ${(p.unrealised_pnl || p.m2m) >= 0 ? 't-up' : 't-down'}`}>
-                        {(p.unrealised_pnl || p.m2m) !== 0 ? `${(p.unrealised_pnl || p.m2m) >= 0 ? '+' : ''}\u20B9${fmt(p.unrealised_pnl || p.m2m)}` : '\u20B90'}
-                      </td>
-                      <td className="t-faint">{p.instrument_type} {p.product}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Your Strategies */}
-        <div className="t-panel" style={{ flex: '1 1 280px', maxWidth: 320, minWidth: 240, padding: 0, overflow: 'hidden' }}>
-          <div className="t-panel-header">
-            <h3 className="t-panel-title">Your Strategies</h3>
-            <span className="t-faint">{activeStrats} active</span>
-          </div>
-          {stratLoading && (
-            <div className="t-panel-body">
-              <SkeletonCard h={50} />
-              <SkeletonCard h={50} />
-            </div>
-          )}
-          {stratError && (
-            <div className="t-panel-body">
-              <p className="t-down">{stratError.message}</p>
-            </div>
-          )}
-          {!stratLoading && !stratError && assignedStrats.length === 0 && (
-            <div className="t-panel-body">
-              <p className="t-faint">No strategies assigned.</p>
-            </div>
-          )}
-          {!stratLoading && assignedStrats.length > 0 && (
-            <div className="t-panel-body" style={{ paddingTop: 0 }}>
-              {assignedStrats.map(s => (
-                <div key={s.strategy_key} style={{
-                  padding: '10px 12px', marginTop: 8,
-                  background: 'rgba(255,255,255,0.02)',
-                  borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{s.name}</span>
-                    <span className="t-badge t-badge-violet" style={{ textTransform: 'capitalize' }}>{s.required_tier}</span>
-                  </div>
-                  <p className="t-faint" style={{ margin: 0, fontSize: 10, lineHeight: 1.4 }}>
-                    {s.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="t-row" style={{ gap: 20 }}>
-        {/* Recent Orders */}
-        <div className="t-panel" style={{ flex: 1, minWidth: 0, padding: 0, overflow: 'hidden' }}>
-          <div className="t-panel-header">
-            <h3 className="t-panel-title">Recent Orders</h3>
-            <span className="t-faint">{ordLoading ? '\u2014' : `${orders.length} total`}</span>
-          </div>
-          {ordLoading && (
-            <div className="t-panel-body">
-              <SkeletonRow /><SkeletonRow /><SkeletonRow />
-            </div>
-          )}
-          {ordError && (
-            <div className="t-panel-body">
-              <p className="t-down">{ordError.message}</p>
-            </div>
-          )}
-          {!ordLoading && !ordError && orders.length === 0 && (
-            <div className="t-panel-body">
-              <p className="t-faint">No orders yet.</p>
-            </div>
-          )}
-          {!ordLoading && orders.length > 0 && (
-            <div className="t-table-wrap">
-              <table className="t-table">
-                <thead>
-                  <tr>
-                    <th>Symbol</th>
-                    <th>Side</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th>Status</th>
-                    <th>Time</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.slice(0, 20).map(o => (
-                    <tr key={o.id}>
-                      <td style={{ fontWeight: 600 }}>{o.symbol}</td>
-                      <td className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 500 }}>
-                        {o.side}
-                      </td>
-                      <td className="t-num">{o.filled_quantity || o.quantity}</td>
-                      <td className="t-num">{o.average_price ? `\u20B9${fmt(o.average_price)}` : o.price ? `\u20B9${fmt(o.price)}` : '\u2014'}</td>
-                      <td>
-                        <span className={`t-badge ${statusBadge(o.status)}`}>
-                          {o.status}
-                        </span>
-                      </td>
-                      <td className="t-faint">
-                        {o.created_at ? new Date(o.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '\u2014'}
-                      </td>
-                      <td>
-                        {['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status) && (
-                          <button className="t-btn t-btn-sm t-btn-danger"
-                            onClick={() => handleCancel(o.id)} disabled={cancelling === o.id}>
-                            {cancelling === o.id ? '...' : 'Cancel'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Indices / Watchlist */}
-        <div className="t-panel" style={{ flex: '1 1 200px', maxWidth: 240, minWidth: 160, padding: 0, overflow: 'hidden' }}>
-          <div className="t-panel-header">
-            <h3 className="t-panel-title">Indices</h3>
-            <span className="t-faint">{indices.length}</span>
-            {feedMode === 'simulator' && (
-              <span className="t-badge t-badge-amber" style={{ marginLeft: 8 }}>SIMULATED DATA</span>
-            )}
-          </div>
-          <div className="t-panel-body">
-            {indices.length === 0 && (
-              <p className="t-faint" style={{ margin: '12px 0 0' }}>
-                Market data unavailable.
-              </p>
-            )}
-            {indices.map(idx => {
-              const t = ticks[idx.symbol]
-              const pct = t?.change_pct
-              return (
-                <div key={idx.symbol} style={{
-                  padding: '8px 10px', marginTop: 8, display: 'flex',
-                  justifyContent: 'space-between', alignItems: 'center',
-                  background: 'rgba(255,255,255,0.02)',
-                  borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)',
-                }}>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>{idx.name}</span>
-                  <span className={`t-num ${t ? (pct != null && pct >= 0 ? 't-up' : 't-down') : 't-faint'}`}>
-                    {t?.last_price != null ? t.last_price.toFixed(1) : '\u2014'}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Inline Order Ticket */}
-      {showOrderTicket && (
-        <div className="t-panel" style={{
-          marginTop: 20,
-          borderTop: `3px solid ${orderSide === 'BUY' ? '#22c55e' : '#ef4444'}`,
-          maxWidth: 520,
+      <div style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
+        {/* Left: Order Ticket */}
+        <div style={{
+          width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10,
         }}>
-          <div className="t-panel-header">
-            <span className="t-panel-title">Quick Order</span>
-            <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => setShowOrderTicket(false)}>
-              Close
-            </button>
+          <div className="t-panel" style={{
+            padding: 0, borderTop: `3px solid ${side === 'BUY' ? 'var(--green)' : 'var(--red)'}`,
+          }}>
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Quick Order</span>
+            </div>
+            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Side toggle */}
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={() => setSide('BUY')} style={{
+                  flex: 1, padding: '7px 0', borderRadius: 'var(--radius-sm)',
+                  border: `1px solid ${side === 'BUY' ? 'var(--green)' : 'var(--border)'}`,
+                  background: side === 'BUY' ? 'rgba(34,197,94,0.1)' : 'transparent',
+                  color: side === 'BUY' ? 'var(--text-green)' : 'var(--text-sub)',
+                  fontSize: 12, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+                  cursor: 'pointer', transition: 'all 120ms ease',
+                }}>BUY</button>
+                <button onClick={() => setSide('SELL')} style={{
+                  flex: 1, padding: '7px 0', borderRadius: 'var(--radius-sm)',
+                  border: `1px solid ${side === 'SELL' ? 'var(--red)' : 'var(--border)'}`,
+                  background: side === 'SELL' ? 'rgba(239,68,68,0.1)' : 'transparent',
+                  color: side === 'SELL' ? 'var(--text-red)' : 'var(--text-sub)',
+                  fontSize: 12, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+                  cursor: 'pointer', transition: 'all 120ms ease',
+                }}>SELL</button>
+              </div>
+
+              {/* Symbol + Qty */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Symbol</label>
+                  <input className="t-input" placeholder="NIFTY, RELIANCE..." value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} />
+                </div>
+                <div style={{ width: 80 }}>
+                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Qty</label>
+                  <input className="t-input" type="number" min={1} value={qty} onChange={e => setQty(Number(e.target.value))} />
+                </div>
+              </div>
+
+              {/* Order Type + Product */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Type</label>
+                  <select className="t-select" value={orderType} onChange={e => setOrderType(e.target.value as 'MARKET' | 'LIMIT')}>
+                    <option value="MARKET">Market</option>
+                    <option value="LIMIT">Limit</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Product</label>
+                  <select className="t-select" value={product} onChange={e => setProduct(e.target.value as 'INTRADAY' | 'NRML')}>
+                    <option value="INTRADAY">Intraday</option>
+                    <option value="NRML">Delivery</option>
+                  </select>
+                </div>
+              </div>
+
+              {orderType === 'LIMIT' && (
+                <div>
+                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Limit Price</label>
+                  <input className="t-input" type="number" min={0} step={0.05} value={limitPrice} onChange={e => setLimitPrice(Number(e.target.value))} />
+                </div>
+              )}
+
+              {/* Live Quote */}
+              {liveTick && (
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '6px 8px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)',
+                  fontSize: 11,
+                }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text)' }}>{symbol}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>
+                    {liveTick.last_price?.toFixed(1)}
+                  </span>
+                  {tickPct !== null && (
+                    <span style={{ fontWeight: 700, color: tickPct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
+                      {tickPct >= 0 ? '+' : ''}{tickPct.toFixed(2)}%
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {orderError && (
+                <div style={{
+                  background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)',
+                  borderRadius: 'var(--radius-sm)', padding: '6px 8px', fontSize: 11, color: 'var(--text-red)',
+                }}>{orderError}</div>
+              )}
+
+              <button
+                onClick={handlePlaceOrder} disabled={placing || !symbol}
+                style={{
+                  padding: '8px 0', borderRadius: 'var(--radius-sm)', border: 'none',
+                  background: side === 'BUY' ? 'var(--green)' : 'var(--red)',
+                  color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: "'Inter', sans-serif",
+                  transition: 'all 120ms ease',
+                }}
+              >
+                {placing ? 'Placing...' : `${side} ${qty} ${symbol || '...'}`}
+              </button>
+            </div>
           </div>
-          <div className="t-panel-body">
-            <div className="t-row" style={{ gap: 8, marginBottom: 10 }}>
-              <div className="t-col">
-                <label className="t-label">Symbol</label>
-                <input className="t-input" placeholder="e.g. NIFTY, RELIANCE..." value={orderSymbol}
-                  onChange={e => setOrderSymbol(e.target.value.toUpperCase())} />
+
+          {/* Margin Info */}
+          {funds && (
+            <div className="t-panel" style={{ padding: 10 }}>
+              <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Margin</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 4 }}>
+                <span style={{ color: 'var(--text-sub)' }}>Available</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-green)' }}>
+                  ₹{(funds.available_margin || 0).toLocaleString()}
+                </span>
               </div>
-              <div className="t-col" style={{ flex: '0 0 100px' }}>
-                <label className="t-label">Qty</label>
-                <input className="t-input" type="number" min={1} value={orderQty}
-                  onChange={e => setOrderQty(Number(e.target.value))} />
+              <div className="t-progress">
+                <div className="t-progress-fill" style={{
+                  width: funds.total_margin ? `${((funds.used_margin || 0) / funds.total_margin) * 100}%` : '0%',
+                  background: 'var(--cyan)',
+                }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, marginTop: 3, color: 'var(--text-faint)' }}>
+                <span>Used: ₹{(funds.used_margin || 0).toLocaleString()}</span>
+                <span>Total: ₹{(funds.total_margin || 0).toLocaleString()}</span>
               </div>
             </div>
+          )}
+        </div>
 
-            <div className="t-row" style={{ gap: 8, marginBottom: 10 }}>
-              <div className="t-col">
-                <label className="t-label">Side</label>
-                <div className="t-row" style={{ gap: 4 }}>
-                  <button className={`t-btn t-btn-sm ${orderSide === 'BUY' ? 't-btn-primary' : 't-btn-ghost'}`}
-                    onClick={() => setOrderSide('BUY')} style={{ flex: 1 }}>
-                    BUY
-                  </button>
-                  <button className={`t-btn t-btn-sm ${orderSide === 'SELL' ? 't-btn-danger' : 't-btn-ghost'}`}
-                    onClick={() => setOrderSide('SELL')} style={{ flex: 1 }}>
-                    SELL
-                  </button>
-                </div>
-              </div>
-              <div className="t-col">
-                <label className="t-label">Type</label>
-                <select className="t-select" value={orderType}
-                  onChange={e => setOrderType(e.target.value as 'MARKET' | 'LIMIT')}>
-                  <option value="MARKET">Market</option>
-                  <option value="LIMIT">Limit</option>
-                </select>
-              </div>
-              <div className="t-col">
-                <label className="t-label">Product</label>
-                <select className="t-select" value={orderProduct}
-                  onChange={e => setOrderProduct(e.target.value as 'INTRADAY' | 'NRML')}>
-                  <option value="INTRADAY">Intraday</option>
-                  <option value="NRML">Delivery</option>
-                </select>
+        {/* Right: Positions + Orders */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, overflow: 'hidden' }}>
+          {/* Positions */}
+          <div className="t-panel" style={{ padding: 0, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              padding: '8px 12px', borderBottom: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>
+                Positions ({positions.length})
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="t-btn t-btn-xs" onClick={loadData}>Refresh</button>
               </div>
             </div>
-
-            {orderType === 'LIMIT' && (
-              <div style={{ marginBottom: 10 }}>
-                <label className="t-label">Limit Price</label>
-                <input className="t-input" type="number" min={0} step={0.05} value={orderPrice}
-                  onChange={e => setOrderPrice(Number(e.target.value))} />
+            {positions.length > 0 ? (
+              <div style={{ overflow: 'auto', flex: 1 }}>
+                <table className="t-table">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th className="num">Qty</th>
+                      <th className="num">Avg</th>
+                      <th className="num">P&L</th>
+                      <th>Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {positions.map((p, i) => {
+                      const live = ticks[p.symbol]
+                      const ltp = live?.last_price || p.average_buy_price || 0
+                      const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : p.unrealised_pnl
+                      return (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
+                          <td className="t-num">{p.quantity}</td>
+                          <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
+                          <td className={`t-num ${(pnl || 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
+                            {(pnl || 0) >= 0 ? '+' : ''}{(pnl || 0).toFixed(0)}
+                          </td>
+                          <td>
+                            <span className={`t-badge ${p.instrument_type === 'OPT' ? 't-badge-violet' : 't-badge-cyan'}`} style={{ fontSize: 8 }}>
+                              {p.instrument_type || 'EQ'}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <p style={{ color: 'var(--text-faint)', fontSize: 11 }}>No open positions</p>
               </div>
             )}
+          </div>
 
-            <div className="t-row" style={{ alignItems: 'center', gap: 6, marginBottom: 10 }}>
-              <span className="t-faint" style={{ fontSize: 10, fontWeight: 600 }}>MODE</span>
-              <button className={`t-chip ${!isLiveMode ? 'active' : ''}`}
-                onClick={() => isLiveMode && setIsLiveMode(false)}>
-                PAPER
-              </button>
-              <button className={`t-chip ${isLiveMode ? 'active' : ''}`}
-                onClick={handleToggleLive} style={{ color: isLiveMode ? '#ef4444' : undefined }}>
-                LIVE
-              </button>
+          {/* Orders */}
+          <div className="t-panel" style={{ padding: 0, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              padding: '8px 12px', borderBottom: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>
+                Orders ({orders.length})
+              </span>
+              <span className="t-faint" style={{ fontSize: 10 }}>Last 50</span>
             </div>
-
-            {confirmingLive && (
-              <div style={{
-                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
-                borderRadius: 8, padding: '10px 12px', marginBottom: 10,
-              }}>
-                <p style={{ margin: '0 0 8px', fontSize: 11, color: '#ef4444', fontWeight: 500 }}>
-                  Enable live mode to place real orders?
-                </p>
-                <div className="t-row" style={{ gap: 6 }}>
-                  <button className="t-btn t-btn-sm t-btn-danger" onClick={confirmLive}>
-                    Enable Live
-                  </button>
-                  <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => setConfirmingLive(false)}>
-                    Cancel
-                  </button>
-                </div>
+            {orders.length > 0 ? (
+              <div style={{ overflow: 'auto', flex: 1 }}>
+                <table className="t-table">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th>Side</th>
+                      <th className="num">Qty</th>
+                      <th className="num">Price</th>
+                      <th>Status</th>
+                      <th>Time</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.slice(0, 50).map(o => (
+                      <tr key={o.id}>
+                        <td style={{ fontWeight: 600, fontSize: 12 }}>{o.symbol?.split(':').pop()}</td>
+                        <td style={{ color: o.side === 'BUY' ? 'var(--text-green)' : 'var(--text-red)', fontWeight: 600 }}>{o.side}</td>
+                        <td className="t-num">{o.filled_quantity || o.quantity}</td>
+                        <td className="t-num">{(o.average_price || o.price || 0).toFixed(1)}</td>
+                        <td><span className={`t-badge ${STATUS_BADGE[o.status] || 't-badge-sub'}`} style={{ fontSize: 8 }}>{o.status}</span></td>
+                        <td className="t-faint" style={{ fontSize: 9 }}>
+                          {o.created_at ? new Date(o.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </td>
+                        <td>
+                          {['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status) && (
+                            <button className="t-btn t-btn-xs t-btn-danger" onClick={() => handleCancel(o.id)} disabled={cancelling === o.id}>
+                              {cancelling === o.id ? '...' : 'X'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <p style={{ color: 'var(--text-faint)', fontSize: 11 }}>No orders yet</p>
               </div>
             )}
-
-            {orderError && (
-              <div style={{
-                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
-                borderRadius: 8, padding: '8px 12px', marginBottom: 10,
-              }}>
-                <span className="t-down" style={{ fontSize: 11 }}>{orderError}</span>
-              </div>
-            )}
-
-            <button className={`t-btn ${isLiveMode ? 't-btn-danger' : 't-btn-primary'}`}
-              onClick={handlePlaceOrder} disabled={placing || !orderSymbol}
-              style={{ width: '100%' }}>
-              {placing ? 'Placing...' : `${isLiveMode ? 'LIVE ' : ''}${orderSide} ${orderQty} ${orderSymbol || '...'}`}
-            </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

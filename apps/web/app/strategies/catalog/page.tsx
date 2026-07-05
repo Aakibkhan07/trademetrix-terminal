@@ -164,7 +164,7 @@ export default function StrategyCatalogPage() {
               <div style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12,
               }}>
-                <h3 style={{ fontFamily: 'Outfit', fontSize: 14, margin: 0 }}>
+                <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, margin: 0 }}>
                   {s.name}
                 </h3>
                 <TierBadge tier={s.required_tier} />

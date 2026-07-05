@@ -1,35 +1,35 @@
 :root {
-  --bg: #0a0b0d;
-  --bg-secondary: #0d0f13;
-  --bg-tertiary: #111318;
-  --bg-hover: rgba(0, 229, 255, 0.06);
-  --bg-active: rgba(0, 229, 255, 0.1);
+  --bg: #0f1419;
+  --bg-secondary: #1a1f2e;
+  --bg-tertiary: #242837;
+  --bg-hover: rgba(0, 212, 255, 0.06);
+  --bg-active: rgba(0, 212, 255, 0.1);
 
-  --panel: rgba(255, 255, 255, 0.035);
-  --panel-2: rgba(255, 255, 255, 0.055);
-  --border: rgba(255, 255, 255, 0.07);
+  --panel: rgba(255, 255, 255, 0.03);
+  --panel-2: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.08);
   --border-hi: rgba(255, 255, 255, 0.13);
-  --border-accent: rgba(0, 229, 255, 0.2);
+  --border-accent: rgba(0, 212, 255, 0.25);
 
-  --cyan: #00e5ff;
-  --cyan-dim: #0099b0;
+  --cyan: #00d4ff;
+  --cyan-dim: #0096ff;
   --violet: #7c5cfc;
-  --green: #00c853;
-  --green-dim: #009624;
-  --red: #ff1744;
-  --red-dim: #b71c1c;
-  --amber: #ffd600;
-  --blue: #448aff;
-  --orange: #ff6d00;
+  --green: #22c55e;
+  --green-dim: #16a34a;
+  --red: #ef4444;
+  --red-dim: #dc2626;
+  --amber: #f59e0b;
+  --blue: #3b82f6;
+  --orange: #f97316;
 
-  --text: #e8eaed;
-  --text-sub: #9aa0a6;
+  --text: #ffffff;
+  --text-sub: #a1a5b3;
   --text-faint: #5f6368;
-  --text-inverse: #0a0b0d;
-  --text-green: #00c853;
-  --text-red: #ff1744;
+  --text-inverse: #0f1419;
+  --text-green: #22c55e;
+  --text-red: #ef4444;
 
-  --gradient-primary: linear-gradient(135deg, #00e5ff, #7c5cfc);
+  --gradient-primary: linear-gradient(135deg, #00d4ff, #0096ff);
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -44,8 +44,8 @@
   --radius-xl: 16px;
   --radius-pill: 999px;
 
-  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   --text-xs: 0.75rem;
@@ -58,13 +58,14 @@
 
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-panel: 0 1px 4px rgba(0, 0, 0, 0.2);
-  --shadow-glow: 0 4px 20px rgba(0, 229, 255, 0.15);
+  --shadow-glow: 0 4px 20px rgba(0, 212, 255, 0.15);
 
-  --transition-fast: 120ms ease;
-  --transition-normal: 200ms ease;
+  --transition-fast: 150ms ease;
+  --transition-normal: 300ms ease;
 
   --sidebar-width: 180px;
-  --header-height: 46px;
+  --sidebar-collapsed: 52px;
+  --header-height: 48px;
   --statusbar-height: 26px;
   --right-panel-width: 0px;
 }

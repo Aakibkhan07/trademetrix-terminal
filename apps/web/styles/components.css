@@ -529,6 +529,7 @@
 .t-dot-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
 .t-dot-cyan { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
 .t-dot-amber { background: var(--amber); }
+.t-dot-violet { background: var(--violet); box-shadow: 0 0 6px var(--violet); }
 .t-dot-sub { background: var(--text-faint); }
 @keyframes t-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 .t-dot-pulse { animation: t-pulse 2s infinite; }
