@@ -1,4 +1,3 @@
-import asyncio
 from datetime import UTC, datetime
 from core.config import settings
 import os
@@ -14,6 +13,7 @@ from core.deps import get_current_user
 from core.models import AuditLogEntry, UserProfile
 from core.safe_query import safe_execute, safe_single
 from core.security import decrypt_broker_credentials, encrypt_broker_credentials
+from core.http_client import get_http_client
 
 router = APIRouter(prefix="/brokers", tags=["brokers"])
 
@@ -252,19 +252,17 @@ async def fyers_exchange_code(
     client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
     secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
 
-    from fyers_apiv3 import fyersModel
-
-    def _exchange():
-        s = fyersModel.SessionModel(
-            client_id=client_id,
-            secret_key=secret_key,
-            redirect_uri=FYERS_REDIRECT_URI,
-            grant_type="authorization_code",
-        )
-        s.set_token(req.auth_code)
-        return s.generate_token()
-
-    data = await asyncio.get_running_loop().run_in_executor(None, _exchange)
+    client = await get_http_client()
+    resp = await client.post(
+        "https://api.fyers.in/api/v2/token",
+        json={
+            "grant_type": "authorization_code",
+            "appIdHash": client_id,
+            "secret_key": secret_key,
+            "auth_code": req.auth_code,
+        },
+    )
+    data = resp.json()
     if data.get("s") != "ok":
         raise HTTPException(status_code=400, detail=f"Fyers auth failed: {data.get('message', '')}")
 
@@ -299,19 +297,17 @@ async def fyers_callback(
     client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
     secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
 
-    from fyers_apiv3 import fyersModel
-
-    def _exchange():
-        s = fyersModel.SessionModel(
-            client_id=client_id,
-            secret_key=secret_key,
-            redirect_uri=FYERS_REDIRECT_URI,
-            grant_type="authorization_code",
-        )
-        s.set_token(auth_code)
-        return s.generate_token()
-
-    data = await asyncio.get_running_loop().run_in_executor(None, _exchange)
+    client = await get_http_client()
+    resp = await client.post(
+        "https://api.fyers.in/api/v2/token",
+        json={
+            "grant_type": "authorization_code",
+            "appIdHash": client_id,
+            "secret_key": secret_key,
+            "auth_code": auth_code,
+        },
+    )
+    data = resp.json()
     if data.get("s") != "ok":
         return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=Fyers+auth+failed")
 

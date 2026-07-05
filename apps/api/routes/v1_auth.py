@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from core.audit import record_audit
 from core.config import settings
+from core.db import async_supabase, get_supabase
 from core.deps import get_current_user
 from core.http_client import get_http_client
 from core.models import AuditLogEntry, UserProfile
@@ -40,6 +41,10 @@ class SignInRequest(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     email: str
+
+
+class UpdateProfileRequest(BaseModel):
+    onboarding_completed: bool
 
 
 class AuthResponse(BaseModel):
@@ -219,6 +224,15 @@ async def forgot_password(req: ForgotPasswordRequest):
 
 @router.get("/me")
 async def get_me(current_user: UserProfile = Depends(get_current_user)):
+    return current_user
+
+
+@router.patch("/profile")
+async def update_profile(req: UpdateProfileRequest, current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    data = req.model_dump()
+    await async_supabase(lambda: supabase.table("profiles").update(data).eq("id", current_user.id).execute())
+    current_user.onboarding_completed = req.onboarding_completed
     return current_user
 
 

@@ -55,10 +55,11 @@ export default function AuthPage() {
       if (mode === 'signup') {
         if (!fullName.trim()) { setError('Full name is required'); setLoading(false); return }
         await signup(email, password, fullName)
+        router.push('/onboarding')
       } else {
         await signin(email, password)
+        router.push('/dashboard')
       }
-      router.push('/dashboard')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication failed')
     } finally {

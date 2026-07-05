@@ -307,51 +307,66 @@ class FyersAdapter(BaseBroker):
         if not self._access_token:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
         self._running = True
-        retry_delay = 1
+
+        ws_retries = 0
+        max_ws_retries = 3
+        ws_retry_delay = 1
+        use_polling = False
 
         while self._running:
-            try:
-                async with httpx.AsyncClient() as client:
-                    ws_url = f"{self._ws_url}?token={self._access_token}&client_id={self._client_id}"
-                    async with client.stream("GET", ws_url) as resp:
-                        if resp.status_code != 101:
-                            logger.error("Fyers WS connect failed: %s", resp.status_code)
-                            await asyncio.sleep(retry_delay)
-                            retry_delay = min(retry_delay * 2, 30)
-                            continue
-
-                        retry_delay = 1
-                        subscribe_msg = json.dumps({
-                            "type": "subscribe",
-                            "symbols": [self._ensure_fyers_symbol(s) for s in symbols],
-                        })
-                        async with client.stream("POST", ws_url, content=subscribe_msg) as ws:
-                            async for line in ws.aiter_lines():
-                                if not self._running:
-                                    break
-                                if not line.strip():
+            if not use_polling:
+                try:
+                    async with httpx.AsyncClient() as client:
+                        ws_url = f"{self._ws_url}?token={self._access_token}&client_id={self._client_id}"
+                        async with client.stream("GET", ws_url) as resp:
+                            if resp.status_code != 101:
+                                logger.error("Fyers WS connect failed: %s", resp.status_code)
+                                ws_retries += 1
+                                if ws_retries >= max_ws_retries:
+                                    logger.warning("Fyers WS max retries reached, falling back to polling")
+                                    use_polling = True
                                     continue
-                                try:
-                                    data = json.loads(line)
-                                    tick = self._parse_tick(data)
-                                    if tick:
-                                        if inspect.iscoroutinefunction(on_tick):
-                                            await on_tick(tick)
-                                        else:
-                                            on_tick(tick)
-                                except json.JSONDecodeError:
-                                    continue
+                                await asyncio.sleep(ws_retry_delay)
+                                ws_retry_delay = min(ws_retry_delay * 2, 30)
+                                continue
 
-            except Exception as e:
-                logger.error("Fyers WS error: %s, reconnecting in %ds", e, retry_delay)
-                await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 2, 30)
+                            ws_retries = 0
+                            ws_retry_delay = 1
+                            subscribe_msg = json.dumps({
+                                "type": "subscribe",
+                                "symbols": [self._ensure_fyers_symbol(s) for s in symbols],
+                            })
+                            async with client.stream("POST", ws_url, content=subscribe_msg) as ws:
+                                async for line in ws.aiter_lines():
+                                    if not self._running:
+                                        break
+                                    if not line.strip():
+                                        continue
+                                    try:
+                                        data = json.loads(line)
+                                        tick = self._parse_tick(data)
+                                        if tick:
+                                            if inspect.iscoroutinefunction(on_tick):
+                                                await on_tick(tick)
+                                            else:
+                                                on_tick(tick)
+                                    except json.JSONDecodeError:
+                                        continue
 
-        retry_delay = 1
-        while self._running:
-            try:
-                async with httpx.AsyncClient() as poll_client:
-                    resp = await poll_client.post(
+                except Exception as e:
+                    logger.error("Fyers WS error: %s, reconnecting in %ds", e, ws_retry_delay)
+                    ws_retries += 1
+                    if ws_retries >= max_ws_retries:
+                        logger.warning("Fyers WS max retries reached, falling back to polling")
+                        use_polling = True
+                        continue
+                    await asyncio.sleep(ws_retry_delay)
+                    ws_retry_delay = min(ws_retry_delay * 2, 30)
+
+            else:
+                try:
+                    client = await self._get_client()
+                    resp = await client.post(
                         f"{self._base_url}/quotes",
                         json={"symbols": ",".join(self._ensure_fyers_symbol(s) for s in symbols)},
                         headers=self._headers(),
@@ -398,12 +413,11 @@ class FyersAdapter(BaseBroker):
                         else:
                             on_tick(tick)
                     await asyncio.sleep(1)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error("Fyers polling error: %s", e)
-                await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 2, 30)
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error("Fyers polling error: %s", e)
+                    await asyncio.sleep(1)
 
     async def get_margin_estimate(self, legs: list[dict]) -> dict:
         if not self._access_token:

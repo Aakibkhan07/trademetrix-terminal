@@ -197,7 +197,7 @@ export const api = {
     signin: (data: { email: string; password: string }) =>
       request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signin', { method: 'POST', body: data }),
     signout: () => request('/auth/signout', { method: 'POST' }),
-    me: () => request<{ id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string; is_admin?: boolean }>('/auth/me'),
+    me: () => request<{ id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string; is_admin?: boolean; onboarding_completed?: boolean }>('/auth/me'),
     sendOTP: (data: { email: string; phone?: string }) =>
       request<{ message: string; exists: boolean }>('/auth/send-otp', { method: 'POST', body: data }),
     registerWithOTP: (data: { email: string; password: string; full_name?: string; phone?: string }) =>

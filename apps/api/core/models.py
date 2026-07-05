@@ -304,6 +304,7 @@ class UserProfile(BaseModel):
     is_admin: bool = False
     role: str = ""
     subscription_tier: str = "free"
+    onboarding_completed: bool = False
     created_at: datetime | None = None
 
 
@@ -488,3 +489,13 @@ SUBSCRIPTION_TIER_PRICES: dict[str, int] = {
     "halfyearly": 69500,
     "yearly": 125000,
 }
+
+
+class StrategyRating(BaseModel):
+    strategy_key: str
+    rating: float = 0.0
+    user_count: int = 0
+    total_pnl: float = 0.0
+    total_trades: int = 0
+    win_rate: float = 0.0
+    avg_return: float = 0.0

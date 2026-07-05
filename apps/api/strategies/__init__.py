@@ -43,6 +43,23 @@ def get_strategy_tier(strategy_key: str) -> str | None:
     return info.required_tier if info else None
 
 
+def get_strategy_category(strategy_key: str) -> str:
+    return _STRATEGY_CATEGORIES.get(strategy_key, "trend")
+
+
+_STRATEGY_CATEGORIES: dict[str, str] = {
+    "trend_rider": "trend",
+    "macd_cross": "trend",
+    "smc_sniper": "trend",
+    "orb_pro": "breakout",
+    "expiry_hunter": "options",
+    "rsi_mean_reversion": "mean_reversion",
+    "bollinger_bandit": "mean_reversion",
+    "vwap_band": "scalping",
+    "graph_strategy": "trend",
+}
+
+
 _STRATEGY_TIERS: dict[str, StrategyInfo] = {
     "trend_rider": StrategyInfo(
         key="trend_rider", name="Trend Rider", description="Follows EMA crossover trends with momentum confirmation", required_tier="free",
@@ -100,4 +117,5 @@ __all__ = [
     "list_strategies",
     "get_strategy_catalog",
     "get_strategy_tier",
+    "get_strategy_category",
 ]

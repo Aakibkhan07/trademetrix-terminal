@@ -360,6 +360,14 @@ function StepDone() {
   const router = useRouter()
   const { data: assignedData, loading, error } = useApi<{ strategies: AssignedStrategy[] }>('/strategies/assigned')
   const assigned = assignedData?.strategies || []
+  const profileUpdated = useRef(false)
+
+  useEffect(() => {
+    if (!profileUpdated.current) {
+      profileUpdated.current = true
+      api.patch('/auth/profile', { onboarding_completed: true }).catch(() => {})
+    }
+  }, [])
 
   return (
     <div>
@@ -479,11 +487,24 @@ function ProgressBar({ current }: { current: number }) {
 
 export default function OnboardingPage() {
   const { token, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [step, setStep] = useState(0)
+  const [guardChecked, setGuardChecked] = useState(false)
 
   const handleNext = useCallback(() => {
     setStep(s => Math.min(s + 1, 2))
   }, [])
+
+  useEffect(() => {
+    if (!authLoading && token && !guardChecked) {
+      setGuardChecked(true)
+      api.auth.me().then((user) => {
+        if ((user as any).onboarding_completed) {
+          router.push('/dashboard')
+        }
+      }).catch(() => {})
+    }
+  }, [authLoading, token, guardChecked, router])
 
   useEffect(() => {
     if (!authLoading && token && step === 0) {

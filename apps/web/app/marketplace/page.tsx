@@ -1,15 +1,22 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { api } from '@/lib/api'
 import { useApi } from '@/lib/use-api'
 import { useToast } from '@/lib/use-toast'
 
-interface StrategyInfo {
+interface MarketplaceStrategy {
   key: string
   name: string
   description: string
   required_tier: string
+  category: string
+  user_count: number
+  total_trades: number
+  total_pnl: number
+  win_rate: number
+  avg_return: number
 }
 
 const CATEGORIES = [
@@ -21,38 +28,6 @@ const CATEGORIES = [
   { id: 'scalping', label: 'Scalping', icon: '⚡' },
 ]
 
-const MOCK_METRICS: Record<string, { rating: number; users: number; avg_return: string; sharpe: number }> = {
-  trend_rider: { rating: 4.5, users: 128, avg_return: '+18.2%', sharpe: 1.8 },
-  orb_pro: { rating: 4.8, users: 94, avg_return: '+22.1%', sharpe: 2.1 },
-  smc_sniper: { rating: 4.3, users: 76, avg_return: '+15.7%', sharpe: 1.5 },
-  expiry_hunter: { rating: 4.6, users: 112, avg_return: '+12.4%', sharpe: 1.3 },
-  rsi_mean_reversion: { rating: 4.1, users: 65, avg_return: '+9.8%', sharpe: 1.1 },
-  bollinger_bandit: { rating: 4.4, users: 83, avg_return: '+14.5%', sharpe: 1.6 },
-  macd_cross: { rating: 4.2, users: 71, avg_return: '+11.2%', sharpe: 1.4 },
-  vwap_band: { rating: 4.7, users: 58, avg_return: '+16.9%', sharpe: 1.9 },
-}
-
-const MOCK_CATEGORY: Record<string, string> = {
-  trend_rider: 'trend',
-  orb_pro: 'breakout',
-  smc_sniper: 'trend',
-  expiry_hunter: 'options',
-  rsi_mean_reversion: 'mean_reversion',
-  bollinger_bandit: 'mean_reversion',
-  macd_cross: 'trend',
-  vwap_band: 'scalping',
-}
-
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <span style={{ color: '#f59e0b', fontSize: 11, letterSpacing: 1 }}>
-      {'★'.repeat(Math.floor(rating))}{rating % 1 >= 0.5 ? '★' : ''}
-      {'☆'.repeat(5 - Math.ceil(rating))}
-      <span style={{ color: 'var(--text-sub)', marginLeft: 4, fontSize: 10 }}>{rating.toFixed(1)}</span>
-    </span>
-  )
-}
-
 export default function MarketplacePage() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
@@ -60,7 +35,7 @@ export default function MarketplacePage() {
   const [deploying, setDeploying] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const { data, loading, error } = useApi<{ strategies: StrategyInfo[] }>('/strategies/list-builtin')
+  const { data, loading, error } = useApi<{ strategies: MarketplaceStrategy[] }>('/strategies/marketplace')
 
   const strategies = data?.strategies || []
 
@@ -69,17 +44,17 @@ export default function MarketplacePage() {
       const q = search.toLowerCase()
       const matchesSearch = !q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q) || s.key.toLowerCase().includes(q)
       const matchesTier = tierFilter === 'all' || s.required_tier === tierFilter
-      const matchesCat = activeCategory === 'all' || (MOCK_CATEGORY[s.key] || 'trend') === activeCategory
+      const matchesCat = activeCategory === 'all' || s.category === activeCategory
       return matchesSearch && matchesTier && matchesCat
     })
   }, [strategies, search, tierFilter, activeCategory])
 
   const featured = useMemo(() =>
-    strategies.filter(s => (MOCK_METRICS[s.key]?.rating || 0) >= 4.5),
+    strategies.filter(s => s.win_rate >= 50 || s.user_count >= 10),
     [strategies],
   )
 
-  const handleDeploy = async (strategy: StrategyInfo) => {
+  const handleDeploy = async (strategy: MarketplaceStrategy) => {
     setDeploying(strategy.key)
     try {
       await api.userStrategies.create({
@@ -179,56 +154,58 @@ export default function MarketplacePage() {
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Featured Strategies</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
-            {featured.map(s => {
-              const m = MOCK_METRICS[s.key]
-              return (
-                <div key={s.key} style={{
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(124,92,252,0.06))',
-                  border: '1px solid rgba(245,158,11,0.15)',
-                  borderRadius: 'var(--radius-md)', padding: 14,
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{s.name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>{s.key}</div>
-                    </div>
-                    <span className="t-badge t-badge-amber" style={{ fontSize: 9 }}>Featured</span>
+            {featured.map(s => (
+              <div key={s.key} style={{
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(124,92,252,0.06))',
+                border: '1px solid rgba(245,158,11,0.15)',
+                borderRadius: 'var(--radius-md)', padding: 14,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{s.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>{s.key}</div>
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: '0 0 10px', lineHeight: 1.4 }}>
-                    {s.description}
-                  </p>
-                  {m && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
-                      <div>
-                        <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Rating</div>
-                        <StarRating rating={m.rating} />
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Users</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{m.users}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Avg Return</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-green)' }}>{m.avg_return}</div>
-                      </div>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      className="t-btn t-btn-sm t-btn-primary"
-                      onClick={() => handleDeploy(s)}
-                      disabled={deploying === s.key}
-                      style={{ flex: 1 }}
-                    >
-                      {deploying === s.key ? 'Deploying...' : 'Deploy'}
-                    </button>
-                    <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-sub' : 't-badge-violet'}`} style={{ fontSize: 9 }}>
-                      {s.required_tier}
-                    </span>
+                  <span className="t-badge t-badge-amber" style={{ fontSize: 9 }}>Featured</span>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: '0 0 10px', lineHeight: 1.4 }}>
+                  {s.description}
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Trades</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{s.total_trades}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Users</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{s.user_count}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Win Rate</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-green)' }}>{s.win_rate}%</div>
                   </div>
                 </div>
-              )
-            })}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    className="t-btn t-btn-sm t-btn-primary"
+                    onClick={() => handleDeploy(s)}
+                    disabled={deploying === s.key}
+                    style={{ flex: 1 }}
+                  >
+                    {deploying === s.key ? 'Deploying...' : 'Deploy'}
+                  </button>
+                  <Link
+                    href={`/strategies/${s.key}`}
+                    className="t-btn t-btn-sm"
+                    style={{ fontSize: 11, textDecoration: 'none' }}
+                  >
+                    Details
+                  </Link>
+                  <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-sub' : 't-badge-violet'}`} style={{ fontSize: 9 }}>
+                    {s.required_tier}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -243,9 +220,7 @@ export default function MarketplacePage() {
           )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
             {filtered.map(s => {
-              const m = MOCK_METRICS[s.key]
-              const cat = MOCK_CATEGORY[s.key] || 'trend'
-              const catLabel = CATEGORIES.find(c => c.id === cat)?.label || 'General'
+              const catLabel = CATEGORIES.find(c => c.id === s.category)?.label || 'General'
               return (
                 <div key={s.key} className="t-panel" style={{
                   padding: 14, display: 'flex', flexDirection: 'column',
@@ -267,26 +242,34 @@ export default function MarketplacePage() {
                   <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: '0 0 10px', lineHeight: 1.4, flex: 1 }}>
                     {s.description}
                   </p>
-                  {m && (
-                    <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-                      <div style={{ fontSize: 10 }}>
-                        <StarRating rating={m.rating} />
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>
-                        {m.users} users
-                      </div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-green)' }}>
-                        {m.avg_return}
-                      </div>
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+                      {s.user_count} users
                     </div>
-                  )}
-                  <button
-                    className="t-btn t-btn-sm t-btn-primary"
-                    onClick={() => handleDeploy(s)}
-                    disabled={deploying === s.key}
-                  >
-                    {deploying === s.key ? 'Deploying...' : 'Deploy Strategy'}
-                  </button>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-green)' }}>
+                      {s.win_rate}% win
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+                      {s.total_trades} trades
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      className="t-btn t-btn-sm t-btn-primary"
+                      onClick={() => handleDeploy(s)}
+                      disabled={deploying === s.key}
+                      style={{ flex: 1 }}
+                    >
+                      {deploying === s.key ? 'Deploying...' : 'Deploy'}
+                    </button>
+                    <Link
+                      href={`/strategies/${s.key}`}
+                      className="t-btn t-btn-sm"
+                      style={{ fontSize: 11, textDecoration: 'none' }}
+                    >
+                      Details
+                    </Link>
+                  </div>
                 </div>
               )
             })}
