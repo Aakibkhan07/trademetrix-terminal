@@ -12,8 +12,6 @@ export default function TermsPage() {
         <p>You must be 18+ and have the legal capacity to trade financial instruments in your jurisdiction.</p>
         <h3>Account</h3>
         <p>You are responsible for maintaining account security. Notify us immediately of unauthorized access.</p>
-        <h3>Subscription</h3>
-        <p>Paid plans are billed monthly or yearly. Cancel anytime; access continues until end of billing period.</p>
         <h3>Prohibited Use</h3>
         <p>Do not use the platform for illegal activities, market manipulation, or to breach exchange rules.</p>
         <h3>Limitation of Liability</h3>

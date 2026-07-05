@@ -541,9 +541,7 @@ export default function OnboardingPage() {
           {step === 2 && <StepDone />}
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: 24, color: '#555570', fontSize: 12 }}>
-          No payment required. Your subscription is managed on the Trade Metrix website.
-        </p>
+        
       </div>
     </div>
   )

@@ -33,13 +33,6 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    label: 'Paper Trading',
-    items: [
-      { href: '/terminal/crypto', label: 'Crypto', icon: '✦' },
-      { href: '/terminal/forex', label: 'Forex', icon: '✦' },
-    ],
-  },
-  {
     label: 'Analytics',
     items: [
       { href: '/analytics', label: 'Performance', icon: '■' },
@@ -57,7 +50,6 @@ const NAV_SECTIONS = [
     items: [
       { href: '/settings', label: 'Settings', icon: '⚙' },
       { href: '/brokers', label: 'Brokers', icon: '◈' },
-      { href: '/subscriptions', label: 'Billing', icon: '◆' },
     ],
   },
 ]
@@ -423,14 +415,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
                 >Settings</Link>
-                <Link href="/subscriptions" style={{
-                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
-                  fontSize: 12, textDecoration: 'none',
-                  transition: 'all 100ms ease', borderBottom: '1px solid var(--border)',
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
-                >Billing</Link>
                 <button onClick={signout} style={{
                   display: 'block', width: '100%', textAlign: 'left',
                   padding: '8px 12px', color: 'var(--red)',

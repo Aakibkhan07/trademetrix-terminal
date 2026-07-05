@@ -407,36 +407,7 @@ export const api = {
   marginEstimate: (data: { index_symbol: string; legs: Record<string, unknown>[]; broker?: string }) =>
     request('/margin-estimate/', { method: 'POST', body: data }),
 
-  subscriptions: {
-    plans: () => request<{ plans: { id: string; name: string; tier: string; price: number; features: string[]; most_popular: boolean }[] }>('/subscriptions/plans/'),
-    create: (plan: string) => request<{ subscription_id: string; short_url: string; key_id: string; tier: string }>('/subscriptions/create/', { method: 'POST', body: { plan } }),
-    me: () => request<{ subscription: { id: string; tier: string; status: string; razorpay_subscription_id: string; current_period_start: string | null; current_period_end: string | null; trial_end: string | null; created_at: string } | null }>('/subscriptions/me/'),
-    cancel: (cancelAtCycleEnd = true) => request<{ status: string; razorpay_subscription_id: string }>('/subscriptions/cancel/', { method: 'POST', body: { cancel_at_cycle_end: cancelAtCycleEnd } }),
-  },
-
   events: {
     stream: () => `${API_BASE}/events/stream`,
-  },
-
-  crypto: {
-    pairs: () => request<{ pairs: { symbol: string; price: number; change_pct: number; volume: number }[] }>('/crypto/pairs'),
-    order: (data: { symbol: string; side: string; quantity: number; order_type?: string; price?: number }) =>
-      request('/crypto/order', { method: 'POST', body: data }),
-    account: () => request('/crypto/account'),
-    positions: () => request('/crypto/positions'),
-    orders: () => request('/crypto/orders'),
-    resetAccount: (initial_balance = 10000) =>
-      request('/crypto/account/reset', { method: 'POST', body: { initial_balance } }),
-  },
-
-  forex: {
-    pairs: () => request<{ pairs: { symbol: string; price: number }[] }>('/forex/pairs'),
-    order: (data: { symbol: string; side: string; quantity: number; order_type?: string; price?: number }) =>
-      request('/forex/order', { method: 'POST', body: data }),
-    account: () => request('/forex/account'),
-    positions: () => request('/forex/positions'),
-    orders: () => request('/forex/orders'),
-    resetAccount: (initial_balance = 10000) =>
-      request('/forex/account/reset', { method: 'POST', body: { initial_balance } }),
   },
 }
