@@ -38,6 +38,10 @@ class SignInRequest(BaseModel):
     password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
 class AuthResponse(BaseModel):
     user: UserProfile
     access_token: str
@@ -191,6 +195,26 @@ async def get_csrf_token(response: Response):
         domain=settings.cookie_domain or None,
     )
     return {"csrf_token": token}
+
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest):
+    try:
+        client = await get_http_client()
+        resp = await client.post(
+            f"{settings.supabase_url}/auth/v1/recover",
+            headers={
+                "apikey": settings.supabase_anon_key,
+                "Content-Type": "application/json",
+            },
+            json={"email": req.email},
+        )
+        if resp.status_code != 200:
+            logger.warning("Supabase recover failed: %s", resp.text)
+    except Exception as e:
+        logger.warning("Failed to send password reset: %s", e)
+
+    return {"message": "If that email is registered, a password reset link has been sent"}
 
 
 @router.get("/me")

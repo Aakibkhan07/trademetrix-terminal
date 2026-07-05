@@ -29,7 +29,21 @@ export default function AuthPage() {
     setSuccess('')
 
     if (mode === 'forgot') {
-      setSuccess('Password reset link sent to your email')
+      if (!isValidEmail(email)) { setValidEmail(false); return }
+      setLoading(true)
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
+        const body = await res.json()
+        setSuccess(body.message || 'Password reset link sent to your email')
+      } catch {
+        setSuccess('If that email is registered, a password reset link has been sent')
+      } finally {
+        setLoading(false)
+      }
       return
     }
 
