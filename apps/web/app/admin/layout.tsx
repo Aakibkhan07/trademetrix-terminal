@@ -1,58 +1,145 @@
 'use client'
 
-import { Suspense } from 'react'
-import { useSearchParams, usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { AppVersion } from '@/components/app-version'
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { api } from '@/lib/api'
+import Logo from '@/components/logo'
 
-const TABS = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'users', label: 'Users' },
-  { key: 'brokers', label: 'Brokers' },
-  { key: 'trades', label: 'Trades' },
-  { key: 'audit', label: 'Audit Log' },
-  { key: 'risk', label: 'Risk' },
-  { key: 'admins', label: 'Admins', href: '/admin/admins' },
+const ADMIN_NAV = [
+  {
+    label: 'Overview',
+    items: [
+      { href: '/admin', label: 'Dashboard', icon: 'D', tab: 'dashboard' },
+      { href: '/admin?tab=users', label: 'Users', icon: 'U', tab: 'users' },
+    ],
+  },
+  {
+    label: 'Trading Ops',
+    items: [
+      { href: '/admin?tab=brokers', label: 'Brokers', icon: 'B', tab: 'brokers' },
+      { href: '/admin?tab=trades', label: 'Trades', icon: 'T', tab: 'trades' },
+      { href: '/admin/broadcast', label: 'Broadcast', icon: 'W', tab: '' },
+    ],
+  },
+  {
+    label: 'Security',
+    items: [
+      { href: '/admin?tab=risk', label: 'Risk', icon: 'R', tab: 'risk' },
+      { href: '/admin?tab=audit', label: 'Audit Log', icon: 'A', tab: 'audit' },
+      { href: '/admin/admins', label: 'Admins', icon: '#', tab: '' },
+    ],
+  },
 ]
 
-function TabBar() {
-  const searchParams = useSearchParams()
-  const pathname = usePathname()
-  const activeTab = pathname === '/admin' ? (searchParams.get('tab') || 'dashboard') : ''
-
-  return (
-    <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid rgba(139,92,246,0.15)', overflowX: 'auto' }}>
-      {TABS.map(tab => {
-        const href = tab.href ? tab.href : `/admin?tab=${tab.key}`
-        const isActive = tab.href ? pathname === tab.href : pathname === '/admin' && activeTab === tab.key
-        return (
-          <Link key={tab.key} href={href} style={{
-            padding: '8px 16px', fontSize: 12, fontWeight: isActive ? 600 : 400,
-            background: 'none', border: 'none', borderBottom: isActive ? '2px solid var(--violet)' : '2px solid transparent',
-            color: isActive ? 'var(--violet)' : '#8888a0', cursor: 'pointer', whiteSpace: 'nowrap',
-            fontFamily: 'inherit', textDecoration: 'none',
-          }}>
-            {tab.label}
-          </Link>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 className="t-page-title" style={{ margin: 0 }}>Control Center</h1>
-        <p className="t-sub" style={{ fontSize: 13, margin: '2px 0 0' }}>Full system administration · <AppVersion /></p>
+  const pathname = usePathname()
+  const router = useRouter()
+  const { user, loading, isAdmin, signout } = useAuth()
+  const [killSwitchActive, setKillSwitchActive] = useState(false)
+
+  const activeTab = pathname === '/admin'
+    ? new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('tab') || 'dashboard'
+    : ''
+
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      router.replace('/dashboard')
+    }
+  }, [loading, isAdmin, router])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    api.risk.killSwitchStatus().then((d: unknown) => {
+      setKillSwitchActive((d as { kill_switch_enabled: boolean }).kill_switch_enabled)
+    }).catch(() => {})
+  }, [isAdmin])
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', color: 'var(--text-faint)' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>Loading...</p>
       </div>
-      <Suspense fallback={
-        <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid rgba(139,92,246,0.15)', height: 33 }} />
-      }>
-        <TabBar />
-      </Suspense>
-      {children}
+    )
+  }
+
+  if (!isAdmin) return null
+
+  return (
+    <div className="t-layout">
+      <nav className="t-sidebar">
+        <Link href="/admin" className="t-sidebar-logo">
+          <Logo size={24} />
+          <span className="t-sidebar-logo-text">Admin</span>
+        </Link>
+
+        {ADMIN_NAV.map((section) => (
+          <div key={section.label}>
+            <div className="t-sidebar-section">
+              <div className="t-sidebar-label">{section.label}</div>
+            </div>
+            {section.items.map((item) => {
+              const active = item.href === '/admin'
+                ? pathname === '/admin' && activeTab === 'dashboard'
+                : item.href.includes('?')
+                  ? pathname === '/admin' && activeTab === item.tab
+                  : pathname === item.href
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`t-nav-item ${active ? 'active' : ''}`}
+                >
+                  <span className="t-nav-icon">{item.icon}</span>
+                  <span className="t-nav-text">{item.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        ))}
+
+        <div className="t-sidebar-footer">
+          <button
+            className={`t-sidebar-footer-item ${killSwitchActive ? 'active' : ''}`}
+            onClick={async () => {
+              try {
+                if (killSwitchActive) {
+                  await api.risk.disableKillSwitch()
+                  setKillSwitchActive(false)
+                } else {
+                  await api.risk.enableKillSwitch()
+                  setKillSwitchActive(true)
+                }
+              } catch {}
+            }}
+            style={killSwitchActive ? { color: 'var(--text-red)' } : {}}
+          >
+            <span className={`t-dot ${killSwitchActive ? 't-dot-red t-dot-pulse' : 't-dot-sub'}`} />
+            <span>{killSwitchActive ? 'KILL SWITCH ON' : 'Kill Switch'}</span>
+          </button>
+          <Link href="/dashboard" className="t-sidebar-footer-item" style={{ textDecoration: 'none' }}>
+            <span style={{ fontSize: 11 }}>{'<-'}</span>
+            <span>Back to App</span>
+          </Link>
+          <button className="t-sidebar-footer-item" onClick={signout}>
+            <span style={{ fontSize: 11 }}>X</span>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </nav>
+
+      <div className="t-main">
+        <div style={{ padding: '0 12px' }}>
+          <div style={{ marginBottom: 16, paddingTop: 12 }}>
+            <h1 className="t-page-title" style={{ margin: 0, fontSize: 18 }}>Control Center</h1>
+            <p className="t-sub" style={{ fontSize: 12, margin: '2px 0 0' }}>
+              {user?.email}
+            </p>
+          </div>
+          {children}
+        </div>
+      </div>
     </div>
   )
 }

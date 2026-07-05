@@ -6,6 +6,18 @@ import { useApi } from '@/lib/use-api'
 import { useAuth } from '@/lib/auth-context'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta } from '@/lib/api'
 
+interface HealthData {
+  status: string
+  service: string
+  version: string
+  uptime_seconds: number
+}
+
+interface HealthReady {
+  status: string
+  dependencies: { database: boolean; cache: boolean }
+}
+
 
 interface StrategyInfo {
   key: string
@@ -130,6 +142,13 @@ function AdminDashboard() {
 
 function DashboardTab() {
   const { data: statsData, loading, error } = useApi<AdminStats>('/admin/stats')
+  const [health, setHealth] = useState<HealthData | null>(null)
+  const [healthReady, setHealthReady] = useState<HealthReady | null>(null)
+
+  useEffect(() => {
+    api.get<HealthData>('/health').then(setHealth).catch(() => {})
+    api.get<HealthReady>('/health/ready').then(setHealthReady).catch(() => {})
+  }, [])
 
   if (loading) {
     return (
@@ -155,12 +174,10 @@ function DashboardTab() {
     )
   }
 
-  if (!statsData) {
-    return (
-      <div className="t-panel" style={{ padding: '14px 16px' }}>
-        <div className="t-faint" style={{ fontSize: 12 }}>No stats available yet.</div>
-      </div>
-    )
+  const fmtUptime = (s: number) => {
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    return `${h}h ${m}m`
   }
 
   return (
@@ -168,54 +185,136 @@ function DashboardTab() {
       <div className="t-grid-4" style={{ gap: 10, marginBottom: 20 }}>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--cyan)' }}>
           <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>TOTAL USERS</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.total_users}</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            {statsData ? statsData.total_users : '—'}
+          </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--violet)' }}>
           <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ADMINS</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.total_admins}</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            {statsData ? statsData.total_admins : '—'}
+          </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--green)' }}>
           <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ACTIVE ASSIGNMENTS</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.active_assignments}</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            {statsData ? statsData.active_assignments : '—'}
+          </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--amber)' }}>
           <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>STRATEGIES</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{statsData.total_strategies}</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            {statsData ? statsData.total_strategies : '—'}
+          </div>
         </div>
       </div>
 
-      <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 20 }}>
-        <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>TIER DISTRIBUTION</h3>
-        <div style={{ display: 'flex', gap: 4, height: 6, borderRadius: 3, overflow: 'hidden' }}>
-          {['free', 'starter', 'pro', 'enterprise'].map(tier => {
-            const count = statsData.tier_distribution[tier] || 0
-            const pct = statsData.total_users > 0 ? (count / statsData.total_users) * 100 : 0
-            if (count === 0) return null
-            return (
-              <div key={tier} title={`${tier}: ${count} users (${pct.toFixed(0)}%)`}
-                style={{
-                  width: `${pct}%`, height: '100%',
-                  background: tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444',
-                  borderRadius: 3,
-                }} />
-            )
-          })}
-        </div>
-        <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
-          {['free', 'starter', 'pro', 'enterprise'].map(tier => {
-            const count = statsData.tier_distribution[tier] || 0
-            if (count === 0) return null
-            const color = tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444'
-            return (
-              <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
-                <span style={{ textTransform: 'capitalize', color: 'var(--text-sub)' }}>{tier}</span>
-                <span style={{ fontWeight: 600 }}>{count}</span>
+      <div className="t-grid-2" style={{ gap: 10, marginBottom: 20 }}>
+        <div className="t-panel" style={{ padding: '14px 16px' }}>
+          <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>SYSTEM HEALTH</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <span className="t-faint">Service</span>
+              <span style={{ fontWeight: 600 }}>{health?.service || '—'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <span className="t-faint">Version</span>
+              <span style={{ fontWeight: 600 }}>{health?.version || '—'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <span className="t-faint">Uptime</span>
+              <span style={{ fontWeight: 600 }}>{health ? fmtUptime(health.uptime_seconds) : '—'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <span className="t-faint">API Status</span>
+              <span style={{ fontWeight: 600, color: health?.status === 'ok' ? '#22c55e' : '#ef4444' }}>
+                {health?.status?.toUpperCase() || '—'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+                <span className={`t-dot ${healthReady?.dependencies?.database ? 't-dot-green' : 't-dot-red'}`} />
+                <span>Database</span>
               </div>
-            )
-          })}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+                <span className={`t-dot ${healthReady?.dependencies?.cache ? 't-dot-green' : 't-dot-red'}`} />
+                <span>Cache</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="t-panel" style={{ padding: '14px 16px' }}>
+          <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>OVERVIEW</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <span className="t-faint">Tier Distribution</span>
+              <span style={{ fontWeight: 600 }}>
+                {statsData ? Object.entries(statsData.tier_distribution).filter(([,c]) => c > 0).length + ' tiers active' : '—'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <span className="t-faint">Strategies per User</span>
+              <span style={{ fontWeight: 600 }}>
+                {statsData && statsData.total_users > 0
+                  ? (statsData.active_assignments / statsData.total_users).toFixed(1)
+                  : '—'
+                }
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <span className="t-faint">Admin Ratio</span>
+              <span style={{ fontWeight: 600 }}>
+                {statsData && statsData.total_users > 0
+                  ? ((statsData.total_admins / statsData.total_users) * 100).toFixed(1) + '%'
+                  : '—'
+                }
+              </span>
+            </div>
+          </div>
         </div>
       </div>
+
+      {statsData && (
+        <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 20 }}>
+          <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>TIER DISTRIBUTION</h3>
+          <div style={{ display: 'flex', gap: 4, height: 6, borderRadius: 3, overflow: 'hidden' }}>
+            {['free', 'starter', 'pro', 'enterprise'].map(tier => {
+              const count = statsData.tier_distribution[tier] || 0
+              const pct = statsData.total_users > 0 ? (count / statsData.total_users) * 100 : 0
+              if (count === 0) return null
+              return (
+                <div key={tier} title={`${tier}: ${count} users (${pct.toFixed(0)}%)`}
+                  style={{
+                    width: `${pct}%`, height: '100%',
+                    background: tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444',
+                    borderRadius: 3,
+                  }} />
+              )
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
+            {['free', 'starter', 'pro', 'enterprise'].map(tier => {
+              const count = statsData.tier_distribution[tier] || 0
+              if (count === 0) return null
+              const color = tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444'
+              return (
+                <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
+                  <span style={{ textTransform: 'capitalize', color: 'var(--text-sub)' }}>{tier}</span>
+                  <span style={{ fontWeight: 600 }}>{count}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {!statsData && (
+        <div className="t-panel" style={{ padding: '14px 16px' }}>
+          <div className="t-faint" style={{ fontSize: 12 }}>No stats available yet.</div>
+        </div>
+      )}
     </div>
   )
 }
