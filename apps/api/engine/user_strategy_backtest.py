@@ -1,10 +1,11 @@
 """Backtest engine for user-created visual strategies.
 
 Honest computation: ALL results carry a data_source field ("real" | "simulated").
-Real data requires Fyers broker credentials. Without them, underlying prices are
-random-walk synthetic and the SIMULATED banner MUST be shown.
+Real underlying data requires Fyers broker credentials. Option premiums are
+estimated using Black-Scholes with historical volatility from real candle data.
 """
 
+import math
 import logging
 import re
 from datetime import UTC, datetime, timedelta
@@ -14,7 +15,7 @@ from core.models import (
     UserStrategyStatus,
 )
 from engine.strategy_compiler import (
-    LEG_EXPIRY_MAP, LOT_SIZES, STRIKE_INTERVALS, WEEKDAY_EXPIRY_MAP,
+    LOT_SIZES, STRIKE_INTERVALS, WEEKDAY_EXPIRY,
     compile_user_strategy, resolve_expiry,
 )
 from market.historical import historical_engine
@@ -24,18 +25,51 @@ logger = logging.getLogger(__name__)
 BACKTEST_INTERVAL = "15m"
 BACKTEST_MAX_DAYS = 365
 
-def _estimate_option_premium(
-    spot: float, strike: float, option_type: OptionType,
-    days_to_expiry: int, total_dte: int,
+def _norm_cdf(x: float) -> float:
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+def _black_scholes_price(
+    S: float, K: float, T: float, r: float, sigma: float, option_type: OptionType
 ) -> float:
-    intrinsic = max(0, spot - strike) if option_type == OptionType.CE else max(0, strike - spot)
-    if total_dte <= 0:
+    if T <= 0:
+        intrinsic = max(0, S - K) if option_type == OptionType.CE else max(0, K - S)
         return intrinsic
-    tv_pct = 0.015 * (days_to_expiry / max(total_dte, 1))
-    time_value = spot * tv_pct
-    decay = 1.0 - ((total_dte - days_to_expiry) / total_dte) ** 0.5
-    time_value *= (1 - decay * 0.3)
-    return round(intrinsic + time_value, 2)
+    if sigma <= 0.001:
+        return max(0, S - K) if option_type == OptionType.CE else max(0, K - S)
+    d1 = (math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * math.sqrt(T))
+    d2 = d1 - sigma * math.sqrt(T)
+    if option_type == OptionType.CE:
+        return S * _norm_cdf(d1) - K * math.exp(-r * T) * _norm_cdf(d2)
+    else:
+        return K * math.exp(-r * T) * _norm_cdf(-d2) - S * _norm_cdf(-d1)
+
+def _estimate_historical_volatility(close_prices: list[float], window: int = 21) -> float:
+    if len(close_prices) < window + 1:
+        return 0.25
+    log_returns = []
+    for i in range(1, len(close_prices)):
+        if close_prices[i - 1] > 0:
+            log_returns.append(math.log(close_prices[i] / close_prices[i - 1]))
+    if len(log_returns) < 2:
+        return 0.25
+    mean = sum(log_returns) / len(log_returns)
+    variance = sum((r - mean) ** 2 for r in log_returns) / (len(log_returns) - 1)
+    daily_vol = math.sqrt(variance)
+    return min(daily_vol * math.sqrt(252), 1.0)
+
+def _estimate_option_premium(
+    S: float, K: float, option_type: OptionType,
+    days_to_expiry: int, total_dte: int,
+    close_prices: list[float] | None = None,
+) -> float:
+    r = 0.065
+    T = max(days_to_expiry, 0) / 365.0
+    sigma = _estimate_historical_volatility(close_prices or [S]) if close_prices else 0.25
+    if T <= 0.005:
+        intrinsic = max(0, S - K) if option_type == OptionType.CE else max(0, K - S)
+        return round(intrinsic, 2)
+    premium = _black_scholes_price(S, K, T, r, sigma, option_type)
+    return round(max(premium, 0.5), 2)
 
 def _parse_strike_from_symbol(symbol: str) -> tuple[float, OptionType] | None:
     m = re.search(r"(\d+(?:\.\d+)?)(CE|PE)$", symbol)
@@ -114,6 +148,7 @@ async def run_user_strategy_backtest(
         return {"error": "no historical data available", "data_source": "simulated"}
 
     data_source = "real" if _has_real_data(raw_candles) else "simulated"
+    all_close = [float(c.get("close", 0)) for c in raw_candles if c.get("close")]
 
     candles_by_date: dict[str, list[dict]] = {}
     for c in raw_candles:
@@ -155,7 +190,7 @@ async def run_user_strategy_backtest(
                         continue
                     strike, opt_type = leg_info
                     total_dte = _estimate_days_to_expiry(order.symbol)
-                    entry_premium = _estimate_option_premium(entry_spot, strike, opt_type, total_dte, total_dte)
+                    entry_premium = _estimate_option_premium(entry_spot, strike, opt_type, total_dte, total_dte, all_close)
                     tr.add_entry(leg_order, {
                         "symbol": order.symbol,
                         "position": "buy" if leg.position.value == "buy" else "sell",
@@ -165,7 +200,7 @@ async def run_user_strategy_backtest(
                         "premium": entry_premium * leg.lots * lot_size,
                         "entry_time": f"{date_key}T{entry_time}",
                     })
-                    exit_premium = _estimate_option_premium(exit_spot, strike, opt_type, 0, total_dte)
+                    exit_premium = _estimate_option_premium(exit_spot, strike, opt_type, 0, total_dte, all_close)
                     tr.add_exit(leg_order, exit_premium * leg.lots * lot_size, f"{date_key}T{exit_time}", date_key)
                 tr.snapshot_equity(f"{date_key}T{exit_time}")
                 day_count += 1

@@ -2,9 +2,8 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from core.config import settings
-from core.db import async_supabase, get_supabase
 from core.capabilities import Capabilities
+from core.db import async_supabase, get_supabase
 from core.deps import get_capabilities, get_current_user, require_feature
 from core.models import (
     CreateUserStrategyRequest, DeployStrategyRequest,
@@ -208,13 +207,8 @@ async def deploy_user_strategy(
     current_user: UserProfile = Depends(require_feature("builder")),
     caps: Capabilities = Depends(get_capabilities),
 ):
-    if req.mode.upper() == "LIVE":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="LIVE deploy for user strategies is not enabled yet",
-        )
-
-    if req.mode.upper() != "PAPER":
+    mode = req.mode.upper()
+    if mode not in ("PAPER", "LIVE"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="mode must be 'PAPER' or 'LIVE'",
@@ -247,14 +241,33 @@ async def deploy_user_strategy(
 
     plan = compile_user_strategy(strategy)
 
+    if mode == "LIVE":
+        broker_cred = await async_safe_single(
+            supabase.table("broker_credentials")
+            .select("broker")
+            .eq("user_id", current_user.id)
+            .eq("is_active", True)
+        )
+        if not broker_cred:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No active broker connected. Connect a broker before deploying LIVE.",
+            )
+
     results = []
     for i, order in enumerate(plan.orders):
         try:
-            result = await execute_order(
-                user_id=current_user.id,
-                order=order,
-                source="user_strategy",
-            )
+            if mode == "PAPER":
+                from paper.paper_broker import PaperBroker
+                pb = PaperBroker(current_user.id)
+                await pb.connect()
+                result = await pb.place_order(order)
+            else:
+                result = await execute_order(
+                    user_id=current_user.id,
+                    order=order,
+                    source="user_strategy",
+                )
             results.append({
                 "leg_order": plan.legs[i].leg_order if i < len(plan.legs) else i + 1,
                 "symbol": order.symbol,
@@ -280,4 +293,4 @@ async def deploy_user_strategy(
     if all(r["success"] for r in results):
         await async_supabase(lambda: supabase.table("user_strategies").update({"status": "active"}).eq("id", strategy_id).execute())
 
-    return {"strategy_id": strategy_id, "results": results}
+    return {"strategy_id": strategy_id, "mode": mode, "results": results}

@@ -387,6 +387,9 @@ export const api = {
     clone: (id: string) => request(`/builder/strategies/${id}/clone`, { method: 'POST' }),
     rollback: (id: string, version: number) => request(`/builder/strategies/${id}/rollback/${version}`, { method: 'POST' }),
     versions: (id: string) => request(`/builder/strategies/${id}/versions`),
+    start: (id: string, symbol = 'NIFTY', interval = '15m') =>
+      request(`/builder/strategies/${id}/start`, { method: 'POST', body: { symbol, interval } }),
+    stop: (id: string) => request(`/builder/strategies/${id}/stop`, { method: 'POST' }),
     templates: () => request('/builder/templates'),
     getTemplate: (key: string) => request(`/builder/templates/${key}`),
     import: (data: Record<string, unknown>) => request('/builder/import', { method: 'POST', body: data }),

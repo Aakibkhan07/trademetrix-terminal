@@ -18,6 +18,7 @@ from builder.preview import generate_preview
 from builder.templates import STRATEGY_TEMPLATES
 from core.deps import get_current_user, require_feature
 from core.models import UserProfile
+from engine.graph_strategy_runner import start_graph_strategy, stop_graph_strategy
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +197,41 @@ async def publish_strategy(strategy_id: str):
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     return {"status": "published", "strategy_id": strategy_id}
+
+
+class StartGraphStrategyRequest(BaseModel):
+    symbol: str = "NIFTY"
+    interval: str = "15m"
+
+
+@router.post("/strategies/{strategy_id}/start")
+async def start_builder_strategy(
+    strategy_id: str,
+    req: StartGraphStrategyRequest,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    dsl = await builder_manager.get(strategy_id)
+    if not dsl:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    if dsl.status != StrategyStatus.PUBLISHED:
+        raise HTTPException(status_code=400, detail="Strategy must be published first")
+
+    result = await start_graph_strategy(
+        strategy_id=strategy_id,
+        user_id=current_user.id,
+        symbol=req.symbol.upper(),
+        interval=req.interval,
+    )
+    return {"status": result, "strategy_id": strategy_id}
+
+
+@router.post("/strategies/{strategy_id}/stop")
+async def stop_builder_strategy(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    await stop_graph_strategy(strategy_id)
+    return {"status": "stopped", "strategy_id": strategy_id}
 
 
 @router.post("/strategies/{strategy_id}/archive")
