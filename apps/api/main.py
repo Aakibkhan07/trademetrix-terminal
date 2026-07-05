@@ -59,15 +59,7 @@ async def lifespan(app: FastAPI):
     await cache.init()
     from engine.user_strategy_runner import user_strategy_runner
     await user_strategy_runner.start()
-    from market.crypto_feed import crypto_feed
-    from market.forex_feed import forex_feed
-    await crypto_feed.start()
-    await forex_feed.start()
-    logger.info("Crypto + Forex feeds started")
     yield
-    await crypto_feed.stop()
-    await forex_feed.stop()
-    logger.info("Crypto + Forex feeds stopped")
     await user_strategy_runner.stop()
     await cache.close()
     from core.db import close_supabase
