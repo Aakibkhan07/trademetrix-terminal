@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase'
 
+const SUPABASE_URL = 'https://nwutlfuowiulfpbsrldn.supabase.co'
+
 export default function AuthPage() {
   const router = useRouter()
   const { signin, signup } = useAuth()
@@ -23,12 +25,17 @@ export default function AuthPage() {
 
   const handleOAuth = async (provider: 'google' | 'github') => {
     setOauthLoading(provider)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
-    if (error) setError(error.message)
+    setError('')
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      })
+      if (error) setError(error.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'OAuth failed')
+    }
     setOauthLoading(null)
   }
 
