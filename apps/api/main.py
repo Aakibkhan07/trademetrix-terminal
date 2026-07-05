@@ -45,7 +45,6 @@ from routes.v1_analytics import router as analytics_router
 from routes.v1_feedback import router as feedback_router
 from routes.v1_margin_estimate import router as margin_estimate_router
 from routes.v1_subscriptions import router as subscriptions_router
-from routes.v1_paper_crypto_forex import crypto_router, forex_router
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +145,6 @@ app.include_router(prometheus_router)
 app.include_router(user_strategies_router, prefix="/api/v1")
 app.include_router(margin_estimate_router, prefix="/api/v1")
 app.include_router(subscriptions_router, prefix="/api/v1")
-app.include_router(crypto_router)
-app.include_router(forex_router)
 
 
 @app.exception_handler(AppException)
