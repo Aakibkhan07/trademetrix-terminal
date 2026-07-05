@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/lib/use-toast'
 import { useRouter } from 'next/navigation'
+import { api } from '@/lib/api'
 
 const PLANS = [
   { tier: 'free', name: 'Free', price: { monthly: 0, yearly: 0 }, desc: 'Get started with basic trading tools', features: ['Paper trading', 'Basic market data', '1 strategy', 'Standard support'], cta: 'Get Started', popular: false },
@@ -12,10 +13,15 @@ const PLANS = [
   { tier: 'enterprise', name: 'Enterprise', price: { monthly: 9999, yearly: 99999 }, desc: 'For institutions and teams', features: ['All Pro features', 'Dedicated infrastructure', 'Custom integrations', 'SLA guarantee', 'Account manager', 'Bulk user management'], cta: 'Contact Sales', popular: false },
 ]
 
+interface PlanInfo {
+  id: string; name: string; tier: string; price: number
+  features: string[]; most_popular: boolean
+}
+
 const FAQS = [
   { q: 'Can I switch plans anytime?', a: 'Yes, you can upgrade or downgrade at any time. Changes take effect immediately.' },
-  { q: 'Is there a free trial?', a: 'Starter and Pro plans include a 14-day free trial. No credit card required.' },
-  { q: 'What payment methods are accepted?', a: 'We accept Razorpay (UPI, cards, netbanking) and Paytm for Indian users.' },
+  { q: 'Is there a free trial?', a: 'All subscription plans include a 1-day free trial. No card required upfront.' },
+  { q: 'What payment methods are accepted?', a: 'We accept Razorpay (UPI, cards, netbanking).' },
   { q: 'Can I cancel anytime?', a: 'Yes, cancel anytime. Your access continues until the end of the billing period.' },
 ]
 
@@ -34,6 +40,12 @@ export default function PricingPage() {
   const { user } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
+  const [subPlans, setSubPlans] = useState<PlanInfo[]>([])
+  const [subscribing, setSubscribing] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.subscriptions.plans().then(d => setSubPlans(d.plans || [])).catch(() => {})
+  }, [])
 
   const handleCta = (plan: typeof PLANS[0]) => {
     if (!user) { router.push('/auth?redirect=/pricing'); return }
@@ -42,8 +54,33 @@ export default function PricingPage() {
     toast('info', `${plan.name} plan — payment integration coming soon`)
   }
 
+  const handleSubscribe = async (planId: string) => {
+    if (!user) { router.push('/auth?redirect=/pricing'); return }
+    setSubscribing(planId)
+    try {
+      const res = await api.subscriptions.create(planId)
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.onload = () => {
+        const rzp = new (window as any).Razorpay({
+          key_id: res.key_id,
+          subscription_id: res.subscription_id,
+          callback_url: `${window.location.origin}/pricing?success=true`,
+          redirect: true,
+        })
+        rzp.open()
+      }
+      document.body.appendChild(script)
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'Subscription failed')
+    } finally {
+      setSubscribing(null)
+    }
+  }
+
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 16px' }}>
+      {/* Legacy Plans */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <h1 className="t-page-title" style={{ margin: '0 0 8px' }}>Pricing</h1>
         <p className="t-sub" style={{ fontSize: 13 }}>Choose the plan that fits your trading needs</p>
@@ -66,13 +103,43 @@ export default function PricingPage() {
               </div>
               <button className="t-btn" onClick={() => handleCta(plan)} style={{ width: '100%', fontSize: 11, padding: '8px', background: plan.popular ? 'var(--violet)' : 'var(--panel)', color: plan.popular ? '#fff' : 'var(--text)', border: plan.popular ? 'none' : '1px solid var(--border)', marginBottom: 16 }}>{plan.cta}</button>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {plan.features.map((f, i) => <div key={i} style={{ fontSize: 11, color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: '#22c55e', fontSize: 12 }}>✓</span>{f}</div>)}
+                {plan.features.map((f, i) => <div key={i} style={{ fontSize: 11, color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: '#22c55e', fontSize: 12 }}>&#10003;</span>{f}</div>)}
               </div>
             </div>
           </div>
         ))}
       </div>
 
+      {/* Subscription Plans */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32, marginBottom: 40 }}>
+        <h2 style={{ fontFamily: 'Outfit', fontSize: 18, textAlign: 'center', margin: '0 0 8px', color: '#f0f0f5' }}>Subscription Plans</h2>
+        <p className="t-sub" style={{ fontSize: 12, textAlign: 'center', margin: '0 auto 20px', maxWidth: 500 }}>
+          Recurring billing where your plan IS your tier. 1-day free trial, no card required upfront.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          {subPlans.map(p => (
+            <div key={p.id} className="t-panel" style={{ padding: 0, overflow: 'hidden', position: 'relative', border: p.most_popular ? '1px solid rgba(34,211,238,0.4)' : '1px solid var(--border)' }}>
+              {p.most_popular && <div style={{ background: 'var(--cyan)', color: '#08090c', fontSize: 9, fontWeight: 700, textAlign: 'center', padding: '3px 0', letterSpacing: '0.05em' }}>MOST POPULAR</div>}
+              <div style={{ padding: 20 }}>
+                <h2 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700 }}>{p.name}</h2>
+                <div style={{ marginBottom: 12 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>&#x20B9; </span>
+                  <span style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{p.price.toLocaleString('en-IN')}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 4 }}>/{p.id === 'yearly' ? 'yr' : p.id === 'halfyearly' ? '6mo' : p.id === 'quarterly' ? '3mo' : 'mo'}</span>
+                </div>
+                <button className="t-btn" onClick={() => handleSubscribe(p.id)} disabled={subscribing === p.id} style={{ width: '100%', fontSize: 11, padding: '8px', background: p.most_popular ? 'var(--cyan)' : 'var(--panel)', color: p.most_popular ? '#08090c' : 'var(--text)', border: p.most_popular ? 'none' : '1px solid var(--border)', marginBottom: 12, fontWeight: 600 }}>
+                  {subscribing === p.id ? 'Opening...' : 'Subscribe'}
+                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {p.features.map((f, i) => <div key={i} style={{ fontSize: 11, color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: '#22d3ee', fontSize: 12 }}>&#10003;</span>{f}</div>)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* FAQ */}
       <h2 style={{ fontFamily: 'Outfit', fontSize: 16, textAlign: 'center', margin: '0 0 20px', color: '#f0f0f5' }}>Frequently Asked Questions</h2>
       <div style={{ maxWidth: 600, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {FAQS.map((faq, i) => (

@@ -442,3 +442,49 @@ class ExecutionPlan(BaseModel):
     @property
     def total_quantity(self) -> int:
         return sum(o.quantity for o in self.orders)
+
+
+class SubscriptionTier(StrEnum):
+    monthly = "monthly"
+    quarterly = "quarterly"
+    halfyearly = "halfyearly"
+    yearly = "yearly"
+
+
+class SubscriptionStatus(StrEnum):
+    created = "created"
+    authenticated = "authenticated"
+    active = "active"
+    halted = "halted"
+    cancelled = "cancelled"
+    completed = "completed"
+    expired = "expired"
+
+
+SUBSCRIPTION_TIER_PLANS: dict[str, str] = {
+    "monthly": "razorpay_plan_monthly",
+    "quarterly": "razorpay_plan_quarterly",
+    "halfyearly": "razorpay_plan_halfyearly",
+    "yearly": "razorpay_plan_yearly",
+}
+
+SUBSCRIPTION_TIER_ORDER: dict[str, int] = {
+    "monthly": 1,
+    "quarterly": 2,
+    "halfyearly": 3,
+    "yearly": 4,
+}
+
+SUBSCRIPTION_TIER_FEATURES: dict[str, list[str]] = {
+    "monthly": ["2 strategies", "no builder", "1yr backtest"],
+    "quarterly": ["4 strategies", "trailing SL", "2yr backtest"],
+    "halfyearly": ["8 strategies", "builder UNLOCKED", "5yr backtest"],
+    "yearly": ["15 strategies", "builder + custom dev", "5yr backtest"],
+}
+
+SUBSCRIPTION_TIER_PRICES: dict[str, int] = {
+    "monthly": 15500,
+    "quarterly": 35500,
+    "halfyearly": 69500,
+    "yearly": 125000,
+}
