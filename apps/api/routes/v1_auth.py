@@ -196,3 +196,63 @@ async def get_csrf_token(response: Response):
 @router.get("/me")
 async def get_me(current_user: UserProfile = Depends(get_current_user)):
     return current_user
+
+
+class OAuthRequest(BaseModel):
+    provider: str  # "google" or "github"
+    access_token: str
+
+
+@router.post("/supabase-oauth")
+async def supabase_oauth(req: OAuthRequest, response: Response):
+    try:
+        client = await get_http_client()
+        resp = await client.get(
+            f"{settings.supabase_url}/auth/v1/user",
+            headers={
+                "apikey": settings.supabase_anon_key,
+                "Authorization": f"Bearer {req.access_token}",
+            },
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OAuth token")
+        user_data = resp.json()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"OAuth failed: {str(e)}")
+
+    user_id = user_data["id"]
+    email = user_data.get("email", "")
+    full_name = user_data.get("user_metadata", {}).get("full_name", "") or user_data.get("user_metadata", {}).get("name", "")
+
+    try:
+        client = await get_http_client()
+        profile_resp = await client.post(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={
+                "apikey": settings.supabase_service_key,
+                "Authorization": f"Bearer {settings.supabase_service_key}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates",
+            },
+            json={"id": user_id, "email": email, "full_name": full_name},
+        )
+        if profile_resp.status_code not in (200, 201):
+            logger.warning("Failed to upsert OAuth profile: %s", profile_resp.text)
+    except Exception as e:
+        logger.warning("Failed to upsert OAuth profile: %s", e)
+
+    access_token = create_access_token(subject=user_id)
+    _set_session_cookie(response, access_token)
+
+    user = UserProfile(id=user_id, email=email, full_name=full_name)
+
+    record_audit(AuditLogEntry(
+        user_id=user_id,
+        action=f"oauth_{req.provider}",
+        resource="auth",
+        ip_address="",
+    ))
+
+    return AuthResponse(user=user, access_token=access_token)

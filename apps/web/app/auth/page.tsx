@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { createClient } from '@/lib/supabase'
 
 export default function AuthPage() {
   const router = useRouter()
@@ -18,6 +19,18 @@ export default function AuthPage() {
   const [validEmail, setValidEmail] = useState(true)
   const [validPassword, setValidPassword] = useState(true)
   const [focusedField, setFocusedField] = useState<string | null>(null)
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null)
+
+  const handleOAuth = async (provider: 'google' | 'github') => {
+    setOauthLoading(provider)
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+    if (error) setError(error.message)
+    setOauthLoading(null)
+  }
 
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
   const isValidPassword = (v: string) => v.length >= 6
@@ -160,33 +173,35 @@ export default function AuthPage() {
           {/* OAuth Buttons (login/signup only) */}
           {mode !== 'forgot' && (
             <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <button style={{
+              <button onClick={() => handleOAuth('google')} disabled={oauthLoading !== null} style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 gap: 8, height: 40, borderRadius: 8,
                 border: '1px solid rgba(255,255,255,0.08)',
-                background: 'rgba(255,255,255,0.03)',
-                color: '#a1a5b3', fontSize: 12, fontWeight: 600,
+                background: oauthLoading === 'google' ? 'rgba(0,212,255,0.08)' : 'rgba(255,255,255,0.03)',
+                color: oauthLoading === 'google' ? 'var(--cyan)' : '#a1a5b3',
+                fontSize: 12, fontWeight: 600,
                 cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-                transition: 'all 150ms ease',
+                transition: 'all 150ms ease', opacity: oauthLoading !== null && oauthLoading !== 'google' ? 0.5 : 1,
               }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#a1a5b3' }}
+                onMouseEnter={e => { if (oauthLoading !== 'google') { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff' } }}
+                onMouseLeave={e => { if (oauthLoading !== 'google') { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#a1a5b3' } }}
               >
-                <span style={{ fontSize: 16 }}>G</span> Google
+                <span style={{ fontSize: 16 }}>G</span> {oauthLoading === 'google' ? 'Connecting...' : 'Google'}
               </button>
-              <button style={{
+              <button onClick={() => handleOAuth('github')} disabled={oauthLoading !== null} style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 gap: 8, height: 40, borderRadius: 8,
                 border: '1px solid rgba(255,255,255,0.08)',
-                background: 'rgba(255,255,255,0.03)',
-                color: '#a1a5b3', fontSize: 12, fontWeight: 600,
+                background: oauthLoading === 'github' ? 'rgba(0,212,255,0.08)' : 'rgba(255,255,255,0.03)',
+                color: oauthLoading === 'github' ? 'var(--cyan)' : '#a1a5b3',
+                fontSize: 12, fontWeight: 600,
                 cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-                transition: 'all 150ms ease',
+                transition: 'all 150ms ease', opacity: oauthLoading !== null && oauthLoading !== 'github' ? 0.5 : 1,
               }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#a1a5b3' }}
+                onMouseEnter={e => { if (oauthLoading !== 'github') { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff' } }}
+                onMouseLeave={e => { if (oauthLoading !== 'github') { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#a1a5b3' } }}
               >
-                <span style={{ fontSize: 16 }}>⌂</span> GitHub
+                <span style={{ fontSize: 16 }}>⌂</span> {oauthLoading === 'github' ? 'Connecting...' : 'GitHub'}
               </button>
             </div>
           )}
