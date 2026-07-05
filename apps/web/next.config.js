@@ -6,7 +6,7 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://checkout.razorpay.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://www.clarity.ms https://*.clarity.ms https://api.razorpay.com; connect-src 'self' https://api.ai.trademetrix.tech wss://api.ai.trademetrix.tech https://www.clarity.ms https://*.clarity.ms wss://*.clarity.ms https://api.razorpay.com; frame-src https://checkout.razorpay.com; frame-ancestors 'none'; base-uri 'self'" },
+  { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://checkout.razorpay.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://www.clarity.ms https://*.clarity.ms https://api.razorpay.com; connect-src 'self' https://api.ai.trademetrix.tech wss://api.ai.trademetrix.tech https://www.clarity.ms https://*.clarity.ms wss://*.clarity.ms https://api.razorpay.com https://nwutlfuowiulfpbsrldn.supabase.co; frame-src https://checkout.razorpay.com https://nwutlfuowiulfpbsrldn.supabase.co; frame-ancestors 'none'; base-uri 'self'" },
 ];
 
 const nextConfig = {
