@@ -119,7 +119,7 @@ async def _resolve_subscription_tier(user_id: str) -> str | None:
     status = row.get("status", "")
     period_end = row.get("current_period_end")
 
-    if status == "active" and period_end:
+    if status in ("active", "cancelled") and period_end:
         try:
             end = datetime.fromisoformat(period_end.replace("Z", "+00:00"))
             if end < datetime.now(UTC):
@@ -133,6 +133,9 @@ async def _resolve_subscription_tier(user_id: str) -> str | None:
             pass
 
     if status == "active":
+        return row.get("tier")
+
+    if status == "cancelled":
         return row.get("tier")
 
     return None
