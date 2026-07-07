@@ -5,7 +5,6 @@ each tick as JSON to Redis channel `market:ticks`. The API subscribes to
 these channels and broadcasts to local subscribers via SharedDataSocket.
 
 Environment:
-  - FYERS_CLIENT_ID
   - FYERS_ACCESS_TOKEN
   - REDIS_URL (default redis://redis:6379/0)
   - SYMBOLS (comma-separated, default NSE:NIFTY50-INDEX,NSE:NIFTYBANK-INDEX)
@@ -24,6 +23,12 @@ logger = logging.getLogger("market-agent")
 
 async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
     import redis.asyncio as aioredis
+    from fyers_apiv3.FyersWebsocket import data_ws
+
+    access_token = os.environ.get("FYERS_ACCESS_TOKEN", "")
+    if not access_token:
+        logger.error("FYERS_ACCESS_TOKEN not set")
+        sys.exit(1)
 
     r = aioredis.from_url(redis_url, decode_responses=False)
     await r.ping()
@@ -32,44 +37,34 @@ async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
     loop = asyncio.get_running_loop()
     tick_queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=1000)
 
-    def on_tick(tick: dict) -> None:
-        try:
-            asyncio.ensure_future(handle_tick(tick))
-        except Exception:
-            pass
-
     async def handle_tick(tick: dict) -> None:
         try:
             await asyncio.wait_for(tick_queue.put(tick), timeout=0.5)
         except (asyncio.QueueFull, asyncio.TimeoutError):
             pass
 
-    from fyers_apiv3.FyersWebsocket import data_ws
+    def on_message(message: dict) -> None:
+        if not isinstance(message, dict):
+            return
+        asyncio.run_coroutine_threadsafe(handle_tick(message), loop)
 
     fyers = data_ws.FyersDataSocket(
-        access_token="",
+        access_token=access_token,
         write_to_file=False,
         log_path="",
-        on_ticks=on_tick,
-        on_open=lambda: logger.info("Fyers WS connected"),
-        on_error=lambda e: logger.error("Fyers WS error: %s", e),
-        on_close=lambda: logger.info("Fyers WS closed"),
+        on_message=on_message,
+        on_error=lambda msg: logger.error("Fyers WS error: %s", msg),
+        on_connect=lambda: logger.info("Fyers WS connected"),
+        on_close=lambda msg: logger.info("Fyers WS closed: %s", msg),
     )
 
     def ws_connect():
         fyers.connect()
 
-    fyers.access_token = os.environ.get("FYERS_ACCESS_TOKEN", "")
-    if not fyers.access_token:
-        logger.error("FYERS_ACCESS_TOKEN not set")
-        sys.exit(1)
-
     await loop.run_in_executor(None, ws_connect)
-    logger.info("Fyers WS subscribed to %s", symbols)
+    logger.info("Fyers WS connected, subscribing to %s", symbols)
 
-    fyers.subscribe(symbols=symbols)
-
-    pub_tasks = []
+    fyers.subscribe(symbols=symbols, data_type="SymbolUpdate", channel=11)
 
     async def publisher():
         while True:
@@ -82,11 +77,11 @@ async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
                 logger.warning("Redis publish error: %s", e)
 
     pub_task = asyncio.create_task(publisher())
-    pub_tasks.append(pub_task)
 
     shutdown_event = asyncio.Event()
 
     def _signal():
+        logger.info("Shutdown signal received")
         shutdown_event.set()
 
     loop.add_signal_handler(signal.SIGTERM, _signal)
@@ -94,9 +89,8 @@ async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
 
     await shutdown_event.wait()
 
-    fyers.close()
-    for t in pub_tasks:
-        t.cancel()
+    fyers.close_connection()
+    pub_task.cancel()
     await r.close()
     logger.info("Market agent shutdown complete")
 
