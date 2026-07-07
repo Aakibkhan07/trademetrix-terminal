@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     frontend_url: str = "https://ai.trademetrix.tech"
     fyers_redirect_uri: str = ""
 
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
     request_timeout_seconds: int = 60
     max_request_size_bytes: int = 102400
     broker_request_timeout: int = 8

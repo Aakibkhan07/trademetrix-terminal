@@ -127,6 +127,33 @@ async def send_alert_whatsapp(phone: str, body: str) -> bool:
         return False
 
 
+async def send_telegram_alert(message: str, parse_mode: str = "HTML") -> bool:
+    if not settings.telegram_bot_token or not settings.telegram_chat_id:
+        logger.info("[DEV] No Telegram configured — would send: %s", message[:80])
+        return False
+    try:
+        url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url,
+                json={
+                    "chat_id": settings.telegram_chat_id,
+                    "text": message,
+                    "parse_mode": parse_mode,
+                    "disable_web_page_preview": True,
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                logger.info("Telegram alert sent")
+                return True
+            logger.warning("Telegram send failed: %s", resp.text)
+            return False
+    except Exception as e:
+        logger.warning("Telegram send error: %s", e)
+        return False
+
+
 async def deliver_otp(otp: str, email: str, phone: str = "") -> bool:
     logger.info("[OTP] Code for %s: %s", email, otp)
 

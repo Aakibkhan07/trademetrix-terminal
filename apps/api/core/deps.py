@@ -1,3 +1,6 @@
+import logging
+import time
+
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -6,7 +9,12 @@ from core.db import async_supabase, get_supabase
 from core.models import TIER_ORDER, UserProfile, role_satisfies, role_has_permission
 from core.security import decode_access_token
 
+logger = logging.getLogger(__name__)
 _bearer = HTTPBearer(auto_error=False)
+
+_user_cache: dict[str, tuple[float, dict]] = {}
+USER_CACHE_TTL = 120
+_USER_CACHE_MAX = 100
 
 
 async def get_current_user(
@@ -39,6 +47,10 @@ async def get_current_user(
             detail="Invalid token payload",
         )
 
+    cached = _user_cache.get(user_id)
+    if cached and time.time() - cached[0] < USER_CACHE_TTL:
+        return UserProfile(**cached[1])
+
     try:
         supabase = get_supabase()
         result = await async_supabase(lambda: supabase.table("profiles").select("*").eq("id", user_id).maybe_single().execute())
@@ -50,11 +62,14 @@ async def get_current_user(
         profile_data = {k: v for k, v in dict(result.data).items() if v is not None}
         if not profile_data.get("full_name") and profile_data.get("name"):
             profile_data["full_name"] = profile_data["name"]
+        if len(_user_cache) >= _USER_CACHE_MAX:
+            stale = min(_user_cache.keys(), key=lambda k: _user_cache[k][0])
+            del _user_cache[stale]
+        _user_cache[user_id] = (time.time(), profile_data)
         return UserProfile(**profile_data)
     except HTTPException:
         raise
     except Exception as e:
-        logger = __import__("logging").getLogger(__name__)
         logger.warning("Profile lookup failed for user=%s: %s", user_id, e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

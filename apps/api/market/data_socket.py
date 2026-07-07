@@ -1,6 +1,8 @@
 import asyncio
 import inspect
+import json
 import logging
+from datetime import datetime, timezone
 from collections.abc import Callable
 
 from core.models import Tick
@@ -43,13 +45,59 @@ class SharedDataSocket:
     async def start(self):
         self._running = True
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-        logger.info("SharedDataSocket started")
+        self._redis_sub_task = asyncio.create_task(self._redis_subscriber())
+        logger.info("SharedDataSocket started with Redis pub/sub subscriber")
+
+    async def _redis_subscriber(self):
+        try:
+            from core.cache import cache
+            import redis.asyncio as aioredis
+            r = aioredis.from_url(
+                "redis://redis:6379/0",
+                decode_responses=True,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+            )
+            await r.ping()
+            pubsub = r.pubsub()
+            await pubsub.psubscribe("market:ticks:*")
+            logger.info("Redis pub/sub subscriber listening on market:ticks:*")
+
+            async for msg in pubsub.listen():
+                if self._running and msg["type"] == "pmessage":
+                    try:
+                        tick_data = json.loads(msg["data"])
+                        symbol = tick_data.get("symbol", "")
+                        tick = Tick(
+                            symbol=symbol,
+                            ltp=tick_data.get("ltp", 0.0),
+                            volume=tick_data.get("vol_traded_today", 0),
+                            bid=tick_data.get("bid", 0.0) or tick_data.get("ltp", 0.0),
+                            ask=tick_data.get("ask", 0.0) or tick_data.get("ltp", 0.0),
+                            open=tick_data.get("open_price", 0.0),
+                            high=tick_data.get("high_price", 0.0),
+                            low=tick_data.get("low_price", 0.0),
+                            close=tick_data.get("prev_close_price", 0.0),
+                            change=tick_data.get("ch", 0.0),
+                            broker="fyers",
+                            timestamp=datetime.now(timezone.utc),
+                        )
+                        await self.broadcast_tick(tick)
+                    except (json.JSONDecodeError, KeyError, TypeError) as e:
+                        logger.debug("Redis pub/sub parse error: %s", e)
+        except ImportError:
+            logger.info("redis.asyncio not available — Redis pub/sub disabled")
+        except Exception as e:
+            logger.warning("Redis pub/sub subscriber error: %s", e)
 
     async def stop(self):
         self._running = False
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
             self._heartbeat_task = None
+        if hasattr(self, "_redis_sub_task") and self._redis_sub_task:
+            self._redis_sub_task.cancel()
+            self._redis_sub_task = None
         for task in self._broker_feeds.values():
             task.cancel()
         self._broker_feeds.clear()
@@ -98,23 +146,29 @@ class SharedDataSocket:
         from core.db import async_supabase, get_supabase
         from core.security import decrypt_broker_credentials
 
-        supabase = get_supabase()
-        cred = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("user_id", user_id).eq("broker", broker_type).single().execute())
-        if not cred.data:
-            raise RuntimeError(f"No broker credentials found for {broker_type}")
-
-        row = cred.data
-        raw_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
-        if not raw_token:
-            raise RuntimeError(f"No access_token stored for {broker_type} — user must re-authenticate via OAuth")
-
         adapter_cls = get_broker(broker_type)
         adapter = adapter_cls()
-        await adapter.authenticate({
-            "client_id": decrypt_broker_credentials(row["encrypted_api_key"]),
-            "secret_key": decrypt_broker_credentials(row["encrypted_secret_key"]),
-            "access_token": raw_token,
-        })
+        raw_token = ""
+        client_id = ""
+
+        try:
+            supabase = get_supabase()
+            cred = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("user_id", user_id).eq("broker", broker_type).single().execute())
+            if cred.data:
+                row = cred.data
+                raw_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
+                client_id = decrypt_broker_credentials(row["encrypted_api_key"]) if row.get("encrypted_api_key") else ""
+        except Exception as e:
+            logger.warning("Could not load broker credentials (%s), will use Yahoo Finance fallback", e)
+
+        try:
+            await adapter.authenticate({
+                "client_id": client_id or "",
+                "secret_key": "",
+                "access_token": raw_token,
+            })
+        except Exception as e:
+            logger.warning("Broker auth failed (%s), Yahoo Finance fallback will be used", e)
 
         async def feed_runner():
             try:
@@ -129,7 +183,7 @@ class SharedDataSocket:
         task = asyncio.create_task(feed_runner())
         task.add_done_callback(lambda _: self._broker_feeds.pop(broker_type, None))
         self._broker_feeds[broker_type] = task
-        logger.info(f"Broker feed started for {broker_type} with {len(symbols)} symbols")
+        logger.info(f"Broker feed started for {broker_type} with {len(symbols)} symbols (token={bool(raw_token)}, yahoo_fallback={not raw_token})")
 
     async def stop_broker_feed(self, broker_type: str) -> None:
         task = self._broker_feeds.pop(broker_type, None)

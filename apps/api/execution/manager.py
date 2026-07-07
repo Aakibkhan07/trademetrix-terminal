@@ -411,7 +411,12 @@ class ExecutionManager:
                 health = await adapter.health()
                 if health.get("authenticated"):
                     return adapter
-            return self._adapters.get(key)
+            adapter = PaperBroker(user_id)
+            connected = await adapter.connect()
+            if connected:
+                self._adapters[key] = adapter
+                return adapter
+            return None
 
         key = f"{user_id}:{broker}"
         if key in self._adapters:
@@ -460,6 +465,7 @@ class ExecutionManager:
                 source=req.source,
                 user_id=req.user_id,
                 broker=req.broker,
+                client_order_id=req.execution_request_id or "",
             )
         except Exception as e:
             logger.error("Failed to build order: %s", e)

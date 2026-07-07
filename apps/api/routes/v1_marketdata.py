@@ -5,10 +5,8 @@ import logging
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
-from core.db import get_supabase
 from core.deps import get_current_user
 from core.models import Tick, UserProfile
-from core.safe_query import safe_single
 from core.security import decode_access_token
 from market.data_socket import shared_socket
 logger = logging.getLogger(__name__)
@@ -134,32 +132,19 @@ async def start_market_feed(current_user: UserProfile = Depends(get_current_user
     from market.alert_checker import start_alert_checker
     await start_alert_checker()
 
-    supabase = get_supabase()
-    active = safe_single(
-        supabase.table("broker_credentials")
-        .select("broker")
-        .eq("user_id", current_user.id)
-        .eq("is_active", True)
-    )
+    broker_type = "fyers"
 
-    if not active:
-        raise HTTPException(status_code=400, detail="No active broker configured. Connect a broker first.")
-
-    if active["broker"] not in STREAMING_SUPPORTED:
-        raise HTTPException(status_code=400, detail=f"Broker {active['broker']} does not support live streaming")
-
-    broker_type = active["broker"]
     try:
         await shared_socket.start_broker_feed(
             user_id=current_user.id,
             broker_type=broker_type,
             symbols=symbols,
         )
-        logger.info("Broker feed started for %s with %d symbols", broker_type, len(symbols))
+        logger.info("Market feed started for user %s with %d symbols", current_user.id, len(symbols))
         return {"message": "Market feed started", "broker": broker_type}
     except Exception as e:
-        logger.error("Broker feed %s failed: %s", broker_type, e)
-        raise HTTPException(status_code=502, detail=f"Broker feed failed: {e}")
+        logger.error("Market feed failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"Market feed failed: {e}")
 
 
 @router.post("/feed/stop")
@@ -268,8 +253,6 @@ async def get_historical(
     return {"symbol": symbol, "interval": interval, "candles": candles}
 
 
-from core.config import STREAMING_SUPPORTED
-
 NSE_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY"}
 
 
@@ -355,11 +338,16 @@ async def get_option_chain(
         tm = TokenManager(current_user.id, "fyers")
         session = await tm.get_session()
         raw_token = session["access_token"]
+        client_id = session.get("client_id", "")
 
-        from fyers_apiv3 import fyersModel
-        fyers = fyersModel.FyersModel(client_id=session.get("client_id", ""), token=raw_token, log_path="")
-
-        data = fyers.optionchain({"symbol": fyers_symbol, "strikecount": 9, "greeks": "0"})
+        async with httpx.AsyncClient(timeout=15) as client:
+            headers = {"Authorization": f"{client_id}:{raw_token}", "Content-Type": "application/json"}
+            resp = await client.post(
+                "https://api-t1.fyers.in/data/options-chain-v3",
+                json={"symbol": fyers_symbol, "strikecount": 9, "timestamp": ""},
+                headers=headers,
+            )
+            data = resp.json()
         if data.get("s") == "ok":
             chain = data.get("data", {})
             raw_options = chain.get("optionsChain", []) or chain.get("optionChain", [])

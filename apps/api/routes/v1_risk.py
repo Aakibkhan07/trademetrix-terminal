@@ -5,7 +5,7 @@ from core.db import get_supabase
 from core.capabilities import Capabilities
 from core.deps import get_capabilities, get_current_user
 from core.models import RiskSettings, UserProfile
-from core.safe_query import safe_execute
+from core.safe_query import async_safe_single, async_safe_execute, safe_single, safe_execute
 from risk.riskguard import RiskGuard
 
 router = APIRouter(prefix="/risk", tags=["risk"])
@@ -23,7 +23,7 @@ class UpdateRiskRequest(BaseModel):
 @router.get("/settings")
 async def get_risk_settings(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    data = safe_execute(supabase.table("risk_settings").select("*").eq("user_id", current_user.id))
+    data = await async_safe_execute(supabase.table("risk_settings").select("*").eq("user_id", current_user.id))
     return {"settings": data or []}
 
 

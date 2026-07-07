@@ -43,9 +43,9 @@ async def get_journal_entries(
     current_user: UserProfile = Depends(get_current_user),
 ):
     from core.db import get_supabase
-    from core.safe_query import safe_execute
+    from core.safe_query import async_safe_execute, safe_execute
     supabase = get_supabase()
-    data = safe_execute(
+    data = await async_safe_execute(
         supabase.table("journal_entries").select("*").eq("user_id", current_user.id).order("created_at", desc=True).limit(50)
     )
     return {"entries": data or []}

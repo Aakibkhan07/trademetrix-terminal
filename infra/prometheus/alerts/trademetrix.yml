@@ -18,6 +18,14 @@ groups:
         annotations:
           summary: "API 5xx error rate > 5%"
 
+      - alert: APIUnhealthy
+        expr: api_health_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API health check failing"
+
       - alert: InstanceDown
         expr: up == 0
         for: 1m

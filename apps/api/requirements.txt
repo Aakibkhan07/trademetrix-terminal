@@ -23,5 +23,7 @@ pytest>=8.0
 pytest-asyncio>=0.24
 prometheus-client>=0.20.0
 fyers-apiv3>=3.1
+websocket-client>=1.6
+yfinance>=1.4
 smartapi-python>=1.5
 pyotp>=2.9

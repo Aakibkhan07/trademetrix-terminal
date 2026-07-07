@@ -1,6 +1,6 @@
 import asyncio
+import hashlib
 import inspect
-import json
 import logging
 import time
 from collections.abc import Callable
@@ -52,8 +52,8 @@ class FyersAdapter(BaseBroker):
         self._access_token: str = ""
         self._user_id: str = ""
         self._base_url = "https://api.fyers.in/api/v2"
-        self._v3_url = "https://api.fyers.in/api/v3"
-        self._ws_url = "wss://socket.fyers.in/socket"
+        self._data_url = "https://api-t1.fyers.in/data"
+        self._v3_url = "https://api-t1.fyers.in/api/v3"
         self._running = False
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -82,31 +82,21 @@ class FyersAdapter(BaseBroker):
         self._access_token = raw_token
 
         if raw_token:
-            client = await self._get_client()
-            resp = await client.get(
-                f"{self._base_url}/profile",
-                headers=self._headers(),
-                timeout=httpx.Timeout(5, connect=3),
-            )
-            if resp.status_code == 401:
-                raise ValueError("Fyers authentication failed — invalid access_token")
-            data = resp.json()
-            if data.get("s") != "ok":
-                raise ValueError(f"Fyers auth validation failed: {data.get('message', 'unknown')}")
-            self._user_id = data.get("data", {}).get("fy_id", "") or data.get("fy_id", "")
+            self._user_id = client_id
+            logger.info("Fyers authenticate using existing access_token (skipping profile validation)")
         else:
             auth_code = credentials.get("auth_code", "")
             app_secret = credentials.get("secret_key", "")
             if not auth_code or not app_secret:
                 raise ValueError("auth_code and secret_key required for Fyers OAuth flow")
             client = await self._get_client()
+            app_id_hash = hashlib.sha256(f"{client_id}:{app_secret}".encode()).hexdigest()
             resp = await client.post(
-                f"{self._base_url}/token",
+                "https://api-t1.fyers.in/api/v3/validate-authcode",
                 json={
                     "grant_type": "authorization_code",
-                    "appIdHash": client_id,
-                    "secret_key": app_secret,
-                    "auth_code": auth_code,
+                    "appIdHash": app_id_hash,
+                    "code": auth_code,
                 },
                 timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
             )
@@ -252,17 +242,25 @@ class FyersAdapter(BaseBroker):
 
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
         client = await self._get_client()
-        resp = await client.post(
-            f"{self._base_url}/quotes",
-            json={"symbols": ",".join(self._ensure_fyers_symbol(s) for s in symbols)},
-            headers=self._headers(),
-            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
-        )
-        data = resp.json()
-        quotes = []
-        for item in data.get("d", []):
-            quotes.append(self._normalize_quote(item))
-        return quotes
+        try:
+            resp = await client.post(
+                f"{self._data_url}/quotes",
+                json={"symbols": ",".join(self._ensure_fyers_symbol(s) for s in symbols)},
+                headers=self._headers(),
+                timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                quotes = []
+                for item in data.get("d", []):
+                    quotes.append(self._normalize_quote(item))
+                if quotes:
+                    return quotes
+            logger.warning("Fyers quotes status=%d, falling back to Yahoo", resp.status_code)
+        except Exception as e:
+            logger.warning("Fyers quotes failed (%s), falling back to Yahoo", e)
+        from providers.yahoo import fetch_quotes
+        return await fetch_quotes(symbols)
 
     async def get_historical(
         self, symbol: str, interval: str, start: str | None = None, end: str | None = None, range: str | None = None
@@ -279,16 +277,64 @@ class FyersAdapter(BaseBroker):
         else:
             params["range_from"] = start or str(now_ts - 86400 * 60)
             params["range_to"] = end or str(now_ts)
-        resp = await client.post(
+        history_urls = [
+            f"{self._data_url}/history",
             f"{self._base_url}/history",
-            json=params,
-            headers=self._headers(),
-            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
-        )
-        data = resp.json()
+            "https://api-t1.fyers.in/api/v3/history",
+        ]
         candles = []
-        for item in data.get("candles", []):
-            candles.append(
+        for url in history_urls:
+            try:
+                resp = await client.post(
+                    url,
+                    json=params,
+                    headers=self._headers(),
+                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+                )
+                if resp.status_code == 200:
+                    try:
+                        data = resp.json()
+                        candles = data.get("candles", [])
+                        if candles:
+                            logger.info("Fyers history fetched from %s (%d candles)", url, len(candles))
+                            break
+                    except Exception:
+                        logger.warning("Fyers history non-JSON from %s: %s", url, resp.text[:300])
+                else:
+                    logger.warning("Fyers history status=%d from %s", resp.status_code, url)
+            except Exception as e:
+                logger.warning("Fyers history request failed for %s: %s", url, e)
+
+        if not candles and self._access_token and self._client_id:
+            try:
+                from fyers_apiv3 import fyersModel
+                fy = fyersModel.FyersModel(client_id=self._client_id, token=self._access_token, log_path="")
+                sd = {"symbol": params["symbol"], "resolution": params["resolution"], "date_format": "0",
+                      "range_from": params.get("range_from", start or str(now_ts - 86400 * 60)),
+                      "range_to": params.get("range_to", end or str(now_ts))}
+                raw = await asyncio.to_thread(lambda: fy.history(sd))
+                if raw and raw.get("s") == "ok":
+                    candles = raw.get("candles", [])
+                    logger.info("Fyers history via SDK: %d candles for %s", len(candles), params["symbol"])
+            except Exception as e:
+                logger.warning("Fyers history SDK fallback failed: %s", e)
+
+        if not candles:
+            period_map = {"1": "1d", "5": "5d", "15": "5d", "30": "1mo", "60": "1mo", "D": "1mo"}
+            y_period = period_map.get(interval, "1mo")
+            logger.info("Fyers history returned 0 candles for %s, trying Yahoo Finance", params["symbol"])
+            try:
+                from providers.yahoo import fetch_historical
+                candles_raw = await fetch_historical(symbol, interval=interval, period=y_period)
+                if candles_raw:
+                    logger.info("Yahoo history: %d candles for %s", len(candles_raw), symbol)
+                    return candles_raw
+            except Exception as e:
+                logger.warning("Yahoo history fallback failed: %s", e)
+
+        result = []
+        for item in candles:
+            result.append(
                 Candle(
                     symbol=symbol,
                     exchange=Exchange.NSE,
@@ -301,123 +347,159 @@ class FyersAdapter(BaseBroker):
                     timestamp=datetime.fromtimestamp(item[0]),
                 )
             )
-        return candles
+        return result
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
         if not self._access_token:
-            raise RuntimeError("Not authenticated. Call authenticate() first.")
+            logger.warning("No access_token — falling back to Yahoo Finance streaming")
+            await self._stream_yahoo(symbols, on_tick)
+            return
+
         self._running = True
 
-        ws_retries = 0
-        max_ws_retries = 3
-        ws_retry_delay = 1
-        use_polling = False
+        from fyers_apiv3.FyersWebsocket.data_ws import FyersDataSocket
 
-        while self._running:
-            if not use_polling:
+        old = getattr(FyersDataSocket, '_instance', None)
+        if old is not None:
+            try:
+                old.close_connection()
+            except Exception:
+                pass
+        FyersDataSocket._instance = None
+
+        queue: asyncio.Queue[dict] = asyncio.Queue()
+        errors: list[str] = []
+        loop = asyncio.get_running_loop()
+        connected = asyncio.Event()
+
+        def on_message(msg: dict):
+            loop.call_soon_threadsafe(queue.put_nowait, msg)
+
+        def on_error(err):
+            errors.append(str(err))
+            logger.error("Fyers WS SDK error: %s", err)
+
+        def on_connect():
+            connected.set()
+            logger.info("Fyers WS SDK connected")
+
+        try:
+            ws = FyersDataSocket(
+                access_token=self._access_token,
+                litemode=True,
+                write_to_file=False,
+                log_path="/tmp",
+                on_message=on_message,
+                on_error=on_error,
+                on_connect=on_connect,
+                on_close=lambda msg: logger.info("Fyers WS SDK closed: %s", msg),
+                reconnect=True,
+                reconnect_retry=5,
+            )
+
+            await loop.run_in_executor(None, ws.connect)
+
+            ws_ok = True
+            try:
+                await asyncio.wait_for(connected.wait(), timeout=12)
+            except asyncio.TimeoutError:
+                ws.close_connection()
+                ws_ok = False
+
+            if errors or not ws_ok:
+                ws.close_connection()
+                ws_ok = False
+        except Exception as e:
+            logger.warning("Fyers DataSocket init failed (%s) — falling back to Yahoo", e)
+            ws_ok = False
+
+        if not ws_ok:
+            logger.warning("Fyers DataSocket failed — falling back to Yahoo Finance streaming")
+            await self._stream_yahoo(symbols, on_tick)
+            return
+
+        fyers_symbols = [self._ensure_fyers_symbol(s) for s in symbols]
+        VALID_FYERS_INDICES = {"NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX", "NSE:FINNIFTY-INDEX", "NSE:MIDCPNIFTY-INDEX", "NSE:SENSEX-INDEX", "BSE:SENSEX-INDEX"}
+        filtered = []
+        for fs in fyers_symbols:
+            if fs.endswith("-INDEX") and fs not in VALID_FYERS_INDICES:
+                logger.warning("Skipping invalid Fyers index symbol: %s", fs)
+                continue
+            filtered.append(fs)
+        if not filtered:
+            logger.warning("No valid Fyers symbols after filtering — falling back to Yahoo")
+            await self._stream_yahoo(symbols, on_tick)
+            return
+        ws.subscribe(symbols=filtered)
+        logger.info("Fyers DataSocket subscribed to %d symbols (filtered from %d)", len(filtered), len(fyers_symbols))
+
+        try:
+            while self._running:
                 try:
-                    async with httpx.AsyncClient() as client:
-                        ws_url = f"{self._ws_url}?token={self._access_token}&client_id={self._client_id}"
-                        async with client.stream("GET", ws_url) as resp:
-                            if resp.status_code != 101:
-                                logger.error("Fyers WS connect failed: %s", resp.status_code)
-                                ws_retries += 1
-                                if ws_retries >= max_ws_retries:
-                                    logger.warning("Fyers WS max retries reached, falling back to polling")
-                                    use_polling = True
-                                    continue
-                                await asyncio.sleep(ws_retry_delay)
-                                ws_retry_delay = min(ws_retry_delay * 2, 30)
-                                continue
+                    msg = await asyncio.wait_for(queue.get(), timeout=1.0)
+                    tick = self._parse_sdk_tick(msg)
+                    if tick:
+                        if inspect.iscoroutinefunction(on_tick):
+                            await on_tick(tick)
+                        else:
+                            on_tick(tick)
+                except asyncio.TimeoutError:
+                    continue
+        finally:
+            try:
+                ws.close_connection()
+            except Exception:
+                pass
+            logger.info("Fyers DataSocket closed")
 
-                            ws_retries = 0
-                            ws_retry_delay = 1
-                            subscribe_msg = json.dumps({
-                                "type": "subscribe",
-                                "symbols": [self._ensure_fyers_symbol(s) for s in symbols],
-                            })
-                            async with client.stream("POST", ws_url, content=subscribe_msg) as ws:
-                                async for line in ws.aiter_lines():
-                                    if not self._running:
-                                        break
-                                    if not line.strip():
-                                        continue
-                                    try:
-                                        data = json.loads(line)
-                                        tick = self._parse_tick(data)
-                                        if tick:
-                                            if inspect.iscoroutinefunction(on_tick):
-                                                await on_tick(tick)
-                                            else:
-                                                on_tick(tick)
-                                    except json.JSONDecodeError:
-                                        continue
-
-                except Exception as e:
-                    logger.error("Fyers WS error: %s, reconnecting in %ds", e, ws_retry_delay)
-                    ws_retries += 1
-                    if ws_retries >= max_ws_retries:
-                        logger.warning("Fyers WS max retries reached, falling back to polling")
-                        use_polling = True
+    async def _stream_yahoo(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
+        self._running = True
+        yahoo_interval = 2.0
+        last_prices: dict[str, float] = {}
+        from providers.yahoo import _to_yahoo
+        yahoo_symbols = [_to_yahoo(s) for s in symbols]
+        async with httpx.AsyncClient(timeout=5) as client:
+            while self._running:
+                try:
+                    url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={','.join(yahoo_symbols)}"
+                    resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+                    if resp.status_code != 200:
+                        await asyncio.sleep(yahoo_interval)
                         continue
-                    await asyncio.sleep(ws_retry_delay)
-                    ws_retry_delay = min(ws_retry_delay * 2, 30)
-
-            else:
-                try:
-                    client = await self._get_client()
-                    resp = await client.post(
-                        f"{self._base_url}/quotes",
-                        json={"symbols": ",".join(self._ensure_fyers_symbol(s) for s in symbols)},
-                        headers=self._headers(),
-                        timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
-                    )
                     data = resp.json()
-                    for item in data.get("d", []):
-                        v = item.get("v", {})
-                        sym = v.get("symbol") or item.get("n", "")
-                        lp = float(v.get("lp", 0))
-                        change = float(v.get("ch", 0))
-                        change_pct = float(v.get("chp", 0))
-                        inst_type = InstrumentType.EQ
-                        strike = None
-                        expiry = None
-                        opt_type = None
-                        if ":" in sym:
-                            parsed = self._parse_instrument(sym)
-                            inst_type = parsed["instrument_type"]
-                            strike = parsed["strike_price"]
-                            expiry = parsed["expiry_date"]
-                            opt_type = parsed["option_type"]
+                    results = data.get("quoteResponse", {}).get("result", [])
+                    for item in results:
+                        ys = item.get("symbol", "")
+                        try:
+                            idx = yahoo_symbols.index(ys)
+                        except ValueError:
+                            continue
+                        s = symbols[idx]
+                        ltp = float(item.get("regularMarketPrice", 0))
+                        if ltp == 0 or ltp == last_prices.get(s):
+                            continue
+                        last_prices[s] = ltp
+                        prev_close = float(item.get("regularMarketPreviousClose", ltp))
                         tick = Tick(
-                            symbol=sym,
-                            exchange=Exchange.NSE,
-                            last_price=lp,
-                            bid=float(v.get("bid", 0)),
-                            ask=float(v.get("ask", 0)),
-                            bid_qty=int(v.get("bid_size", 0)),
-                            ask_qty=int(v.get("ask_size", 0)),
-                            volume=int(v.get("volume", 0)),
-                            oi=int(v.get("oi", 0)),
-                            change=round(change, 2),
-                            change_pct=round(change_pct, 2),
-                            timestamp=datetime.now(UTC),
-                            broker=self.broker_name,
-                            instrument_type=inst_type,
-                            strike_price=strike,
-                            expiry_date=expiry,
-                            option_type=opt_type,
+                            symbol=s, exchange=Exchange.NSE,
+                            last_price=ltp,
+                            bid=float(item.get("bid", 0)),
+                            ask=float(item.get("ask", 0)),
+                            volume=int(item.get("regularMarketVolume", 0)),
+                            oi=0,
+                            change=round(ltp - prev_close, 2),
+                            change_pct=round((ltp - prev_close) / max(prev_close, 0.01) * 100, 2),
+                            timestamp=datetime.now(UTC), broker="yahoo",
                         )
                         if inspect.iscoroutinefunction(on_tick):
                             await on_tick(tick)
                         else:
                             on_tick(tick)
-                    await asyncio.sleep(1)
-                except asyncio.CancelledError:
-                    break
+                except httpx.TimeoutException:
+                    logger.warning("Yahoo quote API timed out")
                 except Exception as e:
-                    logger.error("Fyers polling error: %s", e)
-                    await asyncio.sleep(1)
+                    logger.warning("Yahoo stream error: %s", e)
+                await asyncio.sleep(yahoo_interval)
 
     async def get_margin_estimate(self, legs: list[dict]) -> dict:
         if not self._access_token:
@@ -473,6 +555,35 @@ class FyersAdapter(BaseBroker):
     async def disconnect(self) -> None:
         self._running = False
         self._client = None
+
+    def _parse_sdk_tick(self, msg: dict) -> Tick | None:
+        try:
+            symbol = msg.get("symbol", "")
+            if not symbol:
+                return None
+            inst = self._parse_instrument(symbol)
+            return Tick(
+                symbol=symbol,
+                exchange=Exchange.NSE,
+                last_price=float(msg.get("ltp", 0)),
+                bid=float(msg.get("bid_price", msg.get("bid", 0))),
+                ask=float(msg.get("ask_price", msg.get("ask", 0))),
+                bid_qty=int(msg.get("bid_size", msg.get("bid_qty", 0))),
+                ask_qty=int(msg.get("ask_size", msg.get("ask_qty", 0))),
+                volume=int(msg.get("volume", 0)),
+                oi=int(msg.get("oi", 0)),
+                change=round(float(msg.get("ch", 0)), 2),
+                change_pct=round(float(msg.get("chp", 0)), 2),
+                timestamp=datetime.now(UTC),
+                broker=self.broker_name,
+                instrument_type=inst["instrument_type"],
+                strike_price=inst["strike_price"],
+                expiry_date=inst["expiry_date"],
+                option_type=inst["option_type"],
+            )
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+            logger.warning("Failed to parse SDK tick: %s", e)
+            return None
 
     def _parse_tick(self, data: dict) -> Tick | None:
         try:

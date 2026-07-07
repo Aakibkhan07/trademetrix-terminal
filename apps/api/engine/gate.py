@@ -27,7 +27,7 @@ def generate_client_order_id(
         if signal_id:
             return hashlib.sha256(f"{user_id}:{signal_id}".encode()).hexdigest()[:32]
         return hashlib.sha256(f"{user_id}:{strategy_id or ''}:{symbol}:{side}".encode()).hexdigest()[:32]
-    return hashlib.sha256(f"{user_id}:{symbol}:{side}:{int(time.time())}".encode()).hexdigest()[:32]
+    return hashlib.sha256(f"{user_id}:{symbol}:{side}:{time.time_ns()}".encode()).hexdigest()[:32]
 
 
 def _classify_rejection(reason: str) -> str:
@@ -240,7 +240,6 @@ async def execute_order(
         reason_code = _classify_rejection(risk_check.get("reason", ""))
         order.status = OrderStatus.REJECTED
         order.message = reason_code
-        await _log_order(user_id, order)
         await _write_audit(user_id, "rejected", order, source=source, reason=reason_code)
         return OrderResult(success=False, message=reason_code, status="rejected")
 
@@ -248,11 +247,10 @@ async def execute_order(
     if not broker:
         order.status = OrderStatus.REJECTED
         order.message = "NO_ACTIVE_BROKER"
-        await _log_order(user_id, order)
         await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
         return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
     order.broker = broker
-    order.is_paper = False
+    order.is_paper = broker == "paper"
     broker_symbol = await symbol_master.resolve_symbol(order.symbol, broker)
     order.symbol = broker_symbol or order.symbol
 
@@ -269,7 +267,6 @@ async def execute_order(
         order.message = exec_result.message or "PLACEMENT_FAILED"
 
     order.latency_ms = exec_result.latency_ms
-    await _log_order(user_id, order)
     await _write_audit(
         user_id,
         "placed" if exec_result.success else "failed",

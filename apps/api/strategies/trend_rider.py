@@ -23,6 +23,7 @@ class TrendRider(BaseStrategy):
         self.symbol = config.get("symbol", "NIFTY")
         self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 75))
         self._prices: list[float] = []
+        self._max_prices = 200
 
     async def on_start(self) -> None:
         self._prices.clear()
@@ -35,6 +36,8 @@ class TrendRider(BaseStrategy):
 
     async def on_candle(self, candle: Candle) -> SignalResult | None:
         self._prices.append(candle.close)
+        if len(self._prices) > self._max_prices:
+            self._prices.pop(0)
         if len(self._prices) < self.slow_period + 1:
             return None
 

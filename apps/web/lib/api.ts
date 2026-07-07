@@ -57,6 +57,24 @@ export interface AdminBroker {
   updated_at: string
 }
 
+export interface BuyerStrategyStatus {
+  strategy_id: string
+  strategy_key: string
+  index: string
+  running: boolean
+  config: Record<string, unknown>
+}
+
+export interface FyersHealthResult {
+  id: string
+  user_id: string
+  email: string
+  full_name: string
+  has_token: boolean
+  valid: boolean
+  error: string
+}
+
 export interface AdminOrder {
   id: string
   user_id: string
@@ -142,11 +160,21 @@ function getCSRFToken(): string {
 let _csrfBootstrapped = false
 
 async function _ensureCSRF(): Promise<void> {
-  if (_csrfBootstrapped) return
-  _csrfBootstrapped = true
   if (getCSRFToken()) return
-  await fetch(`${API_BASE}/auth/csrf`, { credentials: 'include' })
+  try {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 5000)
+    await fetch(`${API_BASE}/auth/csrf`, {
+      credentials: 'include',
+      signal: ctrl.signal,
+    })
+    clearTimeout(t)
+  } catch {
+    // CSRF bootstrap non-critical
+  }
 }
+
+const REQUEST_TIMEOUT = 30_000
 
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {}, signal } = options
@@ -157,7 +185,10 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   if (method !== 'GET') {
-    await _ensureCSRF()
+    if (!_csrfBootstrapped) {
+      _csrfBootstrapped = true
+      await _ensureCSRF()
+    }
     const csrf = getCSRFToken()
     if (!csrf) {
       throw new ApiError(0, 'CSRF token not available — refresh or sign in again')
@@ -165,23 +196,39 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     finalHeaders['X-CSRF-Token'] = csrf
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: finalHeaders,
-    credentials: 'include',
-    body: body ? JSON.stringify(body) : undefined,
-    signal,
-  })
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT)
+  const onAbort = () => { clearTimeout(t); ctrl.abort() }
+  if (signal) signal.addEventListener('abort', onAbort, { once: true })
 
-  if (res.status === 204) return undefined as T
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: finalHeaders,
+      credentials: 'include',
+      body: body ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+    })
 
-  const data = await res.json()
+    clearTimeout(t)
+    if (signal) signal.removeEventListener('abort', onAbort)
 
-  if (!res.ok) {
-    throw new ApiError(res.status, data.detail || `Request failed: ${res.status}`)
+    if (res.status === 204) return undefined as T
+
+    let data: any
+    const text = await res.text()
+    try { data = JSON.parse(text) } catch { data = { detail: text } }
+
+    if (!res.ok) {
+      throw new ApiError(res.status, data.detail || `Request failed: ${res.status}`)
+    }
+
+    return data as T
+  } catch (e) {
+    clearTimeout(t)
+    if (signal) signal.removeEventListener('abort', onAbort)
+    throw e
   }
-
-  return data as T
 }
 
 export const api = {
@@ -274,6 +321,16 @@ export const api = {
     stats: () => request<AdminStats>('/admin/stats'),
     risk: () => request<{ settings: AdminRiskSetting[]; count: number }>('/admin/risk'),
     activeBrokers: () => request<{ active_broker_count: number; oauthed_count: number }>('/admin/active-brokers'),
+    fyersValidate: () => request<{ results: FyersHealthResult[] }>('/admin/brokers/fyers/validate', { method: 'POST' }),
+    fyersReAuth: (credentialId: string) =>
+      request<{ auth_url: string; user_id: string }>(`/admin/brokers/fyers/re-auth/${credentialId}`, { method: 'POST' }),
+    buyerStrategies: {
+      status: () => request<{ strategies: BuyerStrategyStatus[] }>('/buyer-strategies/status'),
+      activate: (data: { strategy_id: string; strategy_key: string; index?: string; config?: Record<string, unknown> }) =>
+        request<{ message: string; strategy_id: string }>('/buyer-strategies/activate', { method: 'POST', body: data }),
+      deactivate: (id: string) =>
+        request<{ message: string }>(`/buyer-strategies/deactivate/${id}`, { method: 'POST' }),
+    },
     admins: {
       list: () => request<{ admins: { id: string; email: string; full_name: string; is_admin: boolean; role: string }[] }>('/admin/admins'),
       create: (data: { email: string; role: string }) =>

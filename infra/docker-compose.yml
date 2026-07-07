@@ -98,6 +98,27 @@ services:
     mem_reservation: 64m
     cpus: 0.5
 
+  market-agent:
+    build:
+      context: ../apps/market-agent
+      dockerfile: Dockerfile
+    container_name: trademetrix_market_agent
+    restart: unless-stopped
+    networks: [trademetrix]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      FYERS_CLIENT_ID: ""
+      FYERS_ACCESS_TOKEN: ""
+      SYMBOLS: "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"
+      LOG_LEVEL: INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+    mem_limit: 256m
+    mem_reservation: 128m
+    cpus: 0.5
+
   certbot:
     image: certbot/certbot
     container_name: trademetrix_certbot

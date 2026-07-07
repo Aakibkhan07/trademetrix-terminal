@@ -10,7 +10,7 @@ from core.db import get_supabase
 from core.models import (
     Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType, ProductType, UserProfile,
 )
-from core.safe_query import safe_single
+from core.safe_query import async_safe_single, safe_single
 from engine.gate import execute_order, get_mirror_recipients, scaled_qty
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ async def tradingview_webhook(request: Request):
 
     if not user_id:
         if not WEBHOOK_SECRET:
-            creds = safe_single(
+            creds = await async_safe_single(
                 get_supabase().table("broker_credentials")
                 .select("user_id")
                 .eq("is_active", True)

@@ -14,7 +14,7 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 COPY --chown=app:app . .
 USER app
-HEALTHCHECK --interval=15s --timeout=5s --retries=3 --start-period=10s \
-    CMD curl -f http://localhost:8000/health/live || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=20s \
+    CMD curl -f http://localhost:8000/health || exit 1
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--limit-concurrency", "1000", "--backlog", "2048", "--no-access-log"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--limit-concurrency", "500", "--backlog", "2048", "--no-access-log"]

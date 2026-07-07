@@ -1,6 +1,10 @@
+import hashlib
+import logging
 from datetime import UTC, datetime
 from core.config import settings
 import os
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -11,7 +15,7 @@ from core.audit import record_audit
 from core.db import async_supabase, get_supabase
 from core.deps import get_current_user
 from core.models import AuditLogEntry, UserProfile
-from core.safe_query import safe_execute, safe_single
+from core.safe_query import async_safe_single, async_safe_execute, safe_execute, safe_single
 from core.security import decrypt_broker_credentials, encrypt_broker_credentials
 from core.http_client import get_http_client
 
@@ -59,7 +63,7 @@ async def broker_metadata(broker: str):
 @router.get("/credentials")
 async def get_credentials(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    data = safe_execute(
+    data = await async_safe_execute(
         supabase.table("broker_credentials")
         .select("id, broker, is_active, created_at")
         .eq("user_id", current_user.id)
@@ -73,7 +77,7 @@ async def activate_broker(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    target = safe_single(
+    target = await async_safe_single(
         supabase.table("broker_credentials")
         .select("id")
         .eq("user_id", current_user.id)
@@ -109,7 +113,7 @@ async def save_credentials(
     access_token = req.access_token or ""
 
     supabase = get_supabase()
-    existing = safe_single(
+    existing = await async_safe_single(
         supabase.table("broker_credentials")
         .select("id")
         .eq("user_id", current_user.id)
@@ -178,23 +182,25 @@ async def delete_credentials(
     ))
 
 
+from urllib.parse import urlencode
+
 FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI") or settings.fyers_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback"
 
 
 def _fyers_auth_url(client_id: str, state: str) -> str:
-    return (
-        f"https://api-t1.fyers.in/api/v3/generate-authcode"
-        f"?client_id={client_id}"
-        f"&redirect_uri={FYERS_REDIRECT_URI}"
-        f"&response_type=code"
-        f"&state={state}"
-    )
+    params = urlencode({
+        "client_id": client_id,
+        "redirect_uri": FYERS_REDIRECT_URI,
+        "response_type": "code",
+        "state": state,
+    })
+    return f"https://api-t1.fyers.in/api/v3/generate-authcode?{params}"
 
 
 @router.post("/fyers/re-auth")
 async def fyers_re_auth(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    cred = safe_single(
+    cred = await async_safe_single(
         supabase.table("broker_credentials")
         .select("id, broker")
         .eq("user_id", current_user.id)
@@ -216,7 +222,7 @@ async def fyers_re_auth(current_user: UserProfile = Depends(get_current_user)):
 @router.get("/fyers/auth-url")
 async def fyers_auth_url(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    cred = safe_single(
+    cred = await async_safe_single(
         supabase.table("broker_credentials")
         .select("id, broker")
         .eq("user_id", current_user.id)
@@ -240,7 +246,7 @@ async def fyers_exchange_code(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    cred = safe_single(
+    cred = await async_safe_single(
         supabase.table("broker_credentials")
         .select("*")
         .eq("user_id", current_user.id)
@@ -253,18 +259,20 @@ async def fyers_exchange_code(
     secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
 
     client = await get_http_client()
+    app_id_hash = hashlib.sha256(f"{client_id}:{secret_key}".encode()).hexdigest()
     resp = await client.post(
-        "https://api.fyers.in/api/v2/token",
+        "https://api-t1.fyers.in/api/v3/validate-authcode",
         json={
             "grant_type": "authorization_code",
-            "appIdHash": client_id,
-            "secret_key": secret_key,
-            "auth_code": req.auth_code,
+            "appIdHash": app_id_hash,
+            "code": req.auth_code,
         },
     )
     data = resp.json()
     if data.get("s") != "ok":
-        raise HTTPException(status_code=400, detail=f"Fyers auth failed: {data.get('message', '')}")
+        msg = data.get("message", data.get("errmsg", "unknown"))
+        logger.error("Fyers token exchange failed: status=%d body=%s", resp.status_code, data)
+        raise HTTPException(status_code=400, detail=f"Fyers auth failed: {msg}")
 
     raw_token = data["access_token"]
     encrypted = encrypt_broker_credentials(raw_token)
@@ -282,10 +290,12 @@ async def fyers_callback(
 ):
     from fastapi.responses import RedirectResponse
 
+    logger.info("Fyers callback HIT: auth_code=%s state=%s", auth_code[:20] if auth_code else "none", state)
+
     FRONTEND_URL = f"{settings.frontend_url or 'https://ai.trademetrix.tech'}/brokers"
 
     supabase = get_supabase()
-    cred = safe_single(
+    cred = await async_safe_single(
         supabase.table("broker_credentials")
         .select("*")
         .eq("user_id", state)
@@ -297,19 +307,23 @@ async def fyers_callback(
     client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
     secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
 
+    logger.info("Fyers callback: auth_code=%s... state=%s", auth_code[:20] if auth_code else "none", state)
+
     client = await get_http_client()
+    app_id_hash = hashlib.sha256(f"{client_id}:{secret_key}".encode()).hexdigest()
     resp = await client.post(
-        "https://api.fyers.in/api/v2/token",
+        "https://api-t1.fyers.in/api/v3/validate-authcode",
         json={
             "grant_type": "authorization_code",
-            "appIdHash": client_id,
-            "secret_key": secret_key,
-            "auth_code": auth_code,
+            "appIdHash": app_id_hash,
+            "code": auth_code,
         },
     )
     data = resp.json()
+    logger.info("Fyers callback response: status=%d body=%s", resp.status_code, data)
     if data.get("s") != "ok":
-        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=Fyers+auth+failed")
+        msg = data.get("message", data.get("errmsg", "unknown"))
+        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=Fyers+auth+failed:+{msg}")
 
     raw_token = data["access_token"]
     encrypted = encrypt_broker_credentials(raw_token)

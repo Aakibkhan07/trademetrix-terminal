@@ -18,13 +18,13 @@ SAFE_PATHS = {
     "/api/v1/auth/register-with-otp",
     "/api/v1/auth/verify-otp",
     "/api/v1/tradingview/webhook",
-    "/api/v1/subscriptions/webhook/",
+    "/api/v1/subscriptions/webhook",
     "/api/v1/marketdata/feed/start",
     "/api/v1/marketdata/feed/stop",
     "/api/v1/admin/assignments",
     "/api/v1/admin/broadcast",
     "/api/v1/admin/broadcast/recipients",
-    "/api/v1/alerts/",
+    "/api/v1/alerts",
 }
 
 CSRF_COOKIE_NAME = "csrf_token"
@@ -38,7 +38,7 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
         if request.method in MUTATING_METHODS and request.url.path not in SAFE_PATHS:
             csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
             csrf_header = request.headers.get("x-csrf-token", "")
-            if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+            if not csrf_cookie or not csrf_header or not secrets.compare_digest(csrf_cookie, csrf_header):
                 from fastapi.responses import JSONResponse
                 return JSONResponse(
                     status_code=403,

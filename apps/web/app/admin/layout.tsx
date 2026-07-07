@@ -19,6 +19,7 @@ const ADMIN_NAV = [
     label: 'Trading Ops',
     items: [
       { href: '/admin?tab=brokers', label: 'Brokers', icon: 'B', tab: 'brokers' },
+      { href: '/admin?tab=buyer-strategies', label: 'Buyer Strat', icon: 'S', tab: 'buyer-strategies' },
       { href: '/admin?tab=trades', label: 'Trades', icon: 'T', tab: 'trades' },
       { href: '/admin/broadcast', label: 'Broadcast', icon: 'W', tab: '' },
     ],

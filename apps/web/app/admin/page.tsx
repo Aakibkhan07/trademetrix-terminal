@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useApi } from '@/lib/use-api'
 import { useAuth } from '@/lib/auth-context'
-import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta } from '@/lib/api'
+import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta, FyersHealthResult, BuyerStrategyStatus } from '@/lib/api'
 
 interface HealthData {
   status: string
@@ -136,6 +136,7 @@ function AdminDashboard() {
       {tab === 'trades' && <TradesTab />}
       {tab === 'audit' && <AuditTab />}
       {tab === 'risk' && <RiskTab />}
+      {tab === 'buyer-strategies' && <BuyerStrategiesTab />}
     </>
   )
 }
@@ -738,6 +739,229 @@ function BrokersTab() {
                   </tr>
                 )
               })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Fyers Token Management */}
+      <FyersTokenSection />
+    </div>
+  )
+}
+
+function FyersTokenSection() {
+  const [healthResults, setHealthResults] = useState<FyersHealthResult[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const runValidate = async () => {
+    setLoading(true); setMsg(''); setHealthResults(null)
+    try {
+      const res = await api.admin.fyersValidate()
+      setHealthResults(res.results)
+      const expired = res.results.filter((r: FyersHealthResult) => r.has_token && !r.valid)
+      if (expired.length) setMsg(`${expired.length} token(s) expired`)
+      else setMsg('All tokens valid')
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Validation failed')
+    } finally { setLoading(false) }
+  }
+
+  const reAuth = async (credId: string) => {
+    try {
+      const res = await api.admin.fyersReAuth(credId)
+      setMsg('Opening Fyers authorization page...')
+      window.open(res.auth_url, '_blank', 'width=600,height=700')
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Re-auth failed')
+    }
+  }
+
+  return (
+    <div className="t-panel" style={{ padding: 16, marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: 0, color: '#f0f0f5' }}>Fyers Token Management</h3>
+        <button className="t-btn t-btn-sm" onClick={runValidate} disabled={loading} style={{ fontSize: 10 }}>
+          {loading ? 'Checking...' : 'Validate All Tokens'}
+        </button>
+      </div>
+      {msg && <p style={{ fontSize: 10, margin: '0 0 10px', color: msg.includes('expired') ? '#ef4444' : '#22c55e' }}>{msg}</p>}
+      {healthResults && healthResults.length === 0 && (
+        <p style={{ fontSize: 11, color: '#555570' }}>No Fyers credentials found.</p>
+      )}
+      {healthResults && healthResults.length > 0 && (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>USER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>TOKEN</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>STATUS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ERROR</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              {healthResults.map(r => {
+                const statusColor = !r.has_token ? '#555570' : r.valid ? '#22c55e' : '#ef4444'
+                const statusText = !r.has_token ? 'No Token' : r.valid ? 'Valid' : 'Expired'
+                return (
+                  <tr key={r.id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                    <td style={{ padding: '6px 8px' }}>
+                      <div style={{ fontWeight: 600, color: '#f0f0f5' }}>{r.full_name || '—'}</div>
+                      <div style={{ fontSize: 9, color: '#555570' }}>{r.email}</div>
+                    </td>
+                    <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: statusColor }} />
+                    </td>
+                    <td style={{ padding: '6px 8px', textAlign: 'center', fontSize: 10, fontWeight: 600, color: statusColor }}>
+                      {statusText}
+                    </td>
+                    <td style={{ padding: '6px 8px', fontSize: 9, color: '#ef4444', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {r.error || '—'}
+                    </td>
+                    <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                      {(!r.has_token || !r.valid) && (
+                        <button className="t-btn t-btn-xs" style={{ fontSize: 8 }}
+                          onClick={() => reAuth(r.id)}>
+                          Re-authorize
+                        </button>
+                      )}
+                      {r.has_token && r.valid && (
+                        <button className="t-btn t-btn-xs" style={{ fontSize: 8 }}
+                          onClick={() => reAuth(r.id)}>
+                          Refresh
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const BUYER_STRATEGY_OPTIONS = [
+  { key: 'momentum_breakout_buyer', name: 'Momentum Breakout Buyer', tier: 'starter', desc: 'OR breakout + volume + premium management' },
+  { key: 'trend_rider_buyer', name: 'Trend Rider Buyer', tier: 'pro', desc: 'EMA9/21 + VWAP + ADX + Supertrend trail' },
+  { key: 'long_straddle', name: 'Long Straddle', tier: 'enterprise', desc: 'ATM CE+PE buy, IV gate, combined loss cap' },
+]
+
+function BuyerStrategiesTab() {
+  const [refreshKey, setRefreshKey] = useState(0)
+  const { data, loading } = useApi<{ strategies: BuyerStrategyStatus[] }>(`/buyer-strategies/status?_=${refreshKey}`)
+  const [activating, setActivating] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [strategyKey, setStrategyKey] = useState('momentum_breakout_buyer')
+  const [index, setIndex] = useState('NIFTY')
+  const [capital, setCapital] = useState('100000')
+  const [targetDelta, setTargetDelta] = useState('')
+
+  const strategies = data?.strategies || []
+
+  const handleActivate = async () => {
+    setActivating(true); setMsg('')
+    try {
+      const cfg: Record<string, unknown> = { capital: Number(capital), risk_per_trade_pct: 1.0, max_outlay_pct: 10.0 }
+      if (targetDelta) cfg.target_delta = Number(targetDelta)
+      const res = await api.admin.buyerStrategies.activate({
+        strategy_id: `${strategyKey}_${Date.now()}`,
+        strategy_key: strategyKey,
+        index,
+        config: cfg,
+      })
+      setMsg(`Activated: ${res.strategy_id}`)
+      setRefreshKey(k => k + 1)
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Activation failed')
+    } finally { setActivating(false) }
+  }
+
+  const handleDeactivate = async (id: string) => {
+    try {
+      await api.admin.buyerStrategies.deactivate(id)
+      setRefreshKey(k => k + 1)
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Deactivate failed')
+    }
+  }
+
+  return (
+    <div>
+      <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
+        <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Activate Buyer Strategy</h3>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+          <select className="t-input" value={strategyKey} onChange={e => setStrategyKey(e.target.value)}
+            style={{ fontSize: 11, width: 220 }}>
+            {BUYER_STRATEGY_OPTIONS.map(s => (
+              <option key={s.key} value={s.key}>{s.name} ({s.tier})</option>
+            ))}
+          </select>
+          <select className="t-input" value={index} onChange={e => setIndex(e.target.value)}
+            style={{ fontSize: 11, width: 100 }}>
+            <option value="NIFTY">NIFTY</option>
+            <option value="SENSEX">SENSEX</option>
+          </select>
+          <input className="t-input" type="number" value={capital} onChange={e => setCapital(e.target.value)}
+            placeholder="Capital" style={{ fontSize: 11, width: 120 }} />
+          <input className="t-input" type="number" value={targetDelta} onChange={e => setTargetDelta(e.target.value)}
+            placeholder="Delta (0=ATM)" step="0.05" style={{ fontSize: 11, width: 100 }} />
+          <button className="t-btn t-btn-sm" onClick={handleActivate} disabled={activating} style={{ fontSize: 10 }}>
+            {activating ? 'Activating...' : 'Activate'}
+          </button>
+        </div>
+        {BUYER_STRATEGY_OPTIONS.filter(s => s.key === strategyKey).map(s => (
+          <p key={s.key} style={{ fontSize: 10, color: '#8888a0', margin: 0 }}>{s.desc}</p>
+        ))}
+        {msg && <p style={{ fontSize: 10, marginTop: 6, color: msg.includes('fail') ? '#ef4444' : '#22c55e' }}>{msg}</p>}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <p className="t-sub" style={{ fontSize: 12, margin: 0 }}>Active Strategies</p>
+        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
+      </div>
+      {loading && <SkeletonCard />}
+      {!loading && strategies.length === 0 && (
+        <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#555570' }}>No active buyer strategies.</p>
+        </div>
+      )}
+      {!loading && strategies.length > 0 && (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ID</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>STRATEGY</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>INDEX</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>STATUS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              {strategies.map(s => (
+                <tr key={s.strategy_id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                  <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 10, color: '#f0f0f5' }}>{s.strategy_id}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 600, color: '#f0f0f5' }}>{s.strategy_key}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center' }}>{s.index}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                    <span style={{ color: s.running ? '#22c55e' : '#f59e0b', fontSize: 10, fontWeight: 600 }}>
+                      {s.running ? 'Running' : 'Idle'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                    <button className="t-btn t-btn-xs" style={{ fontSize: 8 }}
+                      onClick={() => handleDeactivate(s.strategy_id)}>
+                      Deactivate
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

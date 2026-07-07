@@ -117,7 +117,7 @@ fi
 info "Building and starting services..."
 cd "$INSTALL_DIR"
 docker compose -f "$COMPOSE_FILE" pull redis prometheus node-exporter
-docker compose -f "$COMPOSE_FILE" build --parallel api web
+docker compose -f "$COMPOSE_FILE" build --parallel api web market-agent
 docker compose -f "$COMPOSE_FILE" up -d
 
 # Record deployed version

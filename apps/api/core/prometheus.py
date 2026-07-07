@@ -23,6 +23,7 @@ circuit_breaker_state = Gauge(
 )
 memory_bytes = Gauge("process_memory_bytes", "Process memory in bytes", ["type"])
 cpu_percent = Gauge("process_cpu_percent", "Process CPU usage percent")
+api_health_status = Gauge("api_health_status", "API health check status (1=healthy, 0=unhealthy)")
 
 db_query_duration_seconds = Histogram(
     "db_query_duration_seconds",
@@ -104,6 +105,7 @@ def record_market_metrics():
 async def prometheus_metrics():
     update_process_metrics()
     record_market_metrics()
+    api_health_status.set(1)
     from core.resilience import get_circuit_breaker_stats
     for name, stats in get_circuit_breaker_stats().items():
         state_val = {"closed": 0, "half_open": 1, "open": 2}.get(stats["state"], 0)

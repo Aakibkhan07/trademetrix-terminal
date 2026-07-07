@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 
 const BROKER_INFO: Record<string, { name: string; icon: string; latency: string; status: string }> = {
@@ -41,10 +41,13 @@ export default function BrokersPage() {
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
 
+  const msgTimer = useRef<ReturnType<typeof setTimeout>>()
+
   const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
     setMsg(text)
     setMsgType(type)
-    setTimeout(() => setMsg(''), 12000)
+    if (msgTimer.current) clearTimeout(msgTimer.current)
+    msgTimer.current = setTimeout(() => { setMsg(''); msgTimer.current = undefined }, 12000)
   }
 
   const load = async () => {
@@ -53,26 +56,37 @@ export default function BrokersPage() {
         api.brokers.credentials(),
         api.brokers.list(),
       ])
-      setCredentials((credData as { credentials: BrokerCred[] }).credentials || [])
-      setAvailable((brokerData as { brokers: string[] }).brokers || [])
+      if (mountedRef.current) {
+        setCredentials((credData as { credentials: BrokerCred[] }).credentials || [])
+        setAvailable((brokerData as { brokers: string[] }).brokers || [])
+      }
     } catch {
-      setCredentials([])
-      setAvailable([])
+      if (mountedRef.current) { setCredentials([]); setAvailable([]) }
     } finally {
-      setLoading(false)
+      if (mountedRef.current) setLoading(false)
     }
   }
 
-  useEffect(() => { load() }, [])
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    const fallback = setTimeout(() => { if (mountedRef.current) setLoading(false) }, 8000)
+    load().finally(() => clearTimeout(fallback))
+    return () => { mountedRef.current = false; clearTimeout(fallback) }
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const authCode = params.get('auth_code')
+    let cancelled = false
     if (authCode) {
       api.brokers.fyersExchangeCode(authCode).then(() => {
+        if (cancelled) return
         showMsg('Fyers authenticated successfully! Market feed will start shortly.')
         load()
       }).catch(() => {
+        if (cancelled) return
         showMsg('Failed to exchange Fyers auth code. Try again.', 'error')
       })
     } else if (params.get('auth_success')) {
@@ -89,6 +103,7 @@ export default function BrokersPage() {
       url.searchParams.delete('auth_error')
       window.history.replaceState({}, '', url.toString())
     }
+    return () => { cancelled = true }
   }, [])
 
   const handleAdd = async () => {
@@ -112,8 +127,7 @@ export default function BrokersPage() {
       }
       load()
     } catch (e: any) {
-      const detail = e?.detail || e?.message || 'Failed to save credentials'
-      showMsg(detail, 'error')
+      showMsg(e?.message || 'Failed to save credentials', 'error')
     }
   }
 
@@ -127,7 +141,7 @@ export default function BrokersPage() {
         showMsg('Failed to get Fyers auth URL', 'error')
       }
     } catch (e: any) {
-      showMsg(e?.detail || 'Re-authentication failed', 'error')
+      showMsg(e?.message || 'Re-authentication failed', 'error')
     }
   }
 

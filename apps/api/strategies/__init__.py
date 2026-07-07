@@ -9,6 +9,9 @@ from strategies.rsi_mean_reversion import RSIMeanReversion
 from strategies.smc_sniper import SMCSniper
 from strategies.trend_rider import TrendRider
 from strategies.vwap_band import VWAPBand
+from strategies.momentum_buyer import MomentumBreakoutBuyer
+from strategies.trend_rider_buyer import TrendRiderBuyer
+from strategies.long_straddle import LongStraddle
 
 _strategy_registry: dict[str, type[BaseStrategy]] = {}
 
@@ -57,6 +60,9 @@ _STRATEGY_CATEGORIES: dict[str, str] = {
     "bollinger_bandit": "mean_reversion",
     "vwap_band": "scalping",
     "graph_strategy": "trend",
+    "momentum_breakout_buyer": "options_buying",
+    "trend_rider_buyer": "options_buying",
+    "long_straddle": "options_buying",
 }
 
 
@@ -88,6 +94,15 @@ _STRATEGY_TIERS: dict[str, StrategyInfo] = {
     "graph_strategy": StrategyInfo(
         key="graph_strategy", name="Graph Strategy", description="Visual strategy builder — drag, connect, deploy", required_tier="pro",
     ),
+    "momentum_breakout_buyer": StrategyInfo(
+        key="momentum_breakout_buyer", name="Momentum Breakout Buyer", description="Intraday options buyer — OR breakout + volume confirmation + premium management", required_tier="starter",
+    ),
+    "trend_rider_buyer": StrategyInfo(
+        key="trend_rider_buyer", name="Trend Rider Buyer", description="Options buyer — EMA9/21 + VWAP + ADX trend filter + Supertrend trail", required_tier="pro",
+    ),
+    "long_straddle": StrategyInfo(
+        key="long_straddle", name="Long Straddle", description="ATM CE+PE buy for volatility expansion with IV gate", required_tier="enterprise",
+    ),
 }
 
 register_strategy("trend_rider", TrendRider)
@@ -98,6 +113,9 @@ register_strategy("rsi_mean_reversion", RSIMeanReversion)
 register_strategy("bollinger_bandit", BollingerBandit)
 register_strategy("macd_cross", MACDCross)
 register_strategy("vwap_band", VWAPBand)
+register_strategy("momentum_breakout_buyer", MomentumBreakoutBuyer)
+register_strategy("trend_rider_buyer", TrendRiderBuyer)
+register_strategy("long_straddle", LongStraddle)
 
 
 __all__ = [
@@ -111,6 +129,12 @@ __all__ = [
     "BollingerBandit",
     "MACDCross",
     "VWAPBand",
+    "MomentumBreakoutBuyer",
+    "TrendRiderBuyer",
+    "LongStraddle",
+    "BuyerBase",
+    "BuyerConfig",
+    "Phase",
     "StrategyInfo",
     "register_strategy",
     "get_strategy",

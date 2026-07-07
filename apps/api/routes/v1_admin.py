@@ -1,19 +1,24 @@
 import asyncio
 import logging
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from brokers.fyers_adapter import FyersAdapter
 from core.audit import record_audit
+from core.config import settings
 from core.capabilities import CAP_MAP, FREE, Capabilities, resolve_capabilities_by_id
 from core.db import async_supabase, get_supabase
 from core.deps import get_current_user, require_admin, require_super_admin
 from core.models import ADMIN_ROLES, role_satisfies
 from core.models import AuditLogEntry, Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType as OrderTypeEnum, ProductType, StrategyAssignment, TIER_ORDER, UserProfile, tier_satisfies
 from core.security import decrypt_broker_credentials
-from core.safe_query import safe_execute, safe_single
+from core.safe_query import async_safe_single, async_safe_execute, safe_single, safe_execute
 from engine.gate import execute_order, get_mirror_recipients, scaled_qty
 from strategies import get_strategy_catalog, get_strategy_tier, list_strategies
+
+FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI") or settings.fyers_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback"
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +41,11 @@ class AssignResponse(BaseModel):
 @router.get("/users")
 async def admin_list_users(admin: UserProfile = Depends(require_admin)):
     supabase = get_supabase()
-    profiles = safe_execute(
+    profiles = await async_safe_execute(
         supabase.table("profiles").select("id, email, full_name, is_admin, role, subscription_tier, created_at")
     ) or []
 
-    all_assignments = safe_execute(
+    all_assignments = await async_safe_execute(
         supabase.table("strategy_assignments").select("user_id").eq("active", True)
     ) or []
 
@@ -80,7 +85,7 @@ async def admin_list_assignments(
     if user_id:
         query = query.eq("user_id", user_id)
 
-    data = safe_execute(query) or []
+    data = await async_safe_execute(query) or []
     return {"assignments": data}
 
 
@@ -96,7 +101,7 @@ async def admin_assign_strategy(
         )
 
     supabase = get_supabase()
-    target_user = safe_single(
+    target_user = await async_safe_single(
         supabase.table("profiles").select("id, subscription_tier").eq("id", req.user_id)
     )
     if not target_user:
@@ -114,7 +119,7 @@ async def admin_assign_strategy(
             f"User needs at least '{required_tier}' subscription.",
         )
 
-    existing = safe_single(
+    existing = await async_safe_single(
         supabase.table("strategy_assignments")
         .select("*")
         .eq("user_id", req.user_id)
@@ -131,7 +136,7 @@ async def admin_assign_strategy(
 
     limit = target_caps.max_active_strategies
     if limit > 0:
-        current_active = safe_execute(
+        current_active = await async_safe_execute(
             supabase.table("strategy_assignments")
             .select("id")
             .eq("user_id", req.user_id)
@@ -194,7 +199,7 @@ async def admin_unassign_strategy(
     admin: UserProfile = Depends(require_admin),
 ):
     supabase = get_supabase()
-    existing = safe_single(
+    existing = await async_safe_single(
         supabase.table("strategy_assignments").select("*").eq("id", assignment_id)
     )
     if not existing:
@@ -241,7 +246,7 @@ async def admin_update_user_tier(
         )
 
     supabase = get_supabase()
-    target = safe_single(
+    target = await async_safe_single(
         supabase.table("profiles").select("*").eq("id", user_id)
     )
     if not target:
@@ -263,7 +268,7 @@ async def admin_update_user_tier(
     new_rank = TIER_ORDER.get(tier, 0)
     deactivated_count = 0
     if new_rank < old_rank:
-        stale = safe_execute(
+        stale = await async_safe_execute(
             supabase.table("strategy_assignments")
             .select("id, strategy_key, required_tier")
             .eq("user_id", user_id)
@@ -281,7 +286,7 @@ async def admin_update_user_tier(
         mapped_sub = LEGACY_TIER_TO_SUB.get(tier, "")
         new_caps = CAP_MAP.get(mapped_sub, FREE) if mapped_sub else FREE
         new_limit = new_caps.max_active_strategies
-        remaining = safe_execute(
+        remaining = await async_safe_execute(
             supabase.table("strategy_assignments")
             .select("id, created_at")
             .eq("user_id", user_id)
@@ -404,7 +409,7 @@ async def admin_broadcast(
 @router.get("/brokers")
 async def admin_list_brokers(admin: UserProfile = Depends(require_admin)):
     supabase = get_supabase()
-    creds = safe_execute(
+    creds = await async_safe_execute(
         supabase.table("broker_credentials")
         .select("id, user_id, broker, is_active, encrypted_access_token, created_at, updated_at")
         .order("created_at", desc=True)
@@ -414,7 +419,7 @@ async def admin_list_brokers(admin: UserProfile = Depends(require_admin)):
     if not user_ids:
         return {"brokers": []}
 
-    profiles = safe_execute(
+    profiles = await async_safe_execute(
         supabase.table("profiles")
         .select("id, email, full_name, is_admin")
         .in_("id", user_ids)
@@ -455,12 +460,12 @@ async def admin_list_orders(
     if is_paper in ("true", "false"):
         query = query.eq("is_paper", is_paper == "true")
 
-    data = safe_execute(query.limit(limit).offset(offset)) or []
+    data = await async_safe_execute(query.limit(limit).offset(offset)) or []
 
     user_ids = list(set(o["user_id"] for o in data if o.get("user_id")))
     profile_map = {}
     if user_ids:
-        profiles = safe_execute(
+        profiles = await async_safe_execute(
             supabase.table("profiles").select("id, email, full_name").in_("id", user_ids)
         ) or []
         profile_map = {p["id"]: p for p in profiles}
@@ -508,14 +513,14 @@ async def admin_audit_log(
     if action:
         query = query.eq("action", action)
 
-    data = safe_execute(query.limit(limit).offset(offset)) or []
+    data = await async_safe_execute(query.limit(limit).offset(offset)) or []
     return {"entries": data, "count": len(data)}
 
 
 @router.get("/stats")
 async def admin_stats(admin: UserProfile = Depends(require_admin)):
     supabase = get_supabase()
-    profiles = safe_execute(
+    profiles = await async_safe_execute(
         supabase.table("profiles").select("id, is_admin, subscription_tier, created_at")
     ) or []
 
@@ -531,7 +536,7 @@ async def admin_stats(admin: UserProfile = Depends(require_admin)):
             t = p.get("subscription_tier", "free")
         tier_counts[t] = tier_counts.get(t, 0) + 1
 
-    assignments = safe_execute(
+    assignments = await async_safe_execute(
         supabase.table("strategy_assignments").select("id").eq("active", True)
     ) or []
     active_assignments = len(assignments)
@@ -550,14 +555,14 @@ async def admin_stats(admin: UserProfile = Depends(require_admin)):
 @router.get("/risk")
 async def admin_risk_overview(admin: UserProfile = Depends(require_admin)):
     supabase = get_supabase()
-    settings = safe_execute(
+    settings = await async_safe_execute(
         supabase.table("risk_settings").select("*")
     ) or []
 
     user_ids = list(set(s["user_id"] for s in settings))
     profile_map = {}
     if user_ids:
-        profiles = safe_execute(
+        profiles = await async_safe_execute(
             supabase.table("profiles").select("id, email, full_name").in_("id", user_ids)
         ) or []
         profile_map = {p["id"]: p for p in profiles}
@@ -585,16 +590,83 @@ async def admin_risk_overview(admin: UserProfile = Depends(require_admin)):
 @router.get("/active-brokers")
 async def admin_active_brokers_count(admin: UserProfile = Depends(require_admin)):
     supabase = get_supabase()
-    total = safe_execute(
+    total = await async_safe_execute(
         supabase.table("broker_credentials").select("id").eq("is_active", True)
     ) or []
-    oauthed = safe_execute(
+    oauthed = await async_safe_execute(
         supabase.table("broker_credentials").select("id").neq("encrypted_access_token", "")
     ) or []
     return {
         "active_broker_count": len(total),
         "oauthed_count": len(oauthed),
     }
+
+
+@router.post("/brokers/fyers/validate")
+async def admin_validate_fyers_tokens(admin: UserProfile = Depends(require_admin)):
+    supabase = get_supabase()
+    creds = await async_safe_execute(
+        supabase.table("broker_credentials")
+        .select("id, user_id, encrypted_access_token, encrypted_api_key")
+        .eq("broker", "fyers")
+    ) or []
+
+    user_ids = list(set(c["user_id"] for c in creds))
+    profile_map = {}
+    if user_ids:
+        profiles = await async_safe_execute(
+            supabase.table("profiles").select("id, email, full_name").in_("id", user_ids)
+        ) or []
+        profile_map = {p["id"]: p for p in profiles}
+
+    results = []
+    for c in creds:
+        p = profile_map.get(c["user_id"], {})
+        token_raw = c.get("encrypted_access_token", "") or ""
+        if not token_raw:
+            results.append({"id": c["id"], "user_id": c["user_id"], "email": p.get("email", ""), "full_name": p.get("full_name", ""), "has_token": False, "valid": False, "error": "no_token"})
+            continue
+        try:
+            raw_token = decrypt_broker_credentials(token_raw)
+            raw_client_id = decrypt_broker_credentials(c["encrypted_api_key"]) if c.get("encrypted_api_key") else ""
+            adapter = FyersAdapter()
+            await adapter.authenticate({"client_id": raw_client_id, "access_token": raw_token})
+            funds = await adapter.get_funds()
+            valid = funds.total_margin is not None
+            results.append({"id": c["id"], "user_id": c["user_id"], "email": p.get("email", ""), "full_name": p.get("full_name", ""), "has_token": True, "valid": valid, "error": ""})
+        except Exception as e:
+            results.append({"id": c["id"], "user_id": c["user_id"], "email": p.get("email", ""), "full_name": p.get("full_name", ""), "has_token": True, "valid": False, "error": str(e)[:200]})
+
+    return {"results": results}
+
+
+@router.post("/brokers/fyers/re-auth/{credential_id}")
+async def admin_fyers_re_auth(credential_id: str, admin: UserProfile = Depends(require_admin)):
+    supabase = get_supabase()
+    cred = await async_safe_single(
+        supabase.table("broker_credentials").select("id, user_id, encrypted_api_key").eq("id", credential_id).eq("broker", "fyers")
+    )
+    if not cred:
+        raise HTTPException(status_code=404, detail="Fyers credential not found")
+    client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
+        {"is_active": False, "encrypted_access_token": ""}
+    ).eq("id", credential_id).execute())
+    record_audit(AuditLogEntry(
+        user_id=admin.id,
+        action="fyers_re_auth",
+        resource="broker_credentials",
+        resource_id=credential_id,
+        details={"target_user_id": cred["user_id"]},
+    ))
+    auth_url = (
+        f"https://api-t1.fyers.in/api/v3/generate-authcode"
+        f"?client_id={client_id}"
+        f"&redirect_uri={FYERS_REDIRECT_URI}"
+        f"&response_type=code"
+        f"&state={cred['user_id']}"
+    )
+    return {"auth_url": auth_url, "user_id": cred["user_id"]}
 
 
 class SetAdminRoleRequest(BaseModel):
@@ -609,7 +681,7 @@ class UpdateAdminRoleRequest(BaseModel):
 @router.get("/admins")
 async def admin_list_admins(admin: UserProfile = Depends(require_admin)):
     supabase = get_supabase()
-    profiles = safe_execute(
+    profiles = await async_safe_execute(
         supabase.table("profiles").select("id, email, full_name, is_admin, role, created_at")
         .or_("is_admin.eq.true,role.gte." + "a")
     ) or []
@@ -629,7 +701,7 @@ async def admin_create_admin(
         raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(ADMIN_ROLES)}")
 
     supabase = get_supabase()
-    profile = safe_single(
+    profile = await async_safe_single(
         supabase.table("profiles").select("id, email, is_admin, role").eq("email", req.email)
     )
     if not profile:
@@ -663,7 +735,7 @@ async def admin_update_role(
         raise HTTPException(status_code=400, detail="You cannot change your own role")
 
     supabase = get_supabase()
-    profile = safe_single(
+    profile = await async_safe_single(
         supabase.table("profiles").select("id, is_admin, role").eq("id", user_id)
     )
     if not profile:
@@ -695,7 +767,7 @@ async def admin_remove_admin(
         raise HTTPException(status_code=400, detail="You cannot remove yourself")
 
     supabase = get_supabase()
-    profile = safe_single(
+    profile = await async_safe_single(
         supabase.table("profiles").select("id, role").eq("id", user_id)
     )
     if not profile:

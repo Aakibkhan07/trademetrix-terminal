@@ -19,6 +19,7 @@ from builder.templates import STRATEGY_TEMPLATES
 from core.deps import get_current_user, require_feature
 from core.models import UserProfile
 from engine.graph_strategy_runner import start_graph_strategy, stop_graph_strategy
+from engine.user_strategy_backtest import run_user_strategy_backtest
 
 logger = logging.getLogger(__name__)
 
@@ -199,9 +200,37 @@ async def publish_strategy(strategy_id: str):
     return {"status": "published", "strategy_id": strategy_id}
 
 
+class BacktestStrategyRequest(BaseModel):
+    from_date: str = ""
+    to_date: str = ""
+
+
 class StartGraphStrategyRequest(BaseModel):
     symbol: str = "NIFTY"
     interval: str = "15m"
+
+
+@router.post("/strategies/{strategy_id}/backtest")
+async def backtest_builder_strategy(
+    strategy_id: str,
+    req: BacktestStrategyRequest,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    dsl = await builder_manager.get(strategy_id)
+    if not dsl:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    from datetime import datetime, timedelta
+    to_date = req.to_date or datetime.now().strftime("%Y-%m-%d")
+    from_date = req.from_date or (datetime.strptime(to_date, "%Y-%m-%d") - timedelta(days=60)).strftime("%Y-%m-%d")
+
+    result = await run_user_strategy_backtest(
+        strategy=dsl,
+        from_date=from_date,
+        to_date=to_date,
+        user_id=current_user.id,
+    )
+    return result
 
 
 @router.post("/strategies/{strategy_id}/start")

@@ -9,7 +9,7 @@ from core.audit import record_audit
 from core.db import async_supabase, get_supabase
 from core.deps import get_current_user
 from core.models import AuditLogEntry, UserProfile
-from core.safe_query import safe_execute, safe_single
+from core.safe_query import async_safe_execute, async_safe_single, safe_execute, safe_single
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class AlertResponse(BaseModel):
 @router.get("/")
 async def list_alerts(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    data = safe_execute(
+    data = await async_safe_execute(
         supabase.table("user_alerts")
         .select("*")
         .eq("user_id", current_user.id)
@@ -87,7 +87,7 @@ async def delete_alert(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    alert = safe_single(
+    alert = await async_safe_single(
         supabase.table("user_alerts").select("id").eq("id", alert_id).eq("user_id", current_user.id)
     )
     if not alert:
@@ -101,7 +101,7 @@ async def toggle_alert(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    alert = safe_single(
+    alert = await async_safe_single(
         supabase.table("user_alerts").select("id, is_active").eq("id", alert_id).eq("user_id", current_user.id)
     )
     if not alert:
@@ -118,7 +118,7 @@ class NotificationPrefsRequest(BaseModel):
 @router.get("/notification-prefs")
 async def get_notification_prefs(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    prefs = safe_single(
+    prefs = await async_safe_single(
         supabase.table("notification_prefs").select("*").eq("user_id", current_user.id)
     )
     if not prefs:
@@ -135,7 +135,7 @@ async def update_notification_prefs(
         if c not in ("email", "sms", "whatsapp"):
             raise HTTPException(status_code=400, detail=f"Invalid channel: {c}")
     supabase = get_supabase()
-    existing = safe_single(
+    existing = await async_safe_single(
         supabase.table("notification_prefs").select("id").eq("user_id", current_user.id)
     )
     if existing:

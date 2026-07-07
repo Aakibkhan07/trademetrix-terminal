@@ -21,7 +21,7 @@ services:
     volumes:
       - redis-data:/data
       - ../redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--protected-mode", "no"]
 
   api:
     build:
@@ -42,11 +42,16 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      <<: *healthcheck
-    mem_limit: 512m
-    cpus: 1.0
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    mem_limit: 768m
+    cpus: 2.0
     security_opt:
       - no-new-privileges:true
+    labels:
+      - "autoheal=true"
 
   web:
     build:
@@ -65,8 +70,11 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://127.0.0.1:3000/"]
-      <<: *healthcheck
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     mem_limit: 512m
     cpus: 1.0
     security_opt:
@@ -120,8 +128,44 @@ services:
       - grafana-data:/var/lib/grafana
       - ../grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ../grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    mem_limit: 256m
+    cpus: 0.5
     depends_on:
       - prometheus
+
+  market-agent:
+    build:
+      context: ../../apps/market-agent
+      dockerfile: Dockerfile
+    container_name: trademetrix_market_agent
+    restart: unless-stopped
+    networks:
+      - trademetrix
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      FYERS_CLIENT_ID: ""
+      FYERS_ACCESS_TOKEN: ""
+      SYMBOLS: "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"
+      LOG_LEVEL: INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+    mem_limit: 256m
+    cpus: 0.5
+
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: trademetrix_autoheal
+    restart: unless-stopped
+    networks: []
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 30
+      AUTOHEAL_START_PERIOD: 60
+    mem_limit: 32m
+    cpus: 0.1
 
   node-exporter:
     image: prom/node-exporter:latest

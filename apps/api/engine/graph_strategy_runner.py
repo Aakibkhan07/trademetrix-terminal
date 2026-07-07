@@ -1,19 +1,19 @@
 import asyncio
 import logging
-from datetime import UTC, datetime
+import time
+from datetime import UTC, datetime, timedelta
 
-from builder.compiler import compile_dsl
 from builder.manager import builder_manager
 from builder.strategy import GraphStrategy
 from core.cache import cache
 from core.db import async_supabase, get_supabase
-from core.models import Candle, Exchange
+from core.models import Candle, Exchange, Tick
 from engine.gate import execute_order
+from market.candle_aggregator import CandleAggregator
+from market.data_socket import shared_socket
 from market.historical import historical_engine
 
 logger = logging.getLogger(__name__)
-
-POLL_INTERVAL = 60
 
 _running_tasks: dict[str, asyncio.Task] = {}
 
@@ -51,60 +51,88 @@ async def _feed_loop(
     })
     await strategy.on_start()
 
-    cache_key = f"graph_runner:{strategy_id}:last_ts"
+    aggregator = CandleAggregator(symbol, interval)
+    tick_queue: asyncio.Queue[Tick] = asyncio.Queue()
+    live_feed_active = False
+
+    async def tick_handler(tick: Tick) -> None:
+        if tick.symbol == symbol or tick.symbol.endswith(f":{symbol}"):
+            await tick_queue.put(tick)
+
+    shared_socket.subscribe(symbol, tick_handler)
+    shared_socket.subscribe("*", tick_handler)
+    logger.info("Graph runner subscribed to live tick feed for %s", strategy_id)
+
     seen_ids_key = f"graph_runner:{strategy_id}:seen_ids"
     seen_ids = set(await cache.get(seen_ids_key, []))
 
-    while True:
-        try:
-            candles = await historical_engine.get_historical(
-                symbol=symbol,
-                interval=interval,
-                days=2,
-                user_id=user_id,
-            )
-            if not candles:
-                await asyncio.sleep(POLL_INTERVAL)
-                continue
+    async def process_candle(candle: Candle) -> None:
+        nonlocal strategy
+        signal = await strategy.on_candle(candle)
+        if signal and signal.orders:
+            for order in signal.orders:
+                order.strategy_id = strategy_id
+                result = await execute_order(
+                    user_id=user_id,
+                    order=order,
+                    source="graph_strategy",
+                )
+                logger.info(
+                    "Graph signal: symbol=%s side=%s qty=%d success=%s msg=%s",
+                    order.symbol, order.side.value if order.side else "",
+                    order.quantity, result.success, result.message,
+                )
 
-            new_candles = []
-            for c in candles:
-                ts = c.get("timestamp", "")
-                if isinstance(ts, str) and ts not in seen_ids:
-                    new_candles.append(c)
+    try:
+        while True:
+            try:
+                tick = await asyncio.wait_for(tick_queue.get(), timeout=10)
+                live_feed_active = True
+                tick_signal = await strategy.on_tick(tick)
+                if tick_signal and tick_signal.orders:
+                    for order in tick_signal.orders:
+                        order.strategy_id = strategy_id
+                        await execute_order(user_id=user_id, order=order, source="graph_strategy")
 
-            if new_candles:
-                for c in new_candles:
-                    seen_ids.add(c.get("timestamp", ""))
-                    candle = _candle_from_dict(c)
-                    signal = await strategy.on_candle(candle)
-                    if signal and signal.orders:
-                        for order in signal.orders:
-                            order.strategy_id = strategy_id
-                            result = await execute_order(
-                                user_id=user_id,
-                                order=order,
-                                source="graph_strategy",
-                            )
-                            logger.info(
-                                "Graph signal: symbol=%s side=%s qty=%d success=%s",
-                                order.symbol, order.side.value if order.side else "",
-                                order.quantity, result.success,
-                            )
+                candle = aggregator.add_tick(tick)
+                if candle:
+                    ts_key = candle.timestamp if isinstance(candle.timestamp, str) else candle.timestamp.isoformat()
+                    if ts_key not in seen_ids:
+                        seen_ids.add(ts_key)
+                        await process_candle(candle)
 
-                seen_list = list(seen_ids)
-                if len(seen_list) > 10000:
-                    seen_list = seen_list[-5000:]
-                await cache.set(seen_ids_key, seen_list, ttl=86400)
+            except asyncio.TimeoutError:
+                if not live_feed_active:
+                    candles = await historical_engine.get_historical(
+                        symbol=symbol,
+                        interval=interval,
+                        days=2,
+                        user_id=user_id,
+                    )
+                    if candles:
+                        for c in candles:
+                            ts = c.get("timestamp", "")
+                            if isinstance(ts, str) and ts not in seen_ids:
+                                seen_ids.add(ts)
+                                await process_candle(_candle_from_dict(c))
+                        seen_list = list(seen_ids)
+                        if len(seen_list) > 10000:
+                            seen_list = seen_list[-5000:]
+                        await cache.set(seen_ids_key, seen_list, ttl=86400)
 
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.exception("Graph runner error for %s: %s", strategy_id, e)
+            seen_list = list(seen_ids)
+            if len(seen_list) > 10000:
+                seen_list = seen_list[-5000:]
+            await cache.set(seen_ids_key, seen_list, ttl=86400)
 
-        await asyncio.sleep(POLL_INTERVAL)
-
-    await strategy.on_stop()
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.exception("Graph runner error for %s: %s", strategy_id, e)
+    finally:
+        shared_socket.unsubscribe(symbol, tick_handler)
+        shared_socket.unsubscribe("*", tick_handler)
+        await strategy.on_stop()
 
 
 async def start_graph_strategy(

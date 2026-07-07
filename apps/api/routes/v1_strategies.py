@@ -6,7 +6,7 @@ from core.db import get_supabase
 from core.capabilities import Capabilities
 from core.deps import get_capabilities, get_current_user
 from core.models import AuditLogEntry, UserProfile
-from core.safe_query import safe_execute
+from core.safe_query import async_safe_single, async_safe_execute, safe_single, safe_execute
 from strategies import list_strategies
 
 router = APIRouter(prefix="/strategies", tags=["strategies"])
@@ -36,7 +36,7 @@ async def get_marketplace():
     supabase = get_supabase()
     catalog = get_strategy_catalog()
 
-    assignments = safe_execute(
+    assignments = await async_safe_execute(
         supabase.table("strategy_assignments").select("strategy_key").eq("active", True)
     ) or []
     user_counts: dict[str, int] = {}
@@ -44,7 +44,7 @@ async def get_marketplace():
         key = row["strategy_key"]
         user_counts[key] = user_counts.get(key, 0) + 1
 
-    srows = safe_execute(supabase.table("strategies").select("id, type")) or []
+    srows = await async_safe_execute(supabase.table("strategies").select("id, type")) or []
     type_to_ids: dict[str, list[str]] = {}
     for row in srows:
         t = row.get("type", "")
@@ -55,7 +55,7 @@ async def get_marketplace():
     for type_key, ids in type_to_ids.items():
         if not ids:
             continue
-        orders_data = safe_execute(
+        orders_data = await async_safe_execute(
             supabase.table("orders").select("status, filled_quantity, average_price, created_at").in_("strategy_id", ids)
         ) or []
         total_trades = len(orders_data)
@@ -99,12 +99,12 @@ async def get_strategy_detail(key: str):
 
     supabase = get_supabase()
 
-    assignment_rows = safe_execute(
+    assignment_rows = await async_safe_execute(
         supabase.table("strategy_assignments").select("id").eq("strategy_key", key).eq("active", True)
     ) or []
     user_count = len(assignment_rows)
 
-    srows = safe_execute(
+    srows = await async_safe_execute(
         supabase.table("strategies").select("id").eq("type", key)
     ) or []
     ids = [s["id"] for s in srows]
@@ -113,7 +113,7 @@ async def get_strategy_detail(key: str):
     recent_trades = []
 
     if ids:
-        orders_data = safe_execute(
+        orders_data = await async_safe_execute(
             supabase.table("orders")
             .select("*")
             .in_("strategy_id", ids)
@@ -164,7 +164,7 @@ async def get_assigned_strategies(
     caps: Capabilities = Depends(get_capabilities),
 ):
     supabase = get_supabase()
-    data = safe_execute(
+    data = await async_safe_execute(
         supabase.table("strategy_assignments")
         .select("strategy_key, mirror_enabled, required_tier")
         .eq("user_id", current_user.id)

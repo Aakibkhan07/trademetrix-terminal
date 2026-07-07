@@ -8,8 +8,17 @@ LOT_SIZES: dict[str, int] = {
     "FINNIFTY": 60,
 }
 
+STRIKE_INTERVALS: dict[str, int] = {
+    "NIFTY": 50,
+    "BANKNIFTY": 100,
+    "FINNIFTY": 50,
+    "SENSEX": 100,
+}
+
+# NIFTY weekly expiry changed from Thu(3)→Tue(1) post-Sept 2025 circular.
+# These are fallbacks only — runtime resolve from option chain is authoritative.
 WEEKLY_EXPIRY_MAP: dict[str, int] = {
-    "NIFTY": 3,
+    "NIFTY": 1,
     "BANKNIFTY": 3,
     "FINNIFTY": 2,
     "SENSEX": 3,

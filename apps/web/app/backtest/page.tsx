@@ -188,7 +188,7 @@ export default function BacktestPage() {
   const handleRun = async () => {
     setRunning(true); setError(''); setResult(null)
     try {
-      const data = await api.post('/backtest/run', { strategy_type: strategy, symbol, interval, days, initial_capital: capital, config: {} })
+      const data = await api.post('/backtests/run', { strategy_type: strategy, symbol, interval, days, initial_capital: capital, config: {} })
       setResult(data as BacktestResultsData)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Backtest failed')
@@ -211,7 +211,7 @@ export default function BacktestPage() {
     const results: BacktestResultsData[] = []
     for (const s of compareStrategies) {
       try {
-        const data = await api.post('/backtest/run', { strategy_type: s, symbol, interval, days, initial_capital: capital, config: {} })
+        const data = await api.post('/backtests/run', { strategy_type: s, symbol, interval, days, initial_capital: capital, config: {} })
         results.push(data as BacktestResultsData)
       } catch { /* skip failures */ }
     }
@@ -225,7 +225,7 @@ export default function BacktestPage() {
     const results: { value: string; result: BacktestResultsData }[] = []
     for (const v of values) {
       try {
-        const data = await api.post('/backtest/run', {
+        const data = await api.post('/backtests/run', {
           strategy_type: strategy, symbol, interval, days, initial_capital: capital,
           config: { [optParam]: Number(v) },
         })

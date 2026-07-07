@@ -5,7 +5,7 @@ from typing import Optional
 
 from core.config import settings
 from core.db import async_supabase, get_supabase
-from core.safe_query import safe_execute, safe_single
+from core.safe_query import async_safe_single, async_safe_execute, safe_single, safe_execute, safe_execute, safe_single
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ INSTRUCTIONS:
 
         # Profile
         try:
-            profile = safe_single(
+            profile = await async_safe_single(
                 supabase.table("profiles").select("id, email, full_name, subscription_tier, created_at").eq("id", self.user_id)
             )
             context["profile"] = profile or {}
@@ -94,7 +94,7 @@ INSTRUCTIONS:
 
         # Positions
         try:
-            positions = safe_execute(
+            positions = await async_safe_execute(
                 supabase.table("positions_snapshot").select("*").eq("user_id", self.user_id)
             ) or []
             context["positions"] = positions
@@ -104,7 +104,7 @@ INSTRUCTIONS:
 
         # Funds
         try:
-            funds = safe_single(
+            funds = await async_safe_single(
                 supabase.table("funds_snapshot").select("*").eq("user_id", self.user_id)
             )
             context["funds"] = funds or {}
@@ -114,7 +114,7 @@ INSTRUCTIONS:
 
         # Orders (recent 50)
         try:
-            orders = safe_execute(
+            orders = await async_safe_execute(
                 supabase.table("orders").select("*").eq("user_id", self.user_id).order("created_at", desc=True).limit(50)
             ) or []
             if orders:
@@ -130,7 +130,7 @@ INSTRUCTIONS:
 
         # Risk settings
         try:
-            risk = safe_single(
+            risk = await async_safe_single(
                 supabase.table("risk_settings").select("*").eq("user_id", self.user_id)
             )
             context["risk"] = risk or {}
@@ -140,7 +140,7 @@ INSTRUCTIONS:
 
         # Strategies + assignments
         try:
-            strategies = safe_execute(
+            strategies = await async_safe_execute(
                 supabase.table("strategies").select("*").eq("user_id", self.user_id)
             ) or []
             context["strategies"] = strategies
@@ -149,7 +149,7 @@ INSTRUCTIONS:
             context["strategies"] = []
 
         try:
-            assignments = safe_execute(
+            assignments = await async_safe_execute(
                 supabase.table("strategy_assignments").select("*").eq("user_id", self.user_id).eq("active", True)
             ) or []
             context["strategy_assignments"] = assignments
@@ -159,7 +159,7 @@ INSTRUCTIONS:
 
         # Strategy runs
         try:
-            runs = safe_execute(
+            runs = await async_safe_execute(
                 supabase.table("strategy_runs").select("*").eq("user_id", self.user_id).order("created_at", desc=True).limit(20)
             ) or []
             for r in runs:
@@ -172,7 +172,7 @@ INSTRUCTIONS:
 
         # Journal entries
         try:
-            entries = safe_execute(
+            entries = await async_safe_execute(
                 supabase.table("journal_entries").select("*").eq("user_id", self.user_id).order("created_at", desc=True).limit(10)
             ) or []
             context["journal"] = entries
@@ -182,7 +182,7 @@ INSTRUCTIONS:
 
         # Backtest results
         try:
-            backtests = safe_execute(
+            backtests = await async_safe_execute(
                 supabase.table("backtest_results").select("*").eq("user_id", self.user_id).order("created_at", desc=True).limit(10)
             ) or []
             context["backtests"] = backtests
@@ -204,7 +204,7 @@ INSTRUCTIONS:
 
         # Broker info
         try:
-            brokers = safe_execute(
+            brokers = await async_safe_execute(
                 supabase.table("broker_credentials").select("broker, is_active").eq("user_id", self.user_id)
             ) or []
             context["brokers"] = brokers

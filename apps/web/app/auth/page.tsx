@@ -61,7 +61,11 @@ export default function AuthPage() {
         router.push('/dashboard')
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Authentication failed')
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Request timed out — server slow or unreachable. Please try again.')
+      } else {
+        setError(err instanceof Error ? err.message : 'Authentication failed')
+      }
     } finally {
       setLoading(false)
     }

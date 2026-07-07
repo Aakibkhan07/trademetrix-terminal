@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from core.db import async_supabase, get_supabase
 from core.deps import get_current_user
 from core.models import OrderResult, UserProfile
-from core.safe_query import safe_execute, safe_single
+from core.safe_query import async_safe_execute, async_safe_single, safe_execute, safe_single
 from engine.executor import ExecutionEngine
 from engine.gate import execute_order
 from engine.token_refresh import get_token_status
@@ -132,7 +132,7 @@ async def execute_trade(
 @router.get("/orders")
 async def get_orders(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    data = safe_execute(
+    data = await async_safe_execute(
         supabase.table("orders").select("*").eq("user_id", current_user.id).order("created_at", desc=True).limit(100)
     )
     return {"orders": data or []}
@@ -147,7 +147,7 @@ async def cancel_order(
     from execution.models import ExecutionRequest
 
     supabase = get_supabase()
-    creds = safe_single(
+    creds = await async_safe_single(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if not creds:
@@ -177,7 +177,7 @@ async def add_order_note(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    order = safe_single(
+    order = await async_safe_single(
         supabase.table("orders").select("id").eq("id", order_id).eq("user_id", current_user.id)
     )
     if not order:
@@ -195,7 +195,7 @@ async def add_order_note(
 @router.get("/orders/notes")
 async def get_order_notes(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    data = safe_execute(
+    data = await async_safe_execute(
         supabase.table("journal_entries")
         .select("*")
         .eq("user_id", current_user.id)
@@ -211,7 +211,7 @@ async def get_positions(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    creds = safe_single(
+    creds = await async_safe_single(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if creds:
@@ -230,7 +230,7 @@ async def get_funds(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    creds = safe_single(
+    creds = await async_safe_single(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if creds:
@@ -247,7 +247,7 @@ async def get_funds(
 @router.get("/runs")
 async def get_runs(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    data = safe_execute(
+    data = await async_safe_execute(
         supabase.table("strategy_runs").select("*").eq("user_id", current_user.id).order("created_at", desc=True)
     )
     return {"runs": data or []}
@@ -256,7 +256,7 @@ async def get_runs(current_user: UserProfile = Depends(get_current_user)):
 @router.get("/token-status")
 async def token_status(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    creds = safe_single(
+    creds = await async_safe_single(
         supabase.table("broker_credentials").select("broker").eq("user_id", current_user.id).eq("is_active", True)
     )
     if not creds:

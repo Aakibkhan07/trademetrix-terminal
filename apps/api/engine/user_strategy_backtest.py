@@ -157,9 +157,26 @@ async def run_user_strategy_backtest(
         if d:
             candles_by_date.setdefault(d, []).append(c)
 
-    # compile strategy once with estimated spot
     spot = _estimate_spot_from_candles(raw_candles)
     plan = compile_user_strategy(strategy, spot_price=spot, is_simulated=(data_source != "real"))
+
+    option_candles_cache: dict[str, list[dict]] = {}
+    if user_id and data_source == "real":
+        for leg in strategy.legs:
+            leg_order = leg.leg_order
+            order = plan.orders[leg_order - 1] if leg_order <= len(plan.orders) else None
+            if not order:
+                continue
+            opt_symbol = f"NSE:{order.symbol.replace('/', '')}" if ":" not in order.symbol else order.symbol
+            opt_candles = await historical_engine.get_historical(
+                symbol=opt_symbol,
+                interval=BACKTEST_INTERVAL,
+                days=days + 10,
+                user_id=user_id,
+            )
+            if opt_candles and len(opt_candles) > 5:
+                option_candles_cache[order.symbol] = opt_candles
+                logger.info("Fetched %d real option candles for %s", len(opt_candles), order.symbol)
 
     tr = TradeRecord()
     lot_size = LOT_SIZES.get(strategy.index_symbol, 65)
@@ -190,7 +207,19 @@ async def run_user_strategy_backtest(
                         continue
                     strike, opt_type = leg_info
                     total_dte = _estimate_days_to_expiry(order.symbol)
-                    entry_premium = _estimate_option_premium(entry_spot, strike, opt_type, total_dte, total_dte, all_close)
+
+                    opt_candles_for_symbol = option_candles_cache.get(order.symbol)
+                    entry_price = _find_option_price_at_time(opt_candles_for_symbol, f"{date_key}T{entry_time}") if opt_candles_for_symbol else None
+                    exit_price = _find_option_price_at_time(opt_candles_for_symbol, f"{date_key}T{exit_time}") if opt_candles_for_symbol else None
+
+                    if entry_price is not None and exit_price is not None:
+                        entry_premium = entry_price
+                        exit_premium = exit_price
+                        data_source = "real"
+                    else:
+                        entry_premium = _estimate_option_premium(entry_spot, strike, opt_type, total_dte, total_dte, all_close)
+                        exit_premium = _estimate_option_premium(exit_spot, strike, opt_type, 0, total_dte, all_close)
+
                     tr.add_entry(leg_order, {
                         "symbol": order.symbol,
                         "position": "buy" if leg.position.value == "buy" else "sell",
@@ -200,7 +229,6 @@ async def run_user_strategy_backtest(
                         "premium": entry_premium * leg.lots * lot_size,
                         "entry_time": f"{date_key}T{entry_time}",
                     })
-                    exit_premium = _estimate_option_premium(exit_spot, strike, opt_type, 0, total_dte, all_close)
                     tr.add_exit(leg_order, exit_premium * leg.lots * lot_size, f"{date_key}T{exit_time}", date_key)
                 tr.snapshot_equity(f"{date_key}T{exit_time}")
                 day_count += 1
@@ -231,6 +259,31 @@ def _estimate_spot_from_candles(candles: list[dict]) -> float:
         if price:
             return float(price)
     return 24000.0
+
+def _find_option_price_at_time(candles: list[dict] | None, target_time_str: str) -> float | None:
+    if not candles:
+        return None
+    target_h, target_m = target_time_str.split("T")[1][:5].split(":")
+    target_total = int(target_h) * 60 + int(target_m)
+    best = None
+    best_diff = 9999
+    for c in candles:
+        ts = c.get("timestamp", "")
+        if isinstance(ts, str) and "T" in ts:
+            time_part = ts.split("T")[1][:5]
+        elif isinstance(ts, str) and len(ts) >= 16:
+            time_part = ts[11:16]
+        else:
+            continue
+        h, m = time_part.split(":")
+        total = int(h) * 60 + int(m)
+        diff = abs(total - target_total)
+        if diff < best_diff:
+            best_diff = diff
+            best = c
+    if best is None:
+        return None
+    return float(best.get("close", 0))
 
 def _find_candle_at_time(candles: list[dict], target_time: str) -> dict | None:
     target_h, target_m = target_time.split(":")
