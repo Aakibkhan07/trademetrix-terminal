@@ -11,6 +11,7 @@ DOMAIN="ai.trademetrix.tech"
 API_DOMAIN="api.ai.trademetrix.tech"
 MONITOR_DOMAIN="monitor.ai.trademetrix.tech"
 REPO_DIR="$HOME/trademetrix-terminal"
+REMOTE_REPO_DIR="/root/trademetrix-terminal"
 
 info() { echo -e "\033[0;36m[INFO]\033[0m  $1"; }
 ok()   { echo -e "\033[0;32m[OK]\033[0m    $1"; }
@@ -24,8 +25,8 @@ ok "Code pushed"
 
 # ── 2. SCP .env files to VPS ──
 info "Copying .env files to VPS..."
-scp apps/api/.env "$VPS:$REPO_DIR/apps/api/.env"
-scp apps/web/.env.production "$VPS:$REPO_DIR/apps/web/.env"
+scp apps/api/.env "$VPS:$REMOTE_REPO_DIR/apps/api/.env"
+scp apps/web/.env.production "$VPS:$REMOTE_REPO_DIR/apps/web/.env"
 ok "Env files copied"
 
 # ── 3. Run deploy on VPS ──
@@ -41,10 +42,17 @@ ssh "$VPS" bash -s << 'DEPLOY'
   git fetch origin
   git reset --hard origin/main
 
+  echo "[VPS] Removing old containers..."
+  docker compose -f infra/production/docker-compose.yml down --remove-orphans 2>/dev/null || true
+
   echo "[VPS] Building and starting services..."
   docker compose -f infra/production/docker-compose.yml pull redis
   docker compose -f infra/production/docker-compose.yml build --parallel api web
-  docker compose -f infra/production/docker-compose.yml up -d
+  if [ -f infra/production/docker-compose.override.yml ]; then
+    docker compose -f infra/production/docker-compose.yml -f infra/production/docker-compose.override.yml up -d
+  else
+    docker compose -f infra/production/docker-compose.yml up -d
+  fi
 
   echo "[VPS] Waiting for healthcheck..."
   sleep 15

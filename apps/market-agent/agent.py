@@ -4,8 +4,12 @@ Runs as a standalone container. Connects to Fyers WebSocket and publishes
 each tick as JSON to Redis channel `market:ticks`. The API subscribes to
 these channels and broadcasts to local subscribers via SharedDataSocket.
 
+Credentials are fetched from Supabase broker_credentials table on startup
+(decrypted via ENCRYPTION_KEY). Falls back to FYERS_ACCESS_TOKEN env var.
+
 Environment:
-  - FYERS_ACCESS_TOKEN
+  - SUPABASE_URL / SUPABASE_SERVICE_KEY / ENCRYPTION_KEY (for DB lookup)
+  - FYERS_ACCESS_TOKEN (fallback if DB unavailable)
   - REDIS_URL (default redis://redis:6379/0)
   - SYMBOLS (comma-separated, default NSE:NIFTY50-INDEX,NSE:NIFTYBANK-INDEX)
   - LOG_LEVEL (default INFO)
@@ -18,17 +22,78 @@ import os
 import signal
 import sys
 
+import httpx
+
 logger = logging.getLogger("market-agent")
+
+
+async def _fetch_fyers_token() -> str:
+    supabase_url = os.environ.get("SUPABASE_URL", "")
+    service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    encryption_key = os.environ.get("ENCRYPTION_KEY", "")
+
+    if not supabase_url or not service_key or not encryption_key:
+        logger.info("Supabase env vars not set, falling back to FYERS_ACCESS_TOKEN")
+        token = os.environ.get("FYERS_ACCESS_TOKEN", "")
+        if not token:
+            logger.error("FYERS_ACCESS_TOKEN not set and Supabase unavailable")
+            sys.exit(1)
+        return token
+
+    from cryptography.fernet import Fernet
+
+    fernet = Fernet(encryption_key.encode())
+
+    rest_url = f"{supabase_url}/rest/v1/broker_credentials"
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Accept": "application/json",
+    }
+    params = {
+        "broker": "eq.fyers",
+        "is_active": "eq.true",
+        "select": "encrypted_api_key,encrypted_access_token",
+        "limit": "1",
+        "order": "updated_at.desc",
+    }
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(rest_url, headers=headers, params=params, timeout=10)
+        resp.raise_for_status()
+        rows = resp.json()
+
+    if not rows:
+        logger.warning("No active Fyers credentials found in DB, falling back to env")
+        token = os.environ.get("FYERS_ACCESS_TOKEN", "")
+        if not token:
+            logger.error("No Fyers credentials in DB and FYERS_ACCESS_TOKEN not set")
+            sys.exit(1)
+        return token
+
+    row = rows[0]
+    encrypted_api_key = row.get("encrypted_api_key", "")
+    encrypted_token = row.get("encrypted_access_token", "")
+
+    if not encrypted_token:
+        logger.error("Fyers credentials exist but encrypted_access_token is empty")
+        sys.exit(1)
+
+    try:
+        client_id = fernet.decrypt(encrypted_api_key.encode()).decode() if encrypted_api_key else ""
+        access_token = fernet.decrypt(encrypted_token.encode()).decode()
+        logger.info("Fetched Fyers credentials from DB (client_id=%s)", client_id)
+        return access_token
+    except Exception as e:
+        logger.error("Failed to decrypt Fyers credentials: %s", e)
+        sys.exit(1)
 
 
 async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
     import redis.asyncio as aioredis
     from fyers_apiv3.FyersWebsocket import data_ws
 
-    access_token = os.environ.get("FYERS_ACCESS_TOKEN", "")
-    if not access_token:
-        logger.error("FYERS_ACCESS_TOKEN not set")
-        sys.exit(1)
+    access_token = await _fetch_fyers_token()
 
     r = aioredis.from_url(redis_url, decode_responses=False)
     await r.ping()

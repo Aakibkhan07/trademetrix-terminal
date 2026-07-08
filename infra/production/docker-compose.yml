@@ -145,8 +145,6 @@ services:
       - trademetrix
     environment:
       REDIS_URL: redis://redis:6379/0
-      FYERS_CLIENT_ID: ""
-      FYERS_ACCESS_TOKEN: ""
       SYMBOLS: "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"
       LOG_LEVEL: INFO
     depends_on:
