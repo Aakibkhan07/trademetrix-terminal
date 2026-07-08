@@ -36,6 +36,7 @@ services:
       ENV: production
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: https://ai.trademetrix.tech
+      COOKIE_DOMAIN: .trademetrix.tech
       LOG_LEVEL: INFO
     depends_on:
       redis:

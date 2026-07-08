@@ -29,6 +29,10 @@ scp apps/api/.env "$VPS:$REMOTE_REPO_DIR/apps/api/.env"
 scp apps/web/.env.production "$VPS:$REMOTE_REPO_DIR/apps/web/.env"
 # Copy API env alongside production compose so market-agent can read Supabase creds
 ssh "$VPS" "cp $REMOTE_REPO_DIR/apps/api/.env $REMOTE_REPO_DIR/infra/production/.env"
+# Ensure COOKIE_DOMAIN is set for cross-subdomain CSRF
+ssh "$VPS" "grep -q '^COOKIE_DOMAIN=' $REMOTE_REPO_DIR/apps/api/.env && \
+  sed -i 's/^COOKIE_DOMAIN=.*/COOKIE_DOMAIN=.trademetrix.tech/' $REMOTE_REPO_DIR/apps/api/.env || \
+  echo 'COOKIE_DOMAIN=.trademetrix.tech' >> $REMOTE_REPO_DIR/apps/api/.env"
 ok "Env files copied"
 
 # ── 3. Run deploy on VPS ──
