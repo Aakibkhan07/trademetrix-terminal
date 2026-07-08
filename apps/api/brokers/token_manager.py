@@ -2,6 +2,8 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
+from cryptography.fernet import InvalidToken
+
 from brokers import get_broker
 from core.db import async_supabase, get_supabase
 from core.security import decrypt_broker_credentials, encrypt_broker_credentials
@@ -82,7 +84,7 @@ class TokenManager:
     async def _load_credentials(self) -> dict:
         supabase = get_supabase()
         try:
-            result = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("user_id", self.user_id).eq("broker", self.broker).single().execute())
+            result = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("user_id", self.user_id).eq("broker", self.broker).order("created_at", desc=True).limit(1).execute())
             if not result.data:
                 raise ValueError(f"No credentials found for broker {self.broker}")
         except ValueError:
@@ -90,13 +92,18 @@ class TokenManager:
         except Exception as e:
             raise ValueError(f"Failed to load credentials for broker {self.broker}: {e}")
 
-        row = result.data
-        return {
-            "client_id": decrypt_broker_credentials(row["encrypted_api_key"]),
-            "secret_key": decrypt_broker_credentials(row["encrypted_secret_key"]),
-            "access_token": decrypt_broker_credentials(row.get("encrypted_access_token", "")) if row.get("encrypted_access_token") else "",
-            **row.get("additional_params", {}),
-        }
+        for row in result.data:
+            try:
+                return {
+                    "client_id": decrypt_broker_credentials(row["encrypted_api_key"]),
+                    "secret_key": decrypt_broker_credentials(row["encrypted_secret_key"]),
+                    "access_token": decrypt_broker_credentials(row.get("encrypted_access_token", "")) if row.get("encrypted_access_token") else "",
+                    **row.get("additional_params", {}),
+                }
+            except InvalidToken:
+                logger.warning("Skipping credential %s with invalid encryption (key rotation)", row.get("id", "unknown"))
+                continue
+        raise ValueError(f"No decryptable credentials found for broker {self.broker} (key may have been rotated)")
 
     async def save_access_token(self, token: str, expires_at=None) -> None:
         supabase = get_supabase()
