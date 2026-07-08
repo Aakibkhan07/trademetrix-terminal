@@ -67,6 +67,15 @@ class OptionChainEngine:
 
         return [self._next_expiry(symbol.upper())]
 
+    def _next_expiry(self, symbol: str) -> str:
+        today = datetime.date.today()
+        # NSE weekly expiry is Thursday
+        days_ahead = (3 - today.weekday()) % 7
+        if days_ahead == 0:
+            days_ahead = 7
+        next_thu = today + timedelta(days=days_ahead)
+        return next_thu.strftime("%d%b").upper()
+
     async def _fetch_nse_option_chain(self, symbol: str) -> dict | None:
         if symbol not in NSE_INDICES:
             return None
