@@ -191,13 +191,14 @@ class OptionChainEngine:
 
             async with httpx.AsyncClient(timeout=10) as client:
                 headers = {"Authorization": f"{client_id}:{raw_token}", "Content-Type": "application/json"}
-                resp = await client.post(
+                params = {"symbol": fyers_symbol, "strikecount": 50, "timestamp": ""}
+                resp = await client.get(
                     "https://api-t1.fyers.in/data/options-chain-v3",
-                    json={"symbol": fyers_symbol, "strikecount": 50, "timestamp": ""},
+                    params=params,
                     headers=headers,
                 )
                 data = resp.json()
-                if data.get("s") != "ok":
+                if data.get("s") != "ok" and data.get("code") != 200:
                     return None
                 chain = data.get("data", {})
                 raw_options = chain.get("optionsChain", [])
