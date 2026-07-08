@@ -22,3 +22,4 @@ infra/production/.env
 apps/api/brokers/angel_tokens.json.gz
 supabase/.temp/
 .env.vault
+supabase/.branches/
