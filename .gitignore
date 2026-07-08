@@ -18,6 +18,7 @@ fyersRequests.log
 *.tsbuildinfo
 infra/.env.production
 infra/production/.env.production
+infra/production/.env
 apps/api/brokers/angel_tokens.json.gz
 supabase/.temp/
 .env.vault

@@ -143,6 +143,7 @@ services:
     restart: unless-stopped
     networks:
       - trademetrix
+    env_file: .env
     environment:
       REDIS_URL: redis://redis:6379/0
       SYMBOLS: "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"

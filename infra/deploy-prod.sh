@@ -27,6 +27,8 @@ ok "Code pushed"
 info "Copying .env files to VPS..."
 scp apps/api/.env "$VPS:$REMOTE_REPO_DIR/apps/api/.env"
 scp apps/web/.env.production "$VPS:$REMOTE_REPO_DIR/apps/web/.env"
+# Copy API env alongside production compose so market-agent can read Supabase creds
+ssh "$VPS" "cp $REMOTE_REPO_DIR/apps/api/.env $REMOTE_REPO_DIR/infra/production/.env"
 ok "Env files copied"
 
 # ── 3. Run deploy on VPS ──
