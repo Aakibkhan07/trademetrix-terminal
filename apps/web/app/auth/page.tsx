@@ -84,16 +84,15 @@ export default function AuthPage() {
   return (
     <div style={{
       display: 'flex', minHeight: '100vh',
-      background: '#0f1419',
+      background: 'var(--bg)',
       position: 'relative', overflow: 'hidden',
     }}>
       {/* Animated background */}
       <div style={{
         position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
         background: `
-          radial-gradient(800px 500px at 0% 0%, rgba(0,212,255,0.05), transparent),
-          radial-gradient(600px 400px at 100% 100%, rgba(0,150,255,0.04), transparent),
-          radial-gradient(400px 300px at 50% 50%, rgba(124,92,252,0.03), transparent)
+          radial-gradient(900px 900px at -260px -420px, rgba(139,92,246,.13), transparent 62%),
+          radial-gradient(800px 800px at calc(100% + 220px) calc(100% + 420px), rgba(34,211,238,.09), transparent 62%)
         `,
       }} />
 
@@ -106,20 +105,20 @@ export default function AuthPage() {
       }}>
         <div>
           <h1 style={{
-            fontFamily: "'Inter', sans-serif", fontWeight: 700,
+            fontWeight: 700,
             fontSize: 42, lineHeight: 1.15, margin: '0 0 16px',
-            color: '#fff',
+            color: 'var(--text)',
           }}>
             Algorithmic Trading
             <br />
             <span style={{
-              background: 'linear-gradient(135deg, #00d4ff, #0096ff)',
+              background: 'var(--gradient-primary)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}>Made Simple</span>
           </h1>
           <p style={{
-            color: '#a1a5b3', fontSize: 15, lineHeight: 1.6,
+            color: 'var(--text-sub)', fontSize: 15, lineHeight: 1.6,
             margin: '0 0 32px', maxWidth: 440,
           }}>
             Build, backtest, and deploy trading strategies across 35+ brokers.
@@ -130,11 +129,11 @@ export default function AuthPage() {
               <div key={feature} style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '4px 12px', borderRadius: 999,
-                border: '1px solid rgba(0,212,255,0.15)',
-                background: 'rgba(0,212,255,0.04)',
-                fontSize: 12, color: '#a1a5b3',
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+                fontSize: 12, color: 'var(--text-sub)',
               }}>
-                <span style={{ color: '#00d4ff', fontSize: 14 }}>✦</span>
+                <span style={{ color: 'var(--violet)', fontSize: 14 }}>✦</span>
                 {feature}
               </div>
             ))}
@@ -149,10 +148,10 @@ export default function AuthPage() {
       }}>
         <div style={{
           width: '100%',
-          background: 'rgba(26, 31, 46, 0.7)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02))',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          border: '1px solid var(--border)',
           borderRadius: 16,
           padding: 40,
         }}>
@@ -160,17 +159,18 @@ export default function AuthPage() {
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <div style={{
               width: 48, height: 48, borderRadius: 12,
-              background: 'linear-gradient(135deg, #00d4ff, #0096ff)',
+              background: 'var(--gradient-primary)',
+              boxShadow: '0 0 24px rgba(139,92,246,.45)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto 16px', fontSize: 20, fontWeight: 700, color: '#fff',
             }}>TM</div>
             <h2 style={{
-              fontFamily: "'Inter', sans-serif", fontWeight: 700,
-              fontSize: 20, margin: '0 0 4px', color: '#fff',
+              fontWeight: 700,
+              fontSize: 20, margin: '0 0 4px', color: 'var(--text)',
             }}>
               {mode === 'login' ? 'Welcome back' : mode === 'signup' ? 'Create account' : 'Reset password'}
             </h2>
-            <p style={{ color: '#a1a5b3', fontSize: 13, margin: 0 }}>
+            <p style={{ color: 'var(--text-sub)', fontSize: 13, margin: 0 }}>
               {mode === 'login' ? 'Sign in to your trading terminal' :
                mode === 'signup' ? 'Start your algorithmic trading journey' :
                'Enter your email to receive a reset link'}
@@ -182,7 +182,7 @@ export default function AuthPage() {
             {mode === 'signup' && (
               <div style={{ marginBottom: 16 }}>
                 <label style={{
-                  fontSize: 11, fontWeight: 600, color: focusedField === 'name' ? '#00d4ff' : '#a1a5b3',
+                  fontSize: 11, fontWeight: 600, color: focusedField === 'name' ? 'var(--violet)' : 'var(--text-sub)',
                   marginBottom: 6, display: 'block',
                   transition: 'color 150ms ease',
                 }}>Full Name</label>
@@ -195,12 +195,12 @@ export default function AuthPage() {
                   onBlur={() => setFocusedField(null)}
                   style={{
                     width: '100%', height: 44, padding: '0 14px',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${error && !fullName.trim() ? 'rgba(239,68,68,0.3)' : focusedField === 'name' ? 'rgba(0,212,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius: 8, color: '#fff', fontSize: 13,
-                    fontFamily: "'Inter', sans-serif", outline: 'none',
+                    background: 'var(--bg-tertiary)',
+                    border: `1px solid ${error && !fullName.trim() ? 'rgba(248,113,113,0.3)' : focusedField === 'name' ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                    borderRadius: 8, color: 'var(--text)', fontSize: 13,
+                    outline: 'none',
                     transition: 'border-color 150ms ease, box-shadow 150ms ease',
-                    boxShadow: focusedField === 'name' ? '0 0 0 3px rgba(0,212,255,0.06)' : 'none',
+                    boxShadow: focusedField === 'name' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
                   }}
                 />
               </div>
@@ -208,7 +208,7 @@ export default function AuthPage() {
 
             <div style={{ marginBottom: mode === 'login' ? 12 : 16 }}>
               <label style={{
-                fontSize: 11, fontWeight: 600, color: focusedField === 'email' ? '#00d4ff' : '#a1a5b3',
+                fontSize: 11, fontWeight: 600, color: focusedField === 'email' ? 'var(--violet)' : 'var(--text-sub)',
                 marginBottom: 6, display: 'block',
                 transition: 'color 150ms ease',
               }}>Email Address</label>
@@ -221,26 +221,26 @@ export default function AuthPage() {
                 onBlur={() => setFocusedField(null)}
                 style={{
                   width: '100%', height: 44, padding: '0 14px',
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'var(--bg-tertiary)',
                   border: `1px solid ${
-                    !validEmail && email ? 'rgba(239,68,68,0.3)' :
-                    focusedField === 'email' ? 'rgba(0,212,255,0.3)' : 'rgba(255,255,255,0.08)'
+                    !validEmail && email ? 'rgba(248,113,113,0.3)' :
+                    focusedField === 'email' ? 'rgba(139,92,246,0.3)' : 'var(--border)'
                   }`,
-                  borderRadius: 8, color: '#fff', fontSize: 13,
-                  fontFamily: "'Inter', sans-serif", outline: 'none',
+                  borderRadius: 8, color: 'var(--text)', fontSize: 13,
+                  outline: 'none',
                   transition: 'border-color 150ms ease, box-shadow 150ms ease',
-                  boxShadow: focusedField === 'email' ? '0 0 0 3px rgba(0,212,255,0.06)' : 'none',
+                  boxShadow: focusedField === 'email' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
                 }}
               />
               {!validEmail && email && (
-                <p style={{ color: '#ef4444', fontSize: 11, margin: '4px 0 0' }}>Invalid email format</p>
+                <p style={{ color: 'var(--text-red)', fontSize: 11, margin: '4px 0 0' }}>Invalid email format</p>
               )}
             </div>
 
             {mode !== 'forgot' && (
               <div style={{ marginBottom: mode === 'login' ? 4 : 16 }}>
                 <label style={{
-                  fontSize: 11, fontWeight: 600, color: focusedField === 'password' ? '#00d4ff' : '#a1a5b3',
+                  fontSize: 11, fontWeight: 600, color: focusedField === 'password' ? 'var(--violet)' : 'var(--text-sub)',
                   marginBottom: 6, display: 'block',
                   transition: 'color 150ms ease',
                 }}>Password</label>
@@ -254,15 +254,15 @@ export default function AuthPage() {
                     onBlur={() => setFocusedField(null)}
                     style={{
                       width: '100%', height: 44, padding: '0 40px 0 14px',
-                      background: 'rgba(255,255,255,0.04)',
+                      background: 'var(--bg-tertiary)',
                       border: `1px solid ${
-                        !validPassword && password ? 'rgba(239,68,68,0.3)' :
-                        focusedField === 'password' ? 'rgba(0,212,255,0.3)' : 'rgba(255,255,255,0.08)'
+                        !validPassword && password ? 'rgba(248,113,113,0.3)' :
+                        focusedField === 'password' ? 'rgba(139,92,246,0.3)' : 'var(--border)'
                       }`,
-                      borderRadius: 8, color: '#fff', fontSize: 13,
-                      fontFamily: "'Inter', sans-serif", outline: 'none',
+                      borderRadius: 8, color: 'var(--text)', fontSize: 13,
+                      outline: 'none',
                       transition: 'border-color 150ms ease, box-shadow 150ms ease',
-                      boxShadow: focusedField === 'password' ? '0 0 0 3px rgba(0,212,255,0.06)' : 'none',
+                      boxShadow: focusedField === 'password' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
                     }}
                   />
                   <button
@@ -272,16 +272,15 @@ export default function AuthPage() {
                       position: 'absolute', right: 10, top: '50%',
                       transform: 'translateY(-50%)',
                       background: 'none', border: 'none',
-                      color: '#5f6368', cursor: 'pointer',
-                      fontSize: 13, fontFamily: "'Inter', sans-serif",
-                      padding: 4,
+                      color: 'var(--text-faint)', cursor: 'pointer',
+                      fontSize: 13, padding: 4,
                     }}
                   >
                     {showPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
                 {!validPassword && password && (
-                  <p style={{ color: '#ef4444', fontSize: 11, margin: '4px 0 0' }}>Minimum 6 characters</p>
+                  <p style={{ color: 'var(--text-red)', fontSize: 11, margin: '4px 0 0' }}>Minimum 6 characters</p>
                 )}
               </div>
             )}
@@ -293,12 +292,12 @@ export default function AuthPage() {
                   onClick={() => { setMode('forgot'); setError(''); setSuccess('') }}
                   style={{
                     background: 'none', border: 'none',
-                    color: '#a1a5b3', fontSize: 12, cursor: 'pointer',
-                    fontFamily: "'Inter', sans-serif", padding: 0,
+                    color: 'var(--text-sub)', fontSize: 12, cursor: 'pointer',
+                    padding: 0,
                     transition: 'color 150ms ease',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#00d4ff' }}
-                  onMouseLeave={e => { e.currentTarget.style.color = '#a1a5b3' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--violet)' }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-sub)' }}
                 >
                   Forgot password?
                 </button>
@@ -308,19 +307,18 @@ export default function AuthPage() {
             {/* Error / Success */}
             {error && (
               <div style={{
-                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)',
+                background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)',
                 borderRadius: 8, padding: '10px 14px', marginBottom: 16,
-                animation: 'shake 300ms ease',
               }}>
-                <p style={{ color: '#ef4444', fontSize: 12, margin: 0 }}>{error}</p>
+                <p style={{ color: 'var(--text-red)', fontSize: 12, margin: 0 }}>{error}</p>
               </div>
             )}
             {success && (
               <div style={{
-                background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)',
+                background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.15)',
                 borderRadius: 8, padding: '10px 14px', marginBottom: 16,
               }}>
-                <p style={{ color: '#22c55e', fontSize: 12, margin: 0 }}>{success}</p>
+                <p style={{ color: 'var(--text-green)', fontSize: 12, margin: 0 }}>{success}</p>
               </div>
             )}
 
@@ -329,15 +327,15 @@ export default function AuthPage() {
               disabled={loading}
               style={{
                 width: '100%', height: 44,
-                background: loading ? 'rgba(0,212,255,0.5)' : 'linear-gradient(135deg, #00d4ff, #0096ff)',
+                background: loading ? 'rgba(139,92,246,0.5)' : 'var(--gradient-primary)',
                 border: 'none', borderRadius: 8,
                 color: '#fff', fontSize: 13, fontWeight: 600,
-                fontFamily: "'Inter', sans-serif", cursor: loading ? 'default' : 'pointer',
+                cursor: loading ? 'default' : 'pointer',
                 transition: 'all 150ms ease', position: 'relative',
                 overflow: 'hidden',
               }}
               onMouseEnter={e => {
-                if (!loading) e.currentTarget.style.boxShadow = '0 0 20px rgba(0,212,255,0.3)'
+                if (!loading) e.currentTarget.style.boxShadow = '0 0 24px rgba(139,92,246,0.35)'
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.boxShadow = 'none'
@@ -363,9 +361,9 @@ export default function AuthPage() {
           {/* Switch mode */}
           <div style={{
             textAlign: 'center', marginTop: 24, paddingTop: 20,
-            borderTop: '1px solid rgba(255,255,255,0.06)',
+            borderTop: '1px solid var(--border)',
           }}>
-            <p style={{ color: '#a1a5b3', margin: 0, fontSize: 12 }}>
+            <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 12 }}>
               {mode === 'login' ? "Don't have an account?" :
                mode === 'signup' ? 'Already have an account?' :
                'Remember your password?'}{' '}
@@ -376,12 +374,12 @@ export default function AuthPage() {
                 }}
                 style={{
                   background: 'none', border: 'none',
-                  color: '#00d4ff', cursor: 'pointer', fontSize: 12,
-                  fontFamily: "'Inter', sans-serif", fontWeight: 600,
+                  color: 'var(--violet)', cursor: 'pointer', fontSize: 12,
+                  fontWeight: 600,
                   padding: 0, transition: 'color 150ms ease',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#0096ff' }}
-                onMouseLeave={e => { e.currentTarget.style.color = '#00d4ff' }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--cyan)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--violet)' }}
               >
                 {mode === 'login' ? 'Sign up' : mode === 'signup' ? 'Sign in' : 'Sign in'}
               </button>

@@ -1,9 +1,22 @@
 import type { Metadata } from 'next'
+import { Outfit, DM_Sans } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import AppLayout from '@/components/app-layout'
 import ClarityScript from '@/components/clarity'
 import FeedbackButtonWrapper from '@/components/feedback-wrapper'
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-display',
+})
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-body',
+})
 
 export const metadata: Metadata = {
   title: 'Trade Metrix Terminal',
@@ -12,15 +25,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="en" className={`${outfit.variable} ${dmSans.variable}`}>
+      <head />
       <body>
         <ClarityScript />
         <Providers>
