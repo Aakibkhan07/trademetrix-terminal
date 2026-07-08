@@ -73,7 +73,7 @@ class OptionChainEngine:
         days_ahead = (3 - today.weekday()) % 7
         if days_ahead == 0:
             days_ahead = 7
-        next_thu = today + timedelta(days=days_ahead)
+        next_thu = today + datetime.timedelta(days=days_ahead)
         return next_thu.strftime("%d%b").upper()
 
     async def _fetch_nse_option_chain(self, symbol: str) -> dict | None:
