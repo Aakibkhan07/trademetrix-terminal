@@ -20,25 +20,20 @@ import json
 import logging
 import os
 import signal
-import sys
 
 import httpx
 
 logger = logging.getLogger("market-agent")
 
 
-async def _fetch_fyers_token() -> str:
+async def _fetch_fyers_token() -> str | None:
     supabase_url = os.environ.get("SUPABASE_URL", "")
     service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
     encryption_key = os.environ.get("ENCRYPTION_KEY", "")
 
     if not supabase_url or not service_key or not encryption_key:
         logger.info("Supabase env vars not set, falling back to FYERS_ACCESS_TOKEN")
-        token = os.environ.get("FYERS_ACCESS_TOKEN", "")
-        if not token:
-            logger.error("FYERS_ACCESS_TOKEN not set and Supabase unavailable")
-            sys.exit(0)
-        return token
+        return os.environ.get("FYERS_ACCESS_TOKEN") or None
 
     from cryptography.fernet import Fernet
 
@@ -65,11 +60,7 @@ async def _fetch_fyers_token() -> str:
 
     if not rows:
         logger.warning("No active Fyers credentials found in DB, falling back to env")
-        token = os.environ.get("FYERS_ACCESS_TOKEN", "")
-        if not token:
-            logger.error("No Fyers credentials in DB and FYERS_ACCESS_TOKEN not set")
-            sys.exit(0)
-        return token
+        return os.environ.get("FYERS_ACCESS_TOKEN") or None
 
     row = rows[0]
     encrypted_api_key = row.get("encrypted_api_key", "")
@@ -77,7 +68,7 @@ async def _fetch_fyers_token() -> str:
 
     if not encrypted_token:
         logger.warning("Fyers credentials exist but no access_token — run OAuth flow first")
-        sys.exit(0)
+        return None
 
     try:
         client_id = fernet.decrypt(encrypted_api_key.encode()).decode() if encrypted_api_key else ""
@@ -89,7 +80,7 @@ async def _fetch_fyers_token() -> str:
             "Could not decrypt Fyers credentials (key may have been rotated). "
             "Re-run OAuth flow via the web app to get a fresh token. %s", e
         )
-        sys.exit(0)
+        return None
 
 
 async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
@@ -97,6 +88,10 @@ async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
     from fyers_apiv3.FyersWebsocket import data_ws
 
     access_token = await _fetch_fyers_token()
+    if not access_token:
+        logger.warning("No valid Fyers token — idle until credentials are provided via OAuth flow")
+        await asyncio.Event().wait()
+        return
 
     r = aioredis.from_url(redis_url, decode_responses=False)
     await r.ping()
