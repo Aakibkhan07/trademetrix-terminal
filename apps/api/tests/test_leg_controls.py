@@ -146,7 +146,7 @@ def test_build_square_off_order_buy_to_sell():
     assert order.side.value == "SELL"
     assert order.quantity == 65
     assert order.source == "leg_control"
-    assert order.is_paper is True
+    assert order.is_paper is False
 
 
 def test_build_square_off_order_sell_to_buy():

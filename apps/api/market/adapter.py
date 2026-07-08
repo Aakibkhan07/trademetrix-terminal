@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from brokers.base import BaseBroker
 from core.models import Candle, Quote
@@ -43,11 +43,11 @@ class MarketDataAdapter:
     async def unsubscribe(self, symbols: list[str]) -> None:
         pass
 
-    async def get_ltp(self, symbol: str) -> float:
+    async def get_ltp(self, symbol: str) -> Optional[float]:
         quotes = await self._adapter.get_quotes([symbol])
         if quotes:
             return quotes[0].last_price
-        return 0.0
+        return None
 
     async def get_quote(self, symbol: str) -> Quote | None:
         quotes = await self._adapter.get_quotes([symbol])
@@ -57,7 +57,7 @@ class MarketDataAdapter:
         return await self._adapter.get_quotes(symbols)
 
     async def get_option_chain(self, symbol: str, expiry: str = "") -> dict | None:
-        return None
+        raise NotImplementedError(f"{self._broker_type} does not support get_option_chain")
 
     async def get_historical_data(
         self, symbol: str, interval: str, days: int, start: str | None = None, end: str | None = None

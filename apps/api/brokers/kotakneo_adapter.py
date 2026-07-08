@@ -269,32 +269,39 @@ class KotakNeoAdapter(BaseBroker):
         return candles
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
+        import websockets
+
+        if not self._access_token:
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
         self._running = True
         retry_delay = 1
+
+        subscribe_msg = json.dumps({
+            "action": "subscribe",
+            "instruments": symbols,
+        })
+
         while self._running:
             try:
-                async with httpx.AsyncClient() as client:
-                    ws_url = f"{self._base_url}/ws/market"
-                    async with client.stream(
-                        "GET",
-                        ws_url,
-                        headers=self._headers(),
-                    ) as resp:
-                        if resp.status_code != 101:
-                            logger.error("Kotak Neo WS connect failed: %s", resp.status_code)
-                            await asyncio.sleep(retry_delay)
-                            retry_delay = min(retry_delay * 2, 30)
-                            continue
-                        retry_delay = 1
-
-                        sub_payload = json.dumps({"action": "subscribe", "instruments": symbols}).encode()
-                        if hasattr(resp, 'send') and callable(resp.send):
-                            await resp.send(sub_payload)
-
-                        async for line in resp.aiter_lines():
+                ws_headers = {
+                    "Authorization": f"Bearer {self._access_token}",
+                }
+                async for ws in websockets.connect(
+                    f"{self._base_url}/ws/market",
+                    additional_headers=ws_headers,
+                    ping_interval=30,
+                ):
+                    retry_delay = 1
+                    try:
+                        await ws.send(subscribe_msg)
+                        async for raw in ws:
                             if not self._running:
                                 break
-                            if not line.strip():
+                            if isinstance(raw, bytes):
+                                raw = raw.decode("utf-8")
+                            line = raw.strip()
+                            if not line:
                                 continue
                             try:
                                 data = json.loads(line)
@@ -306,6 +313,8 @@ class KotakNeoAdapter(BaseBroker):
                                         on_tick(tick)
                             except json.JSONDecodeError:
                                 continue
+                    except websockets.ConnectionClosed:
+                        logger.info("Kotak Neo WS disconnected, reconnecting...")
             except Exception as e:
                 logger.error("Kotak Neo WS error: %s, reconnecting in %ds", e, retry_delay)
                 await asyncio.sleep(retry_delay)

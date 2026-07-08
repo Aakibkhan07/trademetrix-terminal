@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     tradingview_webhook_secret: str = ""
     frontend_url: str = "https://ai.trademetrix.tech"
     fyers_redirect_uri: str = ""
+    dhan_redirect_uri: str = ""
+    upstox_redirect_uri: str = ""
 
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -63,9 +65,15 @@ class Settings(BaseSettings):
     request_timeout_seconds: int = 60
     max_request_size_bytes: int = 102400
     broker_request_timeout: int = 8
-
     broker_connect_timeout: int = 5
+
+    ws_reconnect_max_retries: int = 0
+    ws_reconnect_base_delay: float = 1.0
+    ws_reconnect_max_delay: float = 30.0
+    ws_heartbeat_interval: int = 30
+    ws_ping_interval: int = 30
     user_strategy_max_lots: int = 10
+    default_buyer_user_id: str = "fa668109-4b1e-4758-a49b-015027ea4115"
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -106,4 +114,4 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-STREAMING_SUPPORTED = {"fyers", "angelone"}
+STREAMING_SUPPORTED = {"fyers", "angelone", "dhan", "upstox"}

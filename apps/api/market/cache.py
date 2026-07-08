@@ -1,3 +1,4 @@
+import asyncio
 import time
 import logging
 from collections import OrderedDict
@@ -23,13 +24,42 @@ class MarketCache:
         self._tick_ttl = tick_ttl
         self._quote_ttl = quote_ttl
         self._chain_ttl = chain_ttl
-        self._ticks: dict[str, tuple[float, Tick]] = {}
+        self._ticks: dict[str, tuple[float, Tick]] = OrderedDict()
         self._latest_ticks: OrderedDict[str, Tick] = OrderedDict()
         self._option_chains: dict[str, tuple[float, dict]] = {}
-        self._quotes: dict[str, tuple[float, dict]] = {}
+        self._quotes: dict[str, tuple[float, dict]] = OrderedDict()
         self._market_status: tuple[float, dict] | None = None
         self._expiry_list: dict[str, tuple[float, list[str]]] = {}
+        self._candles: dict[str, tuple[float, list]] = {}
         self._max_latest = 500
+        self._max_ticks = 5000
+        self._max_quotes = 1000
+        self._sweep_task: asyncio.Task | None = None
+
+    async def start_sweeper(self) -> None:
+        if self._sweep_task is None:
+            self._sweep_task = asyncio.create_task(self._sweep_loop())
+
+    async def _sweep_loop(self) -> None:
+        while True:
+            await asyncio.sleep(60)
+            try:
+                self._sweep(self._ticks, self._tick_ttl, self._max_ticks)
+                self._sweep(self._quotes, self._quote_ttl, self._max_quotes)
+                self._sweep(self._option_chains, self._chain_ttl, 500)
+                self._sweep(self._expiry_list, 3600, 200)
+                self._sweep(self._candles, self._quote_ttl, 500)
+            except Exception as e:
+                logger.debug("Cache sweep error: %s", e)
+
+    @staticmethod
+    def _sweep(cache: dict, ttl: float, max_entries: int) -> None:
+        now = time.time()
+        stale = [k for k, (ts, _) in cache.items() if now - ts > ttl]
+        for k in stale:
+            del cache[k]
+        while len(cache) > max_entries:
+            cache.pop(next(iter(cache)), None)
 
     def put_tick(self, tick: Tick) -> None:
         now = time.time()
@@ -117,6 +147,20 @@ class MarketCache:
         self._quotes.clear()
         self._market_status = None
         self._expiry_list.clear()
+        self._candles.clear()
+
+    def put_candles(self, key: str, candles: list, ttl: int = 300) -> None:
+        self._candles[key] = (time.time(), candles)
+
+    def get_candles(self, key: str) -> list | None:
+        entry = self._candles.get(key)
+        if entry is None:
+            return None
+        ts, data = entry
+        if time.time() - ts > self._quote_ttl:
+            del self._candles[key]
+            return None
+        return data
 
 
 market_cache = MarketCache()

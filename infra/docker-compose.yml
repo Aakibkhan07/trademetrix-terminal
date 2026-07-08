@@ -104,11 +104,10 @@ services:
       dockerfile: Dockerfile
     container_name: trademetrix_market_agent
     restart: unless-stopped
+    env_file: ./.env.production
     networks: [trademetrix]
     environment:
       REDIS_URL: redis://redis:6379/0
-      FYERS_CLIENT_ID: ""
-      FYERS_ACCESS_TOKEN: ""
       SYMBOLS: "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"
       LOG_LEVEL: INFO
     depends_on:

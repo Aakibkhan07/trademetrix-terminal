@@ -332,3 +332,324 @@ async def fyers_callback(
     ).eq("id", cred["id"]).execute())
 
     return RedirectResponse(url=f"{FRONTEND_URL}?auth_success=1")
+
+
+DHAN_REDIRECT_URI = os.getenv("DHAN_REDIRECT_URI") or settings.dhan_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/dhan/callback"
+
+
+def _dhan_auth_url(client_id: str, state: str) -> str:
+    params = urlencode({
+        "client_id": client_id,
+        "redirect_uri": DHAN_REDIRECT_URI,
+        "response_type": "code",
+        "state": state,
+    })
+    return f"https://api.dhan.co/v2/oauth/authorize?{params}"
+
+
+@router.post("/dhan/re-auth")
+async def dhan_re_auth(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    cred = await async_safe_single(
+        supabase.table("broker_credentials")
+        .select("id, broker")
+        .eq("user_id", current_user.id)
+        .eq("broker", "dhan")
+    )
+    if not cred:
+        raise HTTPException(status_code=400, detail="No Dhan credentials found. Save them first.")
+
+    row = await async_supabase(lambda: supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute())
+    client_id = decrypt_broker_credentials(row.data["encrypted_api_key"])
+
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
+        {"is_active": False, "encrypted_access_token": ""}
+    ).eq("id", cred["id"]).execute())
+
+    return {"auth_url": _dhan_auth_url(client_id, current_user.id)}
+
+
+@router.get("/dhan/auth-url")
+async def dhan_auth_url(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    cred = await async_safe_single(
+        supabase.table("broker_credentials")
+        .select("id, broker")
+        .eq("user_id", current_user.id)
+        .eq("broker", "dhan")
+    )
+    if not cred:
+        raise HTTPException(status_code=400, detail="Save Dhan credentials first (Client ID as api_key, secret as secret_key)")
+
+    row = await async_supabase(lambda: supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute())
+    client_id = decrypt_broker_credentials(row.data["encrypted_api_key"])
+    return {"auth_url": _dhan_auth_url(client_id, current_user.id)}
+
+
+class DhanAuthCodeInput(BaseModel):
+    auth_code: str
+
+
+@router.post("/dhan/exchange-code")
+async def dhan_exchange_code(
+    req: DhanAuthCodeInput,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    supabase = get_supabase()
+    cred = await async_safe_single(
+        supabase.table("broker_credentials")
+        .select("*")
+        .eq("user_id", current_user.id)
+        .eq("broker", "dhan")
+    )
+    if not cred:
+        raise HTTPException(status_code=400, detail="No Dhan credentials found. Save them first.")
+
+    client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
+    secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
+
+    client = await get_http_client()
+    resp = await client.post(
+        "https://api.dhan.co/v2/oauth/token",
+        data={
+            "client_id": client_id,
+            "client_secret": secret_key,
+            "code": req.auth_code,
+            "grant_type": "authorization_code",
+            "redirect_uri": DHAN_REDIRECT_URI,
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    data = resp.json()
+    if resp.status_code != 200 or not data.get("access_token"):
+        msg = data.get("message", data.get("error_description", "unknown"))
+        logger.error("Dhan token exchange failed: status=%d body=%s", resp.status_code, data)
+        raise HTTPException(status_code=400, detail=f"Dhan auth failed: {msg}")
+
+    raw_token = data["access_token"]
+    encrypted = encrypt_broker_credentials(raw_token)
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
+        {"encrypted_access_token": encrypted, "is_active": True, "updated_at": datetime.now(UTC).isoformat()}
+    ).eq("id", cred["id"]).execute())
+
+    return {"message": "Dhan authenticated successfully!"}
+
+
+@router.get("/dhan/callback")
+async def dhan_callback(
+    auth_code: str = Query(alias="code"),
+    state: str | None = Query(None),
+):
+    from fastapi.responses import RedirectResponse
+
+    logger.info("Dhan callback HIT: code=%s state=%s", auth_code[:20] if auth_code else "none", state)
+
+    FRONTEND_URL = f"{settings.frontend_url or 'https://ai.trademetrix.tech'}/brokers"
+
+    supabase = get_supabase()
+    cred = await async_safe_single(
+        supabase.table("broker_credentials")
+        .select("*")
+        .eq("user_id", state)
+        .eq("broker", "dhan")
+    )
+    if not cred:
+        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=No+Dhan+credentials+found")
+
+    client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
+    secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
+
+    client = await get_http_client()
+    resp = await client.post(
+        "https://api.dhan.co/v2/oauth/token",
+        data={
+            "client_id": client_id,
+            "client_secret": secret_key,
+            "code": auth_code,
+            "grant_type": "authorization_code",
+            "redirect_uri": DHAN_REDIRECT_URI,
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    data = resp.json()
+    logger.info("Dhan callback response: status=%d body=%s", resp.status_code, data)
+    if resp.status_code != 200 or not data.get("access_token"):
+        msg = data.get("message", data.get("error_description", "unknown"))
+        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=Dhan+auth+failed:+{msg}")
+
+    raw_token = data["access_token"]
+    encrypted = encrypt_broker_credentials(raw_token)
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
+        {"encrypted_access_token": encrypted, "is_active": True, "updated_at": datetime.now(UTC).isoformat()}
+    ).eq("id", cred["id"]).execute())
+
+    return RedirectResponse(url=f"{FRONTEND_URL}?auth_success=1")
+
+
+UPSTOX_REDIRECT_URI = os.getenv("UPSTOX_REDIRECT_URI") or settings.upstox_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/upstox/callback"
+
+
+def _upstox_auth_url(client_id: str, state: str) -> str:
+    params = urlencode({
+        "client_id": client_id,
+        "redirect_uri": UPSTOX_REDIRECT_URI,
+        "response_type": "code",
+        "state": state,
+    })
+    return f"https://api.upstox.com/v2/login/authorization/dialog?{params}"
+
+
+@router.post("/upstox/re-auth")
+async def upstox_re_auth(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    cred = await async_safe_single(
+        supabase.table("broker_credentials")
+        .select("id, broker")
+        .eq("user_id", current_user.id)
+        .eq("broker", "upstox")
+    )
+    if not cred:
+        raise HTTPException(status_code=400, detail="No Upstox credentials found. Save them first.")
+
+    row = await async_supabase(lambda: supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute())
+    client_id = decrypt_broker_credentials(row.data["encrypted_api_key"])
+
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
+        {"is_active": False, "encrypted_access_token": ""}
+    ).eq("id", cred["id"]).execute())
+
+    return {"auth_url": _upstox_auth_url(client_id, current_user.id)}
+
+
+@router.get("/upstox/auth-url")
+async def upstox_auth_url(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    cred = await async_safe_single(
+        supabase.table("broker_credentials")
+        .select("id, broker")
+        .eq("user_id", current_user.id)
+        .eq("broker", "upstox")
+    )
+    if not cred:
+        raise HTTPException(status_code=400, detail="Save Upstox credentials first (API Key as api_key, secret as secret_key)")
+
+    row = await async_supabase(lambda: supabase.table("broker_credentials").select("encrypted_api_key").eq("id", cred["id"]).single().execute())
+    client_id = decrypt_broker_credentials(row.data["encrypted_api_key"])
+    return {"auth_url": _upstox_auth_url(client_id, current_user.id)}
+
+
+class UpstoxAuthCodeInput(BaseModel):
+    auth_code: str
+
+
+@router.post("/upstox/exchange-code")
+async def upstox_exchange_code(
+    req: UpstoxAuthCodeInput,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    supabase = get_supabase()
+    cred = await async_safe_single(
+        supabase.table("broker_credentials")
+        .select("*")
+        .eq("user_id", current_user.id)
+        .eq("broker", "upstox")
+    )
+    if not cred:
+        raise HTTPException(status_code=400, detail="No Upstox credentials found. Save them first.")
+
+    client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
+    secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
+
+    client = await get_http_client()
+    resp = await client.post(
+        "https://api.upstox.com/v2/login/authorization/token",
+        data={
+            "code": req.auth_code,
+            "client_id": client_id,
+            "client_secret": secret_key,
+            "redirect_uri": UPSTOX_REDIRECT_URI,
+            "grant_type": "authorization_code",
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    data = resp.json()
+    if resp.status_code != 200 or not data.get("access_token"):
+        msg = data.get("message", data.get("error_description", "unknown"))
+        logger.error("Upstox token exchange failed: status=%d body=%s", resp.status_code, data)
+        raise HTTPException(status_code=400, detail=f"Upstox auth failed: {msg}")
+
+    raw_token = data["access_token"]
+    encrypted = encrypt_broker_credentials(raw_token)
+    refresh_encrypted = encrypt_broker_credentials(data.get("refresh_token", ""))
+    update_payload: dict = {
+        "encrypted_access_token": encrypted,
+        "is_active": True,
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+    if data.get("refresh_token"):
+        update_payload["encrypted_refresh_token"] = refresh_encrypted
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
+        update_payload
+    ).eq("id", cred["id"]).execute())
+
+    return {"message": "Upstox authenticated successfully!"}
+
+
+@router.get("/upstox/callback")
+async def upstox_callback(
+    code: str = Query(alias="code"),
+    state: str | None = Query(None),
+):
+    from fastapi.responses import RedirectResponse
+
+    logger.info("Upstox callback HIT: code=%s state=%s", code[:20] if code else "none", state)
+
+    FRONTEND_URL = f"{settings.frontend_url or 'https://ai.trademetrix.tech'}/brokers"
+
+    supabase = get_supabase()
+    cred = await async_safe_single(
+        supabase.table("broker_credentials")
+        .select("*")
+        .eq("user_id", state)
+        .eq("broker", "upstox")
+    )
+    if not cred:
+        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=No+Upstox+credentials+found")
+
+    client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
+    secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
+
+    client = await get_http_client()
+    resp = await client.post(
+        "https://api.upstox.com/v2/login/authorization/token",
+        data={
+            "code": code,
+            "client_id": client_id,
+            "client_secret": secret_key,
+            "redirect_uri": UPSTOX_REDIRECT_URI,
+            "grant_type": "authorization_code",
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    data = resp.json()
+    logger.info("Upstox callback response: status=%d body=%s", resp.status_code, data)
+    if resp.status_code != 200 or not data.get("access_token"):
+        msg = data.get("message", data.get("error_description", "unknown"))
+        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=Upstox+auth+failed:+{msg}")
+
+    raw_token = data["access_token"]
+    encrypted = encrypt_broker_credentials(raw_token)
+    update_payload: dict = {
+        "encrypted_access_token": encrypted,
+        "is_active": True,
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+    if data.get("refresh_token"):
+        refresh_encrypted = encrypt_broker_credentials(data["refresh_token"])
+        update_payload["encrypted_refresh_token"] = refresh_encrypted
+
+    await async_supabase(lambda: supabase.table("broker_credentials").update(
+        update_payload
+    ).eq("id", cred["id"]).execute())
+
+    return RedirectResponse(url=f"{FRONTEND_URL}?auth_success=1")

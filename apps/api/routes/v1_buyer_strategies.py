@@ -170,16 +170,16 @@ def _generate_simulated_candles(symbol: str, days: int, interval: str) -> list[d
 
 def _parse_interval_minutes(interval: str) -> int:
     interval = interval.lower().strip()
-    if interval.endswith("min"):
-        return int(interval.replace("min", ""))
-    if interval.endswith("h"):
-        return int(interval.replace("h", "")) * 60
-    if interval.endswith("d"):
-        return int(interval.replace("d", "")) * 1440
-    if interval.endswith("m"):
-        return int(interval.replace("m", ""))
     try:
+        if interval.endswith("min"):
+            return int(interval.replace("min", ""))
+        if interval.endswith("h"):
+            return int(interval.replace("h", "")) * 60
+        if interval.endswith("d"):
+            return int(interval.replace("d", "")) * 1440
+        if interval.endswith("m"):
+            return int(interval.replace("m", ""))
         return int(interval)
-    except ValueError:
+    except (ValueError, AttributeError):
         return 5
 

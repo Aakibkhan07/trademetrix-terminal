@@ -179,7 +179,12 @@ def _percent_change(current: float, previous: float) -> float:
     return (current - previous) / previous * 100
 
 
-def parse_expression(expr_def: dict) -> Expr:
+MAX_EXPR_DEPTH = 50
+
+
+def parse_expression(expr_def: dict, _depth: int = 0) -> Expr:
+    if _depth > MAX_EXPR_DEPTH:
+        raise ValueError(f"Expression exceeds max recursion depth of {MAX_EXPR_DEPTH}")
     expr_type = expr_def.get("type", "value")
     if expr_type == "value":
         return ValueExpr(expr_def.get("value"))
@@ -188,28 +193,28 @@ def parse_expression(expr_def: dict) -> Expr:
     elif expr_type == "binary":
         return BinaryExpr(
             expr_def["op"],
-            parse_expression(expr_def["left"]),
-            parse_expression(expr_def["right"]),
+            parse_expression(expr_def["left"], _depth + 1),
+            parse_expression(expr_def["right"], _depth + 1),
         )
     elif expr_type == "unary":
         return UnaryExpr(
             expr_def["op"],
-            parse_expression(expr_def["operand"]),
+            parse_expression(expr_def["operand"], _depth + 1),
         )
     elif expr_type == "ifelse":
         return IfElseExpr(
-            parse_expression(expr_def["condition"]),
-            parse_expression(expr_def["then"]),
-            parse_expression(expr_def.get("else")),
+            parse_expression(expr_def["condition"], _depth + 1),
+            parse_expression(expr_def["then"], _depth + 1),
+            parse_expression(expr_def.get("else"), _depth + 1),
         )
     elif expr_type == "function":
         return FunctionExpr(
             expr_def["name"],
-            [parse_expression(a) for a in expr_def.get("args", [])],
+            [parse_expression(a, _depth + 1) for a in expr_def.get("args", [])],
         )
     elif expr_type == "group":
         return GroupExpr(
-            [parse_expression(e) for e in expr_def.get("expressions", [])],
+            [parse_expression(e, _depth + 1) for e in expr_def.get("expressions", [])],
             expr_def.get("logic", "AND"),
         )
     raise ValueError(f"Unknown expression type: {expr_type}")

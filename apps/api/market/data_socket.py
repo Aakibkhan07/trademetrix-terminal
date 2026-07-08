@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from collections.abc import Callable
 
@@ -24,11 +25,14 @@ class SharedDataSocket:
         if self._initialized:
             return
         self._initialized = True
-        self._subscribers: dict[str, list[Callable]] = {}
+        self._subscribers: dict[str, set[Callable]] = {}
         self._broker_feeds: dict[str, asyncio.Task] = {}
         self._running = False
         self._active_connections = 0
         self._heartbeat_task: asyncio.Task | None = None
+        self._last_tick_time: dict[str, float] = {}
+        self._total_ticks = 0
+        self._gap_ticks = 0
 
     @property
     def active_connections(self) -> int:
@@ -86,7 +90,7 @@ class SharedDataSocket:
                     except (json.JSONDecodeError, KeyError, TypeError) as e:
                         logger.debug("Redis pub/sub parse error: %s", e)
         except ImportError:
-            logger.info("redis.asyncio not available — Redis pub/sub disabled")
+            logger.info("redis.asyncio not available -- Redis pub/sub disabled")
         except Exception as e:
             logger.warning("Redis pub/sub subscriber error: %s", e)
 
@@ -111,12 +115,12 @@ class SharedDataSocket:
 
     def subscribe(self, symbol: str, callback: Callable[[Tick], None]) -> None:
         if symbol not in self._subscribers:
-            self._subscribers[symbol] = []
-        self._subscribers[symbol].append(callback)
+            self._subscribers[symbol] = set()
+        self._subscribers[symbol].add(callback)
 
     def unsubscribe(self, symbol: str, callback: Callable) -> None:
         if symbol in self._subscribers:
-            self._subscribers[symbol] = [cb for cb in self._subscribers[symbol] if cb is not callback]
+            self._subscribers[symbol].discard(callback)
             if not self._subscribers[symbol]:
                 del self._subscribers[symbol]
 
@@ -127,15 +131,26 @@ class SharedDataSocket:
         market_cache.put_tick(tick)
         market_metrics.increment_ticks_processed(tick.broker or "unknown")
 
-        callbacks = self._subscribers.get(tick.symbol, []) + self._subscribers.get("*", [])
+        now = time.time()
+        last = self._last_tick_time.get(tick.symbol, 0)
+        if last and (now - last) > 5:
+            self._gap_ticks += 1
+            logger.debug("Tick gap detected for %s: %.1fs since last tick", tick.symbol, now - last)
+        self._last_tick_time[tick.symbol] = now
+        self._total_ticks += 1
+
+        callbacks = self._subscribers.get(tick.symbol, set()) | self._subscribers.get("*", set())
+        tasks = []
         for cb in callbacks:
             try:
                 if inspect.iscoroutinefunction(cb):
-                    await cb(tick)
+                    tasks.append(cb(tick))
                 else:
                     cb(tick)
             except Exception as e:
                 logger.error(f"Tick callback error: {e}", exc_info=True)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def start_broker_feed(self, user_id: str, broker_type: str, symbols: list[str]) -> None:
         if broker_type in self._broker_feeds:
@@ -183,7 +198,49 @@ class SharedDataSocket:
         task = asyncio.create_task(feed_runner())
         task.add_done_callback(lambda _: self._broker_feeds.pop(broker_type, None))
         self._broker_feeds[broker_type] = task
-        logger.info(f"Broker feed started for {broker_type} with {len(symbols)} symbols (token={bool(raw_token)}, yahoo_fallback={not raw_token})")
+        logger.info("Broker feed started for %s with %d symbols (token=%s, yahoo_fallback=%s)", broker_type, len(symbols), bool(raw_token), not raw_token)
+
+        await self._backfill_on_reconnect(broker_type, symbols)
+
+    async def _backfill_on_reconnect(self, broker_type: str, symbols: list[str]) -> None:
+        try:
+            from brokers import get_broker
+            from core.db import async_supabase, get_supabase
+            from core.security import decrypt_broker_credentials
+
+            supabase = get_supabase()
+            cred = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("broker", broker_type).limit(1).execute())
+            if not cred.data:
+                return
+            row = cred.data[0]
+            raw_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
+            client_id = decrypt_broker_credentials(row["encrypted_api_key"]) if row.get("encrypted_api_key") else ""
+            if not raw_token or not client_id:
+                return
+
+            adapter_cls = get_broker(broker_type)
+            adapter = adapter_cls()
+            await adapter.authenticate({"client_id": client_id, "access_token": raw_token})
+
+            missed = [s for s in symbols if time.time() - self._last_tick_time.get(s, 0) > 5]
+            if missed:
+                logger.info("Backfilling %d missed symbols for %s", len(missed), broker_type)
+                quotes = await adapter.get_quotes(missed)
+                for q in quotes:
+                    tick = Tick(
+                        symbol=q.symbol,
+                        exchange=q.exchange,
+                        last_price=q.last_price,
+                        bid=q.bid,
+                        ask=q.ask,
+                        volume=q.volume,
+                        oi=q.oi if hasattr(q, 'oi') else 0,
+                        timestamp=datetime.now(timezone.utc),
+                        broker=broker_type,
+                    )
+                    await self.broadcast_tick(tick)
+        except Exception as e:
+            logger.debug("Backfill skipped for %s: %s", broker_type, e)
 
     async def stop_broker_feed(self, broker_type: str) -> None:
         task = self._broker_feeds.pop(broker_type, None)
@@ -205,6 +262,8 @@ class SharedDataSocket:
             "subscribed_symbols": len(self._subscribers),
             "running_feeds": list(self._broker_feeds.keys()),
             "heartbeat_running": self._heartbeat_task is not None and not self._heartbeat_task.done(),
+            "total_ticks": self._total_ticks,
+            "gap_ticks": self._gap_ticks,
         }
 
 

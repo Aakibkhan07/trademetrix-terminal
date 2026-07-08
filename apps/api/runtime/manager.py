@@ -5,9 +5,9 @@ import time
 from datetime import UTC, datetime, timezone
 from typing import Any
 
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 from core.models import Candle, Tick
-from core.safe_query import safe_execute
+from core.safe_query import async_safe_execute, async_safe_single, safe_execute
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
 from execution.models import ExecutionRequest
 from market.cache import market_cache
@@ -24,6 +24,7 @@ from runtime.models import (
     StrategyState,
     TriggerType,
 )
+from runtime.event_subscriber import runtime_event_subscriber
 from runtime.observability import runtime_metrics
 from runtime.registry import strategy_registry
 from runtime.scheduler import scheduler
@@ -64,12 +65,17 @@ class RuntimeManager:
         self._contexts: dict[str, RuntimeContext] = {}
         self._evaluation_tasks: dict[str, asyncio.Task] = {}
         self._runtime_start = 0.0
+        self._heartbeat_task: asyncio.Task | None = None
 
     async def initialize(self) -> None:
         discovered = strategy_registry.discover()
         scheduler.register("_market_open", TriggerType.MARKET_OPEN, self._on_market_open)
         scheduler.register("_market_close", TriggerType.MARKET_CLOSE, self._on_market_close)
         await scheduler.start()
+        runtime_event_subscriber.subscribe()
+        if not self._heartbeat_task:
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        await self._recover_running_strategies()
         logger.info("RuntimeManager initialized with %d discovered strategies", len(discovered))
 
     async def register_strategy(self, config: RuntimeConfig) -> bool:
@@ -81,7 +87,7 @@ class RuntimeManager:
         self._configs[config.strategy_id] = config
         self._contexts[config.strategy_id] = RuntimeContext(config)
         strategy_registry.enable(config.strategy_key)
-        self._init_strategy_health(config.strategy_id)
+        await self._persist_state(config.strategy_id, StrategyState.DRAFT)
         logger.info("Strategy registered: %s (%s)", config.strategy_id, config.strategy_key)
         await self._publish_event("StrategyRegistered", config.strategy_id, config.user_id)
         return True
@@ -106,6 +112,7 @@ class RuntimeManager:
             await instance.on_start()
             strategy_registry.set_instance(config.strategy_key, instance)
             strategy_registry.set_state(config.strategy_key, StrategyState.RUNNING)
+            await self._persist_state(config.strategy_id, StrategyState.RUNNING)
             runtime_metrics.set_strategy_state(config.strategy_key, "RUNNING")
 
             trigger = config.trigger
@@ -138,6 +145,7 @@ class RuntimeManager:
                 logger.warning("Error stopping strategy instance %s: %s", getattr(instance, "config", {}).get("strategy_key", "unknown"), e)
         strategy_registry.set_state(config.strategy_key, StrategyState.STOPPED)
         strategy_registry.set_instance(config.strategy_key, None)
+        await self._persist_state(config.strategy_id, StrategyState.STOPPED)
         runtime_metrics.set_strategy_state(config.strategy_key, "STOPPED")
         await self._publish_event("StrategyStopped", strategy_id, config.user_id)
         logger.info("Strategy stopped: %s", strategy_id)
@@ -151,6 +159,7 @@ class RuntimeManager:
         if StrategyState.PAUSED not in VALID_TRANSITIONS.get(current, set()):
             return False
         strategy_registry.set_state(config.strategy_key, StrategyState.PAUSED)
+        await self._persist_state(config.strategy_id, StrategyState.PAUSED)
         runtime_metrics.set_strategy_state(config.strategy_key, "PAUSED")
         await self._publish_event("StrategyPaused", strategy_id, config.user_id)
         return True
@@ -163,6 +172,7 @@ class RuntimeManager:
         if StrategyState.RUNNING not in VALID_TRANSITIONS.get(current, set()):
             return False
         strategy_registry.set_state(config.strategy_key, StrategyState.RUNNING)
+        await self._persist_state(config.strategy_id, StrategyState.RUNNING)
         runtime_metrics.set_strategy_state(config.strategy_key, "RUNNING")
         await self._publish_event("StrategyResumed", strategy_id, config.user_id)
         return True
@@ -323,32 +333,57 @@ class RuntimeManager:
             metadata={"latency_ms": round(latency_ms, 2)},
         )
 
-    def _init_strategy_health(self, strategy_id: str) -> None:
+    async def _persist_state(self, strategy_id: str, state: StrategyState) -> None:
         try:
             supabase = get_supabase()
-            supabase.table("strategy_health").upsert({
+            await async_supabase(lambda: supabase.table("strategy_health").upsert({
                 "strategy_id": strategy_id,
-                "status": "registered",
+                "status": state.value,
                 "last_heartbeat": datetime.now(UTC).isoformat(),
-            }, on_conflict=["strategy_id"]).execute()
+            }, on_conflict=["strategy_id"]).execute())
         except Exception as e:
-            logger.debug("Failed to init strategy health: %s", e)
+            logger.debug("Failed to persist state for %s: %s", strategy_id, e)
+
+    async def _recover_running_strategies(self) -> None:
+        try:
+            supabase = get_supabase()
+            rows = await async_safe_execute(
+                supabase.table("strategy_health")
+                .select("*")
+                .eq("status", "running")
+            ) or []
+            for row in rows:
+                sid = row.get("strategy_id", "")
+                if sid in self._configs:
+                    await self.start_strategy(sid)
+                    logger.info("Recovered running strategy: %s", sid)
+            if rows:
+                logger.info("Recovered %d running strategies from DB", len(rows))
+        except Exception as e:
+            logger.warning("Strategy recovery failed: %s", e)
 
     async def _on_market_open(self) -> None:
         logger.info("Market opened — triggering market_open strategies")
+        tasks = []
         for sid in self._configs:
             config = self._configs[sid]
             if config.trigger == TriggerType.MARKET_OPEN and config.enabled:
-                await self.start_strategy(sid)
+                tasks.append(self.start_strategy(sid))
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _on_market_close(self) -> None:
         logger.info("Market closed — stopping all strategies")
-        for sid in list(self._configs.keys()):
-            await self.stop_strategy(sid)
+        tasks = [self.stop_strategy(sid) for sid in list(self._configs.keys())]
+        await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=30)
 
     async def shutdown(self) -> None:
-        for sid in list(self._configs.keys()):
-            await self.stop_strategy(sid)
+        runtime_event_subscriber.unsubscribe()
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            self._heartbeat_task = None
+        tasks = [self.stop_strategy(sid) for sid in list(self._configs.keys())]
+        await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=30)
         await scheduler.stop()
         for task in self._evaluation_tasks.values():
             task.cancel()
@@ -357,6 +392,23 @@ class RuntimeManager:
         self._contexts.clear()
         self._runtime_start = 0.0
         logger.info("RuntimeManager shut down")
+
+    async def _heartbeat_loop(self) -> None:
+        while True:
+            try:
+                await asyncio.sleep(60)
+                supabase = get_supabase()
+                now = datetime.now(UTC).isoformat()
+                for sid in self._configs:
+                    if sid in self._contexts:
+                        await async_supabase(lambda s=sid, t=now: supabase.table("strategy_health").upsert({
+                            "strategy_id": s,
+                            "heartbeat_at": t,
+                        }, on_conflict=["strategy_id"]).execute())
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning("Heartbeat error: %s", e)
 
     async def _publish_event(self, event_type: str, strategy_id: str, user_id: str, **extra) -> None:
         try:

@@ -95,5 +95,5 @@ async def test_broker_adapter_place_order_non_transient_returns_result():
 def test_settings_have_timeout_defaults():
     assert hasattr(settings, "broker_request_timeout")
     assert hasattr(settings, "broker_connect_timeout")
-    assert settings.broker_request_timeout == 15
-    assert settings.broker_connect_timeout == 10
+    assert settings.broker_request_timeout == 8
+    assert settings.broker_connect_timeout == 5

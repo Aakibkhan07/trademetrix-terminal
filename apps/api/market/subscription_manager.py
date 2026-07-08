@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 from collections.abc import Callable
 from typing import Any
 
@@ -82,6 +83,7 @@ class SubscriptionManager:
 
                 backoff = self._reconnect_backoff.get(broker_type, 0)
                 delay = min(2 ** backoff, self._max_backoff)
+                delay = random.uniform(delay * 0.5, delay * 1.5)
                 self._reconnect_backoff[broker_type] = backoff + 1
                 logger.info("Reconnecting feed %s in %ds (attempt %d)", broker_type, delay, backoff + 1)
                 market_metrics.increment_reconnects(broker_type)

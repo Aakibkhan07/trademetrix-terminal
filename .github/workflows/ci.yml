@@ -23,8 +23,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - run: pip install ruff
+      - run: pip install ruff mypy
       - run: ruff check .
+      - run: mypy market/runtime/engine/core/execution/ --ignore-missing-imports --follow-imports=skip || true
 
   test-api:
     name: Test API

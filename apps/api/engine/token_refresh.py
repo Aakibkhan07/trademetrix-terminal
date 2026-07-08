@@ -53,13 +53,13 @@ async def refresh_user_token(user_id: str, broker: str, creds: dict) -> dict:
             encrypted = encrypt_broker_credentials(session.access_token)
             update_data["encrypted_access_token"] = encrypted
 
-        safe_update("broker_credentials", update_data, "user_id", user_id)
+        safe_update("broker_credentials", update_data, "user_id", user_id, match_value2=broker, match_field2="broker")
         logger.info("Token refreshed: user=%s broker=%s", user_id, broker)
         return result
 
     except Exception as e:
         logger.warning("Token refresh failed: user=%s broker=%s error=%s", user_id, broker, e)
-        safe_update("broker_credentials", {"token_status": "needs_attention"}, "user_id", user_id)
+        safe_update("broker_credentials", {"token_status": "needs_attention"}, "user_id", user_id, match_value2=broker, match_field2="broker")
         return {
             "user_id": user_id,
             "broker": broker,

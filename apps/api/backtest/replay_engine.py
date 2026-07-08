@@ -178,19 +178,19 @@ class ReplayEngine:
 
     def _parse_interval(self, interval: str) -> int:
         interval = interval.lower().strip()
-        if interval.endswith("min"):
-            return int(interval.replace("min", ""))
-        if interval.endswith("h"):
-            return int(interval.replace("h", "")) * 60
-        if interval.endswith("d"):
-            return int(interval.replace("d", "")) * 1440
-        if interval.endswith("m"):
-            return int(interval.replace("m", ""))
-        if interval.endswith("s"):
-            return max(1, int(interval.replace("s", "")) // 60)
         try:
+            if interval.endswith("min"):
+                return int(interval.replace("min", ""))
+            if interval.endswith("h"):
+                return int(interval.replace("h", "")) * 60
+            if interval.endswith("d"):
+                return int(interval.replace("d", "")) * 1440
+            if interval.endswith("m"):
+                return int(interval.replace("m", ""))
+            if interval.endswith("s"):
+                return max(1, int(interval.replace("s", "")) // 60)
             return int(interval)
-        except ValueError:
+        except (ValueError, AttributeError):
             return 15
 
     def _dict_to_candle(self, d: dict) -> Candle:

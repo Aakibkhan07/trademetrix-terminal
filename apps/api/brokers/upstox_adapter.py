@@ -52,8 +52,12 @@ class UpstoxAdapter(BaseBroker):
     async def authenticate(self, credentials: dict) -> Session:
         access_token = credentials.get("access_token", "")
         refresh_token = credentials.get("refresh_token", "")
+        auth_code = credentials.get("auth_code", "")
         api_key = credentials.get("client_id") or credentials.get("api_key", "")
         secret_key = credentials.get("secret_key", "")
+
+        if auth_code and api_key and secret_key:
+            return await self._exchange_auth_code(api_key, secret_key, auth_code)
 
         if not access_token and api_key and secret_key:
             try:
@@ -83,6 +87,34 @@ class UpstoxAdapter(BaseBroker):
         return Session(
             access_token=self._access_token,
             user_id=self._client_id,
+            broker=self.broker_name,
+            authenticated=True,
+        )
+
+    async def _exchange_auth_code(self, api_key: str, secret_key: str, auth_code: str) -> Session:
+        from core.config import settings
+        redirect_uri = settings.upstox_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/upstox/callback"
+        client = await self._get_client()
+        resp = await client.post(
+            f"{self._base_url}/login/authorization/token",
+            data={
+                "code": auth_code,
+                "client_id": api_key,
+                "client_secret": secret_key,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
+        if resp.status_code != 200 or not data.get("access_token"):
+            raise ValueError(f"Upstox token exchange failed: {data.get('message', resp.status_code)}")
+        self._access_token = data["access_token"]
+        self._client_id = api_key
+        return Session(
+            access_token=self._access_token,
+            user_id=api_key,
             broker=self.broker_name,
             authenticated=True,
         )

@@ -412,3 +412,29 @@ async def get_option_chain(
         return nse_data
 
     raise HTTPException(status_code=503, detail=f"Option chain unavailable for {symbol}")
+
+
+@router.get("/status")
+async def get_market_status(current_user: UserProfile = Depends(get_current_user)):
+    from market.status import market_status_service
+    return market_status_service.get_market_status()
+
+
+@router.get("/instruments")
+async def get_instruments(
+    query: str = Query(""),
+    instrument_type: str | None = Query(None),
+    limit: int = Query(20, le=100),
+    current_user: UserProfile = Depends(get_current_user),
+):
+    from market.symbol_master import symbol_master
+    if query:
+        results = symbol_master.search_symbols(query, instrument_type, limit)
+        return {"instruments": results, "total": len(results)}
+    return {"instruments": [], "total": 0}
+
+
+@router.get("/metrics")
+async def get_market_metrics(current_user: UserProfile = Depends(get_current_user)):
+    from market.observability import market_metrics
+    return market_metrics.get_metrics()

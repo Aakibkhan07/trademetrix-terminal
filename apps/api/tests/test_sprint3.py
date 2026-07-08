@@ -92,7 +92,6 @@ class TestTokenManager:
         mock_adapter = AsyncMock()
         mock_adapter.authenticate.side_effect = [
             Exception("Network error"),
-            Exception("Network error"),
             MagicMock(access_token="new_token", expires_at=None),
         ]
         mock_adapter_cls.return_value = mock_adapter
@@ -114,7 +113,7 @@ class TestTokenManager:
         ):
             session = await tm.get_session()
             assert session["access_token"] == "new_token"
-            assert mock_adapter.authenticate.call_count == 3
+            assert mock_adapter.authenticate.call_count == 2
 
     @pytest.mark.asyncio
     async def test_token_refresh_timeout_raises(self):

@@ -1,4 +1,5 @@
 import logging
+import random
 from datetime import UTC, datetime, timedelta
 
 from core.db import get_supabase
@@ -185,19 +186,19 @@ async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: st
 
 def _parse_interval_minutes(interval: str) -> int:
     interval = interval.lower().strip()
-    if interval.endswith("min"):
-        return int(interval.replace("min", ""))
-    if interval.endswith("h"):
-        return int(interval.replace("h", "")) * 60
-    if interval.endswith("d"):
-        return int(interval.replace("d", "")) * 1440
-    if interval.endswith("m"):
-        return int(interval.replace("m", ""))
-    if interval.endswith("s"):
-        return max(1, int(interval.replace("s", "")) // 60)
     try:
+        if interval.endswith("min"):
+            return int(interval.replace("min", ""))
+        if interval.endswith("h"):
+            return int(interval.replace("h", "")) * 60
+        if interval.endswith("d"):
+            return int(interval.replace("d", "")) * 1440
+        if interval.endswith("m"):
+            return int(interval.replace("m", ""))
+        if interval.endswith("s"):
+            return max(1, int(interval.replace("s", "")) // 60)
         return int(interval)
-    except ValueError:
+    except (ValueError, AttributeError):
         return 15
 
 
@@ -236,3 +237,30 @@ def _candle_to_dict(c: Candle) -> dict:
         "volume": c.volume,
         "timestamp": c.timestamp.isoformat() if hasattr(c.timestamp, "isoformat") else str(c.timestamp),
     }
+
+
+def _synthesize_candles(symbol: str, days: int = 30, interval: str = "15m") -> list[dict]:
+    base_price = 24000.0
+    candles = []
+    interval_minutes = int(interval.replace("m", "").replace("min", "")) if "m" in interval else 60
+    total = days * (24 * 60 // interval_minutes)
+    now = datetime.now(UTC)
+    for i in range(total):
+        open_p = base_price + random.uniform(-100, 100)
+        close_p = open_p + random.uniform(-50, 50)
+        high_p = max(open_p, close_p) + random.uniform(0, 30)
+        low_p = min(open_p, close_p) - random.uniform(0, 30)
+        ts = now - timedelta(minutes=(total - i) * interval_minutes)
+        candles.append({
+            "symbol": symbol,
+            "exchange": "NSE",
+            "interval": interval,
+            "open": round(open_p, 2),
+            "high": round(high_p, 2),
+            "low": round(low_p, 2),
+            "close": round(close_p, 2),
+            "volume": random.randint(1000, 50000),
+            "timestamp": ts,
+            "oi": 0,
+        })
+    return candles

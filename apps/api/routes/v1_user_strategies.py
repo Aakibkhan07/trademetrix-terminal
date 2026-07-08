@@ -239,20 +239,16 @@ async def deploy_user_strategy(
     except ValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
-    plan = compile_user_strategy(strategy)
-
     if mode == "LIVE":
-        broker_cred = await async_safe_single(
-            supabase.table("broker_credentials")
-            .select("broker")
-            .eq("user_id", current_user.id)
-            .eq("is_active", True)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="LIVE deploy not enabled yet. Use PAPER mode for testing.",
         )
-        if not broker_cred:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No active broker connected. Connect a broker before deploying LIVE.",
-            )
+
+    try:
+        plan = compile_user_strategy(strategy)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     results = []
     for i, order in enumerate(plan.orders):

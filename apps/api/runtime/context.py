@@ -69,21 +69,21 @@ class RuntimeContext:
         return {}
 
     def _build_candle_context(self, candle: Candle | None) -> dict | None:
-        if candle:
-            return {
-                "symbol": candle.symbol,
-                "open": candle.open,
-                "high": candle.high,
-                "low": candle.low,
-                "close": candle.close,
-                "volume": candle.volume,
-                "oi": candle.oi,
-                "timestamp": candle.timestamp.isoformat() if candle.timestamp else "",
-            }
-        return None
+        if candle is None:
+            return None
+        return {
+            "symbol": candle.symbol,
+            "open": candle.open,
+            "high": candle.high,
+            "low": candle.low,
+            "close": candle.close,
+            "volume": candle.volume,
+            "interval": candle.interval,
+            "timestamp": candle.timestamp.isoformat() if candle.timestamp else "",
+        }
 
     def _build_indicator_context(self, symbol: str, interval: str) -> dict:
-        candles = getattr(market_cache, '_candles', {}).get(f"{symbol}:{interval}", []) or []
+        candles = market_cache.get_candles(f"{symbol}:{interval}") or []
         prices = [c.close for c in candles] if candles else []
 
         context = {"prices": prices, "highs": [c.high for c in candles] if candles else [],

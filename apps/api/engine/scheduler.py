@@ -76,22 +76,4 @@ class ISTScheduler:
         finally:
             config["active"] = False
 
-    async def square_off_all(self, executor_getter: Callable):
-        market_close = time(15, 30)
-        square_off_time = time(15, 15)
-
-        while self._running:
-            current = datetime.now(IST).time()
-            if square_off_time <= current <= market_close:
-                for strategy_id in list(self._tasks.keys()):
-                    executor = executor_getter(strategy_id)
-                    if executor:
-                        positions = await executor.get_positions()
-                        for pos in positions:
-                            if pos.quantity != 0:
-                                side = "SELL" if pos.quantity > 0 else "BUY"
-                                logger.info(f"Square off: {pos.symbol} {side}")
-            await asyncio.sleep(60)
-
-
 scheduler = ISTScheduler()

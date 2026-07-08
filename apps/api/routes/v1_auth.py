@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from core.audit import record_audit
 from core.config import settings
 from core.db import async_supabase, get_supabase
-from core.deps import get_current_user
+from core.deps import get_capabilities, get_current_user
 from core.http_client import get_http_client
 from core.models import AuditLogEntry, UserProfile
 from core.security import create_access_token
@@ -225,6 +225,11 @@ async def forgot_password(req: ForgotPasswordRequest):
 @router.get("/me")
 async def get_me(current_user: UserProfile = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/me/capabilities")
+async def me_capabilities(caps=Depends(get_capabilities)):
+    return caps
 
 
 @router.patch("/profile")

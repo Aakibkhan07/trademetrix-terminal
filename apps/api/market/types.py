@@ -1,3 +1,4 @@
+from collections import deque
 from datetime import datetime
 from typing import TypedDict
 
@@ -15,13 +16,10 @@ class NormalizedTick(Tick):
 
 class TickBuffer:
     def __init__(self, maxlen: int = 1000):
-        self._ticks: list[NormalizedTick] = []
-        self._maxlen = maxlen
+        self._ticks: deque = deque(maxlen=maxlen)
 
     def append(self, tick: NormalizedTick) -> None:
         self._ticks.append(tick)
-        if len(self._ticks) > self._maxlen:
-            self._ticks.pop(0)
 
     def flush(self) -> list[NormalizedTick]:
         result = list(self._ticks)
@@ -55,6 +53,7 @@ class OptionChainEntry(BaseModel):
     underlying: str = ""
     change: float = 0.0
     change_pct: float = 0.0
+    synthetic: bool = False
 
 
 class MarketStatus(BaseModel):

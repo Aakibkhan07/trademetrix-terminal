@@ -117,15 +117,15 @@ class TestBuyerBase:
         assert lots == 0
 
     async def test_resolve_strike_atm(self, buyer):
-        assert buyer._resolve_strike(24650.0, "CE") == 24650.0
+        assert await buyer._resolve_strike(24650.0, "CE") == 24650.0
 
     async def test_resolve_strike_itm_ce(self, buyer):
         buyer.bc.itm_offset_steps = 1
-        assert buyer._resolve_strike(24650.0, "CE") == 24600.0
+        assert await buyer._resolve_strike(24650.0, "CE") == 24600.0
 
     async def test_resolve_strike_itm_pe(self, buyer):
         buyer.bc.itm_offset_steps = 1
-        assert buyer._resolve_strike(24650.0, "PE") == 24700.0
+        assert await buyer._resolve_strike(24650.0, "PE") == 24700.0
 
     async def test_phase_initial(self, buyer):
         assert buyer.phase == Phase.BUILDING_OR

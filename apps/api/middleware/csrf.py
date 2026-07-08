@@ -19,12 +19,16 @@ SAFE_PATHS = {
     "/api/v1/auth/verify-otp",
     "/api/v1/tradingview/webhook",
     "/api/v1/subscriptions/webhook",
+    "/api/v1/subscriptions/webhook/",
     "/api/v1/marketdata/feed/start",
     "/api/v1/marketdata/feed/stop",
     "/api/v1/admin/assignments",
     "/api/v1/admin/broadcast",
     "/api/v1/admin/broadcast/recipients",
     "/api/v1/alerts",
+    "/api/v1/brokers/fyers/callback",
+    "/api/v1/brokers/dhan/callback",
+    "/api/v1/brokers/upstox/callback",
 }
 
 CSRF_COOKIE_NAME = "csrf_token"

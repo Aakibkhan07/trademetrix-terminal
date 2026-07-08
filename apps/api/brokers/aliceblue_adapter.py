@@ -86,6 +86,7 @@ class AliceBlueAdapter(BaseBroker):
     def _headers(self) -> dict:
         headers = {
             "Content-Type": "application/json",
+            "Accept": "application/json",
         }
         if self._access_token:
             headers["Authorization"] = f"Bearer {self._access_token}"
@@ -190,44 +191,126 @@ class AliceBlueAdapter(BaseBroker):
         )
 
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
-        return []
+        if not symbols:
+            return []
+        client = await self._get_client()
+        quotes = []
+        for sym in symbols:
+            try:
+                resp = await client.post(
+                    f"{self._base_url}/api/v2/market/quotes",
+                    json={"userId": self._user_id, "tradingSymbol": sym, "exchange": "NSE"},
+                    headers=self._headers(),
+                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+                )
+                data = resp.json()
+                items = data.get("data", data.get("result", []))
+                if isinstance(items, list):
+                    for item in items:
+                        quotes.append(self._normalize_quote(item, sym))
+                elif isinstance(items, dict):
+                    quotes.append(self._normalize_quote(items, sym))
+            except Exception as e:
+                logger.warning("Alice Blue get_quotes failed for %s: %s", sym, e)
+        return quotes
 
     async def get_historical(
         self, symbol: str, interval: str, start: str | None = None, end: str | None = None, range: str | None = None
     ) -> list[Candle]:
-        return []
+        client = await self._get_client()
+        interval_map = {
+            "1minute": "1", "5minute": "5", "10minute": "10",
+            "15minute": "15", "30minute": "30", "1hour": "60",
+            "1day": "1D", "1week": "1W", "1month": "1M",
+        }
+        mapped = interval_map.get(interval, interval)
+        if not end:
+            end = datetime.now(UTC).strftime("%Y-%m-%d")
+        if not start:
+            start = datetime.now(UTC).replace(day=1).strftime("%Y-%m-%d")
+        try:
+            resp = await client.post(
+                f"{self._base_url}/api/v2/chart/history",
+                json={
+                    "userId": self._user_id,
+                    "tradingSymbol": symbol,
+                    "exchange": "NSE",
+                    "resolution": mapped,
+                    "from": start,
+                    "to": end,
+                },
+                headers=self._headers(),
+                timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+            )
+            data = resp.json()
+            candles = []
+            items = data.get("data", data.get("candles", data.get("result", [])))
+            if isinstance(items, dict):
+                items = items.get("candles", [])
+            for item in items:
+                if isinstance(item, list):
+                    ts = item[0]
+                    if isinstance(ts, str):
+                        ts = ts.replace("T", " ").split("+")[0].split(".")[0]
+                        try:
+                            ts = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S") if " " in ts else datetime.strptime(ts, "%Y-%m-%d")
+                        except ValueError:
+                            ts = datetime.now(UTC)
+                    candles.append(
+                        Candle(
+                            symbol=symbol,
+                            exchange=Exchange.NSE,
+                            interval=interval,
+                            open=float(item[1]),
+                            high=float(item[2]),
+                            low=float(item[3]),
+                            close=float(item[4]),
+                            volume=int(item[5]) if len(item) > 5 else 0,
+                            timestamp=ts,
+                        )
+                    )
+            return candles
+        except Exception as e:
+            logger.warning("Alice Blue get_historical failed: %s", e)
+            return []
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
+        import websockets
+
         if not self._access_token:
-            raise RuntimeError("Not authenticated.")
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
         self._running = True
         retry_delay = 1
+
         while self._running:
             try:
-                async with httpx.AsyncClient() as client:
-                    ws_url = f"{self._ws_url}?token={self._access_token}&userId={self._user_id}"
-                    async with client.stream("GET", ws_url) as resp:
-                        if resp.status_code != 101:
-                            logger.error("Alice Blue WS connect failed: %s", resp.status_code)
-                            await asyncio.sleep(retry_delay)
-                            retry_delay = min(retry_delay * 2, 30)
+                ws_url = f"{self._ws_url}?token={self._access_token}&userId={self._user_id}"
+                async for ws in websockets.connect(ws_url, ping_interval=30):
+                    retry_delay = 1
+
+                    # Subscribe to symbols
+                    sub_msg = json.dumps({"action": "subscribe", "symbols": symbols})
+                    await ws.send(sub_msg)
+
+                    async for raw in ws:
+                        if not self._running:
+                            break
+                        if isinstance(raw, bytes):
+                            raw = raw.decode("utf-8")
+                        line = raw.strip()
+                        if not line:
                             continue
-                        retry_delay = 1
-                        async for line in resp.aiter_lines():
-                            if not self._running:
-                                break
-                            if not line.strip():
-                                continue
-                            try:
-                                data = json.loads(line)
-                                tick = self._parse_tick(data)
-                                if tick:
-                                    if inspect.iscoroutinefunction(on_tick):
-                                        await on_tick(tick)
-                                    else:
-                                        on_tick(tick)
-                            except json.JSONDecodeError:
-                                continue
+                        try:
+                            data = json.loads(line)
+                            tick = self._parse_tick(data)
+                            if tick:
+                                if inspect.iscoroutinefunction(on_tick):
+                                    await on_tick(tick)
+                                else:
+                                    on_tick(tick)
+                        except json.JSONDecodeError:
+                            continue
             except Exception as e:
                 logger.error("Alice Blue WS error: %s, reconnecting in %ds", e, retry_delay)
                 await asyncio.sleep(retry_delay)
@@ -274,6 +357,29 @@ class AliceBlueAdapter(BaseBroker):
     def _map_product(p: ProductType) -> str:
         mapping = {ProductType.INTRADAY: "INTRADAY", ProductType.DELIVERY: "DELIVERY", ProductType.MIS: "INTRADAY", ProductType.NRML: "DELIVERY"}
         return mapping.get(p, "INTRADAY")
+
+    def _normalize_quote(self, item: dict, symbol: str = "") -> Quote:
+        ohlc = item.get("ohlc", {})
+        sym = symbol or item.get("tradingSymbol", item.get("symbol", ""))
+        inst = self._parse_instrument(sym)
+        return Quote(
+            symbol=sym,
+            exchange=Exchange(item.get("exchange", "NSE")),
+            last_price=float(item.get("ltp", item.get("lastPrice", 0))),
+            open=float(ohlc.get("open", item.get("open", 0))),
+            high=float(ohlc.get("high", item.get("high", 0))),
+            low=float(ohlc.get("low", item.get("low", 0))),
+            close=float(ohlc.get("close", item.get("close", 0))),
+            volume=int(item.get("volume", item.get("v", 0))),
+            bid=float(item.get("bidPrice", item.get("bp", 0))),
+            ask=float(item.get("askPrice", item.get("sp", 0))),
+            timestamp=datetime.now(UTC),
+            broker=self.broker_name,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
+        )
 
     def _normalize_order(self, item: dict) -> NormalizedOrder:
         inst = self._parse_instrument(item.get("tradingSymbol", item.get("symbol", "")))

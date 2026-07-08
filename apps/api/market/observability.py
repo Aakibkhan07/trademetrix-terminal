@@ -1,6 +1,6 @@
 import time
 import logging
-from collections import defaultdict
+from collections import defaultdict, deque
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,7 @@ class MarketMetrics:
         self._total_ticks: int = 0
         self._errors: dict[str, int] = defaultdict(int)
         self._reconnects: dict[str, int] = defaultdict(int)
-        self._latencies: list[float] = []
-        self._max_latency_samples = 1000
+        self._latencies: deque = deque(maxlen=1000)
         self._active_connections: int = 0
         self._active_subscriptions: int = 0
         self._start_time: float = time.time()

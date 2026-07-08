@@ -49,8 +49,16 @@ class DhanAdapter(BaseBroker):
         return self._client
 
     async def authenticate(self, credentials: dict) -> Session:
-        self._access_token = credentials.get("access_token") or credentials.get("secret_key") or ""
-        self._client_id = credentials.get("client_id") or credentials.get("api_key") or credentials.get("dhanClientId") or ""
+        auth_code = credentials.get("auth_code", "")
+        access_token = credentials.get("access_token", "")
+        client_id = credentials.get("client_id") or credentials.get("api_key") or credentials.get("dhanClientId") or ""
+        secret_key = credentials.get("secret_key", "")
+
+        if auth_code and client_id and secret_key:
+            return await self._exchange_auth_code(client_id, secret_key, auth_code)
+
+        self._access_token = access_token or credentials.get("secret_key") or ""
+        self._client_id = client_id
         if not self._access_token:
             raise ValueError("access_token required for Dhan authentication")
 
@@ -66,6 +74,35 @@ class DhanAdapter(BaseBroker):
         return Session(
             access_token=self._access_token,
             user_id=self._client_id,
+            broker=self.broker_name,
+            authenticated=True,
+        )
+
+    async def _exchange_auth_code(self, client_id: str, client_secret: str, auth_code: str) -> Session:
+        from urllib.parse import urlencode
+        from core.config import settings
+        redirect_uri = settings.dhan_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/dhan/callback"
+        client = await self._get_client()
+        resp = await client.post(
+            f"{self._base_url}/oauth/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": auth_code,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+        )
+        data = resp.json()
+        if resp.status_code != 200 or not data.get("access_token"):
+            raise ValueError(f"Dhan token exchange failed: {data.get('message', resp.status_code)}")
+        self._access_token = data["access_token"]
+        self._client_id = client_id
+        return Session(
+            access_token=self._access_token,
+            user_id=client_id,
             broker=self.broker_name,
             authenticated=True,
         )

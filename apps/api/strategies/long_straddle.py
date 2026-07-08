@@ -94,10 +94,13 @@ class LongStraddle(BuyerBase):
         scale = min(1.0, max_ok / outlay) if outlay > max_ok else 1.0
         if scale < 0.5:
             return
+
         lots_ce = max(1, int(lots_ce * scale))
         lots_pe = max(1, int(lots_pe * scale))
         qty_ce = lots_ce * self.lot_size
         qty_pe = lots_pe * self.lot_size
+
+        await self._send_radar_alert(f"ATM {atm} CE+PE\nCombined: {combined:.2f} | Lots: {lots_ce}+{lots_pe}")
 
         logger.info(
             "STRADDLE ENTRY spot=%.2f ATM=%.0f CE=%.2f(%d) PE=%.2f(%d) combined=%.2f",

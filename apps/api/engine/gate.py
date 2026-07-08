@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import time
@@ -12,6 +13,16 @@ from market.symbol_master import symbol_master
 from risk.riskguard import RiskGuard
 
 logger = logging.getLogger(__name__)
+
+_order_locks: dict[str, asyncio.Lock] = {}
+_order_lock_lock = asyncio.Lock()
+
+
+async def _get_order_lock(client_order_id: str) -> asyncio.Lock:
+    async with _order_lock_lock:
+        if client_order_id not in _order_locks:
+            _order_locks[client_order_id] = asyncio.Lock()
+        return _order_locks[client_order_id]
 
 
 def generate_client_order_id(
@@ -215,64 +226,67 @@ async def execute_order(
             strategy_id=order.strategy_id,
         )
 
-    existing = await async_safe_single(
-        get_supabase().table("orders")
-        .select("*")
-        .eq("user_id", user_id)
-        .eq("client_order_id", order.client_order_id)
-    )
-    if existing:
-        await _write_audit(user_id, "duplicate", order, source=source, reason="DUPLICATE_ORDER")
-        return OrderResult(
-            success=True,
-            broker_order_id=existing.get("broker_order_id", ""),
-            message="DUPLICATE_ORDER",
-            status="duplicate",
+    lock = await _get_order_lock(order.client_order_id)
+    async with lock:
+        existing = await async_safe_single(
+            get_supabase().table("orders")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("client_order_id", order.client_order_id)
         )
+        if existing:
+            await _write_audit(user_id, "duplicate", order, source=source, reason="DUPLICATE_ORDER")
+            return OrderResult(
+                success=True,
+                broker_order_id=existing.get("broker_order_id", ""),
+                message="DUPLICATE_ORDER",
+                status="duplicate",
+            )
 
-    order.signal_at = datetime.now(UTC)
+        order.signal_at = datetime.now(UTC)
 
-    riskguard = RiskGuard(user_id)
-    risk_check = await riskguard.check_order(order)
-    order.risk_checked_at = datetime.now(UTC)
+        riskguard = RiskGuard(user_id)
+        risk_check = await riskguard.check_order(order)
+        order.risk_checked_at = datetime.now(UTC)
 
-    if not risk_check["allowed"]:
-        reason_code = _classify_rejection(risk_check.get("reason", ""))
-        order.status = OrderStatus.REJECTED
-        order.message = reason_code
-        await _write_audit(user_id, "rejected", order, source=source, reason=reason_code)
-        return OrderResult(success=False, message=reason_code, status="rejected")
+        if not risk_check["allowed"]:
+            reason_code = _classify_rejection(risk_check.get("reason", ""))
+            order.status = OrderStatus.REJECTED
+            order.message = reason_code
+            await _write_audit(user_id, "rejected", order, source=source, reason=reason_code)
+            return OrderResult(success=False, message=reason_code, status="rejected")
 
-    broker = await _resolve_broker(user_id)
-    if not broker:
-        order.status = OrderStatus.REJECTED
-        order.message = "NO_ACTIVE_BROKER"
-        await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
-        return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
-    order.broker = broker
-    order.is_paper = broker == "paper"
-    broker_symbol = await symbol_master.resolve_symbol(order.symbol, broker)
-    order.symbol = broker_symbol or order.symbol
+        broker = await _resolve_broker(user_id)
+        if not broker:
+            order.status = OrderStatus.REJECTED
+            order.message = "NO_ACTIVE_BROKER"
+            await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
+            return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
+        order.broker = broker
+        order.is_paper = broker == "paper"
+        broker_symbol = await symbol_master.resolve_symbol(order.symbol, broker)
+        order.symbol = broker_symbol or order.symbol
 
-    req = _normalized_to_execution_request(user_id, order, order.broker, source)
-    exec_result = await execution_manager.place_order(req)
+        req = _normalized_to_execution_request(user_id, order, order.broker, source)
+        exec_result = await execution_manager.place_order(req)
 
-    if exec_result.success:
-        order.broker_order_id = exec_result.broker_order_id
-        order.status = OrderStatus.FILLED
-        order.filled_at = datetime.now(UTC)
-        order.message = exec_result.message or "Order placed successfully"
-    else:
-        order.status = OrderStatus.REJECTED
-        order.message = exec_result.message or "PLACEMENT_FAILED"
+        if exec_result.success:
+            order.broker_order_id = exec_result.broker_order_id
+            order.status = OrderStatus.FILLED
+            order.filled_at = datetime.now(UTC)
+            order.message = exec_result.message or "Order placed successfully"
+        else:
+            order.status = OrderStatus.REJECTED
+            order.message = exec_result.message or "PLACEMENT_FAILED"
 
-    order.latency_ms = exec_result.latency_ms
-    await _write_audit(
-        user_id,
-        "placed" if exec_result.success else "failed",
-        order,
-        source=source,
-        reason="" if exec_result.success else (exec_result.message or "PLACEMENT_FAILED"),
-        broker=order.broker,
-    )
+        order.latency_ms = exec_result.latency_ms
+        await _write_audit(
+            user_id,
+            "placed" if exec_result.success else "failed",
+            order,
+            source=source,
+            reason="" if exec_result.success else (exec_result.message or "PLACEMENT_FAILED"),
+            broker=order.broker,
+        )
+        _order_locks.pop(order.client_order_id, None)
     return _execution_result_to_order_result(exec_result, order)

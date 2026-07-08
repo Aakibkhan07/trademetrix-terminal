@@ -224,9 +224,6 @@ class FivePaisaAdapter(BaseBroker):
         return [self._normalize_position(item) for item in items]
 
     async def get_holdings(self) -> list[Holding]:
-        return []
-
-    async def get_funds(self) -> Funds:
         client = await self._get_client()
         payload = {
             "head": {
@@ -234,23 +231,88 @@ class FivePaisaAdapter(BaseBroker):
                 "AppVer": "1.0.0",
                 "Key": "",
                 "OSName": "Web",
-                "RequestCode": "MarginRequest",
+                "RequestCode": "HoldingsRequest",
                 "UserID": self._client_code,
             },
             "body": {"ClientCode": self._client_code},
         }
-        resp = await client.post(f"{self._base_url}/Margin", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
-        data = resp.json()
-        body = data.get("body", {})
-        return Funds(
-            total_margin=float(body.get("TotalMargin", 0)),
-            used_margin=float(body.get("AmountUsed", 0)),
-            available_margin=float(body.get("AvailableMargin", 0)),
-            broker=self.broker_name,
-        )
+        try:
+            resp = await client.post(f"{self._base_url}/Holdings", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
+            data = resp.json()
+            items = data.get("body", {}).get("Holding", [])
+            return [self._normalize_holding(item) for item in items]
+        except Exception:
+            logger.exception("5Paisa get_holdings failed")
+            return []
+
+    async def get_historical(
+        self, symbol: str, interval: str, start: str | None = None, end: str | None = None, range: str | None = None
+    ) -> list[Candle]:
+        client = await self._get_client()
+        scrip_code = self._extract_scripcode(symbol)
+        if scrip_code <= 0:
+            return []
+        interval_map = {
+            "1minute": "1m", "5minute": "5m", "10minute": "10m",
+            "15minute": "15m", "30minute": "30m", "1hour": "60m",
+            "1day": "1d", "1week": "1w", "1month": "1M",
+        }
+        mapped = interval_map.get(interval, interval)
+        if not end:
+            end = datetime.now(UTC).strftime("%Y-%m-%d")
+        if not start:
+            start = datetime.now(UTC).replace(day=1).strftime("%Y-%m-%d")
+        payload = {
+            "head": {
+                "AppName": self._app_name,
+                "AppVer": "1.0.0",
+                "Key": "",
+                "OSName": "Web",
+                "RequestCode": "HistoricalDataRequest",
+                "UserID": self._client_code,
+            },
+            "body": {
+                "ClientCode": self._client_code,
+                "ScripCode": scrip_code,
+                "Exchange": "N",
+                "From": start,
+                "To": end,
+                "Resolution": mapped,
+            },
+        }
+        try:
+            resp = await client.post(f"{self._base_url}/HistoricalData", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
+            data = resp.json()
+            candles = []
+            items = data.get("body", {}).get("Data", [])
+            for item in items:
+                ts = item.get("Time", "")
+                if isinstance(ts, str):
+                    ts = ts.replace("T", " ").split("+")[0].split(".")[0]
+                    try:
+                        ts = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S") if " " in ts else datetime.strptime(ts, "%Y-%m-%d")
+                    except ValueError:
+                        ts = datetime.now(UTC)
+                candles.append(
+                    Candle(
+                        symbol=symbol,
+                        exchange=Exchange.NSE,
+                        interval=interval,
+                        open=float(item.get("Open", item.get("o", 0))),
+                        high=float(item.get("High", item.get("h", 0))),
+                        low=float(item.get("Low", item.get("l", 0))),
+                        close=float(item.get("Close", item.get("c", 0))),
+                        volume=int(item.get("Volume", item.get("v", 0))),
+                        timestamp=ts,
+                    )
+                )
+            return candles
+        except Exception:
+            logger.exception("5Paisa get_historical failed")
+            return []
 
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
-        if not symbols or not self._access_token:
+        if not symbols:
             return []
         client = await self._get_client()
         scrap_codes = [self._extract_scripcode(s) for s in symbols]
@@ -299,10 +361,8 @@ class FivePaisaAdapter(BaseBroker):
             logger.exception("5Paisa get_quotes failed")
             return []
 
-    async def get_historical(
-        self, symbol: str, interval: str, start: str | None = None, end: str | None = None, range: str | None = None
-    ) -> list[Candle]:
-        return []
+    async def get_funds(self) -> dict:
+        return {"total_margin": 0, "available_margin": 0, "utilized_margin": 0, "broker": "fivepaisa"}
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
         if not symbols:

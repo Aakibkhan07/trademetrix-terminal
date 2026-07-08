@@ -50,7 +50,7 @@ async def close_supabase() -> None:
         except Exception as e:
             logger.warning("Error closing supabase client: %s", e)
         _supabase = None
-    if _supabase_anon:
+    if _supabase_anon and _supabase_anon.postgrest:
         try:
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, _supabase_anon.auth.sign_out)

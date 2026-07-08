@@ -29,7 +29,7 @@ class HistoricalDataEngine:
         days: int = 7,
         user_id: str | None = None,
     ) -> list[dict]:
-        cache_key = f"historical:{symbol}:{exchange}:{interval}:{days}"
+        cache_key = f"historical:{symbol}:{exchange}:{interval}:{days}:{user_id or 'anon'}"
         ttl = self._interval_ttl(interval)
         cached = market_cache.get_quote(cache_key)
         if cached:
@@ -101,17 +101,17 @@ class HistoricalDataEngine:
 
     def _parse_interval_minutes(self, interval: str) -> int:
         interval = interval.lower().strip()
-        if interval.endswith("min"):
-            return int(interval.replace("min", ""))
-        if interval.endswith("h"):
-            return int(interval.replace("h", "")) * 60
-        if interval.endswith("d"):
-            return int(interval.replace("d", "")) * 1440
-        if interval.endswith("m"):
-            return int(interval.replace("m", ""))
         try:
+            if interval.endswith("min"):
+                return int(interval.replace("min", ""))
+            if interval.endswith("h"):
+                return int(interval.replace("h", "")) * 60
+            if interval.endswith("d"):
+                return int(interval.replace("d", "")) * 1440
+            if interval.endswith("m"):
+                return int(interval.replace("m", ""))
             return int(interval)
-        except ValueError:
+        except (ValueError, AttributeError):
             return 15
 
     def _map_symbol(self, symbol: str, exchange: str) -> str:

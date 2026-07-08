@@ -48,28 +48,28 @@ _register_broker_meta("angelone", {
 
 _register_broker_meta("dhan", {
     "display_name": "Dhan",
-    "auth_type": "access_token",
-    "description": "Connect via Dhan access token",
+    "auth_type": "oauth",
+    "description": "Connect your Dhan trading account via OAuth",
     "fields": [
-        {"key": "access_token", "label": "Access Token", "type": "password", "placeholder": "Your Dhan Access Token", "required": True},
-        {"key": "client_id", "label": "Dhan Client ID", "placeholder": "Your Dhan Client ID", "required": True},
+        {"key": "client_id", "label": "Client ID", "placeholder": "Your Dhan Client ID", "required": True},
+        {"key": "secret_key", "label": "Client Secret", "type": "password", "placeholder": "Your Dhan Client Secret", "required": True},
     ],
     "has_additional_params": False,
-    "instructions": "1. Go to api.dhan.co\n2. Generate an access token\n3. Copy your Client ID & token here\n4. Token must have trading API access enabled",
-    "oauth_available": False,
+    "instructions": "1. Go to api.dhan.co\n2. Create an application\n3. Copy Client ID & Secret here\n4. Click Authorize to complete OAuth",
+    "oauth_available": True,
 })
 
 _register_broker_meta("upstox", {
     "display_name": "Upstox",
-    "auth_type": "access_token",
-    "description": "Connect via Upstox access token",
+    "auth_type": "oauth",
+    "description": "Connect your Upstox trading account via OAuth",
     "fields": [
-        {"key": "access_token", "label": "Access Token", "type": "password", "placeholder": "Your Upstox Access Token", "required": True},
         {"key": "client_id", "label": "API Key", "placeholder": "Your Upstox API Key", "required": True},
+        {"key": "secret_key", "label": "API Secret", "type": "password", "placeholder": "Your Upstox API Secret", "required": True},
     ],
     "has_additional_params": False,
-    "instructions": "1. Go to upstox.com/api\n2. Generate an access token\n3. Copy your API Key & token here\n4. Token must have read/write trading permissions",
-    "oauth_available": False,
+    "instructions": "1. Go to upstox.com/api\n2. Create an application\n3. Copy API Key & Secret here\n4. Click Authorize to complete OAuth",
+    "oauth_available": True,
 })
 
 _register_broker_meta("aliceblue", {

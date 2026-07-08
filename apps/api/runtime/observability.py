@@ -1,16 +1,16 @@
 import time
-from collections import defaultdict
-from threading import Lock
+import asyncio
+from collections import defaultdict, deque
 
 
 class RuntimeMetrics:
     def __init__(self):
-        self._lock = Lock()
+        self._lock = asyncio.Lock()
         self._evaluation_count: int = 0
         self._signals_generated: int = 0
         self._signals_rejected: int = 0
         self._errors: int = 0
-        self._latencies: list[float] = []
+        self._latencies: deque = deque(maxlen=10000)
         self._errors_by_strategy: dict[str, int] = defaultdict(int)
         self._signals_by_strategy: dict[str, int] = defaultdict(int)
         self._strategy_states: dict[str, str] = {}

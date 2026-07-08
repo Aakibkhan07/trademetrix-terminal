@@ -84,7 +84,7 @@ class TestCompile:
     def test_happy_path_single_leg(self):
         """1. Happy path: single ATM CE buy leg compiles to one NormalizedOrder."""
         s = make_strategy()
-        plan = compile_user_strategy(s, spot_price=24200.0, option_chain=SAMPLE_OPTION_CHAIN, is_simulated=False)
+        plan = compile_user_strategy(s, spot_price=24200.0, option_chain=SAMPLE_OPTION_CHAIN)
         assert len(plan.orders) == 1
         o = plan.orders[0]
         assert o.side == OrderSide.BUY
@@ -92,7 +92,6 @@ class TestCompile:
         assert o.source == "user_strategy"
         assert o.quantity == LOT_SIZES["NIFTY"]  # 1 lot * 65
         assert o.strategy_id == s.id
-        assert not plan.is_simulated
 
     def test_happy_path_multiple_legs(self):
         """2. Multi-leg strategy: 4 legs → 4 orders, correct ordering."""
@@ -183,14 +182,13 @@ class TestCompile:
         expiry_str = resolve_expiry(leg, "NIFTY")
         assert "20" in expiry_str
 
-    def test_simulated_flag_when_no_market_data(self):
-        """12. When spot/chain is None, is_simulated=True and fallback strikes used."""
+    def test_compile_requires_spot_and_chain(self):
+        """12. Compile raises ValueError when spot or chain is missing."""
         s = make_strategy()
-        plan = compile_user_strategy(s)
-        assert plan.is_simulated
-        # Should still produce valid orders with estimated spot data
-        assert len(plan.orders) == 1
-        assert plan.orders[0].quantity > 0
+        with pytest.raises(ValueError, match="spot price"):
+            compile_user_strategy(s)
+        with pytest.raises(ValueError, match="option chain"):
+            compile_user_strategy(s, spot_price=24200.0)
 
 
 # ═══════════════════════════════════════════

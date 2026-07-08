@@ -1,44 +1,89 @@
+import asyncio
 import logging
 from datetime import UTC, datetime
 
 from core.db import async_supabase, get_supabase
 from core.models import Tick
-from core.safe_query import safe_execute
-from market.data_socket import shared_socket
+from core.safe_query import async_safe_execute, safe_execute
+from market.cache import market_cache
 
 logger = logging.getLogger(__name__)
 
 _alert_task = None
+_cached_alerts: list[dict] = []
+_last_refresh: float = 0
+_ALERT_CACHE_TTL = 30.0
 
 
-async def _check_alerts(tick: Tick) -> None:
+async def _refresh_alerts_cache() -> None:
+    global _cached_alerts, _last_refresh
     supabase = get_supabase()
-    symbol = tick.symbol.split(":")[0] if ":" in tick.symbol else tick.symbol
-    alerts = safe_execute(
+    rows = await async_safe_execute(
         supabase.table("user_alerts")
         .select("id, user_id, symbol, condition, target_price, is_active")
-        .eq("symbol", symbol)
         .eq("is_active", True)
         .is_("triggered_at", "null")
     ) or []
+    _cached_alerts = rows
+    _last_refresh = __import__("time").time()
+    logger.debug("Refreshed alert cache: %d active alerts", len(rows))
 
-    for alert in alerts:
-        price = tick.last_price or 0
-        condition = alert.get("condition")
-        target = alert.get("target_price", 0)
-        triggered = (condition == "above" and price >= target) or (condition == "below" and price <= target)
-        if not triggered:
-            continue
 
-        await async_supabase(lambda: supabase.table("user_alerts").update({
-            "triggered_at": datetime.now(UTC).isoformat(),
-            "is_active": False,
-        }).eq("id", alert["id"]).execute())
+async def _ensure_alerts_fresh() -> None:
+    import time
+    if time.time() - _last_refresh > _ALERT_CACHE_TTL:
+        await _refresh_alerts_cache()
 
+
+async def _check_alerts_loop() -> None:
+    await _refresh_alerts_cache()
+    while True:
+        await asyncio.sleep(2)
         try:
-            await _send_alert_notification(alert["user_id"], alert["id"], symbol, condition, target, price)
+            await _ensure_alerts_fresh()
+            if not _cached_alerts:
+                continue
+            all_ticks = market_cache.get_all_ticks()
+            triggered = []
+            for alert in _cached_alerts:
+                symbol = alert.get("symbol", "")
+                tick = all_ticks.get(symbol) or all_ticks.get(f"NSE:{symbol}")
+                if not tick:
+                    sym_key = next((k for k in all_ticks if symbol in k), None)
+                    if sym_key:
+                        tick = all_ticks[sym_key]
+                if not tick:
+                    continue
+                price = tick.last_price or 0
+                condition = alert.get("condition")
+                target = alert.get("target_price", 0)
+                if (condition == "above" and price >= target) or (condition == "below" and price <= target):
+                    triggered.append(alert)
+            for alert in triggered:
+                await _fire_alert(alert)
         except Exception as e:
-            logger.error("Alert notification failed user=%s alert=%s: %s", alert["user_id"], alert["id"], e)
+            logger.error("Alert check loop error: %s", e)
+
+
+async def _fire_alert(alert: dict) -> None:
+    supabase = get_supabase()
+    alert_id = alert["id"]
+    symbol = alert.get("symbol", "")
+    condition = alert.get("condition", "")
+    target = alert.get("target_price", 0)
+    user_id = alert.get("user_id", "")
+    price = market_cache.get_tick(symbol)
+    current = price.last_price if price else 0
+
+    await async_supabase(lambda: supabase.table("user_alerts").update({
+        "triggered_at": datetime.now(UTC).isoformat(),
+        "is_active": False,
+    }).eq("id", alert_id).execute())
+
+    try:
+        await _send_alert_notification(user_id, alert_id, symbol, condition, target, current)
+    except Exception as e:
+        logger.error("Alert notification failed user=%s alert=%s: %s", user_id, alert_id, e)
 
 
 async def _send_alert_notification(user_id: str, alert_id: str, symbol: str, condition: str, target: float, current: float) -> None:
@@ -63,7 +108,7 @@ async def _send_alert_notification(user_id: str, alert_id: str, symbol: str, con
 
     from core.notifications import send_alert_email as _email, send_alert_sms as _sms, send_alert_whatsapp as _whatsapp
 
-    prefs = safe_execute(
+    prefs = await async_safe_execute(
         supabase.table("notification_prefs").select("channels").eq("user_id", user_id)
     )
     channels = prefs[0].get("channels", ["email"]) if prefs else ["email"]
@@ -84,11 +129,13 @@ async def start_alert_checker() -> None:
     if _alert_task and not _alert_task.done():
         logger.info("Alert checker already running")
         return
-    shared_socket.subscribe("*", _check_alerts)
-    logger.info("Alert checker started — subscribed to all ticks")
+    _alert_task = asyncio.create_task(_check_alerts_loop())
+    logger.info("Alert checker started — polling every 2s")
 
 
 async def stop_alert_checker() -> None:
     global _alert_task
-    shared_socket.unsubscribe("*", _check_alerts)
+    if _alert_task and not _alert_task.done():
+        _alert_task.cancel()
+        _alert_task = None
     logger.info("Alert checker stopped")

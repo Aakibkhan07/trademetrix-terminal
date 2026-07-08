@@ -93,6 +93,7 @@ class TrendRiderBuyer(BuyerBase):
             await self._enter("PE", bar.close)
 
     async def _enter(self, cepe: str, spot: float) -> None:
+        await self._send_radar_alert(f"{cepe} @ {spot}\nEMA9/21 + VWAP + ADX Trend")
         expiry = await self._resolve_expiry()
         strike = await self._resolve_strike(spot, cepe)
         symbol = self._build_symbol(expiry, strike, cepe)

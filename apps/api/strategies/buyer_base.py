@@ -117,6 +117,11 @@ class BuyerBase(BaseStrategy):
             self._riskguard = RiskGuard(self.bc.user_id)
         return self._riskguard
 
+    async def _send_radar_alert(self, detail: str) -> None:
+        await send_telegram_alert(
+            f"📡 <b>Radar — {self.name}</b>\n{self.bc.strategy_id}\n{detail}"
+        )
+
     async def _is_kill_switched(self) -> bool:
         rg = self.riskguard
         if rg:

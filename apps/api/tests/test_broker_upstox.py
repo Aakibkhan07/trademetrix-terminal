@@ -65,6 +65,31 @@ async def test_login_with_credentials(adapter: UpstoxAdapter):
 
 
 @pytest.mark.asyncio
+async def test_authenticate_with_oauth(adapter: UpstoxAdapter):
+    client = AsyncMock()
+    resp = MagicMock(status_code=200)
+    resp.json.return_value = {"access_token": "oauth_token_upstox", "expires_in": 86400}
+    client.post = AsyncMock(return_value=resp)
+    adapter._get_client = AsyncMock(return_value=client)
+
+    session = await adapter.authenticate({"client_id": "cid", "auth_code": "ac1", "secret_key": "sk1"})
+    assert session.authenticated is True
+    assert session.access_token == "oauth_token_upstox"
+
+
+@pytest.mark.asyncio
+async def test_authenticate_with_oauth_failure(adapter: UpstoxAdapter):
+    client = AsyncMock()
+    resp = MagicMock(status_code=400)
+    resp.json.return_value = {"message": "invalid_grant"}
+    client.post = AsyncMock(return_value=resp)
+    adapter._get_client = AsyncMock(return_value=client)
+
+    with pytest.raises(ValueError, match="Upstox token exchange failed"):
+        await adapter.authenticate({"client_id": "cid", "auth_code": "bad", "secret_key": "sk1"})
+
+
+@pytest.mark.asyncio
 async def test_place_order(adapter: UpstoxAdapter):
     client = AsyncMock()
     resp = MagicMock(status_code=200)

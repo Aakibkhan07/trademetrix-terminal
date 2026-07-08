@@ -19,6 +19,7 @@ class RuntimeScheduler:
         self._loop_task: asyncio.Task | None = None
         self._minute_task: asyncio.Task | None = None
         self._market_tasks: dict[str, asyncio.Task] = {}
+        self._callback_tasks: set[asyncio.Task] = set()
 
     def register(self, strategy_id: str, trigger: TriggerType, callback: Any, interval: str = "1m", cron: str = "") -> None:
         self._triggers[strategy_id] = {
@@ -49,19 +50,26 @@ class RuntimeScheduler:
         for task in self._market_tasks.values():
             task.cancel()
         self._market_tasks.clear()
+        for task in self._callback_tasks:
+            task.cancel()
+        self._callback_tasks.clear()
         logger.info("RuntimeScheduler stopped")
 
     async def on_tick(self, tick: Tick) -> None:
+        tasks = []
         for sid, config in list(self._triggers.items()):
             if config["trigger"] in (TriggerType.EVERY_TICK,) and config["active"]:
                 try:
                     result = config["callback"](tick=tick)
                     if hasattr(result, "__await__"):
-                        await result
+                        tasks.append(result)
                 except Exception as e:
                     logger.error("Tick callback error for %s: %s", sid, e)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def on_candle(self, candle: Candle) -> None:
+        tasks = []
         for sid, config in list(self._triggers.items()):
             if config["trigger"] in (TriggerType.CANDLE_CLOSE,) and config["active"]:
                 interval_match = not config["interval"] or config["interval"] == candle.interval
@@ -69,9 +77,26 @@ class RuntimeScheduler:
                     try:
                         result = config["callback"](candle=candle)
                         if hasattr(result, "__await__"):
-                            await result
+                            tasks.append(result)
                     except Exception as e:
                         logger.error("Candle callback error for %s: %s", sid, e)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    def _track_task(self, coro) -> None:
+        task = asyncio.create_task(self._run_callback_safe(coro))
+        self._callback_tasks.add(task)
+        task.add_done_callback(self._callback_tasks.discard)
+
+    async def _run_callback_safe(self, coro) -> None:
+        try:
+            await asyncio.wait_for(coro, timeout=30)
+        except asyncio.TimeoutError:
+            logger.warning("Callback timed out after 30s")
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error("Callback error: %s", e)
 
     async def _run_loop(self):
         while self._running:
@@ -86,15 +111,15 @@ class RuntimeScheduler:
                 if trigger == TriggerType.MARKET_OPEN:
                     if current_minute == market_open and not config["active"]:
                         config["active"] = True
-                        asyncio.create_task(self._run_callback(sid, config))
+                        self._track_task(self._run_callback(sid, config))
                 elif trigger == TriggerType.MARKET_CLOSE:
                     if current_minute == market_close and not config["active"]:
                         config["active"] = True
-                        asyncio.create_task(self._run_callback(sid, config))
+                        self._track_task(self._run_callback(sid, config))
                 elif trigger == TriggerType.CRON:
                     if self._cron_matches(config["cron"], now) and not config["active"]:
                         config["active"] = True
-                        asyncio.create_task(self._run_callback(sid, config))
+                        self._track_task(self._run_callback(sid, config))
 
                 if trigger in (TriggerType.MARKET_OPEN, TriggerType.MARKET_CLOSE, TriggerType.CRON):
                     if config["active"]:
@@ -110,18 +135,21 @@ class RuntimeScheduler:
 
                 if trigger == TriggerType.EVERY_MINUTE:
                     if config["active"]:
-                        asyncio.create_task(self._run_callback(sid, config))
+                        self._track_task(self._run_callback(sid, config))
                 elif trigger == TriggerType.EVERY_5_MINUTES:
                     if config["active"] and now.minute % 5 == 0:
-                        asyncio.create_task(self._run_callback(sid, config))
+                        self._track_task(self._run_callback(sid, config))
 
             await asyncio.sleep(60)
 
     async def _run_callback(self, sid: str, config: dict) -> None:
         try:
             result = config["callback"]()
-            if hasattr(result, "__await__"):
-                await result
+            coro = result if hasattr(result, "__await__") else None
+            if coro:
+                await asyncio.wait_for(coro, timeout=60)
+        except asyncio.TimeoutError:
+            logger.error("Callback timed out for %s", sid)
         except Exception as e:
             logger.error("Callback error for %s: %s", sid, e)
         finally:

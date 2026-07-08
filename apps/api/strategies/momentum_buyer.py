@@ -74,7 +74,7 @@ class MomentumBreakoutBuyer(BuyerBase):
             await self._enter("PE", bar.close)
 
     async def _enter(self, cepe: str, spot: float) -> None:
-        # IV gate
+        await self._send_radar_alert(f"{cepe} @ {spot}\nOR Breakout + Volume Confirmation")
         if await self._check_iv_gate():
             return
 

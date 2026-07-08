@@ -10,6 +10,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 
 from core.cache import cache
+from core.config import settings
 from core.models import Tick
 from market.candle_aggregator import CandleAggregator
 from market.data_socket import shared_socket
@@ -26,6 +27,54 @@ CACHE_INDEX_PREFIX = "buyer_runner:index:"
 POLL_INTERVAL = 30
 CANDLE_INTERVAL = "5m"
 
+DEFAULT_USER_ID = settings.default_buyer_user_id
+
+AUTO_CONFIGS: dict[str, dict] = {
+    "B1-momentum": {
+        "strategy_id": "B1-momentum",
+        "strategy_key": "momentum_breakout_buyer",
+        "user_id": DEFAULT_USER_ID,
+        "index": "NIFTY",
+        "backtest_mode": True,
+        "capital": 50000.0,
+        "risk_per_trade_pct": 1.0,
+        "max_outlay_pct": 10.0,
+        "sl_pct": 10.0,
+        "rr_target": 1.5,
+        "itm_offset_steps": 0,
+        "vol_mult": 1.5,
+        "time_stop_min": 30,
+    },
+    "B2-trend-rider": {
+        "strategy_id": "B2-trend-rider",
+        "strategy_key": "trend_rider_buyer",
+        "user_id": DEFAULT_USER_ID,
+        "index": "NIFTY",
+        "backtest_mode": True,
+        "capital": 50000.0,
+        "risk_per_trade_pct": 1.0,
+        "max_outlay_pct": 10.0,
+        "sl_pct": 10.0,
+        "rr_target": 1.5,
+        "itm_offset_steps": 0,
+        "time_stop_min": 40,
+    },
+    "B3-straddle": {
+        "strategy_id": "B3-straddle",
+        "strategy_key": "long_straddle",
+        "user_id": DEFAULT_USER_ID,
+        "index": "NIFTY",
+        "backtest_mode": True,
+        "capital": 50000.0,
+        "risk_per_trade_pct": 1.0,
+        "max_outlay_pct": 10.0,
+        "itm_offset_steps": 0,
+        "time_stop_min": 45,
+        "combined_loss_pct": 10,
+        "leg_target_multiple": 1.2,
+    },
+}
+
 
 class BuyerStrategyRunner:
     def __init__(self):
@@ -35,6 +84,8 @@ class BuyerStrategyRunner:
         self._active: list[str] = []
         self._configs: dict[str, dict] = {}
         self._indices: dict[str, str] = {}
+        self._auto_activated_today: bool = False
+        self._auto_today_str: str = ""
 
     async def start(self):
         if self._running:
@@ -83,6 +134,14 @@ class BuyerStrategyRunner:
         asyncio.ensure_future(cache.delete(f"{CACHE_CONFIG_PREFIX}{sid}"))
         asyncio.ensure_future(cache.delete(f"{CACHE_INDEX_PREFIX}{sid}"))
 
+    async def _auto_activate(self):
+        logger.info("Market open — auto-activating all buyer strategies")
+        for sid, cfg in AUTO_CONFIGS.items():
+            index = cfg.get("index", "NIFTY")
+            await self.activate(sid, cfg, index)
+        self._auto_activated_today = True
+        logger.info("Auto-activated %d buyer strategies", len(AUTO_CONFIGS))
+
     async def _run_loop(self):
         while self._running:
             try:
@@ -95,6 +154,18 @@ class BuyerStrategyRunner:
         now = datetime.now(IST)
         market_open = now.hour * 60 + now.minute >= 9 * 60 + 15
         market_close = now.hour * 60 + now.minute > 15 * 60 + 30
+        today = now.strftime("%Y%m%d")
+
+        # Reset auto-activate flag on new day or after market close
+        if today != self._auto_today_str:
+            self._auto_activated_today = False
+            self._auto_today_str = today
+        if market_close:
+            self._auto_activated_today = True
+
+        # Auto-activate all 3 strategies when market opens (once per day)
+        if market_open and not self._auto_activated_today and not self._active:
+            await self._auto_activate()
 
         for sid in list(self._active):
             if sid in self._tasks and not self._tasks[sid].done():

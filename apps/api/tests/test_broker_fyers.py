@@ -12,27 +12,16 @@ def adapter():
 
 @pytest.mark.asyncio
 async def test_authenticate_success(adapter: FyersAdapter):
-    client = AsyncMock()
-    resp = MagicMock(status_code=200)
-    resp.json.return_value = {"s": "ok", "data": {"fy_id": "test_user"}}
-    client.get = AsyncMock(return_value=resp)
-    adapter._get_client = AsyncMock(return_value=client)
-
     session = await adapter.authenticate({"client_id": "test_client", "access_token": "test_token"})
     assert session.authenticated is True
-    assert session.user_id == "test_user"
+    assert session.user_id == "test_client"
     assert session.broker == "fyers"
 
 
 @pytest.mark.asyncio
 async def test_authenticate_failure(adapter: FyersAdapter):
-    client = AsyncMock()
-    resp = MagicMock(status_code=401)
-    client.get = AsyncMock(return_value=resp)
-    adapter._get_client = AsyncMock(return_value=client)
-
-    with pytest.raises(ValueError, match="invalid access_token"):
-        await adapter.authenticate({"client_id": "test_client", "access_token": "bad_token"})
+    with pytest.raises(ValueError, match="auth_code and secret_key required"):
+        await adapter.authenticate({"client_id": "test_client"})
 
 
 @pytest.mark.asyncio

@@ -44,6 +44,7 @@ from routes.v1_events import router as events_router
 from routes.v1_analytics import router as analytics_router
 from routes.v1_feedback import router as feedback_router
 from routes.v1_margin_estimate import router as margin_estimate_router
+from routes.v1_subscriptions import router as subscriptions_router
 from routes.v1_buyer_strategies import router as buyer_strategies_router
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,8 @@ async def lifespan(app: FastAPI):
     init_sentry()
     init_vault()
     await cache.init()
+    from market.cache import market_cache
+    await market_cache.start_sweeper()
     from engine.user_strategy_runner import user_strategy_runner
     from engine.buyer_strategy_runner import buyer_strategy_runner
     await user_strategy_runner.start()
@@ -140,6 +143,7 @@ app.include_router(prometheus_router)
 app.include_router(user_strategies_router, prefix="/api/v1")
 app.include_router(margin_estimate_router, prefix="/api/v1")
 app.include_router(buyer_strategies_router, prefix="/api/v1")
+app.include_router(subscriptions_router, prefix="/api/v1")
 
 
 @app.exception_handler(AppException)

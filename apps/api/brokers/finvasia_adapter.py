@@ -170,7 +170,9 @@ class FinvasiaAdapter(BaseBroker):
         return [self._normalize_position(item) for item in items]
 
     async def get_holdings(self) -> list[Holding]:
-        return []
+        data = await self._noren_post("Holdings", {"actid": self._user_id})
+        items = data if isinstance(data, list) else data.get("data", data.get("holdings", []))
+        return [self._normalize_holding(item) for item in items]
 
     async def get_funds(self) -> Funds:
         data = await self._noren_post("Limits", {})
@@ -225,36 +227,44 @@ class FinvasiaAdapter(BaseBroker):
         return candles
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
+        import websockets
+
+        if not self._access_token:
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
         self._running = True
         retry_delay = 1
-        ws_url = f"{self._ws_url}?susertoken={self._access_token}&uid={self._user_id}"
+
         while self._running:
             try:
-                async with httpx.AsyncClient() as client:
-                    async with client.stream("GET", ws_url) as resp:
-                        if resp.status_code != 101:
-                            logger.error("Shoonya WS connect failed: %s", resp.status_code)
-                            await asyncio.sleep(retry_delay)
-                            retry_delay = min(retry_delay * 2, 30)
+                ws_url = f"{self._ws_url}?susertoken={self._access_token}&uid={self._user_id}"
+                async for ws in websockets.connect(ws_url, ping_interval=30):
+                    retry_delay = 1
+
+                    # Send initial subscription to touchline/cast
+                    sub_msg = json.dumps({"t": "s", "k": symbols})
+                    await ws.send(sub_msg)
+
+                    async for raw in ws:
+                        if not self._running:
+                            break
+                        if isinstance(raw, bytes):
+                            raw = raw.decode("utf-8")
+                        line = raw.strip()
+                        if not line:
                             continue
-                        retry_delay = 1
-                        async for line in resp.aiter_lines():
-                            if not self._running:
-                                break
-                            if not line.strip():
-                                continue
-                            try:
-                                data = json.loads(line)
-                                if "Touchline" in data:
-                                    data = data["Touchline"]
-                                tick = self._parse_tick(data)
-                                if tick:
-                                    if inspect.iscoroutinefunction(on_tick):
-                                        await on_tick(tick)
-                                    else:
-                                        on_tick(tick)
-                            except (json.JSONDecodeError, Exception):
-                                continue
+                        try:
+                            data = json.loads(line)
+                            if "Touchline" in data:
+                                data = data["Touchline"]
+                            tick = self._parse_tick(data)
+                            if tick:
+                                if inspect.iscoroutinefunction(on_tick):
+                                    await on_tick(tick)
+                                else:
+                                    on_tick(tick)
+                        except json.JSONDecodeError:
+                            continue
             except Exception as e:
                 logger.error("Shoonya WS error: %s, reconnecting in %ds", e, retry_delay)
                 await asyncio.sleep(retry_delay)
@@ -263,6 +273,12 @@ class FinvasiaAdapter(BaseBroker):
     async def disconnect(self) -> None:
         self._running = False
         self._client = None
+
+    def _headers(self) -> dict:
+        return {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
 
     def _parse_tick(self, data: dict) -> Tick | None:
         try:

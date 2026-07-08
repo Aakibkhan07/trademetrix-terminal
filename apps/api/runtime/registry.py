@@ -65,14 +65,23 @@ class StrategyRegistry:
             self._states[key] = StrategyState.PAUSED
 
     def reload(self, key: str) -> bool:
+        import time
+        now = time.time()
+        last = getattr(self, "_last_reload_time", 0)
+        if now - last < 5:
+            logger.warning("Reload throttled for %s — must wait 5s between reloads", key)
+            return False
+        self._last_reload_time = now
         try:
             cls = self._strategies.get(key)
             if not cls:
                 return False
             module = inspect.getmodule(cls)
             if module:
-                importlib.reload(module)
-                members = inspect.getmembers(module, lambda m: inspect.isclass(m) and issubclass(m, BaseStrategy) and m is not BaseStrategy)
+                importlib.invalidate_caches()
+                new_module = importlib.import_module(module.__name__)
+                importlib.reload(new_module)
+                members = inspect.getmembers(new_module, lambda m: inspect.isclass(m) and issubclass(m, BaseStrategy) and m is not BaseStrategy)
                 for name, new_cls in members:
                     if name == cls.__name__:
                         self._strategies[key] = new_cls
