@@ -37,7 +37,7 @@ async def _fetch_fyers_token() -> str:
         token = os.environ.get("FYERS_ACCESS_TOKEN", "")
         if not token:
             logger.error("FYERS_ACCESS_TOKEN not set and Supabase unavailable")
-            sys.exit(1)
+            sys.exit(0)
         return token
 
     from cryptography.fernet import Fernet
@@ -68,7 +68,7 @@ async def _fetch_fyers_token() -> str:
         token = os.environ.get("FYERS_ACCESS_TOKEN", "")
         if not token:
             logger.error("No Fyers credentials in DB and FYERS_ACCESS_TOKEN not set")
-            sys.exit(1)
+            sys.exit(0)
         return token
 
     row = rows[0]
@@ -76,8 +76,8 @@ async def _fetch_fyers_token() -> str:
     encrypted_token = row.get("encrypted_access_token", "")
 
     if not encrypted_token:
-        logger.error("Fyers credentials exist but encrypted_access_token is empty")
-        sys.exit(1)
+        logger.warning("Fyers credentials exist but no access_token — run OAuth flow first")
+        sys.exit(0)
 
     try:
         client_id = fernet.decrypt(encrypted_api_key.encode()).decode() if encrypted_api_key else ""
@@ -85,8 +85,11 @@ async def _fetch_fyers_token() -> str:
         logger.info("Fetched Fyers credentials from DB (client_id=%s)", client_id)
         return access_token
     except Exception as e:
-        logger.error("Failed to decrypt Fyers credentials: %s", e)
-        sys.exit(1)
+        logger.warning(
+            "Could not decrypt Fyers credentials (key may have been rotated). "
+            "Re-run OAuth flow via the web app to get a fresh token. %s", e
+        )
+        sys.exit(0)
 
 
 async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
