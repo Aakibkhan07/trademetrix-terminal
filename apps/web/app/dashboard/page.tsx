@@ -25,6 +25,7 @@ interface AggPosition {
 }
 
 function shallowArrayEqual<T>(a: T[], b: T[], key?: (x: T) => unknown): boolean {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false
   if (a.length !== b.length) return false
   if (a.length === 0) return true
   if (key) return a.every((item, i) => key(item) === key(b[i]))
@@ -33,7 +34,7 @@ function shallowArrayEqual<T>(a: T[], b: T[], key?: (x: T) => unknown): boolean 
 
 function shallowObjectEqual(a: Record<string, unknown> | null, b: Record<string, unknown> | null): boolean {
   if (a === b) return true
-  if (!a || !b) return false
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false
   const ka = Object.keys(a)
   const kb = Object.keys(b)
   if (ka.length !== kb.length) return false
@@ -72,7 +73,7 @@ export default function DashboardPage() {
 
       setPositions(prev => shallowArrayEqual(prev, newPositions, x => (x as any).symbol + (x as any).broker) ? prev : newPositions)
       setFunds(prev => shallowObjectEqual(prev as any, newFunds as any) ? prev : newFunds)
-      setOrders(prev => newOrders.length === prev.length ? prev : newOrders)
+      setOrders(prev => Array.isArray(prev) && newOrders.length === prev.length ? prev : newOrders)
       setCreds(prev => shallowArrayEqual(prev, newCreds, x => (x as any).id) ? prev : newCreds)
       setLastRefresh(new Date().toLocaleTimeString())
     } catch {
