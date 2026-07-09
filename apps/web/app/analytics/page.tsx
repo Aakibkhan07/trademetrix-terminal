@@ -96,7 +96,7 @@ export default function AnalyticsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div>
-        <h1 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Analytics</h1>
+        <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Analytics</h1>
         <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>Performance metrics and trade analysis</p>
       </div>
 

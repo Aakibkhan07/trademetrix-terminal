@@ -59,7 +59,7 @@ export default function AlertsPage() {
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
         <div className="t-panel" style={{ padding: 16, flex: 1, maxWidth: 500 }}>
-          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 10px', color: '#f0f0f5' }}>New Alert</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 10px', color: '#f0f0f5' }}>New Alert</h3>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
             <input className="t-input" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())}
               placeholder="Symbol" style={{ width: 100, fontSize: 11 }} />
@@ -80,7 +80,7 @@ export default function AlertsPage() {
 
         <div className="t-panel" style={{ padding: 16, width: 260 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <h3 style={{ fontFamily: 'Outfit', fontSize: 12, margin: 0, color: '#f0f0f5' }}>Notifications</h3>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: 0, color: '#f0f0f5' }}>Notifications</h3>
             <span style={{ fontSize: 9, color: notifChannels.length ? '#22c55e' : '#8888a0' }}>
               {notifChannels.length ? notifChannels.join(', ') : 'off'}
             </span>

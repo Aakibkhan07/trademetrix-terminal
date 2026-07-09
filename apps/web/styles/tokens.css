@@ -65,6 +65,12 @@
   --header-height: 56px;
   --statusbar-height: 26px;
   --right-panel-width: 0px;
+
+  --accent-violet: var(--violet);
+  --bg-sub: var(--bg-secondary);
+  --t-faint: var(--text-faint);
+  --green-dim: #2da584;
+  --sc: var(--violet);
 }
 
 [data-theme="light"] {

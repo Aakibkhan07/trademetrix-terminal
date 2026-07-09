@@ -74,7 +74,7 @@ export default function MarketplacePage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Page Header */}
       <div>
-        <h1 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>
+        <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>
           Strategy Marketplace
         </h1>
         <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>

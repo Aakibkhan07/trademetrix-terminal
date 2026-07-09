@@ -29,7 +29,7 @@ function MetricCard({ label, value, sub, color, dot }: MetricCardProps) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <h2 style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 600, margin: '0 0 10px', color: 'var(--text)' }}>{title}</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600, margin: '0 0 10px', color: 'var(--text)' }}>{title}</h2>
       {children}
     </div>
   )

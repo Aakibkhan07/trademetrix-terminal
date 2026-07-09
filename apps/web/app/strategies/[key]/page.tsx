@@ -147,7 +147,7 @@ export default function StrategyDetailPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <h1 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 20, margin: 0, color: 'var(--text)' }}>
+              <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 20, margin: 0, color: 'var(--text)' }}>
                 {detail.name}
               </h1>
               <span style={{
@@ -183,7 +183,7 @@ export default function StrategyDetailPage() {
 
       {/* Performance Metrics */}
       <div>
-        <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+        <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
           Performance Metrics
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
@@ -197,7 +197,7 @@ export default function StrategyDetailPage() {
       {/* Recent Trades */}
       {detail.recent_trades.length > 0 && (
         <div>
-          <h2 style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
             Recent Trades
           </h2>
           <div style={{

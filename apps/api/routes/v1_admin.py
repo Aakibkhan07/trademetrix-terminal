@@ -707,10 +707,10 @@ async def admin_create_admin(
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
 
-    supabase.table("profiles").update({
+    await async_supabase(lambda: supabase.table("profiles").update({
         "is_admin": True,
         "role": req.role,
-    }).eq("id", profile["id"]).execute()
+    }).eq("id", profile["id"]).execute())
 
     record_audit(AuditLogEntry(
         user_id=admin.id,
@@ -743,10 +743,10 @@ async def admin_update_role(
     if profile["role"] == "super_admin":
         raise HTTPException(status_code=400, detail="Cannot modify a super admin")
 
-    supabase.table("profiles").update({
+    await async_supabase(lambda: supabase.table("profiles").update({
         "is_admin": req.role in ADMIN_ROLES,
         "role": req.role,
-    }).eq("id", user_id).execute()
+    }).eq("id", user_id).execute())
 
     record_audit(AuditLogEntry(
         user_id=admin.id,
@@ -775,10 +775,10 @@ async def admin_remove_admin(
     if profile["role"] == "super_admin":
         raise HTTPException(status_code=400, detail="Cannot remove a super admin")
 
-    supabase.table("profiles").update({
+    await async_supabase(lambda: supabase.table("profiles").update({
         "is_admin": False,
         "role": "",
-    }).eq("id", user_id).execute()
+    }).eq("id", user_id).execute())
 
     record_audit(AuditLogEntry(
         user_id=admin.id,

@@ -264,7 +264,7 @@ export default function StrategyBuilderPage() {
           onChange={e => setStrategyName(e.target.value)}
           style={{
             background: 'none', border: 'none', color: 'var(--text)',
-            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700,
+            fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700,
             outline: 'none', width: 200,
           }}
         />
@@ -388,7 +388,7 @@ export default function StrategyBuilderPage() {
                 }}>
                   <span style={{
                     fontSize: 11, fontWeight: 700, color: def.color,
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: 'var(--font-body)',
                   }}>
                     {def.name}
                   </span>

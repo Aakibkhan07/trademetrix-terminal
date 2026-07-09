@@ -17,6 +17,21 @@ USER_CACHE_TTL = 120
 _USER_CACHE_MAX = 100
 
 
+async def get_user_by_id(user_id: str) -> UserProfile | None:
+    try:
+        supabase = get_supabase()
+        result = await async_supabase(
+            lambda: supabase.table("profiles").select("*").eq("id", user_id).maybe_single().execute()
+        )
+        if not result or not result.data:
+            return None
+        profile_data = {k: v for k, v in dict(result.data).items() if v is not None}
+        return UserProfile(**profile_data)
+    except Exception as e:
+        logger.warning("get_user_by_id failed for %s: %s", user_id, e)
+        return None
+
+
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),

@@ -59,7 +59,7 @@ export default function RiskPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div>
-        <h1 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Risk Control</h1>
+        <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Risk Control</h1>
         <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
           Manage trading risk and safety controls
         </p>
@@ -98,7 +98,7 @@ export default function RiskPage() {
               border: 'none', cursor: 'pointer',
               background: killSwitch ? 'var(--red)' : 'var(--green)',
               color: '#fff', fontSize: 12, fontWeight: 700,
-              fontFamily: "'Inter', sans-serif",
+              fontFamily: 'var(--font-body)',
               transition: 'all 150ms ease',
             }}
           >

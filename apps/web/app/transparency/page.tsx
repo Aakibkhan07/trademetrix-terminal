@@ -41,7 +41,7 @@ export default function TransparencyPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'Outfit', fontSize: 24, margin: 0 }}>Transparency Dashboard</h1>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, margin: 0 }}>Transparency Dashboard</h1>
         <p className="t-sub" style={{ margin: '4px 0 0' }}>
           Full order lifecycle — every signal, every check, every fill
         </p>
@@ -73,7 +73,7 @@ export default function TransparencyPage() {
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
-                  <td className="t-num neon-cyan">{o.symbol}</td>
+                  <td className="t-num">{o.symbol}</td>
                   <td>
                     <span className={o.side === 'BUY' ? 't-up' : 't-down'}>
                       {o.side}

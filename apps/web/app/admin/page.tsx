@@ -479,7 +479,7 @@ function UsersTab() {
             <div className="t-panel" style={{ padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                 <div>
-                  <h2 style={{ fontFamily: 'Outfit', fontSize: 15, margin: 0 }}>{selectedUser.full_name || selectedUser.email}</h2>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 15, margin: 0 }}>{selectedUser.full_name || selectedUser.email}</h2>
                   <p style={{ margin: '2px 0 0', fontSize: 10, color: '#555570' }}>{selectedUser.email}</p>
                 </div>
                 <TierBadge tier={selectedUser.subscription_tier} />
@@ -501,7 +501,7 @@ function UsersTab() {
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <h3 style={{ fontFamily: 'Outfit', fontSize: 12, margin: '0 0 6px', color: '#f0f0f5' }}>Assigned ({activeAssignments.length})</h3>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: '0 0 6px', color: '#f0f0f5' }}>Assigned ({activeAssignments.length})</h3>
                 {assignmentsLoading && <SkeletonLine w="60%" />}
                 {!assignmentsLoading && activeAssignments.length === 0 && <p style={{ fontSize: 11, color: '#555570', margin: 0 }}>None.</p>}
                 {!assignmentsLoading && activeAssignments.map(a => {
@@ -519,7 +519,7 @@ function UsersTab() {
               </div>
 
               <div>
-                <h3 style={{ fontFamily: 'Outfit', fontSize: 12, margin: '0 0 6px', color: '#f0f0f5' }}>Available ({available.length})</h3>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: '0 0 6px', color: '#f0f0f5' }}>Available ({available.length})</h3>
                 {available.length === 0 && <p style={{ fontSize: 11, color: '#555570', margin: 0 }}>All assigned.</p>}
                 {available.map(s => {
                   const userTierRank = TIER_ORDER[selectedUser.subscription_tier] ?? 0
@@ -601,7 +601,7 @@ function BrokersTab() {
       {/* Admin Broker Credentials Setup */}
       <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: 0, color: '#f0f0f5' }}>My Broker Credentials</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: 0, color: '#f0f0f5' }}>My Broker Credentials</h3>
         </div>
         <div style={{ marginBottom: 10 }}>
           <label className="t-label" style={{ fontSize: 10, marginBottom: 4 }}>Select Broker</label>
@@ -781,7 +781,7 @@ function FyersTokenSection() {
   return (
     <div className="t-panel" style={{ padding: 16, marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: 0, color: '#f0f0f5' }}>Fyers Token Management</h3>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: 0, color: '#f0f0f5' }}>Fyers Token Management</h3>
         <button className="t-btn t-btn-sm" onClick={runValidate} disabled={loading} style={{ fontSize: 10 }}>
           {loading ? 'Checking...' : 'Validate All Tokens'}
         </button>
@@ -894,7 +894,7 @@ function BuyerStrategiesTab() {
   return (
     <div>
       <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
-        <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Activate Buyer Strategy</h3>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Activate Buyer Strategy</h3>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
           <select className="t-input" value={strategyKey} onChange={e => setStrategyKey(e.target.value)}
             style={{ fontSize: 11, width: 220 }}>

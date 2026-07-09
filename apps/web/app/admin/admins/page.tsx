@@ -136,7 +136,7 @@ export default function AdminsPage() {
 
       {showForm && (
         <div className="t-panel" style={{ padding: 16, marginBottom: 16, maxWidth: 500 }}>
-          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Add Admin User</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Add Admin User</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 12 }}>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>User Email</label>

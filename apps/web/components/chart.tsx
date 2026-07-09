@@ -63,7 +63,7 @@ export default function Chart({ symbol, height = 400 }: ChartProps) {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#6b6e78',
         fontSize: 10,
-        fontFamily: "'DM Sans', system-ui, sans-serif",
+        fontFamily: 'var(--font-body)',
       },
       grid: {
         vertLines: { color: 'rgba(139,92,246,0.06)' },

@@ -123,7 +123,7 @@ export default function StatusPage() {
         </StatusBadge>
       </div>
 
-      <h2 style={{ fontFamily: 'Outfit', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>System Components</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>System Components</h2>
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
           <SkeletonCard />
@@ -152,7 +152,7 @@ export default function StatusPage() {
         </div>
       )}
 
-      <h2 style={{ fontFamily: 'Outfit', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>Incident History</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>Incident History</h2>
       <div className="t-panel" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
         <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -178,7 +178,7 @@ export default function StatusPage() {
         </table>
       </div>
 
-      <h2 style={{ fontFamily: 'Outfit', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>Maintenance</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>Maintenance</h2>
       <div className="t-panel" style={{ padding: 16, marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -194,7 +194,7 @@ export default function StatusPage() {
         </div>
       </div>
 
-      <h2 style={{ fontFamily: 'Outfit', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>Uptime</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>Uptime</h2>
       <div className="t-panel" style={{ padding: 16 }}>
         <div style={{ display: 'flex', gap: 24 }}>
           {[

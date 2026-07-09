@@ -233,7 +233,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
 
       {credentials.length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <h3 style={{ fontFamily: 'Outfit', fontSize: 14, margin: '0 0 10px', color: '#f0f0f5' }}>Connected Brokers</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 10px', color: '#f0f0f5' }}>Connected Brokers</h3>
           {credentials.map(c => {
             const info = BROKER_INFO[c.broker]
             return (
@@ -278,7 +278,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
 
       {unconnected.length > 0 && (
         <div>
-          <h3 style={{ fontFamily: 'Outfit', fontSize: 14, margin: '0 0 10px', color: '#f0f0f5' }}>Connect a Broker</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 10px', color: '#f0f0f5' }}>Connect a Broker</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
             {unconnected.map(b => {
               const info = BROKER_INFO[b]
@@ -307,7 +307,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
 
       {selectedBroker && (
         <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
-          <h4 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>
+          <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>
             {BROKER_INFO[selectedBroker]?.name || selectedBroker} Credentials
           </h4>
           <div style={{ marginBottom: 12 }}>
@@ -381,7 +381,7 @@ function StepDone() {
         }}>
           ✓
         </div>
-        <h2 style={{ fontFamily: 'Outfit', fontSize: 20, margin: '0 0 8px', color: '#f0f0f5' }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, margin: '0 0 8px', color: '#f0f0f5' }}>
           You're all set!
         </h2>
         <p style={{ color: '#8888a0', margin: 0, fontSize: 13 }}>
@@ -522,7 +522,7 @@ export default function OnboardingPage() {
       <div style={{ width: 480 }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <h1 style={{
-            fontFamily: 'Outfit', fontSize: 26, margin: '0 0 6px',
+            fontFamily: 'var(--font-display)', fontSize: 26, margin: '0 0 6px',
             background: 'linear-gradient(135deg, #8b5cf6, #22d3ee)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>

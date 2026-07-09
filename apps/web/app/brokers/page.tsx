@@ -162,7 +162,7 @@ export default function BrokersPage() {
     <div>
       <div className="t-row" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontFamily: 'Outfit', fontSize: 22, fontWeight: 600, margin: 0, color: '#f0f0f5' }}>Brokers</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 600, margin: 0, color: '#f0f0f5' }}>Brokers</h1>
           <p className="t-faint" style={{ margin: '2px 0 0' }}>
             Connect and manage your broker accounts
           </p>
@@ -279,7 +279,7 @@ export default function BrokersPage() {
                           {info?.icon || c.broker[0].toUpperCase()}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <h3 style={{ fontFamily: 'Outfit', fontSize: 14, margin: 0 }}>
+                          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: 0 }}>
                             {info?.name || c.broker}
                           </h3>
                           <p className="t-faint" style={{ margin: '2px 0 0', fontSize: 11 }}>

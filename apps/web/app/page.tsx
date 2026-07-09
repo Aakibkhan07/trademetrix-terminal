@@ -4,7 +4,7 @@ export default function LandingPage() {
   return (
     <div style={{
       minHeight: '100vh', background: '#0a0a0f', color: '#c0c0d0',
-      fontFamily: 'DM Sans, system-ui, sans-serif',
+      fontFamily: 'var(--font-body)',
       display: 'flex', flexDirection: 'column',
     }}>
       <header style={{
