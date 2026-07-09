@@ -11,13 +11,6 @@ import { SkeletonCard, SkeletonTable } from '@/components/skeleton'
 import { ErrorMessage } from '@/components/error-message'
 import EquityCurve from '@/components/equity-curve'
 
-const WATCH_SYMBOLS = [
-  { name: 'NIFTY', key: 'NSE:NIFTY50-INDEX' },
-  { name: 'BANKNIFTY', key: 'NSE:NIFTYBANK-INDEX' },
-  { name: 'FINNIFTY', key: 'NSE:FINNIFTY-INDEX' },
-  { name: 'SENSEX', key: 'BSE:SENSEX-INDEX' },
-]
-
 interface BrokerCred {
   id: string; broker: string; is_active: boolean; created_at: string
 }
@@ -49,7 +42,7 @@ function shallowObjectEqual(a: Record<string, unknown> | null, b: Record<string,
 
 export default function DashboardPage() {
   const { token } = useAuth()
-  const { ticks, connected, subscribe, startFeed } = useMarketData()
+  const { ticks, connected, startFeed } = useMarketData()
   const { toast } = useToast()
   const [positions, setPositions] = useState<AggPosition[]>([])
   const [funds, setFunds] = useState<Record<string, number> | null>(null)
@@ -89,10 +82,7 @@ export default function DashboardPage() {
     }
   }, [])
 
-  useEffect(() => {
-    subscribe(WATCH_SYMBOLS.map((s) => s.key))
-    startFeed()
-  }, [subscribe, startFeed])
+  useEffect(() => { startFeed() }, [startFeed])
 
   useEffect(() => { if (token) loadData(true) }, [token, loadData])
   usePolling(() => loadData(), 4000, !!token)
@@ -198,32 +188,7 @@ export default function DashboardPage() {
       ) : (
       <>
 
-      {/* Market Tickers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-        {WATCH_SYMBOLS.map((s) => {
-          const t = ticks[s.key]
-          const pct = t?.change_pct ?? 0
-          return (
-            <div key={s.key} className="t-panel" style={{ padding: '6px 10px' }}>
-              <div className="t-stat-label" style={{ fontSize: 10 }}>{s.name}</div>
-              {t ? (
-                <>
-                  <div className="t-stat-value" style={{ fontSize: 16, margin: '1px 0' }}>
-                    {t.last_price.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: pct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
-                    <span>{pct >= 0 ? '▲' : '▼'}</span>
-                    <span>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</span>
-                    <span className="t-faint" style={{ fontWeight: 400 }}>{t.change >= 0 ? '+' : ''}{t.change.toFixed(1)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="t-faint" style={{ fontSize: 11, marginTop: 4 }}>Waiting...</div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+
 
       {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
