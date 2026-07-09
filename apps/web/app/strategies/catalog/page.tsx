@@ -18,10 +18,10 @@ const TIERS = ['free', 'starter', 'pro', 'enterprise'] as const
 
 function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
-    free: 'rgba(136,136,160,0.15)',
-    starter: 'rgba(34,211,238,0.15)',
-    pro: 'rgba(139,92,246,0.15)',
-    enterprise: 'rgba(239,68,68,0.15)',
+    free: 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
+    starter: 'color-mix(in srgb, var(--cyan) 15%, transparent)',
+    pro: 'color-mix(in srgb, var(--violet) 15%, transparent)',
+    enterprise: 'color-mix(in srgb, var(--red) 15%, transparent)',
   }
   const textColors: Record<string, string> = {
     free: '#8888a0',
@@ -30,10 +30,10 @@ function TierBadge({ tier }: { tier: string }) {
     enterprise: '#ef4444',
   }
   const borderColors: Record<string, string> = {
-    free: 'rgba(136,136,160,0.2)',
-    starter: 'rgba(34,211,238,0.2)',
-    pro: 'rgba(139,92,246,0.2)',
-    enterprise: 'rgba(239,68,68,0.2)',
+    free: 'color-mix(in srgb, var(--text-sub) 20%, transparent)',
+    starter: 'color-mix(in srgb, var(--cyan) 20%, transparent)',
+    pro: 'color-mix(in srgb, var(--violet) 20%, transparent)',
+    enterprise: 'color-mix(in srgb, var(--red) 20%, transparent)',
   }
   return (
     <span style={{
@@ -53,19 +53,19 @@ function SkeletonCard() {
   return (
     <div className="t-panel" style={{ padding: 20, height: 140 }}>
       <div style={{
-        width: '60%', height: 14, background: 'rgba(139,92,246,0.1)',
+        width: '60%', height: 14, background: 'color-mix(in srgb, var(--violet) 10%, transparent)',
         borderRadius: 4, marginBottom: 12,
       }} />
       <div style={{
-        width: '90%', height: 10, background: 'rgba(139,92,246,0.06)',
+        width: '90%', height: 10, background: 'color-mix(in srgb, var(--violet) 6%, transparent)',
         borderRadius: 4, marginBottom: 8,
       }} />
       <div style={{
-        width: '75%', height: 10, background: 'rgba(139,92,246,0.06)',
+        width: '75%', height: 10, background: 'color-mix(in srgb, var(--violet) 6%, transparent)',
         borderRadius: 4,
       }} />
       <div style={{
-        width: 60, height: 20, background: 'rgba(139,92,246,0.08)',
+        width: 60, height: 20, background: 'color-mix(in srgb, var(--violet) 8%, transparent)',
         borderRadius: 4, marginTop: 16,
       }} />
     </div>
@@ -123,7 +123,7 @@ export default function StrategyCatalogPage() {
       </div>
 
       {error && (
-        <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>
           {error.message}
         </div>
       )}
@@ -138,7 +138,7 @@ export default function StrategyCatalogPage() {
 
       {!loading && !error && filtered.length === 0 && (
         <div style={{
-          background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.12)',
+          background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)',
           borderRadius: 10, padding: '12px 16px', marginBottom: 20,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>

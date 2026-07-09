@@ -36,7 +36,7 @@ function fmt(n: number) {
 }
 
 function SkeletonLine({ w, h = 12 }: { w: string; h?: number }) {
-  return <div style={{ width: w, height: h, background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
+  return <div style={{ width: w, height: h, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
 }
 
 function SkeletonBar() {
@@ -53,7 +53,7 @@ function SkeletonTable() {
   return (
     <div className="t-panel" style={{ padding: 14 }}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} style={{ display: 'flex', gap: 16, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+        <div key={i} style={{ display: 'flex', gap: 16, padding: '6px 0', borderBottom: '1px solid color-mix(in srgb, var(--text-inverse) 3%, transparent)' }}>
           <SkeletonLine w="50px" />
           <SkeletonLine w="80px" />
           <SkeletonLine w="80px" />
@@ -301,7 +301,7 @@ export default function TradePage() {
                   <th style={{ textAlign: 'right', width: 50 }}>Ask</th>
                   <th style={{ textAlign: 'right', width: 40 }}>Vol</th>
                   <th style={{ textAlign: 'right', width: 40 }}>OI</th>
-                  <th style={{ textAlign: 'center', width: 64, borderLeft: '1px solid rgba(255,255,255,0.06)', borderRight: '1px solid rgba(255,255,255,0.06)' }} className="t-faint">STRIKE</th>
+                  <th style={{ textAlign: 'center', width: 64, borderLeft: '1px solid color-mix(in srgb, var(--text-inverse) 6%, transparent)', borderRight: '1px solid color-mix(in srgb, var(--text-inverse) 6%, transparent)' }} className="t-faint">STRIKE</th>
                   <th style={{ textAlign: 'left', width: 40 }}>OI</th>
                   <th style={{ textAlign: 'left', width: 40 }}>Vol</th>
                   <th style={{ textAlign: 'left', width: 50 }}>Bid</th>
@@ -338,7 +338,7 @@ export default function TradePage() {
                           </button>
                         </div>
                       </td>
-                      <td style={{ textAlign: 'center', fontWeight: 700, borderLeft: '1px solid rgba(255,255,255,0.06)', borderRight: '1px solid rgba(255,255,255,0.06)', padding: '4px 0' }}>
+                      <td style={{ textAlign: 'center', fontWeight: 700, borderLeft: '1px solid color-mix(in srgb, var(--text-inverse) 6%, transparent)', borderRight: '1px solid color-mix(in srgb, var(--text-inverse) 6%, transparent)', padding: '4px 0' }}>
                         {r.strike}
                       </td>
                       <td colSpan={6} style={{ padding: 0 }}>
@@ -378,7 +378,7 @@ export default function TradePage() {
       )}
 
       {selectedStrike && selectedSide && (
-        <div className="t-panel" style={{ maxWidth: 420, borderTop: `3px solid ${selectedSide === 'CE' ? '#22c55e' : '#ef4444'}` }}>
+        <div className="t-panel" style={{ maxWidth: 420, borderTop: `3px solid ${selectedSide === 'CE' ? 'var(--green)' : 'var(--red)'}` }}>
           <div className="t-panel-header">
             <span className="t-panel-title" style={{ fontSize: 12 }}>
               <span className={selectedSide === 'CE' ? 't-badge t-badge-green' : 't-badge t-badge-red'} style={{ fontSize: 9, marginRight: 6 }}>
@@ -395,7 +395,7 @@ export default function TradePage() {
               <div className="t-row" style={{ gap: 16, marginBottom: 12 }}>
                 <div className="t-col">
                   <span className="t-faint" style={{ fontSize: 10 }}>LTP</span>
-                  <div className="t-num" style={{ fontSize: 16, fontWeight: 700, color: selectedSide === 'CE' ? '#22c55e' : '#ef4444' }}>
+                  <div className="t-num" style={{ fontSize: 16, fontWeight: 700, color: selectedSide === 'CE' ? 'var(--green)' : 'var(--red)' }}>
                     {selectedQuote.ltp > 0 ? `\u20B9${fmt(selectedQuote.ltp)}` : '\u2014'}
                   </div>
                 </div>
@@ -417,7 +417,7 @@ export default function TradePage() {
             <div className="t-row" style={{ gap: 8, marginBottom: 12 }}>
               <div className="t-col">
                 <label className="t-label">Side</label>
-                <span style={{ fontSize: 13, fontWeight: 700, color: selectedSide === 'CE' ? '#22c55e' : '#ef4444' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: selectedSide === 'CE' ? 'var(--green)' : 'var(--red)' }}>
                   {selectedSide === 'CE' ? 'BUY' : 'SELL'}
                 </span>
               </div>
@@ -453,7 +453,7 @@ export default function TradePage() {
               <button
                 className={`t-chip ${isLiveMode ? 'active' : ''}`}
                 onClick={handleToggleLive}
-                style={{ color: isLiveMode ? '#ef4444' : 'var(--t-faint)' }}
+                style={{ color: isLiveMode ? 'var(--red)' : 'var(--t-faint)' }}
               >
                 LIVE
               </button>
@@ -466,10 +466,10 @@ export default function TradePage() {
 
             {confirmingLive && (
               <div style={{
-                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)',
                 borderRadius: 8, padding: '10px 12px', marginBottom: 12,
               }}>
-                <p style={{ margin: '0 0 8px', fontSize: 11, color: '#ef4444', fontWeight: 500 }}>
+                <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--red)', fontWeight: 500 }}>
                   Live trading is not enabled. Enable live mode to place real orders?
                 </p>
                 <div className="t-row" style={{ gap: 6 }}>

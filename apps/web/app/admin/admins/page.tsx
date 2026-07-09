@@ -12,10 +12,10 @@ const ROLE_LABELS: Record<string, string> = {
   analyst: 'Analyst',
 }
 const ROLE_COLORS: Record<string, string> = {
-  super_admin: '#ef4444',
-  admin: '#8b5cf6',
-  support: '#22d3ee',
-  analyst: '#f59e0b',
+  super_admin: 'var(--red)',
+  admin: 'var(--violet)',
+  support: 'var(--cyan)',
+  analyst: 'var(--amber)',
 }
 
 type AdminUser = {
@@ -27,7 +27,7 @@ type AdminUser = {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const color = ROLE_COLORS[role] || '#8888a0'
+  const color = ROLE_COLORS[role] || 'var(--text-sub)'
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -42,7 +42,7 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 function SkeletonLine({ w }: { w: string }) {
-  return <div style={{ width: w, height: 12, background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
+  return <div style={{ width: w, height: 12, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
 }
 
 export default function AdminsPage() {
@@ -121,7 +121,7 @@ export default function AdminsPage() {
           <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
           {isSuperAdmin && (
             <button className="t-btn t-btn-sm" onClick={() => setShowForm(!showForm)}
-              style={{ fontSize: 10, background: 'var(--violet)', color: '#fff' }}>
+              style={{ fontSize: 10, background: 'var(--violet)', color: 'var(--text-inverse)' }}>
               {showForm ? 'Cancel' : '+ Add Admin'}
             </button>
           )}
@@ -129,22 +129,22 @@ export default function AdminsPage() {
       </div>
 
       {error && (
-        <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 12, marginBottom: 12 }}>
+        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 12, marginBottom: 12 }}>
           {error}
         </div>
       )}
 
       {showForm && (
         <div className="t-panel" style={{ padding: 16, marginBottom: 16, maxWidth: 500 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Add Admin User</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: 'var(--text)' }}>Add Admin User</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 12 }}>
             <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>User Email</label>
+              <label style={{ fontSize: 9, color: 'var(--text-sub)', display: 'block', marginBottom: 2 }}>User Email</label>
               <input className="t-input" value={newEmail} onChange={e => setNewEmail(e.target.value)}
                 placeholder="user@example.com" style={{ fontSize: 11, width: '100%' }} />
             </div>
             <div style={{ flex: '0 0 140px' }}>
-              <label style={{ fontSize: 9, color: '#8888a0', display: 'block', marginBottom: 2 }}>Role</label>
+              <label style={{ fontSize: 9, color: 'var(--text-sub)', display: 'block', marginBottom: 2 }}>Role</label>
               <select className="t-select" value={newRole} onChange={e => setNewRole(e.target.value)}
                 style={{ fontSize: 11, width: '100%' }}>
                 {ROLES.filter(r => r !== 'super_admin').map(r => (
@@ -173,7 +173,7 @@ export default function AdminsPage() {
 
       {!loading && sorted.length === 0 && (
         <div className="t-panel" style={{ padding: 20, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: '#555570' }}>No admin users found.</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No admin users found.</p>
         </div>
       )}
 
@@ -186,17 +186,17 @@ export default function AdminsPage() {
               <div key={a.id} className="t-panel" style={{
                 padding: '10px 14px', marginBottom: 6,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                borderLeft: `3px solid ${ROLE_COLORS[a.role] || '#8888a0'}`,
+                borderLeft: `3px solid ${ROLE_COLORS[a.role] || 'var(--text-sub)'}`,
               }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f5' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
                       {a.full_name || a.email.split('@')[0]}
-                      {isSelf && <span style={{ fontSize: 9, color: '#8888a0', marginLeft: 6, fontWeight: 400 }}>(you)</span>}
+                      {isSelf && <span style={{ fontSize: 9, color: 'var(--text-sub)', marginLeft: 6, fontWeight: 400 }}>(you)</span>}
                     </span>
                     <RoleBadge role={a.role} />
                   </div>
-                  <div style={{ fontSize: 10, color: '#555570' }}>{a.email}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{a.email}</div>
                 </div>
                 {canManage && (
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

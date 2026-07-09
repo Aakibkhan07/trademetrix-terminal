@@ -21,6 +21,7 @@ _ENGINE_TTL = 120
 
 async def _get_engine(user_id: str, broker: str) -> ExecutionEngine:
     key = f"{user_id}:{broker}"
+    _evict_stale_engines()
     entry = _engine_cache.get(key)
     if entry:
         engine, ts = entry
@@ -31,6 +32,14 @@ async def _get_engine(user_id: str, broker: str) -> ExecutionEngine:
     await engine.start()
     _engine_cache[key] = (engine, time.monotonic())
     return engine
+
+def _evict_stale_engines():
+    now = time.monotonic()
+    stale_keys = [k for k, (_, ts) in _engine_cache.items() if now - ts >= _ENGINE_TTL]
+    for k in stale_keys:
+        entry = _engine_cache.pop(k, None)
+        if entry:
+            asyncio.ensure_future(entry[0].stop())
 
 async def _release_engine(user_id: str, broker: str):
     entry = _engine_cache.pop(f"{user_id}:{broker}", None)

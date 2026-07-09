@@ -5,12 +5,9 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from core.db import get_supabase
-
 from core.models import (
     Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType, ProductType, UserProfile,
 )
-from core.safe_query import async_safe_single, safe_single
 from engine.gate import execute_order, get_mirror_recipients, scaled_qty
 
 logger = logging.getLogger(__name__)
@@ -119,18 +116,7 @@ async def tradingview_webhook(request: Request):
         return {"results": results, "count": len(results)}
 
     if not user_id:
-        if not WEBHOOK_SECRET:
-            creds = await async_safe_single(
-                get_supabase().table("broker_credentials")
-                .select("user_id")
-                .eq("is_active", True)
-                .limit(1)
-            )
-            if not creds:
-                raise HTTPException(status_code=400, detail="No active broker user found")
-            user_id = creds["user_id"]
-        else:
-            raise HTTPException(status_code=400, detail="user_id is required for authenticated webhooks")
+        raise HTTPException(status_code=400, detail="user_id is required when webhook secret is not configured")
 
     result = await _execute_for_user(
         user_id, symbol, action, quantity, price, exchange,
@@ -156,7 +142,7 @@ async def webhook_info():
             "order_type": "MARKET/LIMIT/SL",
             "product": "INTRADAY/DELIVERY",
             "strategy_id": "Optional strategy identifier",
-            "user_id": "Optional user ID (auto-detected if omitted)",
+            "user_id": "Required user ID",
             "reason": "Optional human-readable reason string",
         },
         "example_payload": {

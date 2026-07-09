@@ -82,10 +82,10 @@ export default function StrategiesPage() {
       </div>
 
       {strategies.length === 0 && !loading && (
-        <div style={{ background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.12)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <p style={{ margin: 0, fontSize: 13, color: '#22d3ee', fontWeight: 500 }}>No strategies yet</p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#555570' }}>Create your first strategy or explore the built-in types below.</p>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--cyan)', fontWeight: 500 }}>No strategies yet</p>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>Create your first strategy or explore the built-in types below.</p>
           </div>
           <button className="t-btn t-btn-sm" onClick={() => setShowCreate(true)}>Create Strategy</button>
         </div>
@@ -117,7 +117,7 @@ export default function StrategiesPage() {
               <input className="t-input" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="NIFTY" />
             </div>
             {createError && (
-              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: '#ef4444' }}>
+              <div style={{ background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--red)' }}>
                 {createError}
               </div>
             )}
@@ -150,17 +150,17 @@ export default function StrategiesPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                       <div>
                         <h3 style={{ fontFamily: 'var(--font-body)', fontSize: 14, margin: 0 }}>{s.name}</h3>
-                        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#555570' }}>{s.type}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>{s.type}</p>
                       </div>
                       <span className={`t-badge ${s.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
                         {s.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
-                    <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>
+                    <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>
                       Created {new Date(s.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <div style={{ borderTop: '1px solid rgba(139,92,246,0.06)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <div style={{ borderTop: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                     <button className="t-btn t-btn-sm" onClick={() => handleToggle(s)} style={{ fontSize: 11 }}>
                       {s.is_active ? 'Pause' : 'Start'}
                     </button>
@@ -181,35 +181,35 @@ export default function StrategiesPage() {
             <div className="t-grid-2">
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Trend Rider</p>
-                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>EMA crossover (9/21) trend following with momentum confirmation.</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>EMA crossover (9/21) trend following with momentum confirmation.</p>
               </div>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>ORB Pro</p>
-                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Opening Range Breakout with volume confirmation for high-volatility openings.</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Opening Range Breakout with volume confirmation for high-volatility openings.</p>
               </div>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>SMC Sniper</p>
-                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Smart Money Concepts: order blocks, FVG, and liquidity sweep detection.</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Smart Money Concepts: order blocks, FVG, and liquidity sweep detection.</p>
               </div>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Expiry Hunter</p>
-                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Options theta decay capture with IV rank analysis for weekly expiry.</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Options theta decay capture with IV rank analysis for weekly expiry.</p>
               </div>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>RSI Mean Reversion</p>
-                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Buys when RSI exits oversold (&lt;30), sells when RSI exits overbought (&gt;70).</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Buys when RSI exits oversold (&lt;30), sells when RSI exits overbought (&gt;70).</p>
               </div>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Bollinger Bandit</p>
-                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Mean reversion on Bollinger Band touches. Fades moves to outer bands.</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Mean reversion on Bollinger Band touches. Fades moves to outer bands.</p>
               </div>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>MACD Crossover</p>
-                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>MACD line / signal line crossovers. Standard 12/26/9 parameters.</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>MACD line / signal line crossovers. Standard 12/26/9 parameters.</p>
               </div>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>VWAP Band</p>
-                <p style={{ margin: 0, fontSize: 11, color: '#555570' }}>Mean reversion around VWAP with deviation band triggers. Tick-based execution.</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Mean reversion around VWAP with deviation band triggers. Tick-based execution.</p>
               </div>
             </div>
           </div>

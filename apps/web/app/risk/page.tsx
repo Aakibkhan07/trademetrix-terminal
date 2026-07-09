@@ -67,15 +67,15 @@ export default function RiskPage() {
 
       {/* Kill Switch */}
       <div style={{
-        background: killSwitch ? 'rgba(239,68,68,0.06)' : 'var(--panel)',
-        border: `1px solid ${killSwitch ? 'rgba(239,68,68,0.2)' : 'var(--border)'}`,
+        background: killSwitch ? 'color-mix(in srgb, var(--red) 6%, transparent)' : 'var(--panel)',
+        border: `1px solid ${killSwitch ? 'color-mix(in srgb, var(--red) 20%, transparent)' : 'var(--border)'}`,
         borderRadius: 'var(--radius-md)', padding: 16,
         transition: 'all 200ms ease',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 48, height: 48, borderRadius: 'var(--radius-md)',
-            background: killSwitch ? 'rgba(239,68,68,0.12)' : 'var(--bg-tertiary)',
+            background: killSwitch ? 'color-mix(in srgb, var(--red) 12%, transparent)' : 'var(--bg-tertiary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 20, flexShrink: 0,
           }}>
@@ -97,7 +97,7 @@ export default function RiskPage() {
               padding: '8px 20px', borderRadius: 'var(--radius-sm)',
               border: 'none', cursor: 'pointer',
               background: killSwitch ? 'var(--red)' : 'var(--green)',
-              color: '#fff', fontSize: 12, fontWeight: 700,
+              color: 'var(--text-inverse)', fontSize: 12, fontWeight: 700,
               fontFamily: 'var(--font-body)',
               transition: 'all 150ms ease',
             }}
@@ -109,7 +109,7 @@ export default function RiskPage() {
         {killSwitch && (
           <div style={{
             marginTop: 12, padding: '8px 12px',
-            background: 'rgba(239,68,68,0.08)', borderRadius: 'var(--radius-sm)',
+            background: 'color-mix(in srgb, var(--red) 8%, transparent)', borderRadius: 'var(--radius-sm)',
             fontSize: 11, color: 'var(--text-red)', fontWeight: 600,
           }}>
             ⚠ Kill switch is ACTIVE — all order placement is blocked

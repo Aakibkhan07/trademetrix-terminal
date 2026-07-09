@@ -162,7 +162,7 @@ export default function BrokersPage() {
     <div>
       <div className="t-row" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 600, margin: 0, color: '#f0f0f5' }}>Brokers</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 600, margin: 0, color: 'var(--text)' }}>Brokers</h1>
           <p className="t-faint" style={{ margin: '2px 0 0' }}>
             Connect and manage your broker accounts
           </p>
@@ -174,11 +174,11 @@ export default function BrokersPage() {
 
       {msg && (
         <div style={{
-          background: msgType === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
-          border: `1px solid ${msgType === 'error' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}`,
+          background: msgType === 'error' ? 'color-mix(in srgb, var(--red) 10%, transparent)' : 'color-mix(in srgb, var(--green) 10%, transparent)',
+          border: `1px solid ${msgType === 'error' ? 'color-mix(in srgb, var(--red) 20%, transparent)' : 'color-mix(in srgb, var(--green) 20%, transparent)'}`,
           borderRadius: 8, padding: '10px 14px', marginBottom: 16
         }}>
-          <p style={{ color: msgType === 'error' ? '#ef4444' : '#22c55e', fontSize: 13, margin: 0 }}>
+          <p style={{ color: msgType === 'error' ? 'var(--red)' : 'var(--green)', fontSize: 13, margin: 0 }}>
             {msg}
           </p>
         </div>
@@ -202,9 +202,9 @@ export default function BrokersPage() {
                     >
                       <div style={{
                         width: 32, height: 32, borderRadius: 8,
-                        background: 'rgba(139,92,246,0.12)',
+                        background: 'color-mix(in srgb, var(--violet) 12%, transparent)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        margin: '0 auto 6px', fontSize: 14, fontWeight: 700, color: '#8b5cf6'
+                        margin: '0 auto 6px', fontSize: 14, fontWeight: 700, color: 'var(--violet)'
                       }}>
                         {info.icon}
                       </div>
@@ -272,9 +272,9 @@ export default function BrokersPage() {
                       <div style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
                         <div style={{
                           width: 40, height: 40, borderRadius: 10,
-                          background: 'rgba(139,92,246,0.12)',
+                          background: 'color-mix(in srgb, var(--violet) 12%, transparent)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 18, fontWeight: 700, color: '#8b5cf6'
+                          fontSize: 18, fontWeight: 700, color: 'var(--violet)'
                         }}>
                           {info?.icon || c.broker[0].toUpperCase()}
                         </div>
@@ -322,8 +322,8 @@ export default function BrokersPage() {
                 background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: 10,
                 fontFamily: 'var(--font-mono)', fontSize: 11, wordBreak: 'break-all', marginBottom: 8
               }}>
-                <span style={{ color: '#22d3ee' }}>POST</span>{' '}
-                <span style={{ color: '#f0f0f5' }}>
+                <span style={{ color: 'var(--cyan)' }}>POST</span>{' '}
+                <span style={{ color: 'var(--text)' }}>
                   {process.env.NEXT_PUBLIC_API_URL || 'https://api.ai.trademetrix.tech/api/v1'}/tradingview/webhook
                 </span>
               </div>
@@ -331,7 +331,7 @@ export default function BrokersPage() {
                 <div>
                   <p className="t-label" style={{ margin: '0 0 2px' }}>Request Format</p>
                   <pre style={{
-                    margin: 0, fontSize: 10, color: '#8888a0',
+                    margin: 0, fontSize: 10, color: 'var(--text-sub)',
                     background: 'rgba(0,0,0,0.15)', padding: 8, borderRadius: 4, lineHeight: 1.5
                   }}>
 {`{
@@ -349,7 +349,7 @@ export default function BrokersPage() {
                 <div>
                   <p className="t-label" style={{ margin: '0 0 2px' }}>Pine Script Alert</p>
                   <pre style={{
-                    margin: 0, fontSize: 10, color: '#8888a0',
+                    margin: 0, fontSize: 10, color: 'var(--text-sub)',
                     background: 'rgba(0,0,0,0.15)', padding: 8, borderRadius: 4, lineHeight: 1.5
                   }}>
 {`// In Strategy settings:
@@ -363,8 +363,8 @@ export default function BrokersPage() {
                 </div>
               </div>
               <p className="t-sub" style={{ fontSize: 10, margin: 0 }}>
-                Set <code style={{ color: '#22d3ee' }}>paper: false</code> for live execution. Optionally set{' '}
-                <code style={{ color: '#22d3ee' }}>TRADINGVIEW_WEBHOOK_SECRET</code> env for HMAC verification.
+                Set <code style={{ color: 'var(--cyan)' }}>paper: false</code> for live execution. Optionally set{' '}
+                <code style={{ color: 'var(--cyan)' }}>TRADINGVIEW_WEBHOOK_SECRET</code> env for HMAC verification.
               </p>
             </div>
           </div>
@@ -380,10 +380,10 @@ export default function BrokersPage() {
               }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: 10,
-                  background: info.status === 'Connected' ? 'rgba(34,197,94,0.1)' : 'rgba(139,92,246,0.06)',
+                  background: info.status === 'Connected' ? 'color-mix(in srgb, var(--green) 10%, transparent)' : 'color-mix(in srgb, var(--violet) 6%, transparent)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 8px', fontSize: 18, fontWeight: 700,
-                  color: info.status === 'Connected' ? '#22c55e' : '#555570'
+                  color: info.status === 'Connected' ? 'var(--green)' : 'var(--text-faint)'
                 }}>
                   {info.icon}
                 </div>

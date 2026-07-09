@@ -34,17 +34,17 @@ interface StrategyDetail {
 }
 
 const TIER_COLORS: Record<string, string> = {
-  free: 'rgba(136,136,160,0.15)',
-  starter: 'rgba(34,211,238,0.15)',
-  pro: 'rgba(139,92,246,0.15)',
-  enterprise: 'rgba(239,68,68,0.15)',
+  free: 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
+  starter: 'color-mix(in srgb, var(--cyan) 15%, transparent)',
+  pro: 'color-mix(in srgb, var(--violet) 15%, transparent)',
+  enterprise: 'color-mix(in srgb, var(--red) 15%, transparent)',
 }
 
 const TIER_TEXT: Record<string, string> = {
-  free: '#8888a0',
-  starter: '#22d3ee',
-  pro: '#8b5cf6',
-  enterprise: '#ef4444',
+  free: 'var(--text-sub)',
+  starter: 'var(--cyan)',
+  pro: 'var(--violet)',
+  enterprise: 'var(--red)',
 }
 
 function MetricCard({ label, value, color }: { label: string; value: string; color?: string }) {
@@ -100,11 +100,11 @@ export default function StrategyDetailPage() {
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ width: '40%', height: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 4 }} />
-        <div style={{ width: '70%', height: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 4 }} />
+        <div style={{ width: '40%', height: 20, background: 'color-mix(in srgb, var(--text-inverse) 4%, transparent)', borderRadius: 4 }} />
+        <div style={{ width: '70%', height: 12, background: 'color-mix(in srgb, var(--text-inverse) 3%, transparent)', borderRadius: 4 }} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{ height: 80, background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)' }} />
+            <div key={i} style={{ height: 80, background: 'color-mix(in srgb, var(--text-inverse) 3%, transparent)', borderRadius: 'var(--radius-md)' }} />
           ))}
         </div>
       </div>
@@ -114,7 +114,7 @@ export default function StrategyDetailPage() {
   if (error) {
     return (
       <div style={{
-        background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+        background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)',
         borderRadius: 'var(--radius-md)', padding: '10px 12px', color: 'var(--text-red)', fontSize: 12,
       }}>
         {error}

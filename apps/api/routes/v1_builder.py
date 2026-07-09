@@ -88,13 +88,19 @@ async def create_strategy(
 
 
 @router.get("/strategies")
-async def list_strategies(status: str | None = None):
+async def list_strategies(
+    status: str | None = None,
+    current_user: UserProfile = Depends(get_current_user),
+):
     strategies = await builder_manager.list(status=status)
     return {"strategies": strategies, "total": len(strategies)}
 
 
 @router.get("/strategies/{strategy_id}")
-async def get_strategy(strategy_id: str):
+async def get_strategy(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
     dsl = await builder_manager.get(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
@@ -102,7 +108,11 @@ async def get_strategy(strategy_id: str):
 
 
 @router.put("/strategies/{strategy_id}")
-async def update_strategy(strategy_id: str, req: UpdateStrategyRequest):
+async def update_strategy(
+    strategy_id: str,
+    req: UpdateStrategyRequest,
+    current_user: UserProfile = Depends(get_current_user),
+):
     updates = {}
     if req.name is not None:
         updates["name"] = req.name
@@ -124,7 +134,10 @@ async def update_strategy(strategy_id: str, req: UpdateStrategyRequest):
 
 
 @router.delete("/strategies/{strategy_id}")
-async def delete_strategy(strategy_id: str):
+async def delete_strategy(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
     success = await builder_manager.delete(strategy_id)
     if not success:
         raise HTTPException(status_code=404, detail="Strategy not found")
@@ -134,7 +147,10 @@ async def delete_strategy(strategy_id: str):
 # ─── Compile ───
 
 @router.post("/strategies/{strategy_id}/compile")
-async def compile_strategy(strategy_id: str):
+async def compile_strategy(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
     dsl = await builder_manager.get(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
@@ -166,7 +182,10 @@ async def compile_strategy(strategy_id: str):
 # ─── Validate ───
 
 @router.post("/strategies/{strategy_id}/validate")
-async def validate_strategy(strategy_id: str):
+async def validate_strategy(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
     dsl = await builder_manager.get(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
@@ -183,7 +202,10 @@ async def validate_strategy(strategy_id: str):
 # ─── Preview ───
 
 @router.get("/strategies/{strategy_id}/preview")
-async def preview_strategy(strategy_id: str):
+async def preview_strategy(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
     preview = await builder_manager.preview(strategy_id)
     if "error" in preview:
         raise HTTPException(status_code=404, detail=preview["error"])
@@ -193,7 +215,10 @@ async def preview_strategy(strategy_id: str):
 # ─── Versioning ───
 
 @router.post("/strategies/{strategy_id}/publish")
-async def publish_strategy(strategy_id: str):
+async def publish_strategy(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
     dsl = await builder_manager.publish(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
@@ -264,7 +289,10 @@ async def stop_builder_strategy(
 
 
 @router.post("/strategies/{strategy_id}/archive")
-async def archive_strategy(strategy_id: str):
+async def archive_strategy(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
     dsl = await builder_manager.archive(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
@@ -272,7 +300,10 @@ async def archive_strategy(strategy_id: str):
 
 
 @router.post("/strategies/{strategy_id}/clone")
-async def clone_strategy(strategy_id: str):
+async def clone_strategy(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
     dsl = await builder_manager.clone(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
@@ -280,7 +311,11 @@ async def clone_strategy(strategy_id: str):
 
 
 @router.post("/strategies/{strategy_id}/rollback/{version}")
-async def rollback_strategy(strategy_id: str, version: int):
+async def rollback_strategy(
+    strategy_id: str,
+    version: int,
+    current_user: UserProfile = Depends(get_current_user),
+):
     dsl = await builder_manager.rollback(strategy_id, version)
     if not dsl:
         raise HTTPException(status_code=404, detail="Version not found")
@@ -288,7 +323,10 @@ async def rollback_strategy(strategy_id: str, version: int):
 
 
 @router.get("/strategies/{strategy_id}/versions")
-async def get_strategy_versions(strategy_id: str):
+async def get_strategy_versions(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
     versions = await builder_manager.get_versions(strategy_id)
     return {"versions": versions}
 
@@ -312,7 +350,10 @@ async def get_template(template_key: str):
 # ─── Import / Export ───
 
 @router.post("/import")
-async def import_strategy(data: dict):
+async def import_strategy(
+    data: dict,
+    current_user: UserProfile = Depends(get_current_user),
+):
     valid, errors = validate_import(data)
     if not valid:
         raise HTTPException(status_code=400, detail={"error": "Invalid import data", "details": errors})
@@ -328,7 +369,11 @@ async def import_strategy(data: dict):
 
 
 @router.get("/strategies/{strategy_id}/export")
-async def export_strategy(strategy_id: str, format: str = "json"):
+async def export_strategy(
+    strategy_id: str,
+    format: str = "json",
+    current_user: UserProfile = Depends(get_current_user),
+):
     dsl = await builder_manager.get(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")

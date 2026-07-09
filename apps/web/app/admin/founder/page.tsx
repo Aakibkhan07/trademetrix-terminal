@@ -123,7 +123,7 @@ export default function FounderDashboard() {
     return (
       <div style={{ padding: '40px 20px', textAlign: 'center' }}>
         <h1 className="t-page-title">Founder Dashboard</h1>
-        <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13, display: 'inline-block' }}>
+        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13, display: 'inline-block' }}>
           Admin access required
         </div>
       </div>
@@ -189,7 +189,7 @@ export default function FounderDashboard() {
           <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>API:</span>
           <span style={{
             width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
-            background: latencyMs !== null ? '#22c55e' : '#ef4444',
+            background: latencyMs !== null ? 'var(--green)' : 'var(--red)',
           }} />
           <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>
             {latencyMs !== null ? `${latencyMs}ms` : '—'}
@@ -254,7 +254,7 @@ export default function FounderDashboard() {
       <Section title="Strategies & Backtests">
         <Grid>
           <MetricCard label="Total Strategies" value={stats?.total_strategies ?? '—'} color="var(--violet)" />
-          <MetricCard label="Running" value={runningRuns.length} color="var(--green)" dot={runningRuns.length > 0 ? '#22c55e' : '#8888a0'} />
+          <MetricCard label="Running" value={runningRuns.length} color="var(--green)" dot={runningRuns.length > 0 ? 'var(--green)' : 'var(--text-sub)'} />
           <MetricCard label="Active Assignments" value={stats?.active_assignments ?? '—'} color="var(--amber)" />
           <MetricCard label="Backtests" value={backtestRuns.length} color="var(--cyan)" />
         </Grid>
@@ -266,7 +266,7 @@ export default function FounderDashboard() {
             <MetricCard label="Broker Connections" value={activeBrokers} sub={`${oauthedBrokers} oauthed`} color="var(--cyan)" />
           ) : (
             <>
-              <MetricCard label="Connected" value={activeBrokers} sub={`${oauthedBrokers} oauthed`} color="var(--green)" dot={activeBrokers > 0 ? '#22c55e' : '#ef4444'} />
+              <MetricCard label="Connected" value={activeBrokers} sub={`${oauthedBrokers} oauthed`} color="var(--green)" dot={activeBrokers > 0 ? 'var(--green)' : 'var(--red)'} />
               {Object.entries(brokerTypes).slice(0, 3).map(([type, count]) => (
                 <MetricCard key={type} label={type} value={count} color="var(--violet)" />
               ))}
@@ -286,9 +286,9 @@ export default function FounderDashboard() {
 
       <Section title="Monitoring & Infrastructure">
         <Grid>
-          <MetricCard label="Prometheus" value={prometheusHealth} color={prometheusHealth === 'OK' ? 'var(--green)' : 'var(--red)'} dot={prometheusHealth === 'OK' ? '#22c55e' : '#ef4444'} />
-          <MetricCard label="Grafana" value={grafanaHealth} color={grafanaHealth === 'OK' ? 'var(--green)' : 'var(--red)'} dot={grafanaHealth === 'OK' ? '#22c55e' : '#ef4444'} />
-          <MetricCard label="Redis" value={redisActive === true ? 'connected' : redisActive === false ? 'disconnected' : '—'} color={redisActive === true ? 'var(--green)' : 'var(--red)'} dot={redisActive === true ? '#22c55e' : '#ef4444'} />
+          <MetricCard label="Prometheus" value={prometheusHealth} color={prometheusHealth === 'OK' ? 'var(--green)' : 'var(--red)'} dot={prometheusHealth === 'OK' ? 'var(--green)' : 'var(--red)'} />
+          <MetricCard label="Grafana" value={grafanaHealth} color={grafanaHealth === 'OK' ? 'var(--green)' : 'var(--red)'} dot={grafanaHealth === 'OK' ? 'var(--green)' : 'var(--red)'} />
+          <MetricCard label="Redis" value={redisActive === true ? 'connected' : redisActive === false ? 'disconnected' : '—'} color={redisActive === true ? 'var(--green)' : 'var(--red)'} dot={redisActive === true ? 'var(--green)' : 'var(--red)'} />
           <MetricCard label="Redis Memory" value={redisUsage || '—'} color="var(--cyan)" />
         </Grid>
       </Section>

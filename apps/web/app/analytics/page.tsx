@@ -230,7 +230,7 @@ export default function AnalyticsPage() {
               {runs.slice(0, 10).map((r: any, i: number) => (
                 <div key={r.id || i} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '6px 12px', borderBottom: '1px solid rgba(255,255,255,0.03)',
+                  padding: '6px 12px', borderBottom: '1px solid color-mix(in srgb, var(--text-inverse) 3%, transparent)',
                   fontSize: 11,
                 }}>
                   <div>

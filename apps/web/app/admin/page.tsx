@@ -41,10 +41,10 @@ const TIER_ORDER: Record<string, number> = { free: 0, starter: 1, pro: 2, enterp
 
 function TierColor(tier: string) {
   const map: Record<string, { bg: string; text: string; border: string }> = {
-    free:       { bg: 'rgba(136,136,160,0.15)', text: '#8888a0', border: 'rgba(136,136,160,0.2)' },
-    starter:    { bg: 'rgba(34,211,238,0.15)',  text: '#22d3ee', border: 'rgba(34,211,238,0.2)' },
-    pro:        { bg: 'rgba(139,92,246,0.15)',  text: '#8b5cf6', border: 'rgba(139,92,246,0.2)' },
-    enterprise: { bg: 'rgba(239,68,68,0.15)',   text: '#ef4444', border: 'rgba(239,68,68,0.2)' },
+    free:       { bg: 'color-mix(in srgb, var(--text-sub) 15%, transparent)', text: 'var(--text-sub)', border: 'color-mix(in srgb, var(--text-sub) 20%, transparent)' },
+    starter:    { bg: 'color-mix(in srgb, var(--cyan) 15%, transparent)',  text: 'var(--cyan)', border: 'color-mix(in srgb, var(--cyan) 20%, transparent)' },
+    pro:        { bg: 'color-mix(in srgb, var(--violet) 15%, transparent)',  text: 'var(--violet)', border: 'color-mix(in srgb, var(--violet) 20%, transparent)' },
+    enterprise: { bg: 'color-mix(in srgb, var(--red) 15%, transparent)',   text: 'var(--red)', border: 'color-mix(in srgb, var(--red) 20%, transparent)' },
   }
   return map[tier] || map.free
 }
@@ -66,7 +66,7 @@ function TierBadge({ tier, small }: { tier: string; small?: boolean }) {
 }
 
 function SkeletonLine({ w }: { w: string }) {
-  return <div style={{ width: w, height: 12, background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
+  return <div style={{ width: w, height: 12, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
 }
 
 function SkeletonCard() {
@@ -87,7 +87,7 @@ function NotAuthorized() {
         <h1 className="t-page-title">Control Center</h1>
         <p className="t-sub" style={{ fontSize: 13 }}>Administration panel</p>
       </div>
-      <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13 }}>
+      <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13 }}>
         You do not have admin access.
       </div>
     </div>
@@ -231,7 +231,7 @@ function DashboardTab() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span className="t-faint">API Status</span>
-              <span style={{ fontWeight: 600, color: health?.status === 'ok' ? '#22c55e' : '#ef4444' }}>
+              <span style={{ fontWeight: 600, color: health?.status === 'ok' ? 'var(--green)' : 'var(--red)' }}>
                 {health?.status?.toUpperCase() || '—'}
               </span>
             </div>
@@ -291,7 +291,7 @@ function DashboardTab() {
                 <div key={tier} title={`${tier}: ${count} users (${pct.toFixed(0)}%)`}
                   style={{
                     width: `${pct}%`, height: '100%',
-                    background: tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444',
+                    background: tier === 'free' ? 'var(--text-sub)' : tier === 'starter' ? 'var(--cyan)' : tier === 'pro' ? 'var(--violet)' : 'var(--red)',
                     borderRadius: 3,
                   }} />
               )
@@ -301,7 +301,7 @@ function DashboardTab() {
             {['free', 'starter', 'pro', 'enterprise'].map(tier => {
               const count = statsData.tier_distribution[tier] || 0
               if (count === 0) return null
-              const color = tier === 'free' ? '#8888a0' : tier === 'starter' ? '#22d3ee' : tier === 'pro' ? '#8b5cf6' : '#ef4444'
+              const color = tier === 'free' ? 'var(--text-sub)' : tier === 'starter' ? 'var(--cyan)' : tier === 'pro' ? 'var(--violet)' : 'var(--red)'
               return (
                 <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
@@ -417,12 +417,12 @@ function UsersTab() {
   return (
     <div>
       {tierError && (
-        <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 12, marginBottom: 12 }}>
+        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 12, marginBottom: 12 }}>
           {tierError}
         </div>
       )}
       {tierSuccess && (
-        <div style={{ padding: '8px 12px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 8, color: '#22c55e', fontSize: 12, marginBottom: 12 }}>
+        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--green) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--green) 20%, transparent)', borderRadius: 8, color: 'var(--green)', fontSize: 12, marginBottom: 12 }}>
           {tierSuccess}
         </div>
       )}
@@ -437,8 +437,8 @@ function UsersTab() {
           />
           {usersLoading && Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
           {!usersLoading && filteredUsers.length === 0 && (
-            <div style={{ background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.12)', borderRadius: 10, padding: '12px 16px' }}>
-              <p style={{ margin: 0, fontSize: 12, color: '#22d3ee', fontWeight: 500 }}>
+            <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)', borderRadius: 10, padding: '12px 16px' }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--cyan)', fontWeight: 500 }}>
                 {search ? 'No matching users' : 'No users found'}
               </p>
             </div>
@@ -454,14 +454,14 @@ function UsersTab() {
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#f0f0f5' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
                   {u.full_name || u.email.split('@')[0]}
                 </span>
                 <TierBadge tier={u.subscription_tier} small />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 10, color: '#555570' }}>{u.email}</span>
-                <span style={{ fontSize: 9, color: '#8888a0', background: 'rgba(139,92,246,0.08)', borderRadius: 4, padding: '1px 6px' }}>
+                <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{u.email}</span>
+                <span style={{ fontSize: 9, color: 'var(--text-sub)', background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4, padding: '1px 6px' }}>
                   {u.active_assignments}/{u.max_active_strategies}
                 </span>
               </div>
@@ -472,7 +472,7 @@ function UsersTab() {
         <div style={{ flex: 1, minWidth: 0 }}>
           {!selectedUser && !usersLoading && (
             <div className="t-panel" style={{ padding: 20, textAlign: 'center' }}>
-              <p style={{ margin: 0, fontSize: 12, color: '#555570' }}>Select a user from the list.</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>Select a user from the list.</p>
             </div>
           )}
           {selectedUser && (
@@ -480,37 +480,37 @@ function UsersTab() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                 <div>
                   <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 15, margin: 0 }}>{selectedUser.full_name || selectedUser.email}</h2>
-                  <p style={{ margin: '2px 0 0', fontSize: 10, color: '#555570' }}>{selectedUser.email}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--text-faint)' }}>{selectedUser.email}</p>
                 </div>
                 <TierBadge tier={selectedUser.subscription_tier} />
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <label style={{ color: '#8888a0', fontSize: 10, display: 'block', marginBottom: 3, fontWeight: 600 }}>Subscription Tier</label>
+                <label style={{ color: 'var(--text-sub)', fontSize: 10, display: 'block', marginBottom: 3, fontWeight: 600 }}>Subscription Tier</label>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <select className="t-select" value={selectedUser.subscription_tier}
                     onChange={(e) => handleTierChange(e.target.value)} disabled={tierUpdating} style={{ maxWidth: 160, fontSize: 12 }}>
                     {TIERS.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                   </select>
-                  {tierUpdating && <span style={{ fontSize: 10, color: '#8888a0' }}>Updating...</span>}
+                  {tierUpdating && <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>Updating...</span>}
                 </div>
               </div>
 
-              <div style={{ fontSize: 11, color: '#8888a0', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 12 }}>
                 Active strategies: {activeAssignments.length}/{selectedUser.max_active_strategies}
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: '0 0 6px', color: '#f0f0f5' }}>Assigned ({activeAssignments.length})</h3>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: '0 0 6px', color: 'var(--text)' }}>Assigned ({activeAssignments.length})</h3>
                 {assignmentsLoading && <SkeletonLine w="60%" />}
-                {!assignmentsLoading && activeAssignments.length === 0 && <p style={{ fontSize: 11, color: '#555570', margin: 0 }}>None.</p>}
+                {!assignmentsLoading && activeAssignments.length === 0 && <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0 }}>None.</p>}
                 {!assignmentsLoading && activeAssignments.map(a => {
                   const info = catalog.find(c => c.key === a.strategy_key)
                   return (
                     <div key={a.id} className="t-panel" style={{ padding: '6px 10px', marginBottom: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#f0f0f5' }}>{info?.name || a.strategy_key}</span>
-                        <span style={{ fontSize: 9, color: '#555570', marginLeft: 6 }}><TierBadge tier={a.required_tier} small /></span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{info?.name || a.strategy_key}</span>
+                        <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 6 }}><TierBadge tier={a.required_tier} small /></span>
                       </div>
                       <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleUnassign(a.id)} style={{ fontSize: 9 }}>Remove</button>
                     </div>
@@ -519,8 +519,8 @@ function UsersTab() {
               </div>
 
               <div>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: '0 0 6px', color: '#f0f0f5' }}>Available ({available.length})</h3>
-                {available.length === 0 && <p style={{ fontSize: 11, color: '#555570', margin: 0 }}>All assigned.</p>}
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: '0 0 6px', color: 'var(--text)' }}>Available ({available.length})</h3>
+                {available.length === 0 && <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0 }}>All assigned.</p>}
                 {available.map(s => {
                   const userTierRank = TIER_ORDER[selectedUser.subscription_tier] ?? 0
                   const reqTierRank = TIER_ORDER[s.required_tier] ?? 99
@@ -530,8 +530,8 @@ function UsersTab() {
                   return (
                     <div key={s.key} className="t-panel" style={{ padding: '6px 10px', marginBottom: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#f0f0f5' }}>{s.name}</span>
-                        <span style={{ fontSize: 9, color: '#555570', marginLeft: 6 }}><TierBadge tier={s.required_tier} small /></span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{s.name}</span>
+                        <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 6 }}><TierBadge tier={s.required_tier} small /></span>
                       </div>
                       <button className={`t-btn t-btn-sm`} onClick={() => !disabled && handleAssign(s.key)}
                         disabled={disabled} style={{ fontSize: 9, opacity: disabled ? 0.5 : 1 }}
@@ -601,7 +601,7 @@ function BrokersTab() {
       {/* Admin Broker Credentials Setup */}
       <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: 0, color: '#f0f0f5' }}>My Broker Credentials</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: 0, color: 'var(--text)' }}>My Broker Credentials</h3>
         </div>
         <div style={{ marginBottom: 10 }}>
           <label className="t-label" style={{ fontSize: 10, marginBottom: 4 }}>Select Broker</label>
@@ -620,7 +620,7 @@ function BrokersTab() {
           return (
             <>
               {meta.instructions && (
-                <div style={{ fontSize: 10, color: '#8888a0', lineHeight: 1.5, marginBottom: 10, padding: 8, background: 'rgba(139,92,246,0.06)', borderRadius: 6, whiteSpace: 'pre-line' }}>
+                <div style={{ fontSize: 10, color: 'var(--text-sub)', lineHeight: 1.5, marginBottom: 10, padding: 8, background: 'color-mix(in srgb, var(--violet) 6%, transparent)', borderRadius: 6, whiteSpace: 'pre-line' }}>
                   {meta.instructions}
                 </div>
               )}
@@ -669,7 +669,7 @@ function BrokersTab() {
                   Open {getMeta(selectedBroker)?.display_name || selectedBroker} login page
                 </a>
               )}
-              {msg && <p style={{ fontSize: 10, margin: '4px 0 0', color: msg.includes('saved') || msg.includes('success') ? '#22c55e' : '#ef4444' }}>{msg}</p>}
+              {msg && <p style={{ fontSize: 10, margin: '4px 0 0', color: msg.includes('saved') || msg.includes('success') ? 'var(--green)' : 'var(--red)' }}>{msg}</p>}
             </>
           )
         })()}
@@ -683,29 +683,29 @@ function BrokersTab() {
       {loading && <SkeletonCard />}
       {!loading && brokers.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: '#555570' }}>No broker connections found.</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No broker connections found.</p>
         </div>
       )}
       {!loading && brokers.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
-                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>USER</th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>BROKER</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ACTIVE</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>AUTH</th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>CONNECTED</th>
+              <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>USER</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>BROKER</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ACTIVE</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>AUTH</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>CONNECTED</th>
               </tr>
             </thead>
             <tbody>
               {brokers.map(b => {
                 const meta = getMeta(b.broker)
                 return (
-                  <tr key={b.id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                  <tr key={b.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                     <td style={{ padding: '8px 10px' }}>
-                      <div style={{ fontWeight: 600, color: '#f0f0f5' }}>{b.full_name || b.email?.split('@')[0] || '—'}</div>
-                      <div style={{ fontSize: 9, color: '#555570' }}>{b.email}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text)' }}>{b.full_name || b.email?.split('@')[0] || '—'}</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>{b.email}</div>
                     </td>
                     <td style={{ padding: '8px 10px' }}>
                       <span>{meta?.display_name || b.broker}</span>
@@ -724,16 +724,16 @@ function BrokersTab() {
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                       <span style={{
                         display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                        background: b.is_active ? '#22c55e' : '#555570',
+                        background: b.is_active ? 'var(--green)' : 'var(--text-faint)',
                       }} />
                     </td>
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                       {b.has_access_token
-                        ? <span style={{ color: '#22c55e', fontSize: 10 }}>Authenticated</span>
-                        : <span style={{ color: '#ef4444', fontSize: 10 }}>Not authorized</span>
+                        ? <span style={{ color: 'var(--green)', fontSize: 10 }}>Authenticated</span>
+                        : <span style={{ color: 'var(--red)', fontSize: 10 }}>Not authorized</span>
                       }
                     </td>
-                    <td style={{ padding: '8px 10px', fontSize: 10, color: '#555570' }}>
+                    <td style={{ padding: '8px 10px', fontSize: 10, color: 'var(--text-faint)' }}>
                       {b.created_at ? new Date(b.created_at).toLocaleDateString() : '—'}
                     </td>
                   </tr>
@@ -781,36 +781,36 @@ function FyersTokenSection() {
   return (
     <div className="t-panel" style={{ padding: 16, marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: 0, color: '#f0f0f5' }}>Fyers Token Management</h3>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: 0, color: 'var(--text)' }}>Fyers Token Management</h3>
         <button className="t-btn t-btn-sm" onClick={runValidate} disabled={loading} style={{ fontSize: 10 }}>
           {loading ? 'Checking...' : 'Validate All Tokens'}
         </button>
       </div>
-      {msg && <p style={{ fontSize: 10, margin: '0 0 10px', color: msg.includes('expired') ? '#ef4444' : '#22c55e' }}>{msg}</p>}
+      {msg && <p style={{ fontSize: 10, margin: '0 0 10px', color: msg.includes('expired') ? 'var(--red)' : 'var(--green)' }}>{msg}</p>}
       {healthResults && healthResults.length === 0 && (
-        <p style={{ fontSize: 11, color: '#555570' }}>No Fyers credentials found.</p>
+        <p style={{ fontSize: 11, color: 'var(--text-faint)' }}>No Fyers credentials found.</p>
       )}
       {healthResults && healthResults.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>USER</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>TOKEN</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>STATUS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ERROR</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ACTION</th>
+              <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>USER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>TOKEN</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>STATUS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ERROR</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ACTION</th>
               </tr>
             </thead>
             <tbody>
               {healthResults.map(r => {
-                const statusColor = !r.has_token ? '#555570' : r.valid ? '#22c55e' : '#ef4444'
+                const statusColor = !r.has_token ? 'var(--text-faint)' : r.valid ? 'var(--green)' : 'var(--red)'
                 const statusText = !r.has_token ? 'No Token' : r.valid ? 'Valid' : 'Expired'
                 return (
-                  <tr key={r.id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                  <tr key={r.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                     <td style={{ padding: '6px 8px' }}>
-                      <div style={{ fontWeight: 600, color: '#f0f0f5' }}>{r.full_name || '—'}</div>
-                      <div style={{ fontSize: 9, color: '#555570' }}>{r.email}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text)' }}>{r.full_name || '—'}</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>{r.email}</div>
                     </td>
                     <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                       <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: statusColor }} />
@@ -818,7 +818,7 @@ function FyersTokenSection() {
                     <td style={{ padding: '6px 8px', textAlign: 'center', fontSize: 10, fontWeight: 600, color: statusColor }}>
                       {statusText}
                     </td>
-                    <td style={{ padding: '6px 8px', fontSize: 9, color: '#ef4444', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--red)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {r.error || '—'}
                     </td>
                     <td style={{ padding: '6px 8px', textAlign: 'center' }}>
@@ -894,7 +894,7 @@ function BuyerStrategiesTab() {
   return (
     <div>
       <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Activate Buyer Strategy</h3>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: 'var(--text)' }}>Activate Buyer Strategy</h3>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
           <select className="t-input" value={strategyKey} onChange={e => setStrategyKey(e.target.value)}
             style={{ fontSize: 11, width: 220 }}>
@@ -916,9 +916,9 @@ function BuyerStrategiesTab() {
           </button>
         </div>
         {BUYER_STRATEGY_OPTIONS.filter(s => s.key === strategyKey).map(s => (
-          <p key={s.key} style={{ fontSize: 10, color: '#8888a0', margin: 0 }}>{s.desc}</p>
+          <p key={s.key} style={{ fontSize: 10, color: 'var(--text-sub)', margin: 0 }}>{s.desc}</p>
         ))}
-        {msg && <p style={{ fontSize: 10, marginTop: 6, color: msg.includes('fail') ? '#ef4444' : '#22c55e' }}>{msg}</p>}
+        {msg && <p style={{ fontSize: 10, marginTop: 6, color: msg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>{msg}</p>}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -928,29 +928,29 @@ function BuyerStrategiesTab() {
       {loading && <SkeletonCard />}
       {!loading && strategies.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: '#555570' }}>No active buyer strategies.</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No active buyer strategies.</p>
         </div>
       )}
       {!loading && strategies.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ID</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>STRATEGY</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>INDEX</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>STATUS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>ACTION</th>
+              <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ID</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>STRATEGY</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>INDEX</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>STATUS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ACTION</th>
               </tr>
             </thead>
             <tbody>
               {strategies.map(s => (
-                <tr key={s.strategy_id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
-                  <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 10, color: '#f0f0f5' }}>{s.strategy_id}</td>
-                  <td style={{ padding: '6px 8px', fontWeight: 600, color: '#f0f0f5' }}>{s.strategy_key}</td>
+                <tr key={s.strategy_id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
+                  <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text)' }}>{s.strategy_id}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--text)' }}>{s.strategy_key}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>{s.index}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                    <span style={{ color: s.running ? '#22c55e' : '#f59e0b', fontSize: 10, fontWeight: 600 }}>
+                    <span style={{ color: s.running ? 'var(--green)' : 'var(--amber)', fontSize: 10, fontWeight: 600 }}>
                       {s.running ? 'Running' : 'Idle'}
                     </span>
                   </td>
@@ -1001,47 +1001,47 @@ function TradesTab() {
           <option value="true">Paper</option>
           <option value="false">Live</option>
         </select>
-        <span style={{ fontSize: 10, color: '#8888a0' }}>{data?.count || orders.length} orders</span>
-        <span style={{ fontSize: 10, color: '#555570' }}>(auto-refreshes)</span>
+        <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{data?.count || orders.length} orders</span>
+        <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>(auto-refreshes)</span>
       </div>
       {loading && <SkeletonCard />}
       {!loading && orders.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: '#555570' }}>No orders found.</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No orders found.</p>
         </div>
       )}
       {!loading && orders.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>USER</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>SYMBOL</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>SIDE</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>QTY</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>PRICE</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>BROKER</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>STATUS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>TYPE</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>AT</th>
+              <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SYMBOL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SIDE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>QTY</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>PRICE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>BROKER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>STATUS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>TYPE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>AT</th>
               </tr>
             </thead>
             <tbody>
               {orders.map(o => (
-                <tr key={o.id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                <tr key={o.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                   <td style={{ padding: '6px 8px' }}>
-                    <div style={{ color: '#f0f0f5', fontWeight: 500 }}>{o.full_name || '—'}</div>
-                    <div style={{ fontSize: 8, color: '#555570' }}>{o.email}</div>
+                    <div style={{ color: 'var(--text)', fontWeight: 500 }}>{o.full_name || '—'}</div>
+                    <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{o.email}</div>
                   </td>
-                  <td style={{ padding: '6px 8px', fontWeight: 600, color: '#f0f0f5' }}>{o.symbol}</td>
-                  <td style={{ padding: '6px 8px', color: o.side === 'BUY' ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{o.side}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--text)' }}>{o.symbol}</td>
+                  <td style={{ padding: '6px 8px', color: o.side === 'BUY' ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{o.side}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.quantity}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.price ? o.price.toFixed(2) : '—'}</td>
                   <td style={{ padding: '6px 8px', textTransform: 'capitalize' }}>{o.broker}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                     <span style={{
-                      color: o.status === 'FILLED' || o.status === 'OPEN' ? '#22c55e'
-                        : o.status === 'REJECTED' ? '#ef4444' : '#f59e0b',
+                      color: o.status === 'FILLED' || o.status === 'OPEN' ? 'var(--green)'
+                        : o.status === 'REJECTED' ? 'var(--red)' : 'var(--amber)',
                       fontSize: 9, fontWeight: 600,
                     }}>
                       {o.status}
@@ -1049,11 +1049,11 @@ function TradesTab() {
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                     {o.is_paper
-                      ? <span style={{ color: '#f59e0b', fontSize: 9 }}>Paper</span>
-                      : <span style={{ color: '#22c55e', fontSize: 9 }}>Live</span>
+                      ? <span style={{ color: 'var(--amber)', fontSize: 9 }}>Paper</span>
+                      : <span style={{ color: 'var(--green)', fontSize: 9 }}>Live</span>
                     }
                   </td>
-                  <td style={{ padding: '6px 8px', fontSize: 9, color: '#555570' }}>
+                  <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)' }}>
                     {o.created_at ? new Date(o.created_at).toLocaleString() : '—'}
                   </td>
                 </tr>
@@ -1090,48 +1090,48 @@ function AuditTab() {
           <option value="">All actions</option>
           {distinctActions.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <span style={{ fontSize: 10, color: '#8888a0' }}>{data?.count || entries.length} entries</span>
+        <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{data?.count || entries.length} entries</span>
         <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
       </div>
       {loading && <SkeletonCard />}
       {!loading && entries.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: '#555570' }}>No audit entries found.</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No audit entries found.</p>
         </div>
       )}
       {!loading && entries.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>TIME</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>USER ID</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>ACTION</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>RESOURCE</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>DETAILS</th>
+              <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>TIME</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER ID</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>ACTION</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>RESOURCE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>DETAILS</th>
               </tr>
             </thead>
             <tbody>
               {entries.map(e => (
-                <tr key={e.id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
-                  <td style={{ padding: '6px 8px', fontSize: 9, color: '#555570', whiteSpace: 'nowrap' }}>
+                <tr key={e.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
+                  <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
                     {e.created_at ? new Date(e.created_at).toLocaleString() : '—'}
                   </td>
-                  <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 8, color: '#8888a0' }}>
+                  <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-sub)' }}>
                     {e.user_id?.slice(0, 12)}...
                   </td>
                   <td style={{ padding: '6px 8px', fontWeight: 500 }}>
                     <span style={{
-                      color: e.action?.includes('error') || e.action?.includes('fail') ? '#ef4444'
-                        : e.action?.includes('assign') || e.action?.includes('create') ? '#22c55e'
-                        : e.action?.includes('delete') || e.action?.includes('remove') || e.action?.includes('unassign') ? '#f59e0b'
-                        : '#8888a0',
+                      color: e.action?.includes('error') || e.action?.includes('fail') ? 'var(--red)'
+                        : e.action?.includes('assign') || e.action?.includes('create') ? 'var(--green)'
+                        : e.action?.includes('delete') || e.action?.includes('remove') || e.action?.includes('unassign') ? 'var(--amber)'
+                        : 'var(--text-sub)',
                     }}>
                       {e.action}
                     </span>
                   </td>
-                  <td style={{ padding: '6px 8px', color: '#555570' }}>{e.resource}</td>
-                  <td style={{ padding: '6px 8px', fontSize: 9, color: '#555570', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <td style={{ padding: '6px 8px', color: 'var(--text-faint)' }}>{e.resource}</td>
+                  <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {e.details ? JSON.stringify(e.details).slice(0, 80) : '—'}
                   </td>
                 </tr>
@@ -1154,50 +1154,50 @@ function RiskTab() {
       {loading && <SkeletonCard />}
       {!loading && settings.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: '#555570' }}>No risk settings configured.</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No risk settings configured.</p>
         </div>
       )}
       {!loading && settings.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>USER</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>CAPITAL</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>MAX POS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>MAX LOSS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>DRAWDOWN</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>OPEN POS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>KILL</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#8888a0', fontSize: 8 }}>LIVE</th>
+              <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>CAPITAL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>MAX POS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>MAX LOSS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>DRAWDOWN</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>OPEN POS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>KILL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>LIVE</th>
               </tr>
             </thead>
             <tbody>
               {settings.map((s, i) => (
-                <tr key={s.user_id + '-' + i} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                <tr key={s.user_id + '-' + i} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                   <td style={{ padding: '6px 8px' }}>
-                    <div style={{ fontWeight: 600, color: '#f0f0f5' }}>{s.full_name || s.email?.split('@')[0] || '—'}</div>
-                    <div style={{ fontSize: 8, color: '#555570' }}>{s.email}</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text)' }}>{s.full_name || s.email?.split('@')[0] || '—'}</div>
+                    <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{s.email}</div>
                   </td>
                   <td className="t-num" style={{ fontFamily: 'var(--font-mono)' }}>{s.max_capital ? `₹${s.max_capital.toLocaleString()}` : '—'}</td>
                   <td className="t-num" style={{ fontFamily: 'var(--font-mono)' }}>{s.max_position_size ? `₹${s.max_position_size.toLocaleString()}` : '—'}</td>
-                  <td className="t-num" style={{ fontFamily: 'var(--font-mono)', color: s.max_daily_loss ? '#ef4444' : 'inherit' }}>
+                  <td className="t-num" style={{ fontFamily: 'var(--font-mono)', color: s.max_daily_loss ? 'var(--red)' : 'inherit' }}>
                     {s.max_daily_loss ? `₹${s.max_daily_loss.toLocaleString()}` : '—'}
                   </td>
-                  <td className="t-num" style={{ fontFamily: 'var(--font-mono)', color: s.max_drawdown_pct ? '#f59e0b' : 'inherit' }}>
+                  <td className="t-num" style={{ fontFamily: 'var(--font-mono)', color: s.max_drawdown_pct ? 'var(--amber)' : 'inherit' }}>
                     {s.max_drawdown_pct ? `${s.max_drawdown_pct}%` : '—'}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>{s.max_open_positions}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                     <span style={{
                       display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                      background: s.kill_switch_enabled ? '#ef4444' : '#22c55e',
+                      background: s.kill_switch_enabled ? 'var(--red)' : 'var(--green)',
                     }} />
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                     {s.is_live
-                      ? <span style={{ color: '#22c55e', fontSize: 9, fontWeight: 600 }}>LIVE</span>
-                      : <span style={{ color: '#f59e0b', fontSize: 9 }}>Paper</span>
+                      ? <span style={{ color: 'var(--green)', fontSize: 9, fontWeight: 600 }}>LIVE</span>
+                      : <span style={{ color: 'var(--amber)', fontSize: 9 }}>Paper</span>
                     }
                   </td>
                 </tr>

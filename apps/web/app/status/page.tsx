@@ -25,7 +25,7 @@ const INCIDENT_HISTORY: Incident[] = [
 ]
 
 function StatusDot({ status }: { status: ComponentStatus }) {
-  const color = status === 'operational' ? '#22c55e' : status === 'down' ? '#ef4444' : '#f59e0b'
+  const color = status === 'operational' ? 'var(--green)' : status === 'down' ? 'var(--red)' : 'var(--amber)'
   return (
     <span style={{
       display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
@@ -114,16 +114,16 @@ export default function StatusPage() {
           <h1 className="t-page-title" style={{ margin: 0 }}>System Status</h1>
           <p className="t-sub" style={{ fontSize: 12, margin: '4px 0 0' }}>Current time: {currentTime}</p>
         </div>
-        <StatusBadge color={allOperational ? '#22c55e' : '#ef4444'}>
+        <StatusBadge color={allOperational ? 'var(--green)' : 'var(--red)'}>
           <span style={{
             display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
-            background: allOperational ? '#22c55e' : '#ef4444',
+            background: allOperational ? 'var(--green)' : 'var(--red)',
           }} />
           {allOperational ? 'All Systems Operational' : 'Issues Detected'}
         </StatusBadge>
       </div>
 
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>System Components</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: 'var(--text)' }}>System Components</h2>
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
           <SkeletonCard />
@@ -136,39 +136,39 @@ export default function StatusPage() {
             <div key={c.name} className="t-panel" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <StatusDot status={c.status} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f5' }}>{c.name}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{c.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{
                   fontSize: 11, fontWeight: 500,
-                  color: c.status === 'operational' ? '#22c55e' : c.status === 'down' ? '#ef4444' : '#f59e0b',
+                  color: c.status === 'operational' ? 'var(--green)' : c.status === 'down' ? 'var(--red)' : 'var(--amber)',
                 }}>
                   {c.status === 'operational' ? 'Operational' : c.status === 'down' ? 'Down' : 'Degraded'}
                 </span>
-                <span style={{ fontSize: 9, color: '#555570' }}>{c.lastChecked}</span>
+                <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>{c.lastChecked}</span>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>Incident History</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: 'var(--text)' }}>Incident History</h2>
       <div className="t-panel" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
         <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
-              <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>DATE</th>
-              <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>INCIDENT</th>
-              <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: '#8888a0', fontSize: 9 }}>STATUS</th>
+            <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+              <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>DATE</th>
+              <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>INCIDENT</th>
+              <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>STATUS</th>
             </tr>
           </thead>
           <tbody>
             {INCIDENT_HISTORY.map((inc, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
-                <td style={{ padding: '8px 12px', color: '#555570', fontSize: 10 }}>{inc.date}</td>
-                <td style={{ padding: '8px 12px', fontWeight: 600, color: '#f0f0f5' }}>{inc.title}</td>
+              <tr key={i} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
+                <td style={{ padding: '8px 12px', color: 'var(--text-faint)', fontSize: 10 }}>{inc.date}</td>
+                <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text)' }}>{inc.title}</td>
                 <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                  <StatusBadge color={inc.status === 'Resolved' ? '#22c55e' : '#8888a0'}>
+                  <StatusBadge color={inc.status === 'Resolved' ? 'var(--green)' : 'var(--text-sub)'}>
                     {inc.status}
                   </StatusBadge>
                 </td>
@@ -178,15 +178,15 @@ export default function StatusPage() {
         </table>
       </div>
 
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>Maintenance</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: 'var(--text)' }}>Maintenance</h2>
       <div className="t-panel" style={{ padding: 16, marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{
               display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
-              background: '#22c55e',
+              background: 'var(--green)',
             }} />
-            <span style={{ fontSize: 13, color: '#f0f0f5' }}>Not in maintenance</span>
+            <span style={{ fontSize: 13, color: 'var(--text)' }}>Not in maintenance</span>
           </div>
           <button className="t-btn t-btn-sm" onClick={() => toast('info', 'Maintenance mode toggle requires server config')} style={{ fontSize: 10 }}>
             Toggle Maintenance Mode
@@ -194,7 +194,7 @@ export default function StatusPage() {
         </div>
       </div>
 
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: '#f0f0f5' }}>Uptime</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: 'var(--text)' }}>Uptime</h2>
       <div className="t-panel" style={{ padding: 16 }}>
         <div style={{ display: 'flex', gap: 24 }}>
           {[
@@ -203,8 +203,8 @@ export default function StatusPage() {
             { period: 'This Month', pct: '99.8%' },
           ].map(u => (
             <div key={u.period}>
-              <div style={{ fontSize: 9, color: '#8888a0', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>{u.period}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#22c55e' }}>{u.pct}</div>
+              <div style={{ fontSize: 9, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>{u.period}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>{u.pct}</div>
             </div>
           ))}
         </div>

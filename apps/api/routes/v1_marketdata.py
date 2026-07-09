@@ -26,12 +26,19 @@ async def marketdata_ws(websocket: WebSocket):
     await websocket.accept()
     shared_socket.increment_connections()
     subscribed_symbols: set[str] = set()
-    queue: asyncio.Queue[Tick] = asyncio.Queue()
+    queue: asyncio.Queue[Tick] = asyncio.Queue(maxsize=256)
     stop_event = asyncio.Event()
 
     async def tick_handler(tick: Tick):
         if tick.symbol in subscribed_symbols:
-            await queue.put(tick)
+            try:
+                queue.put_nowait(tick)
+            except asyncio.QueueFull:
+                try:
+                    queue.get_nowait()
+                    queue.put_nowait(tick)
+                except asyncio.QueueEmpty:
+                    pass
 
     shared_socket.subscribe("*", tick_handler)
 

@@ -43,7 +43,7 @@ export default function Chart({ symbol, height = 400 }: ChartProps) {
         vd.push({
           time: t,
           value: c.volume,
-          color: c.close >= c.open ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)',
+          color: c.close >= c.open ? 'color-mix(in srgb, var(--green) 30%, transparent)' : 'color-mix(in srgb, var(--red) 30%, transparent)',
         })
       }
       candleSeriesRef.current?.setData(cd)
@@ -61,33 +61,33 @@ export default function Chart({ symbol, height = 400 }: ChartProps) {
       height,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: '#6b6e78',
+        textColor: 'var(--text-sub)',
         fontSize: 10,
         fontFamily: 'var(--font-body)',
       },
       grid: {
-        vertLines: { color: 'rgba(139,92,246,0.06)' },
-        horzLines: { color: 'rgba(139,92,246,0.06)' },
+        vertLines: { color: 'color-mix(in srgb, var(--violet) 6%, transparent)' },
+        horzLines: { color: 'color-mix(in srgb, var(--violet) 6%, transparent)' },
       },
       crosshair: {
-        vertLine: { color: 'rgba(139,92,246,0.3)', width: 1, style: 2, labelBackgroundColor: '#0c0e12' },
-        horzLine: { color: 'rgba(139,92,246,0.3)', width: 1, style: 2, labelBackgroundColor: '#0c0e12' },
+        vertLine: { color: 'color-mix(in srgb, var(--violet) 30%, transparent)', width: 1, style: 2, labelBackgroundColor: 'var(--bg-secondary)' },
+        horzLine: { color: 'color-mix(in srgb, var(--violet) 30%, transparent)', width: 1, style: 2, labelBackgroundColor: 'var(--bg-secondary)' },
       },
       timeScale: {
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: 'color-mix(in srgb, var(--text-inverse) 6%, transparent)',
         timeVisible: true,
         secondsVisible: false,
       },
-      rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
+      rightPriceScale: { borderColor: 'color-mix(in srgb, var(--text-inverse) 6%, transparent)' },
     })
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#34d399',
-      downColor: '#f87171',
-      borderUpColor: '#34d399',
-      borderDownColor: '#f87171',
-      wickUpColor: '#34d399',
-      wickDownColor: '#f87171',
+      upColor: 'var(--green)',
+      downColor: 'var(--red)',
+      borderUpColor: 'var(--green)',
+      borderDownColor: 'var(--red)',
+      wickUpColor: 'var(--green)',
+      wickDownColor: 'var(--red)',
     })
 
     const volumeSeries = chart.addSeries(HistogramSeries, {

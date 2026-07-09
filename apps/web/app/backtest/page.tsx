@@ -97,7 +97,7 @@ function computeDrawdowns(equityCurve: { equity: number }[]): { depth: number; f
   return dd.sort((a, b) => b.depth - a.depth).slice(0, 5)
 }
 
-function EquityChart({ curves, height = 200, color = '#22c55e', label }: { curves: number[][]; height?: number; color?: string; label?: string }) {
+function EquityChart({ curves, height = 200, color = 'var(--green)', label }: { curves: number[][]; height?: number; color?: string; label?: string }) {
   if (curves.length === 0) return null
   const all = curves.flat()
   const min = Math.min(...all)
@@ -121,7 +121,7 @@ function EquityChart({ curves, height = 200, color = '#22c55e', label }: { curve
           const yy = pad.top + (i / 5) * ch
           return (
             <g key={i}>
-              <line x1={pad.left} y1={yy} x2={width - pad.right} y2={yy} stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
+              <line x1={pad.left} y1={yy} x2={width - pad.right} y2={yy} stroke="color-mix(in srgb, var(--text-inverse) 3%, transparent)" strokeWidth={1} />
               <text x={pad.left - 6} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">
                 {Math.round(min + (range / 5) * (5 - i)).toLocaleString()}
               </text>
@@ -148,8 +148,8 @@ function BarChart({ data, height = 120 }: { data: { label: string; value: number
   const barW = Math.max(8, (w - 60) / data.length - 4)
   return (
     <svg viewBox={`0 0 ${w} ${height}`} style={{ width: '100%', height: 'auto' }}>
-      <line x1={40} y1={height - 20} x2={w - 10} y2={height - 20} stroke="rgba(255,255,255,0.06)" />
-      <line x1={40} y1={20} x2={40} y2={height - 20} stroke="rgba(255,255,255,0.06)" />
+      <line x1={40} y1={height - 20} x2={w - 10} y2={height - 20} stroke="color-mix(in srgb, var(--text-inverse) 6%, transparent)" />
+      <line x1={40} y1={20} x2={40} y2={height - 20} stroke="color-mix(in srgb, var(--text-inverse) 6%, transparent)" />
       {data.map((d, i) => {
         const xPos = 44 + i * (barW + 4)
         const barH = (Math.abs(d.value) / maxVal) * (height - 40)
@@ -309,7 +309,7 @@ export default function BacktestPage() {
 
       {error && (
         <div style={{
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)',
+          background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 15%, transparent)',
           borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12,
         }}>{error}</div>
       )}
@@ -352,7 +352,7 @@ export default function BacktestPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
                 {/* Equity Curve */}
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <EquityChart curves={[r.equity_curve.map(p => p.equity)]} height={180} color={r.total_pnl >= 0 ? '#22c55e' : '#ef4444'} label="Equity Curve" />
+                  <EquityChart curves={[r.equity_curve.map(p => p.equity)]} height={180} color={r.total_pnl >= 0 ? 'var(--green)' : 'var(--red)'} label="Equity Curve" />
                 </div>
 
                 {/* Monthly Returns */}
@@ -443,7 +443,7 @@ export default function BacktestPage() {
                   500 simulated paths based on trade outcome distribution. Solid line = actual equity curve.
                 </div>
               </div>
-              <EquityChart curves={mcPaths} height={240} color="#7c5cfc" />
+              <EquityChart curves={mcPaths} height={240} color="var(--violet)" />
               {mcPaths.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
                   {(() => {
@@ -512,7 +512,7 @@ export default function BacktestPage() {
                         const cr = or.result.results
                         const best = or === optResults.sort((a, b) => b.result.results.sharpe_ratio - a.result.results.sharpe_ratio)[0]
                         return (
-                          <tr key={or.value} style={best ? { background: 'rgba(0,212,255,0.04)' } : {}}>
+                          <tr key={or.value} style={best ? { background: 'color-mix(in srgb, var(--cyan) 4%, transparent)' } : {}}>
                             <td style={{ fontWeight: 700 }}>{or.value}{best ? ' ✓' : ''}</td>
                             <td className={`num ${cr.total_pnl >= 0 ? 't-up' : 't-down'}`}>{cr.total_pnl >= 0 ? '+' : ''}{cr.total_pnl.toFixed(0)}</td>
                             <td className="num">{cr.win_rate}%</td>

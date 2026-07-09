@@ -72,7 +72,7 @@ export default function SettingsPage() {
               width: 48, height: 48, borderRadius: '50%',
               background: 'var(--gradient-primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18, fontWeight: 700, color: '#fff',
+              fontSize: 18, fontWeight: 700, color: 'var(--text-inverse)',
               flexShrink: 0,
             }}>
               {user?.full_name?.[0] || user?.email?.[0] || 'U'}

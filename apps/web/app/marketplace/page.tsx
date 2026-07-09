@@ -127,9 +127,9 @@ export default function MarketplacePage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="t-panel" style={{ padding: 20, height: 180 }}>
-              <div style={{ width: '50%', height: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 4, marginBottom: 12 }} />
-              <div style={{ width: '80%', height: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 4, marginBottom: 8 }} />
-              <div style={{ width: '60%', height: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 4 }} />
+              <div style={{ width: '50%', height: 14, background: 'color-mix(in srgb, var(--text-inverse) 4%, transparent)', borderRadius: 4, marginBottom: 12 }} />
+              <div style={{ width: '80%', height: 10, background: 'color-mix(in srgb, var(--text-inverse) 3%, transparent)', borderRadius: 4, marginBottom: 8 }} />
+              <div style={{ width: '60%', height: 10, background: 'color-mix(in srgb, var(--text-inverse) 3%, transparent)', borderRadius: 4 }} />
             </div>
           ))}
         </div>
@@ -137,7 +137,7 @@ export default function MarketplacePage() {
 
       {error && (
         <div style={{
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+          background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)',
           borderRadius: 'var(--radius-md)', padding: '10px 12px', color: 'var(--text-red)', fontSize: 12,
         }}>
           {error.message}
@@ -150,14 +150,14 @@ export default function MarketplacePage() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
           }}>
-            <span style={{ color: '#f59e0b', fontSize: 16 }}>★</span>
+            <span style={{ color: 'var(--amber)', fontSize: 16 }}>★</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Featured Strategies</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
             {featured.map(s => (
               <div key={s.key} style={{
-                background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(124,92,252,0.06))',
-                border: '1px solid rgba(245,158,11,0.15)',
+                background: 'linear-gradient(135deg, color-mix(in srgb, var(--amber) 6%, transparent), color-mix(in srgb, var(--violet) 6%, transparent))',
+                border: '1px solid color-mix(in srgb, var(--amber) 15%, transparent)',
                 borderRadius: 'var(--radius-md)', padding: 14,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -279,7 +279,7 @@ export default function MarketplacePage() {
 
       {!loading && !error && filtered.length === 0 && strategies.length > 0 && (
         <div style={{
-          background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.1)',
+          background: 'color-mix(in srgb, var(--cyan) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 10%, transparent)',
           borderRadius: 'var(--radius-md)', padding: 24, textAlign: 'center',
         }}>
           <p style={{ color: 'var(--text-sub)', fontSize: 13, margin: '0 0 4px' }}>

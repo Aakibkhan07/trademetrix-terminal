@@ -48,10 +48,10 @@ export default function TransparencyPage() {
       </div>
 
       {loading ? (
-        <p style={{ color: '#8888a0' }}>Loading order data...</p>
+        <p style={{ color: 'var(--text-sub)' }}>Loading order data...</p>
       ) : orders.length === 0 ? (
         <div className="t-panel" style={{ textAlign: 'center', padding: 48 }}>
-          <p style={{ color: '#555570', margin: 0 }}>No orders yet. Start a strategy to see your order lifecycle here.</p>
+          <p style={{ color: 'var(--text-faint)', margin: 0 }}>No orders yet. Start a strategy to see your order lifecycle here.</p>
         </div>
       ) : (
         <div className="t-panel" style={{ overflowX: 'auto' }}>
@@ -95,14 +95,14 @@ export default function TransparencyPage() {
                   <td className="t-num">{o.filled_at ? new Date(o.filled_at).toLocaleTimeString() : '-'}</td>
                   <td className="t-num">
                     {o.latency_ms !== null ? (
-                      <span style={{ color: (o.latency_ms || 0) < 100 ? '#22c55e' : '#f59e0b' }}>
+                      <span style={{ color: (o.latency_ms || 0) < 100 ? 'var(--green)' : 'var(--amber)' }}>
                         {o.latency_ms.toFixed(1)}ms
                       </span>
                     ) : '-'}
                   </td>
                   <td className="t-num">
                     {o.slippage !== null ? (
-                      <span style={{ color: (o.slippage || 0) === 0 ? '#22c55e' : '#ef4444' }}>
+                      <span style={{ color: (o.slippage || 0) === 0 ? 'var(--green)' : 'var(--red)' }}>
                         {o.slippage.toFixed(2)}
                       </span>
                     ) : '-'}
@@ -121,27 +121,27 @@ export default function TransparencyPage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             <div>
-              <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Signal</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Signal</p>
               <p style={{ fontSize: 13, margin: 0 }}>When the strategy generated the signal</p>
             </div>
             <div>
-              <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Risk Check</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Risk Check</p>
               <p style={{ fontSize: 13, margin: 0 }}>When RiskGuard validated the signal</p>
             </div>
             <div>
-              <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Sent</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Sent</p>
               <p style={{ fontSize: 13, margin: 0 }}>When the order was sent to the broker</p>
             </div>
             <div>
-              <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Filled</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Filled</p>
               <p style={{ fontSize: 13, margin: 0 }}>When the broker confirmed the fill</p>
             </div>
             <div>
-              <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Latency</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Latency</p>
               <p style={{ fontSize: 13, margin: 0 }}>Round-trip time: signal → fill (lower is better)</p>
             </div>
             <div>
-              <p style={{ color: '#8888a0', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Slippage</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Slippage</p>
               <p style={{ fontSize: 13, margin: 0 }}>Difference between expected and actual fill price</p>
             </div>
           </div>
