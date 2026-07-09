@@ -199,26 +199,26 @@ export default function DashboardPage() {
       <>
 
       {/* Market Tickers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         {WATCH_SYMBOLS.map((s) => {
           const t = ticks[s.key]
           const pct = t?.change_pct ?? 0
           return (
-            <div key={s.key} className="t-panel" style={{ padding: '10px 12px' }}>
-              <div className="t-stat-label">{s.name}</div>
+            <div key={s.key} className="t-panel" style={{ padding: '6px 10px' }}>
+              <div className="t-stat-label" style={{ fontSize: 10 }}>{s.name}</div>
               {t ? (
                 <>
-                  <div className="t-stat-value" style={{ fontSize: 20, margin: '4px 0' }}>
+                  <div className="t-stat-value" style={{ fontSize: 16, margin: '1px 0' }}>
                     {t.last_price.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: pct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: pct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
                     <span>{pct >= 0 ? '▲' : '▼'}</span>
                     <span>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</span>
                     <span className="t-faint" style={{ fontWeight: 400 }}>{t.change >= 0 ? '+' : ''}{t.change.toFixed(1)}</span>
                   </div>
                 </>
               ) : (
-                <div className="t-faint" style={{ fontSize: 12, marginTop: 8 }}>Waiting...</div>
+                <div className="t-faint" style={{ fontSize: 11, marginTop: 4 }}>Waiting...</div>
               )}
             </div>
           )
@@ -226,19 +226,19 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         {[
           { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${(totalPnl || 0).toFixed(0)}`, sub: `${positions.length} positions`, up: totalPnl >= 0 },
           { label: 'Win Rate', value: `${winRate}%`, sub: `${filledOrders} filled / ${orders.length} total`, up: winRate >= 50 },
           { label: 'Available Margin', value: `₹${(funds?.available_margin || 0).toLocaleString()}`, sub: `of ₹${(funds?.total_margin || 0).toLocaleString()}`, up: true },
           { label: 'Open Positions', value: `${positions.length}`, sub: `${positions.filter((p: any) => p.quantity > 0).length} long / ${positions.filter((p: any) => p.quantity < 0).length} short`, up: true },
         ].map((kpi) => (
-          <div key={kpi.label} className="t-panel" style={{ padding: 12 }}>
-            <div className="t-stat-label">{kpi.label}</div>
-            <div className={`t-stat-value ${kpi.up !== undefined ? (kpi.up ? 't-up' : 't-down') : ''}`} style={{ fontSize: 20, marginBottom: 2 }}>
+          <div key={kpi.label} className="t-panel" style={{ padding: '8px 10px' }}>
+            <div className="t-stat-label" style={{ fontSize: 10 }}>{kpi.label}</div>
+            <div className={`t-stat-value ${kpi.up !== undefined ? (kpi.up ? 't-up' : 't-down') : ''}`} style={{ fontSize: 17, marginBottom: 1 }}>
               {kpi.value}
             </div>
-            <div className="t-faint" style={{ fontSize: 10 }}>{kpi.sub}</div>
+            <div className="t-faint" style={{ fontSize: 9 }}>{kpi.sub}</div>
           </div>
         ))}
       </div>
