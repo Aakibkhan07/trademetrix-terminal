@@ -609,7 +609,7 @@ async def test_deploy_paper_success(client, auth_headers):
 
 @pytest.mark.asyncio
 async def test_deploy_live_blocked(client, auth_headers):
-    """LIVE deploy returns 403."""
+    """LIVE deploy returns 403 when live mode not enabled."""
     payload = {
         "name": "Live Block",
         "index_symbol": "NIFTY",
@@ -627,7 +627,8 @@ async def test_deploy_live_blocked(client, auth_headers):
         headers=auth_headers,
     )
     assert deploy_resp.status_code == 403
-    assert "not enabled yet" in deploy_resp.json()["detail"].lower()
+    body = deploy_resp.json()["detail"].lower()
+    assert "live mode not enabled" in body or "enable it first" in body
 
 
 class TestSuperAdminBypass:

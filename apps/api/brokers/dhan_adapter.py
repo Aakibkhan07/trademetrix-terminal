@@ -237,8 +237,10 @@ class DhanAdapter(BaseBroker):
         )
         data = resp.json()
         quotes = []
-        for item in data.get("data", []):
-            quotes.append(self._normalize_quote(item))
+        items = data.get("data", [])
+        for i, item in enumerate(items):
+            orig = symbols[i] if i < len(symbols) else item.get("securityId", "")
+            quotes.append(self._normalize_quote(item, orig))
         return quotes
 
     async def get_historical(
@@ -426,10 +428,11 @@ class DhanAdapter(BaseBroker):
             broker=self.broker_name,
         )
 
-    def _normalize_quote(self, item: dict) -> Quote:
-        inst = self._parse_instrument(item.get("securityId", ""))
+    def _normalize_quote(self, item: dict, symbol: str = "") -> Quote:
+        sym = symbol or item.get("securityId", "")
+        inst = self._parse_instrument(sym)
         return Quote(
-            symbol=item.get("securityId", ""),
+            symbol=sym,
             exchange=Exchange(item.get("exchange", "NSE")),
             last_price=float(item.get("lastPrice", 0)),
             open=float(item.get("open", 0)),

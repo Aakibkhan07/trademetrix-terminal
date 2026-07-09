@@ -45,25 +45,23 @@ async def get_marketplace():
         user_counts[key] = user_counts.get(key, 0) + 1
 
     srows = await async_safe_execute(supabase.table("strategies").select("id, type")) or []
-    type_to_ids: dict[str, list[str]] = {}
-    for row in srows:
-        t = row.get("type", "")
-        if t in list_strategies():
-            type_to_ids.setdefault(t, []).append(row["id"])
+    all_ids = [s["id"] for s in srows]
+    type_by_id: dict[str, str] = {s["id"]: s.get("type", "") for s in srows}
+
+    strategy_types = set(list_strategies())
+    all_orders_data = await async_safe_execute(
+        supabase.table("orders").select("status, filled_quantity, average_price, strategy_id").in_("strategy_id", all_ids)
+    ) or [] if all_ids else []
 
     perf_by_key: dict[str, dict] = {}
-    for type_key, ids in type_to_ids.items():
-        if not ids:
+    for type_key in strategy_types:
+        type_ids = {sid for sid, t in type_by_id.items() if t == type_key}
+        if not type_ids:
             continue
-        orders_data = await async_safe_execute(
-            supabase.table("orders").select("status, filled_quantity, average_price, created_at").in_("strategy_id", ids)
-        ) or []
-        total_trades = len(orders_data)
-        filled = [o for o in orders_data if o.get("status") == "FILLED" and o.get("filled_quantity", 0) > 0]
-        wins = 0
-        for o in filled:
-            if o.get("average_price", 0) > 0:
-                wins += 1
+        type_orders = [o for o in all_orders_data if o.get("strategy_id") in type_ids]
+        total_trades = len(type_orders)
+        filled = [o for o in type_orders if o.get("status") == "FILLED" and o.get("filled_quantity", 0) > 0]
+        wins = sum(1 for o in filled if o.get("average_price", 0) > 0)
         win_rate = round(wins / len(filled) * 100, 1) if filled else 0.0
         perf_by_key[type_key] = {
             "total_trades": total_trades,
@@ -193,8 +191,10 @@ async def get_assigned_strategies(
 @router.get("/")
 async def get_strategies(current_user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    result = supabase.table("strategies").select("*").eq("user_id", current_user.id).execute()
-    return {"strategies": result.data or []}
+    result = await async_safe_execute(
+        supabase.table("strategies").select("*").eq("user_id", current_user.id)
+    )
+    return {"strategies": result or []}
 
 
 @router.post("/", status_code=201)
@@ -212,16 +212,17 @@ async def create_strategy(
         "type": req.type,
         "config": req.config,
     }
-    result = supabase.table("strategies").insert(data).execute()
+    result = await async_safe_execute(supabase.table("strategies").insert(data))
 
-    record_audit(AuditLogEntry(
-        user_id=current_user.id,
-        action="create_strategy",
-        resource="strategies",
-        resource_id=result.data[0]["id"],
-    ))
+    if result:
+        record_audit(AuditLogEntry(
+            user_id=current_user.id,
+            action="create_strategy",
+            resource="strategies",
+            resource_id=result[0]["id"],
+        ))
 
-    return result.data[0]
+    return result[0] if result else {"error": "Failed to create strategy"}
 
 
 @router.put("/{strategy_id}")
@@ -235,7 +236,9 @@ async def update_strategy(
     if not updates:
         raise HTTPException(status_code=400, detail="No updates provided")
 
-    supabase.table("strategies").update(updates).eq("id", strategy_id).eq("user_id", current_user.id).execute()
+    await async_safe_execute(
+        supabase.table("strategies").update(updates).eq("id", strategy_id).eq("user_id", current_user.id)
+    )
     return {"message": "Strategy updated"}
 
 
@@ -245,4 +248,4 @@ async def delete_strategy(
     current_user: UserProfile = Depends(get_current_user),
 ):
     supabase = get_supabase()
-    supabase.table("strategies").delete().eq("id", strategy_id).eq("user_id", current_user.id).execute()
+    await async_safe_execute(supabase.table("strategies").delete().eq("id", strategy_id).eq("user_id", current_user.id))

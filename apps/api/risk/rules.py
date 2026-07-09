@@ -14,6 +14,77 @@ from risk.models import RiskConfig, RiskDecision, RiskRuleResult, RiskRuleType
 logger = logging.getLogger(__name__)
 
 
+async def _compute_daily_pnl_fifo(user_id: str) -> float:
+    try:
+        IST = timezone(timedelta(hours=5, minutes=30))
+        today_start = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        supabase = get_supabase()
+        filled = await async_safe_execute(
+            supabase.table("orders")
+            .select("symbol, side, quantity, filled_quantity, average_price, created_at")
+            .eq("user_id", user_id)
+            .eq("status", "FILLED")
+            .gte("created_at", today_start)
+            .order("created_at")
+        )
+        if not filled:
+            return 0.0
+
+        sell_symbols = {o["symbol"] for o in filled if o["side"] == "SELL"}
+        historical: dict[str, list[dict]] = {}
+        for sym in sell_symbols:
+            hist_rows = await async_safe_execute(
+                supabase.table("orders")
+                .select("quantity, filled_quantity, average_price")
+                .eq("user_id", user_id)
+                .eq("symbol", sym)
+                .eq("side", "BUY")
+                .eq("status", "FILLED")
+                .lt("created_at", today_start)
+                .order("created_at")
+            )
+            if hist_rows:
+                historical[sym] = hist_rows
+
+        pnl = 0.0
+        buy_queue: dict[str, list[list[float]]] = {}
+
+        for o in filled:
+            sym = o["symbol"]
+            qty = float(o.get("filled_quantity") if o.get("filled_quantity") is not None else o.get("quantity") or 0)
+            price = float(o.get("average_price") or 0)
+            if qty <= 0:
+                continue
+
+            if o["side"] == "BUY":
+                buy_queue.setdefault(sym, []).append([qty, price])
+            else:
+                rem = qty
+                queue = buy_queue.setdefault(sym, [])
+                while rem > 0 and queue:
+                    bqty, bprice = queue[0]
+                    used = min(rem, bqty)
+                    pnl += used * (price - bprice)
+                    rem -= used
+                    queue[0][0] -= used
+                    if queue[0][0] <= 1e-8:
+                        queue.pop(0)
+                if rem > 0:
+                    for h in historical.get(sym, []):
+                        if rem <= 0:
+                            break
+                        hqty = float(h.get("filled_quantity") or h.get("quantity") or 0)
+                        hprice = float(h.get("average_price") or 0)
+                        if hqty > 0:
+                            used = min(rem, hqty)
+                            pnl += used * (price - hprice)
+                            rem -= used
+        return pnl
+    except Exception as e:
+        logger.warning("FIFO PnL computation failed: %s", e)
+        return 0.0
+
+
 class RiskRule(ABC):
     rule_type: RiskRuleType
 
@@ -135,31 +206,7 @@ class DailyLossLimitRule(RiskRule):
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
     async def _get_today_pnl(self, user_id: str) -> float:
-        try:
-            IST = timezone(timedelta(hours=5, minutes=30))
-            today_start = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-            supabase = get_supabase()
-            filled = await async_safe_execute(
-                supabase.table("orders")
-                .select("side, filled_quantity, average_price")
-                .eq("user_id", user_id)
-                .eq("status", "FILLED")
-                .gte("created_at", today_start)
-            )
-            if not filled:
-                return 0.0
-            pnl = 0.0
-            for o in filled:
-                qty = float(o.get("filled_quantity") or 0)
-                price = float(o.get("average_price") or 0)
-                side = o.get("side", "")
-                if qty <= 0:
-                    continue
-                pnl += qty * price * (1 if side == "SELL" else -1)
-            return pnl
-        except Exception as e:
-            logger.warning("Failed to compute daily PnL: %s", e)
-            return 0.0
+        return await _compute_daily_pnl_fifo(user_id)
 
 
 class MaxTradesPerDayRule(RiskRule):
@@ -357,7 +404,7 @@ class DuplicateOrderRule(RiskRule):
             )
         self._recent_orders[req.user_id].add(dedup_key)
         if len(self._recent_orders[req.user_id]) > 100:
-            self._recent_orders[req.user_id].clear()
+            self._recent_orders[req.user_id] = set(list(self._recent_orders[req.user_id])[50:])
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
 
@@ -380,30 +427,7 @@ class DailyProfitTargetRule(RiskRule):
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
     async def _get_today_pnl(self, user_id: str) -> float:
-        try:
-            IST = timezone(timedelta(hours=5, minutes=30))
-            today_start = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-            supabase = get_supabase()
-            filled = await async_safe_execute(
-                supabase.table("orders")
-                .select("side, filled_quantity, average_price")
-                .eq("user_id", user_id)
-                .eq("status", "FILLED")
-                .gte("created_at", today_start)
-            )
-            if not filled:
-                return 0.0
-            pnl = 0.0
-            for o in filled:
-                qty = float(o.get("filled_quantity") or 0)
-                price = float(o.get("average_price") or 0)
-                side = o.get("side", "")
-                if qty <= 0:
-                    continue
-                pnl += qty * price * (1 if side == "SELL" else -1)
-            return pnl
-        except Exception:
-            return 0.0
+        return await _compute_daily_pnl_fifo(user_id)
 
 
 class MaxCapitalRule(RiskRule):

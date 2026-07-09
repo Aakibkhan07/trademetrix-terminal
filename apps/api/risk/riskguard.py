@@ -21,6 +21,9 @@ class RiskGuard:
         if settings.kill_switch_enabled:
             return {"allowed": False, "reason": "Kill switch is enabled. All trading halted."}
 
+        if not order.is_paper and not settings.is_live:
+            return {"allowed": False, "reason": "LIVE mode not enabled. Enable it first via POST /risk/live/enable with confirm=true."}
+
         checks = [
             await self._check_max_capital(order, settings),
             await self._check_max_position_size(order, settings),

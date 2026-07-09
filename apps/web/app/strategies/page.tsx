@@ -167,7 +167,7 @@ export default function StrategiesPage() {
                     <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleDelete(s.id)} style={{ fontSize: 11 }}>
                       Delete
                     </button>
-                    <Link href="/backtest" className="t-btn t-btn-sm" style={{ fontSize: 11 }}>Backtest</Link>
+                    <Link href={`/backtest?strategy=${s.type}`} className="t-btn t-btn-sm" style={{ fontSize: 11 }}>Backtest</Link>
                   </div>
                 </div>
               )

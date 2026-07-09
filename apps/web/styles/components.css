@@ -25,7 +25,7 @@
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   background: rgba(5,5,8,.72);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -180,7 +180,7 @@
   border-radius: 16px;
   background: var(--panel);
   border: 1px solid var(--border);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(10px);
   height: fit-content;
   position: sticky;
   top: 76px;
@@ -331,7 +331,7 @@
   background: linear-gradient(165deg, rgba(255,255,255,.046), rgba(255,255,255,.016));
   border: 1px solid var(--border);
   border-radius: 16px;
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(10px);
   box-shadow: var(--shadow-panel);
 }
 .t-panel-header {
@@ -561,7 +561,7 @@
   background: linear-gradient(165deg, rgba(255,255,255,.046), rgba(255,255,255,.016));
   border: 1px solid var(--border);
   border-radius: 16px;
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(10px);
 }
 .t-stat::after {
   content: '';
@@ -656,7 +656,7 @@
   max-width: 480px;
   width: 90%;
   box-shadow: 0 8px 40px rgba(0,0,0,.5);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
 }
 .t-modal-title {
   font-family: var(--font-display);
@@ -803,7 +803,7 @@
   background: linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
   border: 1px solid var(--border-hi);
   box-shadow: 0 4px 20px rgba(0,0,0,.4);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(10px);
   cursor: pointer;
   animation: t-toast-in .2s ease;
   font-size: 12px;
@@ -828,7 +828,7 @@
   background: linear-gradient(165deg, rgba(255,255,255,.046), rgba(255,255,255,.016));
   border: 1px solid var(--border);
   border-radius: 16px;
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(10px);
 }
 .t-chart-controls {
   display: flex;
@@ -870,7 +870,7 @@
   width: 280px;
   background: linear-gradient(165deg, rgba(255,255,255,.046), rgba(255,255,255,.016));
   border-left: 1px solid var(--border);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(10px);
   z-index: 40;
   display: flex;
   flex-direction: column;
@@ -1017,7 +1017,7 @@
   background: linear-gradient(165deg, rgba(255,255,255,.046), rgba(255,255,255,.016));
   border: 1px solid var(--border);
   border-radius: 12px;
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(10px);
 }
 .panel-header { padding: 14px 16px; border-bottom: 1px solid var(--border); }
 .panel-title {

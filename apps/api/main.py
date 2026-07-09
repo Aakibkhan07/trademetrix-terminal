@@ -46,6 +46,9 @@ from routes.v1_feedback import router as feedback_router
 from routes.v1_margin_estimate import router as margin_estimate_router
 from routes.v1_subscriptions import router as subscriptions_router
 from routes.v1_buyer_strategies import router as buyer_strategies_router
+from routes.v1_squareoff import router as squareoff_router
+from routes.v1_squareoff import start_squareoff_scheduler, stop_squareoff_scheduler
+from routes.v1_multileg import router as multileg_router
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +67,9 @@ async def lifespan(app: FastAPI):
     from engine.buyer_strategy_runner import buyer_strategy_runner
     await user_strategy_runner.start()
     await buyer_strategy_runner.start()
+    await start_squareoff_scheduler()
     yield
+    await stop_squareoff_scheduler()
     await buyer_strategy_runner.stop()
     await user_strategy_runner.stop()
     await cache.close()
@@ -143,6 +148,8 @@ app.include_router(prometheus_router)
 app.include_router(user_strategies_router, prefix="/api/v1")
 app.include_router(margin_estimate_router, prefix="/api/v1")
 app.include_router(buyer_strategies_router, prefix="/api/v1")
+app.include_router(squareoff_router, prefix="/api/v1")
+app.include_router(multileg_router, prefix="/api/v1")
 app.include_router(subscriptions_router, prefix="/api/v1")
 
 

@@ -464,6 +464,23 @@ export const api = {
     activity: (id: string) => request(`/user-strategies/${id}/activity`),
   },
 
+  squareoff: {
+    config: () => request<{ config: { enabled: boolean; time: string; days: number[] } }>('/engine/squareoff/config'),
+    setConfig: (data: { enabled: boolean; time: string; days: number[] }) =>
+      request('/engine/squareoff/config', { method: 'POST', body: data }),
+    run: () => request('/engine/squareoff/run', { method: 'POST' }),
+  },
+
+  multiLeg: {
+    list: () => request('/strategies/multi-leg/strategies'),
+    get: (id: string) => request(`/strategies/multi-leg/strategies/${id}`),
+    create: (data: { name: string; description?: string; underlying?: string; expiry?: string; legs: { action: string; symbol: string; quantity: number; exchange?: string; order_type?: string; product?: string; price?: number; instrument_type?: string; strike_price?: number; expiry_date?: string; option_type?: string }[] }) =>
+      request('/strategies/multi-leg/strategies', { method: 'POST', body: data }),
+    delete: (id: string) => request(`/strategies/multi-leg/strategies/${id}`, { method: 'DELETE' }),
+    place: (strategyId: string, broker?: string) =>
+      request(`/strategies/multi-leg/strategies/${strategyId}/place`, { method: 'POST', body: { strategy_id: strategyId, broker: broker || 'fyers' } }),
+  },
+
   marginEstimate: (data: { index_symbol: string; legs: Record<string, unknown>[]; broker?: string }) =>
     request('/margin-estimate/', { method: 'POST', body: data }),
 

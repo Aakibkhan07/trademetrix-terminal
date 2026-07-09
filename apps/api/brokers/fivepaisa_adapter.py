@@ -1,5 +1,5 @@
 import asyncio
-import json
+import inspect
 import logging
 import re
 from collections.abc import Callable
@@ -181,10 +181,12 @@ class FivePaisaAdapter(BaseBroker):
         }
         resp = await client.post(f"{self._base_url}/CancelOrder", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
+        body = data.get("body", {})
+        message = body.get("Message", "")
         return OrderResult(
-            success=True,
+            success=message.lower() == "success",
             broker_order_id=order_id,
-            message=data.get("body", {}).get("Message", ""),
+            message=message,
         )
 
     async def get_orderbook(self) -> list[NormalizedOrder]:
@@ -316,6 +318,7 @@ class FivePaisaAdapter(BaseBroker):
             return []
         client = await self._get_client()
         scrap_codes = [self._extract_scripcode(s) for s in symbols]
+        symbol_map = dict(zip(scrap_codes, symbols))
         payload = {
             "head": {
                 "AppName": self._app_name,
@@ -342,9 +345,11 @@ class FivePaisaAdapter(BaseBroker):
             items = data.get("body", {}).get("Data", [])
             quotes = []
             for item in items:
+                sc = int(item.get("ScripCode", 0))
                 ltp = float(item.get("LastTradedPrice", item.get("LTP", 0)))
                 quotes.append(Quote(
-                    symbol=str(item.get("ScripCode", "")),
+                    symbol=symbol_map.get(sc, str(sc)),
+                    exchange=Exchange.NSE,
                     last_price=ltp,
                     change=float(item.get("NetPriceChange", 0)),
                     change_percent=float(item.get("PercentageChange", 0)),
@@ -355,14 +360,41 @@ class FivePaisaAdapter(BaseBroker):
                     low=float(item.get("Low", 0)),
                     open=float(item.get("Open", 0)),
                     close=float(item.get("PreviousClose", 0)),
+                    broker=self.broker_name,
                 ))
             return quotes
         except Exception:
             logger.exception("5Paisa get_quotes failed")
             return []
 
-    async def get_funds(self) -> dict:
-        return {"total_margin": 0, "available_margin": 0, "utilized_margin": 0, "broker": "fivepaisa"}
+    async def get_funds(self) -> Funds:
+        client = await self._get_client()
+        payload = {
+            "head": {
+                "AppName": self._app_name,
+                "AppVer": "1.0.0",
+                "Key": "",
+                "OSName": "Web",
+                "RequestCode": "GetMarginRequest",
+                "UserID": self._client_code,
+            },
+            "body": {"ClientCode": self._client_code},
+        }
+        try:
+            resp = await client.post(f"{self._base_url}/Margin", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
+            data = resp.json()
+            body = data.get("body", {})
+            total = float(body.get("TotalMargin", 0))
+            used = float(body.get("UsedMargin", 0))
+            return Funds(
+                total_margin=total,
+                used_margin=used,
+                available_margin=total - used,
+                broker=self.broker_name,
+            )
+        except Exception:
+            logger.exception("5Paisa get_funds failed")
+            return Funds(broker=self.broker_name)
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
         if not symbols:
@@ -385,7 +417,10 @@ class FivePaisaAdapter(BaseBroker):
                         open=q.open,
                         close=q.close,
                     )
-                    on_tick(tick)
+                    if inspect.iscoroutinefunction(on_tick):
+                        await on_tick(tick)
+                    else:
+                        on_tick(tick)
             except Exception:
                 logger.exception("5Paisa stream polling error")
             await asyncio.sleep(1.0)

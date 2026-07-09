@@ -240,10 +240,14 @@ async def deploy_user_strategy(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
     if mode == "LIVE":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="LIVE deploy not enabled yet. Use PAPER mode for testing.",
-        )
+        from risk.riskguard import RiskGuard
+        rg = RiskGuard(current_user.id)
+        live_ok = await rg.get_live_status()
+        if not live_ok:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail='LIVE mode not enabled. Enable it first via POST /risk/live/enable with confirm=true. This requires explicit opt-in.',
+            )
 
     try:
         plan = compile_user_strategy(strategy)

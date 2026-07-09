@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import json
 import logging
 import struct
 from collections.abc import Callable
@@ -228,29 +229,35 @@ class ZerodhaAdapter(BaseBroker):
         if not self._access_token:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
         self._running = True
+        import websockets
+        ws_url = f"{self.KITE_WS_URL}?api_key={self._api_key}&access_token={self._access_token}"
         while self._running:
             try:
-                quotes = await self.get_quotes(symbols)
-                for q in quotes:
-                    tick = Tick(
-                        symbol=q.symbol,
-                        price=q.last_price,
-                        change=q.change,
-                        change_percent=q.change_percent,
-                        volume=q.volume,
-                        bid=q.bid,
-                        ask=q.ask,
-                        high=q.high,
-                        low=q.low,
-                        open=q.open,
-                        close=q.close,
-                    )
-                    if inspect.iscoroutinefunction(on_tick):
-                        await on_tick(tick)
-                    else:
-                        on_tick(tick)
+                async with websockets.connect(ws_url, ping_interval=5, ping_timeout=3) as ws:
+                    subscribe_msg = json.dumps({"a": "subscribe", "v": symbols})
+                    await ws.send(subscribe_msg)
+                    while self._running:
+                        raw = await asyncio.wait_for(ws.recv(), timeout=30)
+                        if isinstance(raw, bytes):
+                            ticks = self._parse_binary(raw)
+                            for t in ticks:
+                                if inspect.iscoroutinefunction(on_tick):
+                                    await on_tick(t)
+                                else:
+                                    on_tick(t)
+                        elif isinstance(raw, str):
+                            try:
+                                msg = json.loads(raw)
+                                if "error" in msg or msg.get("type") == "error":
+                                    logger.warning("Zerodha WS error: %s", msg)
+                            except json.JSONDecodeError:
+                                pass
+            except asyncio.TimeoutError:
+                logger.warning("Zerodha WS recv timeout, reconnecting...")
+            except websockets.ConnectionClosed:
+                logger.warning("Zerodha WS disconnected, reconnecting...")
             except Exception:
-                logger.exception("Zerodha stream polling error")
+                logger.exception("Zerodha WS error")
             await asyncio.sleep(1.0)
 
     async def disconnect(self) -> None:

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 
 const STRATEGIES = [
@@ -29,6 +30,7 @@ interface Trade {
 interface BacktestResultsData {
   symbol: string; strategy: string; interval: string; days: number
   initial_capital: number; candles_analyzed: number
+  slippage_pct?: number; brokerage_pct?: number; stt_pct?: number; exchange_pct?: number
   results: {
     total_trades: number; winning_trades: number; losing_trades: number
     win_rate: number; total_pnl: number; max_drawdown: number
@@ -168,11 +170,15 @@ function BarChart({ data, height = 120 }: { data: { label: string; value: number
 }
 
 export default function BacktestPage() {
-  const [strategy, setStrategy] = useState('trend_rider')
+  const searchParams = useSearchParams()
+  const initialStrategy = searchParams.get('strategy') || 'trend_rider'
+  const [strategy, setStrategy] = useState(initialStrategy)
   const [symbol, setSymbol] = useState('NIFTY')
   const [interval, setInterval] = useState('15m')
   const [days, setDays] = useState(60)
   const [capital, setCapital] = useState(100000)
+  const [slippage, setSlippage] = useState(0.05)
+  const [brokerage, setBrokerage] = useState(0.03)
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<BacktestResultsData | null>(null)
   const [error, setError] = useState('')
@@ -188,7 +194,11 @@ export default function BacktestPage() {
   const handleRun = async () => {
     setRunning(true); setError(''); setResult(null)
     try {
-      const data = await api.post('/backtests/run', { strategy_type: strategy, symbol, interval, days, initial_capital: capital, config: {} })
+      const data = await api.post('/backtests/run', {
+        strategy_type: strategy, symbol, interval, days,
+        initial_capital: capital, config: {},
+        slippage_pct: slippage, brokerage_pct: brokerage,
+      })
       setResult(data as BacktestResultsData)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Backtest failed')
@@ -281,6 +291,14 @@ export default function BacktestPage() {
             <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Capital</label>
             <input className="t-input" type="number" value={capital} onChange={e => setCapital(Number(e.target.value))} min={1000} />
           </div>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Slippage %</label>
+            <input className="t-input" type="number" value={slippage} onChange={e => setSlippage(Number(e.target.value))} min={0} step={0.01} />
+          </div>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Brokerage %</label>
+            <input className="t-input" type="number" value={brokerage} onChange={e => setBrokerage(Number(e.target.value))} min={0} step={0.01} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button className="t-btn t-btn-primary" onClick={handleRun} disabled={running} style={{ width: '100%', height: 28 }}>
               {running ? 'Running...' : 'Run'}
@@ -311,12 +329,23 @@ export default function BacktestPage() {
             <>
               {/* KPI Row */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-                {kpiCard('Total P&L', `${r.total_pnl >= 0 ? '+' : ''}${r.total_pnl.toFixed(0)}`, `${r.total_trades} trades`, r.total_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)')}
+                {kpiCard('Total P&L (after costs)', `${r.total_pnl >= 0 ? '+' : ''}${r.total_pnl.toFixed(0)}`, `${r.total_trades} trades`, r.total_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)')}
                 {kpiCard('Win Rate', `${r.win_rate}%`, `${r.winning_trades}W / ${r.losing_trades}L`, r.win_rate >= 50 ? 'var(--text-green)' : 'var(--text-red)')}
                 {kpiCard('Sharpe', r.sharpe_ratio.toFixed(2), r.sharpe_ratio >= 1 ? 'Good' : 'Below threshold', r.sharpe_ratio >= 1 ? 'var(--text-green)' : 'var(--amber)')}
                 {kpiCard('Max DD', `-${r.max_drawdown.toFixed(1)}%`, drawdowns[0] ? `${drawdowns[0].depth.toFixed(1)}% deepest` : '', 'var(--text-red)')}
                 {kpiCard('Avg Win / Loss', `+${r.avg_win.toFixed(0)} / -${r.avg_loss.toFixed(0)}`, `Best: +${r.largest_win.toFixed(0)} / Worst: ${r.largest_loss.toFixed(0)}`)}
                 {kpiCard('Candles', result!.candles_analyzed.toLocaleString(), `${result!.symbol} ${result!.interval}`)}
+              </div>
+
+              {/* Costs Summary */}
+              <div className="t-panel" style={{ padding: 12 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Transaction Costs Applied</div>
+                <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-sub)' }}>
+                  <span>Slippage: <strong>{result!.slippage_pct ?? 0.05}%</strong></span>
+                  <span>Brokerage: <strong>{result!.brokerage_pct ?? 0.03}%</strong></span>
+                  <span>STT: <strong>{result!.stt_pct ?? 0.025}%</strong></span>
+                  <span>Exchange: <strong>{result!.exchange_pct ?? 0.003}%</strong></span>
+                </div>
               </div>
 
               {/* Charts Row */}

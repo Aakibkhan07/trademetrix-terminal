@@ -243,9 +243,11 @@ class FyersAdapter(BaseBroker):
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
         client = await self._get_client()
         try:
+            fyers_symbols = [self._ensure_fyers_symbol(s) for s in symbols]
+            fyers_to_orig = dict(zip(fyers_symbols, symbols))
             resp = await client.post(
                 f"{self._data_url}/quotes",
-                json={"symbols": ",".join(self._ensure_fyers_symbol(s) for s in symbols)},
+                json={"symbols": ",".join(fyers_symbols)},
                 headers=self._headers(),
                 timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
             )
@@ -253,7 +255,10 @@ class FyersAdapter(BaseBroker):
                 data = resp.json()
                 quotes = []
                 for item in data.get("d", []):
-                    quotes.append(self._normalize_quote(item))
+                    v = item.get("v", {})
+                    sym = v.get("symbol") or item.get("n", "")
+                    orig = fyers_to_orig.get(sym, sym)
+                    quotes.append(self._normalize_quote(item, orig))
                 if quotes:
                     return quotes
             logger.warning("Fyers quotes status=%d, falling back to Yahoo", resp.status_code)
@@ -489,7 +494,7 @@ class FyersAdapter(BaseBroker):
                             oi=0,
                             change=round(ltp - prev_close, 2),
                             change_pct=round((ltp - prev_close) / max(prev_close, 0.01) * 100, 2),
-                            timestamp=datetime.now(UTC), broker="yahoo",
+                            timestamp=datetime.now(UTC), broker=self.broker_name,
                         )
                         if inspect.iscoroutinefunction(on_tick):
                             await on_tick(tick)
@@ -660,9 +665,9 @@ class FyersAdapter(BaseBroker):
             broker=self.broker_name,
         )
 
-    def _normalize_quote(self, item: dict) -> Quote:
+    def _normalize_quote(self, item: dict, symbol: str = "") -> Quote:
         v = item.get("v", {})
-        sym = v.get("symbol") or item.get("n", "")
+        sym = symbol or v.get("symbol") or item.get("n", "")
         inst = self._parse_instrument(sym)
         return Quote(
             symbol=sym,
