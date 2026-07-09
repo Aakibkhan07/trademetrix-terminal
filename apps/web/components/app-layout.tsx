@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import Logo from '@/components/logo'
-import MarketTicker from '@/components/market-ticker'
 import StatusBar from '@/components/status-bar'
 
 const NAV_SECTIONS = [
@@ -429,9 +428,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </header>
-
-        {/* Market Ticker */}
-        <MarketTicker />
 
         {/* Content */}
         <div className="t-content">
