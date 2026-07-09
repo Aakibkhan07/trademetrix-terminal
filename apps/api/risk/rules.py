@@ -1,88 +1,17 @@
 import logging
 import time
 from abc import ABC, abstractmethod
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque
 
-from core.db import async_supabase, get_supabase
-from core.models import NormalizedOrder
-from core.safe_query import async_safe_execute, safe_execute, safe_single
+from core.db import get_supabase
+from core.safe_query import async_safe_execute
 from execution.models import ExecutionRequest
 from market.status import market_status_service
+from risk.helpers import compute_daily_pnl_fifo, get_current_capital_usage, get_current_exposure, get_drawdown, get_open_position_count
 from risk.models import RiskConfig, RiskDecision, RiskRuleResult, RiskRuleType
 
 logger = logging.getLogger(__name__)
-
-
-async def _compute_daily_pnl_fifo(user_id: str) -> float:
-    try:
-        IST = timezone(timedelta(hours=5, minutes=30))
-        today_start = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-        supabase = get_supabase()
-        filled = await async_safe_execute(
-            supabase.table("orders")
-            .select("symbol, side, quantity, filled_quantity, average_price, created_at")
-            .eq("user_id", user_id)
-            .eq("status", "FILLED")
-            .gte("created_at", today_start)
-            .order("created_at")
-        )
-        if not filled:
-            return 0.0
-
-        sell_symbols = {o["symbol"] for o in filled if o["side"] == "SELL"}
-        historical: dict[str, list[dict]] = {}
-        for sym in sell_symbols:
-            hist_rows = await async_safe_execute(
-                supabase.table("orders")
-                .select("quantity, filled_quantity, average_price")
-                .eq("user_id", user_id)
-                .eq("symbol", sym)
-                .eq("side", "BUY")
-                .eq("status", "FILLED")
-                .lt("created_at", today_start)
-                .order("created_at")
-            )
-            if hist_rows:
-                historical[sym] = hist_rows
-
-        pnl = 0.0
-        buy_queue: dict[str, list[list[float]]] = {}
-
-        for o in filled:
-            sym = o["symbol"]
-            qty = float(o.get("filled_quantity") if o.get("filled_quantity") is not None else o.get("quantity") or 0)
-            price = float(o.get("average_price") or 0)
-            if qty <= 0:
-                continue
-
-            if o["side"] == "BUY":
-                buy_queue.setdefault(sym, []).append([qty, price])
-            else:
-                rem = qty
-                queue = buy_queue.setdefault(sym, [])
-                while rem > 0 and queue:
-                    bqty, bprice = queue[0]
-                    used = min(rem, bqty)
-                    pnl += used * (price - bprice)
-                    rem -= used
-                    queue[0][0] -= used
-                    if queue[0][0] <= 1e-8:
-                        queue.pop(0)
-                if rem > 0:
-                    for h in historical.get(sym, []):
-                        if rem <= 0:
-                            break
-                        hqty = float(h.get("filled_quantity") or h.get("quantity") or 0)
-                        hprice = float(h.get("average_price") or 0)
-                        if hqty > 0:
-                            used = min(rem, hqty)
-                            pnl += used * (price - hprice)
-                            rem -= used
-        return pnl
-    except Exception as e:
-        logger.warning("FIFO PnL computation failed: %s", e)
-        return 0.0
 
 
 class RiskRule(ABC):
@@ -187,6 +116,21 @@ class TradingWindowRule(RiskRule):
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
 
+class LiveModeRule(RiskRule):
+    rule_type = RiskRuleType.LIVE_MODE
+
+    async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
+        start = time.monotonic()
+        is_paper = req.broker == "paper"
+        if not config.is_live and not is_paper:
+            return RiskRuleResult(
+                rule=self.rule_type, decision=RiskDecision.REJECTED,
+                reason="Live trading is not enabled. Enable it in risk settings.",
+                latency_ms=(time.monotonic() - start) * 1000,
+            )
+        return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
+
+
 class DailyLossLimitRule(RiskRule):
     rule_type = RiskRuleType.DAILY_LOSS_LIMIT
 
@@ -206,7 +150,7 @@ class DailyLossLimitRule(RiskRule):
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
     async def _get_today_pnl(self, user_id: str) -> float:
-        return await _compute_daily_pnl_fifo(user_id)
+        return await compute_daily_pnl_fifo(user_id)
 
 
 class MaxTradesPerDayRule(RiskRule):
@@ -263,16 +207,7 @@ class MaxOpenPositionsRule(RiskRule):
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
     async def _get_open_position_count(self, user_id: str) -> int:
-        try:
-            supabase = get_supabase()
-            rows = await async_safe_execute(
-                supabase.table("positions_snapshot")
-                .select("quantity").eq("user_id", user_id)
-            )
-            return len([r for r in rows if r.get("quantity", 0) != 0]) if rows else 0
-        except Exception as e:
-            logger.warning("Failed to get open positions: %s", e)
-            return 0
+        return await get_open_position_count(user_id)
 
 
 class MaxQuantityRule(RiskRule):
@@ -312,16 +247,7 @@ class MaxExposureRule(RiskRule):
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
     async def _get_current_exposure(self, user_id: str) -> float:
-        try:
-            supabase = get_supabase()
-            rows = await async_safe_execute(
-                supabase.table("positions_snapshot")
-                .select("quantity, average_buy_price").eq("user_id", user_id)
-            )
-            return sum(abs(r.get("quantity", 0)) * r.get("average_buy_price", 0) for r in rows) if rows else 0.0
-        except Exception as e:
-            logger.warning("Failed to get exposure: %s", e)
-            return 0.0
+        return await get_current_exposure(user_id)
 
 
 class MaxSymbolExposureRule(RiskRule):
@@ -427,7 +353,7 @@ class DailyProfitTargetRule(RiskRule):
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
     async def _get_today_pnl(self, user_id: str) -> float:
-        return await _compute_daily_pnl_fifo(user_id)
+        return await compute_daily_pnl_fifo(user_id)
 
 
 class MaxCapitalRule(RiskRule):
@@ -450,15 +376,7 @@ class MaxCapitalRule(RiskRule):
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
     async def _get_current_usage(self, user_id: str) -> float:
-        try:
-            supabase = get_supabase()
-            rows = await async_safe_execute(
-                supabase.table("positions_snapshot")
-                .select("quantity, average_buy_price").eq("user_id", user_id)
-            )
-            return sum(abs(r.get("quantity", 0)) * r.get("average_buy_price", 0) for r in rows) if rows else 0.0
-        except Exception:
-            return 0.0
+        return await get_current_capital_usage(user_id)
 
 
 class MaxDrawdownRule(RiskRule):
@@ -480,19 +398,4 @@ class MaxDrawdownRule(RiskRule):
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
     async def _get_drawdown(self, user_id: str) -> float:
-        try:
-            supabase = get_supabase()
-            rows = await async_safe_execute(
-                supabase.table("strategy_runs")
-                .select("total_pnl").eq("user_id", user_id)
-            )
-            if not rows:
-                return 0.0
-            pnls = [float(r.get("total_pnl", 0)) for r in rows]
-            peak = max(pnls) if pnls else 0
-            current = sum(pnls)
-            if peak <= 0:
-                return 0.0
-            return max(0.0, (peak - current) / peak * 100)
-        except Exception:
-            return 0.0
+        return await get_drawdown(user_id)

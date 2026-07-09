@@ -14,6 +14,7 @@ from risk.rules import (
     DuplicateOrderRule,
     EmergencyStopRule,
     KillSwitchRule,
+    LiveModeRule,
     MarketClosedRule,
     MaxCapitalRule,
     MaxDrawdownRule,
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 RISK_RULES: list[RiskRule] = [
     KillSwitchRule(),
+    LiveModeRule(),
     EmergencyStopRule(),
     BrokerOfflineRule(),
     MarketClosedRule(),

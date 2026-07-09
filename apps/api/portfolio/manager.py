@@ -408,29 +408,9 @@ class PortfolioManager:
             return []
 
     async def _get_today_filled_pnl(self, user_id: str, broker: str) -> float:
+        from risk.helpers import compute_daily_pnl_fifo
         try:
-            IST = timezone(timedelta(hours=5, minutes=30))
-            today_start = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-            supabase = get_supabase()
-            filled = await async_safe_execute(
-                supabase.table("orders")
-                .select("side, filled_quantity, average_price")
-                .eq("user_id", user_id)
-                .eq("broker", broker)
-                .eq("status", "FILLED")
-                .gte("created_at", today_start)
-            )
-            if not filled:
-                return 0.0
-            pnl = 0.0
-            for o in filled:
-                qty = float(o.get("filled_quantity") or 0)
-                price = float(o.get("average_price") or 0)
-                side = o.get("side", "")
-                if qty <= 0:
-                    continue
-                pnl += qty * price * (1 if side == "SELL" else -1)
-            return pnl
+            return await compute_daily_pnl_fifo(user_id, broker=broker)
         except Exception as e:
             logger.debug("Failed to get today filled PnL: %s", e)
             return 0.0

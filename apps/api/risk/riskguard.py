@@ -1,10 +1,11 @@
 import logging
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from core.capabilities import resolve_capabilities_by_id
 from core.db import async_supabase, get_supabase
 from core.models import NormalizedOrder, RiskSettings
-from core.safe_query import async_safe_execute, async_safe_insert, async_safe_single, async_safe_update, safe_execute, safe_insert, safe_single, safe_update
+from core.safe_query import async_safe_execute, async_safe_insert, async_safe_single, async_safe_update
+from risk.helpers import compute_daily_pnl_fifo, get_current_capital_usage, get_current_exposure, get_drawdown, get_open_position_count
 
 logger = logging.getLogger(__name__)
 
@@ -145,90 +146,16 @@ class RiskGuard:
         return {"allowed": True, "reason": ""}
 
     async def _get_current_capital_usage(self) -> float:
-        rows = await async_safe_execute(get_supabase().table("positions_snapshot").select("*").eq("user_id", self.user_id))
-        return sum(abs(p.get("quantity", 0)) * p.get("average_buy_price", 0) for p in rows)
+        return await get_current_capital_usage(self.user_id)
 
     async def _get_open_position_count(self) -> int:
-        rows = await async_safe_execute(get_supabase().table("positions_snapshot").select("*").eq("user_id", self.user_id))
-        return len([p for p in rows if p.get("quantity", 0) != 0])
+        return await get_open_position_count(self.user_id)
 
     async def _get_today_pnl(self) -> float:
-        IST = timezone(timedelta(hours=5, minutes=30))
-        today_start = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-
-        supabase = get_supabase()
-        filled = await async_safe_execute(
-            supabase.table("orders")
-            .select("symbol, side, quantity, filled_quantity, average_price, created_at")
-            .eq("user_id", self.user_id)
-            .eq("status", "FILLED")
-            .gte("created_at", today_start)
-            .order("created_at")
-        )
-        if not filled:
-            return 0.0
-
-        sell_symbols = {o["symbol"] for o in filled if o["side"] == "SELL"}
-        historical: dict[str, list[dict]] = {}
-        for sym in sell_symbols:
-            hist_rows = await async_safe_execute(
-                supabase.table("orders")
-                .select("quantity, filled_quantity, average_price")
-                .eq("user_id", self.user_id)
-                .eq("symbol", sym)
-                .eq("side", "BUY")
-                .eq("status", "FILLED")
-                .lt("created_at", today_start)
-                .order("created_at")
-            )
-            if hist_rows:
-                historical[sym] = hist_rows
-
-        pnl = 0.0
-        buy_queue: dict[str, list[list[float]]] = {}
-
-        for o in filled:
-            sym = o["symbol"]
-            qty = float(o.get("filled_quantity") if o.get("filled_quantity") is not None else o.get("quantity") or 0)
-            price = float(o.get("average_price") or 0)
-            if qty <= 0:
-                continue
-
-            if o["side"] == "BUY":
-                buy_queue.setdefault(sym, []).append([qty, price])
-            else:
-                rem = qty
-                queue = buy_queue.setdefault(sym, [])
-                while rem > 0 and queue:
-                    bqty, bprice = queue[0]
-                    used = min(rem, bqty)
-                    pnl += used * (price - bprice)
-                    rem -= used
-                    queue[0][0] -= used
-                    if queue[0][0] <= 1e-8:
-                        queue.pop(0)
-                if rem > 0:
-                    for h in historical.get(sym, []):
-                        if rem <= 0:
-                            break
-                        hqty = float(h.get("filled_quantity") or h.get("quantity") or 0)
-                        hprice = float(h.get("average_price") or 0)
-                        if hqty > 0:
-                            used = min(rem, hqty)
-                            pnl += used * (price - hprice)
-                            rem -= used
-        return pnl
+        return await compute_daily_pnl_fifo(self.user_id)
 
     async def _get_current_drawdown(self) -> float:
-        rows = await async_safe_execute(get_supabase().table("strategy_runs").select("total_pnl").eq("user_id", self.user_id))
-        if not rows:
-            return 0
-        pnls = [float(r.get("total_pnl", 0)) for r in rows]
-        peak = max(pnls) if pnls else 0
-        current = sum(pnls)
-        if peak <= 0:
-            return 0
-        return max(0, (peak - current) / peak * 100)
+        return await get_drawdown(self.user_id)
 
 def record_audit_entry(user_id: str, action: str, resource: str) -> None:
     try:
