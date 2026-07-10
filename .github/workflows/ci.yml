@@ -47,8 +47,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY || 'test-key' }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'test-key' }}
-          SECRET_KEY: test-secret-key-for-testing-only
-          ENCRYPTION_KEY: ZTtsuGQCgigNHKjnANV_FyTsMqZuRKPOCyYK8nps7x0=
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'test-secret-key-for-testing-only' }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
 
   lint-web:
     name: Lint Web
@@ -116,8 +116,8 @@ jobs:
           SUPABASE_URL=http://localhost:54321 \
           SUPABASE_SERVICE_KEY=test-key \
           SUPABASE_ANON_KEY=test-key \
-          SECRET_KEY=test-secret-key \
-          ENCRYPTION_KEY=ZTtsuGQCgigNHKjnANV_FyTsMqZuRKPOCyYK8nps7x0= \
+          SECRET_KEY=${{ secrets.SECRET_KEY || 'test-secret-key' }} \
+          ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }} \
           uvicorn main:app --host 0.0.0.0 --port 8000 &
           sleep 5
       - name: Run API load tests

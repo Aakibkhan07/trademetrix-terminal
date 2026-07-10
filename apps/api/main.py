@@ -61,6 +61,8 @@ async def lifespan(app: FastAPI):
     init_sentry()
     init_vault()
     await cache.init()
+    from infrastructure.database import init_db, close_db
+    await init_db()
     from market.cache import market_cache
     await market_cache.start_sweeper()
     from engine.user_strategy_runner import user_strategy_runner
@@ -80,6 +82,8 @@ async def lifespan(app: FastAPI):
     await cache.close()
     from core.db import close_supabase
     await close_supabase()
+    from infrastructure.database import close_db
+    await close_db()
     from core.http_client import shared_http
     await shared_http.close()
     from oms.manager import order_manager
