@@ -67,9 +67,14 @@ async def lifespan(app: FastAPI):
     from engine.buyer_strategy_runner import buyer_strategy_runner
     await user_strategy_runner.start()
     await buyer_strategy_runner.start()
+    from infrastructure.handlers import register_handlers
+    from infrastructure.worker import start as start_worker, stop as stop_worker
+    register_handlers()
+    await start_worker()
     await start_squareoff_scheduler()
     yield
     await stop_squareoff_scheduler()
+    await stop_worker()
     await buyer_strategy_runner.stop()
     await user_strategy_runner.stop()
     await cache.close()
