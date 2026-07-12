@@ -3,19 +3,16 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from builder.blocks import list_blocks, list_categories, get_block, BLOCK_DEFINITIONS
+from builder.blocks import list_blocks, list_categories, get_block
 from builder.compiler import compile_dsl
-from builder.io import to_json, from_json, to_dsl_text, validate_import
+from builder.io import from_json, to_dsl_text, validate_import
 from builder.manager import builder_manager
 from builder.models import (
     GraphEdge,
     GraphNode,
-    StrategyDSL,
     StrategySettings,
     StrategyStatus,
 )
-from builder.preview import generate_preview
-from builder.templates import STRATEGY_TEMPLATES
 from core.deps import get_current_user, require_feature
 from core.models import UserProfile
 from engine.graph_strategy_runner import start_graph_strategy, stop_graph_strategy

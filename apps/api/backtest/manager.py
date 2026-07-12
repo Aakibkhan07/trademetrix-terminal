@@ -10,7 +10,6 @@ from backtest.models import (
     BacktestResult,
     BacktestStatus,
     ReplaySpeed,
-    TradeRecord,
 )
 from backtest.performance import performance_analytics
 from backtest.replay_engine import replay_engine
@@ -136,7 +135,7 @@ class BacktestManager:
             self._current_run = result
             self._history.append(result)
             return result
-    
+
         except asyncio.CancelledError:
             result.status = BacktestStatus.CANCELLED
             result.completed_at = datetime.now(UTC).isoformat()

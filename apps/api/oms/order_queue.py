@@ -2,7 +2,6 @@ import asyncio
 import heapq
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from oms.models import OrderQueueItem, OrderQueueStats
 from oms.observability import oms_metrics

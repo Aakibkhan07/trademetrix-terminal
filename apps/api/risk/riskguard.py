@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 from core.capabilities import resolve_capabilities_by_id
 from core.db import async_supabase, get_supabase
 from core.models import NormalizedOrder, RiskSettings
-from core.safe_query import async_safe_execute, async_safe_insert, async_safe_single, async_safe_update
-from risk.helpers import compute_daily_pnl_fifo, get_current_capital_usage, get_current_exposure, get_drawdown, get_open_position_count
+from core.safe_query import async_safe_insert, async_safe_single, async_safe_update
+from risk.helpers import compute_daily_pnl_fifo, get_current_capital_usage, get_drawdown, get_open_position_count
 
 logger = logging.getLogger(__name__)
 

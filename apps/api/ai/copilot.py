@@ -1,11 +1,10 @@
 import json
 import logging
-from datetime import UTC, datetime
 from typing import Optional
 
 from core.config import settings
-from core.db import async_supabase, get_supabase
-from core.safe_query import async_safe_single, async_safe_execute, safe_single, safe_execute, safe_execute, safe_single
+from core.db import get_supabase
+from core.safe_query import async_safe_single, async_safe_execute
 
 logger = logging.getLogger(__name__)
 

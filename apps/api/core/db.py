@@ -1,8 +1,8 @@
 import asyncio
 import logging
 import threading
-from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
 from supabase import Client, create_client
 

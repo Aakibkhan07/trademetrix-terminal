@@ -1,9 +1,7 @@
 import logging
 import random
-from datetime import UTC, datetime
-from typing import Any
 
-from core.models import NormalizedOrder, OrderStatus
+from core.models import NormalizedOrder
 from market.cache import market_cache
 from paper.models import FillType, PaperConfig, PaperFill, PaperOrderStatus
 

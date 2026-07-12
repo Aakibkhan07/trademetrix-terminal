@@ -4,7 +4,6 @@ import hashlib
 import json
 import logging
 import re
-import struct
 from collections.abc import Callable
 from datetime import UTC, datetime
 

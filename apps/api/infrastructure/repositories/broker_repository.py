@@ -5,7 +5,7 @@ from core.audit import record_audit
 from core.db import async_supabase, get_supabase
 from core.models import AuditLogEntry
 from core.safe_query import async_safe_execute, async_safe_single
-from core.security import decrypt_broker_credentials, encrypt_broker_credentials
+from core.security import encrypt_broker_credentials
 from domain.broker import BrokerCredential
 
 
@@ -13,7 +13,7 @@ class SupabaseBrokerRepository(BrokerRepository):
     async def get_by_user_and_broker(self, user_id: str, broker: str) -> BrokerCredential | None:
         rows = await async_safe_execute(
             get_supabase().table("broker_credentials")
-            .select("id, user_id, broker, is_active")
+            .select("id, user_id, broker, is_active, encrypted_api_key, encrypted_secret_key")
             .eq("user_id", user_id)
             .eq("broker", broker)
         )
@@ -24,7 +24,7 @@ class SupabaseBrokerRepository(BrokerRepository):
     async def get_by_user_and_broker_full(self, user_id: str, broker: str) -> BrokerCredential | None:
         row = await async_safe_single(
             get_supabase().table("broker_credentials")
-            .select("*")
+            .select("id, user_id, broker, is_active, encrypted_api_key, encrypted_secret_key, encrypted_access_token, additional_params")
             .eq("user_id", user_id)
             .eq("broker", broker)
         )

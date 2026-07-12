@@ -2,7 +2,6 @@ import logging
 import random
 from datetime import UTC, datetime, timedelta
 
-from core.db import get_supabase
 from core.models import Candle, NormalizedOrder, OrderSide, OrderType
 from strategies import get_strategy
 

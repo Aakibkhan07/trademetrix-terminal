@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
-from builder.compiler import compile_dsl, estimate_latency
+from builder.compiler import compile_dsl
 from builder.models import (
     ExecutionGraph,
     PreviewData,

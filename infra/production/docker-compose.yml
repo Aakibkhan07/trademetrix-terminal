@@ -192,6 +192,10 @@ services:
 networks:
   trademetrix:
     driver: bridge
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: "fd00:dead:beef::/48"
 
 volumes:
   redis-data:

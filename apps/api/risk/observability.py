@@ -2,7 +2,7 @@ import time
 from collections import defaultdict
 from threading import Lock
 
-from risk.models import RiskDecision, RiskRuleType
+from risk.models import RiskDecision
 
 
 class RiskMetrics:

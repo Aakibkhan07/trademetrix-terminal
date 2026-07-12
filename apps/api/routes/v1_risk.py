@@ -1,14 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from core.db import get_supabase
+from application.services.risk_service import RiskService
 from core.capabilities import Capabilities
 from core.deps import get_capabilities, get_current_user
-from core.models import RiskSettings, UserProfile
-from core.safe_query import async_safe_single, async_safe_execute, safe_single, safe_execute
-from risk.riskguard import RiskGuard
+from core.models import UserProfile
 
 router = APIRouter(prefix="/risk", tags=["risk"])
+
+risk_service = RiskService()
 
 
 class UpdateRiskRequest(BaseModel):
@@ -20,11 +20,13 @@ class UpdateRiskRequest(BaseModel):
     max_drawdown_pct: float = 0.0
 
 
+class LiveEnableRequest(BaseModel):
+    confirm: bool = False
+
+
 @router.get("/settings")
 async def get_risk_settings(current_user: UserProfile = Depends(get_current_user)):
-    supabase = get_supabase()
-    data = await async_safe_execute(supabase.table("risk_settings").select("*").eq("user_id", current_user.id))
-    return {"settings": data or []}
+    return await risk_service.get_settings(current_user.id)
 
 
 @router.post("/settings")
@@ -33,55 +35,22 @@ async def update_risk_settings(
     current_user: UserProfile = Depends(get_current_user),
     caps: Capabilities = Depends(get_capabilities),
 ):
-    tier_floor = caps.daily_loss_floor
-    if req.max_daily_loss == 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Daily loss cap cannot be disabled. Minimum is your tier default of ₹{tier_floor:.0f}.",
-        )
-    if req.max_daily_loss < tier_floor:
-        raise HTTPException(
-            status_code=400,
-            detail=f"max_daily_loss {req.max_daily_loss:.0f} is below your tier floor of ₹{tier_floor:.0f}. You may raise it, but not lower it below your tier's default.",
-        )
-
-    rg = RiskGuard(current_user.id)
-    settings = RiskSettings(
-        user_id=current_user.id,
-        strategy_id=req.strategy_id,
-        max_capital=req.max_capital,
-        max_position_size=req.max_position_size,
-        max_open_positions=req.max_open_positions,
-        max_daily_loss=req.max_daily_loss,
-        max_drawdown_pct=req.max_drawdown_pct,
-    )
-    await rg.update_settings(settings)
-    return {"message": "Risk settings updated"}
+    return await risk_service.update_settings(current_user.id, req, caps)
 
 
 @router.post("/kill-switch/enable")
 async def enable_kill_switch(current_user: UserProfile = Depends(get_current_user)):
-    rg = RiskGuard(current_user.id)
-    await rg.enable_kill_switch()
-    return {"message": "Kill switch enabled"}
+    return await risk_service.enable_kill_switch(current_user.id)
 
 
 @router.post("/kill-switch/disable")
 async def disable_kill_switch(current_user: UserProfile = Depends(get_current_user)):
-    rg = RiskGuard(current_user.id)
-    await rg.disable_kill_switch()
-    return {"message": "Kill switch disabled"}
+    return await risk_service.disable_kill_switch(current_user.id)
 
 
 @router.get("/kill-switch")
 async def kill_switch_status(current_user: UserProfile = Depends(get_current_user)):
-    rg = RiskGuard(current_user.id)
-    status = await rg.get_kill_switch_status()
-    return {"kill_switch_enabled": status}
-
-
-class LiveEnableRequest(BaseModel):
-    confirm: bool = False
+    return await risk_service.kill_switch_status(current_user.id)
 
 
 @router.post("/live/enable")
@@ -89,22 +58,14 @@ async def enable_live(
     req: LiveEnableRequest,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    rg = RiskGuard(current_user.id)
-    success = await rg.enable_live(multi_step_confirm=req.confirm)
-    if not success:
-        raise HTTPException(status_code=400, detail="Multi-step confirmation required")
-    return {"message": "LIVE trading enabled"}
+    return await risk_service.enable_live(current_user.id, req.confirm)
 
 
 @router.post("/live/disable")
 async def disable_live(current_user: UserProfile = Depends(get_current_user)):
-    rg = RiskGuard(current_user.id)
-    await rg.disable_live()
-    return {"message": "LIVE trading disabled"}
+    return await risk_service.disable_live(current_user.id)
 
 
 @router.get("/live/status")
 async def live_status(current_user: UserProfile = Depends(get_current_user)):
-    rg = RiskGuard(current_user.id)
-    status = await rg.get_live_status()
-    return {"is_live": status}
+    return await risk_service.live_status(current_user.id)

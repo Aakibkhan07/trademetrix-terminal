@@ -1,8 +1,6 @@
 import logging
-from datetime import datetime
 from typing import AsyncGenerator
 
-from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -32,7 +30,7 @@ async def init_db():
     dsn = _build_async_dsn()
     if not dsn:
         return
-    _async_engine = create_async_engine(dsn, pool_size=5, max_overflow=10, echo=False)
+    _async_engine = create_async_engine(dsn, pool_size=5, max_overflow=10, echo=False, connect_args={"prepared_statement_cache_size": 0, "statement_cache_size": 0})
     _async_session_maker = async_sessionmaker(_async_engine, expire_on_commit=False)
     logger.info("SQLAlchemy async engine initialized")
 

@@ -3,7 +3,6 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any
 
 from core.models import Candle, Exchange
 from market.historical import historical_engine

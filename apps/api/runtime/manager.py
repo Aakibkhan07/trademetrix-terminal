@@ -2,25 +2,19 @@ import asyncio
 import hashlib
 import logging
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from core.db import async_supabase, get_supabase
 from core.models import Candle, Tick
-from core.safe_query import async_safe_execute, async_safe_single, safe_execute
+from core.safe_query import async_safe_execute
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
 from execution.models import ExecutionRequest
-from market.cache import market_cache
-from market.data_socket import shared_socket
-from market.status import market_status_service
-from portfolio.manager import portfolio_manager
 from runtime.context import RuntimeContext
 from runtime.models import (
     RuntimeConfig,
-    RuntimeMetrics,
     RuntimeSignal,
     SignalSide,
-    StrategyPlugin,
     StrategyState,
     TriggerType,
 )
@@ -28,7 +22,7 @@ from runtime.event_subscriber import runtime_event_subscriber
 from runtime.observability import runtime_metrics
 from runtime.registry import strategy_registry
 from runtime.scheduler import scheduler
-from strategies.base import BaseStrategy, SignalResult
+from strategies.base import SignalResult
 
 logger = logging.getLogger(__name__)
 

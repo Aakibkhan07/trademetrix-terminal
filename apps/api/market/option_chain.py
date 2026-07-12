@@ -1,7 +1,5 @@
 import datetime
 import logging
-import random
-from typing import Any
 
 import httpx
 

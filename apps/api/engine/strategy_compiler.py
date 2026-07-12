@@ -6,8 +6,8 @@ from datetime import UTC, datetime, time, timedelta
 from core.models import (
     Exchange, ExecutionPlan, InstrumentType, LegExpiry, LegOptionType,
     LegPosition, LegSegment, NormalizedOrder, OptionType, OrderSide,
-    OrderType, ProductType, SLTargetType, StrikeCriteria, UserStrategy,
-    UserStrategyLeg, UserStrategyStatus,
+    OrderType, ProductType, StrikeCriteria, UserStrategy,
+    UserStrategyLeg,
 )
 
 logger = logging.getLogger(__name__)

@@ -4,11 +4,10 @@ import logging
 import time
 from collections import OrderedDict
 from datetime import UTC, datetime
-from typing import Any
 
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
 from execution.manager import ExecutionManager
-from execution.models import ExecutionRequest, ExecutionResult, ExecutionState
+from execution.models import ExecutionRequest
 from oms.models import (
     BracketOrder,
     OCOOrder,

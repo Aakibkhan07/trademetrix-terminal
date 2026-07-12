@@ -8,15 +8,13 @@ estimated using Black-Scholes with historical volatility from real candle data.
 import math
 import logging
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from core.models import (
-    ExecutionPlan, OptionType, OrderSide, UserStrategy, UserStrategyLeg,
-    UserStrategyStatus,
+    OptionType, UserStrategy,
 )
 from engine.strategy_compiler import (
-    LOT_SIZES, STRIKE_INTERVALS, WEEKDAY_EXPIRY,
-    compile_user_strategy, resolve_expiry,
+    LOT_SIZES, compile_user_strategy,
 )
 from market.historical import historical_engine
 
@@ -242,8 +240,6 @@ async def run_user_strategy_backtest(
 def _has_real_data(candles: list[dict]) -> bool:
     if len(candles) < 10:
         return False
-    from market.historical import historical_engine
-    import random
     sample = candles[:5]
     for c in sample:
         o, h, l, cl = float(c.get("open", 0)), float(c.get("high", 0)), float(c.get("low", 0)), float(c.get("close", 0))

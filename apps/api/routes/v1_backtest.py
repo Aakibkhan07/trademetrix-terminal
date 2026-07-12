@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from backtest.manager import backtest_manager
-from backtest.models import BacktestConfig, BacktestStatus, ReplaySpeed
+from backtest.models import BacktestConfig, ReplaySpeed
 from core.deps import get_current_user, require_feature
 from core.models import UserProfile
 from engine.backtest import BacktestEngine, fetch_historical_data

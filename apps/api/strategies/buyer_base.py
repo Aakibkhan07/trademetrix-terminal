@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import math
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, time
 from enum import Enum
 from typing import Optional
@@ -24,7 +24,6 @@ from core.models import (
     Exchange,
     InstrumentType,
     NormalizedOrder,
-    OptionType,
     OrderSide,
     OrderType,
     ProductType,

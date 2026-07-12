@@ -7,7 +7,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from core.middleware.timeout import TimeoutMiddleware
-from fastapi.responses import JSONResponse
 
 from core.cache import cache
 from core.config import settings
@@ -47,7 +46,7 @@ from routes.v1_margin_estimate import router as margin_estimate_router
 from routes.v1_subscriptions import router as subscriptions_router
 from routes.v1_buyer_strategies import router as buyer_strategies_router
 from routes.v1_squareoff import router as squareoff_router
-from routes.v1_squareoff import start_squareoff_scheduler, stop_squareoff_scheduler
+from routes.v1_squareoff import service as squareoff_service
 from routes.v1_multileg import router as multileg_router
 
 logger = logging.getLogger(__name__)
@@ -73,16 +72,15 @@ async def lifespan(app: FastAPI):
     from infrastructure.worker import start as start_worker, stop as stop_worker
     register_handlers()
     await start_worker()
-    await start_squareoff_scheduler()
+    squareoff_service.start_scheduler()
     yield
-    await stop_squareoff_scheduler()
+    squareoff_service.stop_scheduler()
     await stop_worker()
     await buyer_strategy_runner.stop()
     await user_strategy_runner.stop()
     await cache.close()
     from core.db import close_supabase
     await close_supabase()
-    from infrastructure.database import close_db
     await close_db()
     from core.http_client import shared_http
     await shared_http.close()

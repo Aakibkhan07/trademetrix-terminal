@@ -4,7 +4,7 @@ from typing import TypedDict
 
 from pydantic import BaseModel, Field
 
-from core.models import Exchange, InstrumentType, OptionType, Tick
+from core.models import OptionType, Tick
 
 
 class NormalizedTick(Tick):

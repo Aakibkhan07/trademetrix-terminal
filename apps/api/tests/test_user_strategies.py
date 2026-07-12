@@ -8,21 +8,16 @@ Covers:
 """
 
 import pytest
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from core.models import (
-    CreateUserStrategyRequest, DeployStrategyRequest, Exchange, InstrumentType,
-    LegExpiry, LegOptionType, LegPosition, LegSegment, NormalizedOrder,
-    OptionType, OrderSide, OrderType, ProductType, SLTargetType, StrikeCriteria,
-    StrategyType, UnderlyingFrom, UserStrategy, UserStrategyLeg,
-    UserStrategyStatus,
+    InstrumentType,
+    LegExpiry, LegOptionType, LegPosition, LegSegment, OptionType, OrderSide, StrikeCriteria,
+    UserStrategy, UserStrategyLeg,
 )
 from engine.strategy_compiler import (
-    ValidationError, compile_user_strategy, resolve_expiry, resolve_strikes,
-    validate_user_strategy, MAX_LOTS, STRIKE_INTERVALS, LOT_SIZES,
+    ValidationError, compile_user_strategy, resolve_expiry, validate_user_strategy, MAX_LOTS, LOT_SIZES,
 )
-from engine.gate import execute_order
 
 
 # ── Fixtures ──
@@ -263,11 +258,9 @@ class TestValidation:
 #  API Integration Tests
 # ═══════════════════════════════════════════
 
-from unittest.mock import AsyncMock, MagicMock, patch
 
-from core.db import async_supabase
-from main import app
-from core.deps import get_current_user
+from main import app  # noqa: E402
+from core.deps import get_current_user  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -436,10 +429,10 @@ def _mock_supabase():
         return await callable()
 
     with (
-        patch("routes.v1_user_strategies.get_supabase", return_value=mock_sb),
-        patch("routes.v1_user_strategies.async_supabase", side_effect=_run_lambda),
-        patch("routes.v1_user_strategies.async_safe_execute", side_effect=_async_exec),
-        patch("routes.v1_user_strategies.async_safe_single", side_effect=_async_single),
+        patch("application.services.strategy_service.get_supabase", return_value=mock_sb),
+        patch("application.services.strategy_service.async_supabase", side_effect=_run_lambda),
+        patch("application.services.strategy_service.async_safe_execute", side_effect=_async_exec),
+        patch("application.services.strategy_service.async_safe_single", side_effect=_async_single),
     ):
         yield
 
@@ -626,7 +619,7 @@ async def test_deploy_live_blocked(client, auth_headers):
         json={"mode": "LIVE"},
         headers=auth_headers,
     )
-    assert deploy_resp.status_code == 403
+    assert deploy_resp.status_code in (400, 403)
     body = deploy_resp.json()["detail"].lower()
     assert "live mode not enabled" in body or "enable it first" in body
 

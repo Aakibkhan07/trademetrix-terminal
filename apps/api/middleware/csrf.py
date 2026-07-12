@@ -58,7 +58,7 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
                 value=token,
                 httponly=False,
                 secure=True,
-                samesite="lax",
+                samesite="none",
                 path="/",
                 domain=settings.cookie_domain or None,
             )

@@ -1,7 +1,7 @@
 import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from core.models import NormalizedOrder, OrderResult
+from core.models import NormalizedOrder
 
 
 BASE_ORDER = dict(

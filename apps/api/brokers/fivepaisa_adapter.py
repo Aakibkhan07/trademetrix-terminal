@@ -17,7 +17,6 @@ from core.models import (
     Holding,
     InstrumentType,
     NormalizedOrder,
-    OptionType,
     OrderResult,
     OrderSide,
     OrderStatus,

@@ -6,8 +6,6 @@ pending re-entries, logged to audit trail.
 """
 
 import logging
-import time
-from datetime import UTC, datetime
 
 from core.cache import cache
 from core.capabilities import resolve_capabilities_by_id

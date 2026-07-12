@@ -6,7 +6,6 @@ Run this INSIDE the API container or in the app venv.
 """
 
 import asyncio
-import json
 import os
 import sys
 

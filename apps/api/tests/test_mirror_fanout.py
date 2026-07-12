@@ -3,8 +3,6 @@ PAPER-MODE end-to-end test of multi-user mirror fan-out.
 Creates test fixtures, runs all 8 scenarios, cleans up.
 """
 import asyncio
-import hashlib
-import json
 import os
 import sys
 import uuid
@@ -237,8 +235,11 @@ async def scenario_1_recipients():
     from routes.v1_tradingview import _get_mirror_recipients
     all_recipients = await _get_mirror_recipients(STRATEGY_KEY)
 
-    a = uid("user_a"); b = uid("user_b"); c = uid("user_c")
-    d = uid("user_d"); e = uid("user_e")
+    a = uid("user_a")
+    b = uid("user_b")
+    c = uid("user_c")
+    d = uid("user_d")
+    e = uid("user_e")
     our_ids = {a, b, c, d, e}
 
     # Only consider our test users (ignore stale leftovers from prior aborted runs)
@@ -269,7 +270,9 @@ SAFE_QTY = 100  # small enough to pass both A and B position-size checks
 
 async def scenario_2_and_3_and_6(sb, recipients):
     """Execute order for each recipient, verify gate path, and reason string."""
-    a = uid("user_a"); b = uid("user_b"); e = uid("user_e")
+    a = uid("user_a")
+    b = uid("user_b")
+    e = uid("user_e")
     print(_section("2 & 6: Gate path + reason", ""))
 
     results = {}
@@ -295,14 +298,14 @@ async def scenario_2_and_3_and_6(sb, recipients):
     e_result = results.get(e)
 
     # Scenario 2: gate path — source="mirror" is confirmed by audit rows (scenario 5)
-    print(f"\n  [2] Gate path confirmed: each recipient called execute_order with source=mirror")
+    print("\n  [2] Gate path confirmed: each recipient called execute_order with source=mirror")
     assert a_result is not None and a_result.status in ("paper", "placed"), f"A should have succeeded, got {a_result}"
     assert b_result is not None and b_result.status in ("paper", "placed"), f"B should have succeeded, got {b_result}"
 
     # Scenario 6: reason string carried through (via result.order.reason)
     a_reason = a_result.order.reason if a_result and a_result.order else ""
     b_reason = b_result.order.reason if b_result and b_result.order else ""
-    print(f"\n  [6] Reason check:")
+    print("\n  [6] Reason check:")
     print(f"      Signal reason: {SIGNAL_REASON}")
     print(f"      A order reason: {a_reason}")
     print(f"      B order reason: {b_reason}")
@@ -324,7 +327,9 @@ def _get_user_audit(sb, user_id):
 
 def scenario_4_kill_switch(sb, recipients, results):
     """E should be rejected with KILL_SWITCH; A and B still passed."""
-    a = uid("user_a"); b = uid("user_b"); e = uid("user_e")
+    a = uid("user_a")
+    b = uid("user_b")
+    e = uid("user_e")
     print(_section("4: Kill switch isolation", ""))
 
     a_ok = results.get(a) and results.get(a).status in ("paper", "placed")
@@ -345,7 +350,9 @@ def scenario_4_kill_switch(sb, recipients, results):
 
 def scenario_5_audit(sb, recipients):
     """One audit row per processed recipient with correct source and reason."""
-    a = uid("user_a"); b = uid("user_b"); e = uid("user_e")
+    a = uid("user_a")
+    b = uid("user_b")
+    e = uid("user_e")
     print(_section("5: Audit log", ""))
 
     for label, uid_val in [("A", a), ("B", b), ("E", e)]:
@@ -361,7 +368,7 @@ def scenario_5_audit(sb, recipients):
         if label == "E":
             # E should have a "rejected" audit row
             rejected = [r for r in rows if r.get("action") == "rejected"]
-            assert len(rejected) >= 1, f"E should have a 'rejected' audit row"
+            assert len(rejected) >= 1, "E should have a 'rejected' audit row"
             assert any("KILL_SWITCH" in (r.get("reason") or "") for r in rejected), "E rejection reason should contain KILL_SWITCH"
         else:
             assert any(r.get("source") == "mirror" for r in rows), f"{label} audit should have source=mirror"
@@ -369,7 +376,8 @@ def scenario_5_audit(sb, recipients):
 
 def scenario_7_idempotency(sb, recipients):
     """Re-broadcast — no duplicate orders for A or B."""
-    a = uid("user_a"); b = uid("user_b")
+    a = uid("user_a")
+    b = uid("user_b")
     print(_section("7: Idempotency (re-broadcast)", ""))
 
     before_a = _get_user_orders(sb, a)
@@ -418,7 +426,9 @@ def scenario_7_idempotency(sb, recipients):
 
 def scenario_8_paper_safety(sb, recipients):
     """Confirm no live orders were placed."""
-    a = uid("user_a"); b = uid("user_b"); e = uid("user_e")
+    a = uid("user_a")
+    b = uid("user_b")
+    e = uid("user_e")
     print(_section("8: Paper safety", ""))
 
     for label, uid_val in [("A", a), ("B", b), ("E", e)]:

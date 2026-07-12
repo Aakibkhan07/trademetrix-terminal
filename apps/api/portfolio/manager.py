@@ -1,16 +1,13 @@
 import logging
 import time
-from collections import defaultdict
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 
-from core.db import async_supabase, get_supabase
-from core.models import Position, Holding, Funds
-from core.safe_query import async_safe_execute, safe_execute, safe_single
+from core.db import get_supabase
+from core.models import Funds
+from core.safe_query import async_safe_execute
 from execution.broker_adapter import BrokerExecutionAdapter
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
-from execution.models import ExecutionRequest
 from portfolio.models import (
-    BrokerSyncStatus,
     PortfolioFunds,
     PortfolioHolding,
     PortfolioPnL,

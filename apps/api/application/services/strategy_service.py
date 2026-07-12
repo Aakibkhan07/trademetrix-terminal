@@ -1,4 +1,5 @@
 import logging
+from typing import Any, cast
 
 from core.capabilities import Capabilities
 from core.db import async_supabase, get_supabase
@@ -17,7 +18,7 @@ class StrategyService:
         if status_filter:
             query = query.eq("status", status_filter)
         data = await async_safe_execute(query.order("created_at", desc=True))
-        return [self._row_to_strategy(row) for row in (data or [])]
+        return cast(list[dict], [self._row_to_strategy(row) for row in (data or [])])
 
     async def create_strategy(self, req: CreateUserStrategyRequest, user: UserProfile, caps: Capabilities) -> dict:
         supabase = get_supabase()
@@ -47,7 +48,7 @@ class StrategyService:
         if not result or not result.data:
             raise ValueError("Failed to create strategy")
 
-        strategy_id = result.data[0]["id"]
+        strategy_id = cast(dict[str, Any], result.data[0])["id"]
         legs_to_insert = [
             leg.model_dump(exclude={"id", "strategy_id"}, exclude_none=True) | {"strategy_id": strategy_id}
             for leg in req.legs
@@ -99,6 +100,19 @@ class StrategyService:
 
     async def delete_strategy(self, user_id: str, strategy_id: str) -> None:
         await async_supabase(lambda: get_supabase().table("user_strategies").delete().eq("id", strategy_id).eq("user_id", user_id).execute())
+
+    async def get_strategy_activity(self, user_id: str, strategy_id: str) -> dict:
+        supabase = get_supabase()
+        rows = await async_safe_execute(
+            supabase.table("audit_log").select("*")
+            .eq("user_id", user_id).order("created_at", desc=True).limit(50)
+        ) or []
+        filtered = [
+            r for r in rows
+            if r.get("resource") == f"strategy/{strategy_id}"
+            or (r.get("resource") == "order" and r.get("strategy_id") == strategy_id)
+        ]
+        return {"activity": filtered}
 
     async def deploy_strategy(self, user_id: str, strategy_id: str, req: DeployStrategyRequest, user: UserProfile, caps: Capabilities) -> dict:
         mode = req.mode.upper()

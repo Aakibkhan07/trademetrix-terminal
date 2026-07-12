@@ -79,7 +79,6 @@ class DhanAdapter(BaseBroker):
         )
 
     async def _exchange_auth_code(self, client_id: str, client_secret: str, auth_code: str) -> Session:
-        from urllib.parse import urlencode
         from core.config import settings
         redirect_uri = settings.dhan_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/dhan/callback"
         client = await self._get_client()

@@ -3,10 +3,9 @@ import inspect
 import logging
 import os
 import pkgutil
-from typing import Any
 
 from strategies.base import BaseStrategy
-from runtime.models import StrategyPlugin, StrategyState, TriggerType
+from runtime.models import StrategyPlugin, StrategyState
 
 logger = logging.getLogger(__name__)
 

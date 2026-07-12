@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import logging
 import time
@@ -7,7 +6,7 @@ from typing import Any
 
 from core.db import async_supabase, get_supabase
 from core.models import Exchange, InstrumentType, NormalizedOrder, OptionType, OrderResult, OrderSide, OrderStatus, OrderType, ProductType
-from core.safe_query import async_safe_single, safe_execute, safe_single
+from core.safe_query import async_safe_single
 from execution.audit import log_execution_event, log_validation_failure
 from execution.broker_adapter import BrokerExecutionAdapter
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
@@ -18,12 +17,10 @@ from execution.models import (
     EXECUTION_STATE_TRANSITIONS,
 )
 from execution.observability import execution_observability
-from execution.retry import retry_with_backoff, is_transient
+from execution.retry import retry_with_backoff
 from execution.validation import validate_order
-from market.symbol_master import symbol_master
 from risk.manager import risk_manager
 from risk.models import RiskDecision
-from risk.riskguard import RiskGuard
 
 logger = logging.getLogger(__name__)
 

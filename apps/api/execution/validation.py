@@ -1,10 +1,8 @@
-import hashlib
 import logging
-from datetime import UTC, datetime
 
-from core.db import async_supabase, get_supabase
-from core.models import NormalizedOrder, OrderSide, OrderType, ProductType
-from core.safe_query import async_safe_single, safe_single
+from core.db import get_supabase
+from core.models import NormalizedOrder, OrderType
+from core.safe_query import async_safe_single
 from execution.broker_adapter import BrokerExecutionAdapter
 from execution.models import ValidationResult
 from market.status import market_status_service

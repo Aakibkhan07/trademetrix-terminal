@@ -11,7 +11,7 @@ from core.models import Candle
 from market.instrument_service import instrument_service
 from strategies.base import SignalResult
 from strategies.buyer_base import BuyerBase, Phase
-from strategies.indicators import adx, ema, sma, supertrend, vwap
+from strategies.indicators import adx, ema, supertrend, vwap
 
 logger = logging.getLogger(__name__)
 

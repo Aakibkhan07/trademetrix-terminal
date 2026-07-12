@@ -195,7 +195,7 @@ async def get_csrf_token(response: Response):
         value=token,
         httponly=False,
         secure=True,
-        samesite="lax",
+        samesite="none",
         path="/",
         domain=settings.cookie_domain or None,
     )

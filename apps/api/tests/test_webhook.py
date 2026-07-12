@@ -75,8 +75,9 @@ def _make_client():
 @contextmanager
 def _patches_for_test(sb):
     with patch.object(settings, "razorpay_webhook_secret", TEST_WEBHOOK_SECRET), \
-         patch("routes.v1_subscriptions.get_supabase", return_value=sb), \
-         patch("routes.v1_subscriptions.async_supabase", side_effect=lambda fn, *a, **kw: fn()), \
+         patch("application.services.subscription_service.get_supabase", return_value=sb), \
+         patch("application.services.subscription_service.async_supabase", side_effect=lambda fn, *a, **kw: fn()), \
+         patch("core.safe_query.async_supabase", side_effect=lambda fn, *a, **kw: fn()), \
          patch.object(settings, "razorpay_plan_monthly", "plan_monthly_test"), \
          patch.object(settings, "razorpay_plan_quarterly", "plan_quarterly_test"), \
          patch.object(settings, "razorpay_plan_halfyearly", "plan_halfyearly_test"), \
@@ -405,8 +406,9 @@ async def test_unknown_plan_id_returns_400():
     sb, _, _ = _mock_supabase_tables()
 
     with patch.object(settings, "razorpay_webhook_secret", TEST_WEBHOOK_SECRET), \
-         patch("routes.v1_subscriptions.get_supabase", return_value=sb), \
-         patch("routes.v1_subscriptions.async_supabase", side_effect=lambda fn, *a, **kw: fn()):
+         patch("application.services.subscription_service.get_supabase", return_value=sb), \
+         patch("application.services.subscription_service.async_supabase", side_effect=lambda fn, *a, **kw: fn()), \
+         patch("core.safe_query.async_supabase", side_effect=lambda fn, *a, **kw: fn()):
 
         async with _make_client() as client:
             resp = await client.post(

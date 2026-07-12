@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from engine.user_strategy_runner import (
     UserStrategyRunner, _is_squared_off_today, _mark_squared_off_today,

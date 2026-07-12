@@ -27,3 +27,5 @@ websocket-client>=1.6
 yfinance>=1.4
 smartapi-python>=1.5
 pyotp>=2.9
+asyncpg>=0.29
+sqlalchemy>=2.0

@@ -9,14 +9,14 @@ Trailing SL evaluation runs on live ticks (via scheduler callback).
 
 import asyncio
 import logging
-from datetime import UTC, datetime, time, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from core.cache import cache
-from core.db import async_supabase, get_supabase
-from core.models import UserStrategy, UserStrategyLeg, UserStrategyStatus
+from core.db import get_supabase
+from core.models import UserStrategy
 from core.safe_query import async_safe_execute, async_safe_single
 from risk.leg_controls import (
-    cancel_pending_reentries, handle_square_off, handle_trailing_sl,
+    cancel_pending_reentries, handle_square_off,
 )
 
 logger = logging.getLogger(__name__)

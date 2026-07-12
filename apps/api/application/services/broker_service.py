@@ -1,6 +1,6 @@
 import logging
 
-from application.interfaces.broker_oauth import BrokerOAuthProvider, BrokerRepository
+from application.interfaces.broker_oauth import BrokerRepository
 from domain.broker import BrokerOAuthConfig, BrokerCredential
 from infrastructure.oauth_providers import get_oauth_provider, get_redirect_uri
 

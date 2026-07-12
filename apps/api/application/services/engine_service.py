@@ -1,9 +1,10 @@
 import asyncio
 import time
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from core.db import async_supabase, get_supabase
-from core.models import NormalizedOrder, OrderResult
+from core.models import NormalizedOrder
 from core.safe_query import async_safe_execute, async_safe_single
 from engine.executor import ExecutionEngine
 from engine.gate import execute_order
@@ -28,7 +29,7 @@ class EngineService:
             "started_at": datetime.now(UTC).isoformat(),
         }
         result = await async_supabase(lambda: get_supabase().table("strategy_runs").insert(payload).execute())
-        return {"run_id": result.data[0]["id"], "status": "running"}
+        return {"run_id": cast(dict[str, Any], result.data[0])["id"], "status": "running"}
 
     async def stop_run(self, user_id: str, run_id: str) -> dict:
         await async_supabase(lambda: get_supabase().table("strategy_runs").update(
@@ -93,7 +94,7 @@ class EngineService:
         }).execute())
         return {"note": result.data[0]}
 
-    async def get_order_notes(self, user_id: str) -> list[dict]:
+    async def get_order_notes(self, user_id: str) -> dict:
         data = await async_safe_execute(
             get_supabase().table("journal_entries").select("*")
             .eq("user_id", user_id).eq("entry_type", "trade_note")
