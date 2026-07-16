@@ -43,7 +43,7 @@ function shallowObjectEqual(a: Record<string, unknown> | null, b: Record<string,
 
 export default function DashboardPage() {
   const { token } = useAuth()
-  const { ticks, connected, startFeed } = useMarketData()
+  const { ticks, connected } = useMarketData()
   const { toast } = useToast()
   const [positions, setPositions] = useState<AggPosition[]>([])
   const [funds, setFunds] = useState<Record<string, number> | null>(null)
@@ -73,7 +73,7 @@ export default function DashboardPage() {
 
       setPositions(prev => shallowArrayEqual(prev, newPositions, x => (x as any).symbol + (x as any).broker) ? prev : newPositions)
       setFunds(prev => shallowObjectEqual(prev as any, newFunds as any) ? prev : newFunds)
-      setOrders(prev => Array.isArray(prev) && newOrders.length === prev.length ? prev : newOrders)
+      setOrders(prev => shallowArrayEqual(prev, newOrders, x => (x as any).id) ? prev : newOrders)
       setCreds(prev => shallowArrayEqual(prev, newCreds, x => (x as any).id) ? prev : newCreds)
       setLastRefresh(new Date().toLocaleTimeString())
     } catch {
@@ -82,8 +82,6 @@ export default function DashboardPage() {
       if (isInitial) setLoading(false)
     }
   }, [])
-
-  useEffect(() => { startFeed() }, [startFeed])
 
   useEffect(() => { if (token) loadData(true) }, [token, loadData])
   usePolling(() => loadData(), 4000, !!token)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useMarketData } from '@/lib/use-market-data'
 import { useToast } from '@/lib/use-toast'
 import { api } from '@/lib/api'
@@ -63,6 +63,8 @@ const ALL_SYMBOLS: WatchItem[] = [
 
 export default function MarketDataPage() {
   const { ticks, connected, feedMode, subscribe, startFeed, stopFeed } = useMarketData()
+  const ticksRef = useRef(ticks)
+  ticksRef.current = ticks
   const { toast } = useToast()
   const [feedOn, setFeedOn] = useState(false)
   const [apiIndices, setApiIndices] = useState<WatchItem[]>([])
@@ -105,12 +107,13 @@ export default function MarketDataPage() {
   }, [loadAlertsFromApi])
 
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const interval = setInterval(() => {
       setAlerts(prev => {
         let changed = false
+        const currentTicks = ticksRef.current
         const updated = prev.map(a => {
           if (a.triggered) return a
-          const t = ticks[a.symbol]
+          const t = currentTicks[a.symbol]
           if (!t?.last_price) return a
           const price = t.last_price
           if ((a.direction === 'above' && price >= a.target) || (a.direction === 'below' && price <= a.target)) {
@@ -118,7 +121,6 @@ export default function MarketDataPage() {
             if (a.backendId) {
               api.alerts.toggle(a.backendId).catch(() => {})
             }
-            toast('info', `Alert: ${a.name || a.symbol} ${a.direction === 'above' ? 'crossed above' : 'dropped below'} \u20B9${a.target} (current: \u20B9${price})`)
             return { ...a, triggered: true, triggeredAt: new Date().toISOString() }
           }
           return a
@@ -127,7 +129,7 @@ export default function MarketDataPage() {
       })
     }, 2000)
     return () => clearInterval(interval)
-  }, [ticks, toast])
+  }, [])
 
   const loadWatchlist = useCallback(async () => {
     try {
@@ -159,7 +161,10 @@ export default function MarketDataPage() {
     ? items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) || i.symbol.toLowerCase().includes(search.toLowerCase()))
     : items
 
-  const sortedTicks = Object.values(ticks).sort((a, b) => Math.abs(b.change_pct ?? 0) - Math.abs(a.change_pct ?? 0))
+  const sortedTicks = useMemo(
+    () => Object.values(ticks).sort((a, b) => Math.abs(b.change_pct ?? 0) - Math.abs(a.change_pct ?? 0)),
+    [ticks],
+  )
 
   const timeframes = ['1D', '1W', '1M', '3M', '1Y']
   const [chartTF, setChartTF] = useState('1D')

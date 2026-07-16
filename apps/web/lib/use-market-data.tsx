@@ -50,6 +50,34 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
   const tickBufferRef = useRef<Record<string, TickData>>({})
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const startFeed = useCallback(async () => {
+    try {
+      const res = await api.post<{ broker?: string }>('/marketdata/feed/start')
+      setFeedMode(res?.broker === 'simulator' ? 'simulator' : 'broker')
+    } catch {
+      setFeedMode('idle')
+    }
+  }, [])
+
+  const stopFeed = useCallback(async () => {
+    try { await api.post('/marketdata/feed/stop') } catch {}
+    setFeedMode('idle')
+  }, [])
+
+  const subscribe = useCallback((symbols: string[]) => {
+    for (const s of symbols) subscribedRef.current.add(s)
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'subscribe', symbols }))
+    }
+  }, [])
+
+  const unsubscribe = useCallback((symbols: string[]) => {
+    for (const s of symbols) subscribedRef.current.delete(s)
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'unsubscribe', symbols }))
+    }
+  }, [])
+
   const connect = useCallback(() => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
     const wsBase = baseUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '')
@@ -82,47 +110,20 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     connect()
+    startFeed()
     flushTimerRef.current = setInterval(() => {
       const buf = tickBufferRef.current
       if (Object.keys(buf).length > 0) {
         tickBufferRef.current = {}
         setTicks((prev) => ({ ...prev, ...buf }))
       }
-    }, 200)
+    }, 1000)
     return () => {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       if (flushTimerRef.current) clearInterval(flushTimerRef.current)
       wsRef.current?.close()
     }
-  }, [connect])
-
-  const subscribe = useCallback((symbols: string[]) => {
-    for (const s of symbols) subscribedRef.current.add(s)
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'subscribe', symbols }))
-    }
-  }, [])
-
-  const unsubscribe = useCallback((symbols: string[]) => {
-    for (const s of symbols) subscribedRef.current.delete(s)
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'unsubscribe', symbols }))
-    }
-  }, [])
-
-  const startFeed = useCallback(async () => {
-    try {
-      const res = await api.post<{ broker?: string }>('/marketdata/feed/start')
-      setFeedMode(res?.broker === 'simulator' ? 'simulator' : 'broker')
-    } catch {
-      setFeedMode('idle')
-    }
-  }, [])
-
-  const stopFeed = useCallback(async () => {
-    try { await api.post('/marketdata/feed/stop') } catch {}
-    setFeedMode('idle')
-  }, [])
+  }, [connect, startFeed])
 
   return (
     <MarketDataContext.Provider value={{ ticks, connected, feedMode, subscribe, unsubscribe, startFeed, stopFeed }}>

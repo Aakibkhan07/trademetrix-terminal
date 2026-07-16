@@ -26,7 +26,7 @@ const STATUS_BADGE: Record<string, string> = {
 }
 
 export default function TerminalPage() {
-  const { ticks, subscribe, startFeed } = useMarketData()
+  const { ticks, subscribe } = useMarketData()
   const { toast } = useToast()
   const [positions, setPositions] = useState<Position[]>([])
   const [orders, setOrders] = useState<Order[]>([])
@@ -61,7 +61,7 @@ export default function TerminalPage() {
     }
   }
 
-  useEffect(() => { loadData(); startFeed() }, [])
+  useEffect(() => { loadData() }, [])
   useEffect(() => { if (symbol) subscribe([symbol]) }, [symbol])
 
   const liveTick = symbol ? ticks[symbol] : null

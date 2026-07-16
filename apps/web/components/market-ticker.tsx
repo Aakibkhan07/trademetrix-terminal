@@ -15,12 +15,11 @@ const TICKER_SYMBOLS = [
 ]
 
 export default function MarketTicker() {
-  const { ticks, feedMode, subscribe, startFeed } = useMarketData()
+  const { ticks, feedMode, subscribe } = useMarketData()
 
   useEffect(() => {
     subscribe(TICKER_SYMBOLS.map((s) => s.key))
-    startFeed()
-  }, [subscribe, startFeed])
+  }, [subscribe])
 
   return (
     <div className="t-ticker">
