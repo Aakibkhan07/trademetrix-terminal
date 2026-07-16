@@ -11,6 +11,7 @@ from engine.gate import execute_order
 from engine.token_refresh import get_token_status
 
 _engine_cache: dict[str, tuple[ExecutionEngine, float]] = {}
+_engine_locks: dict[str, asyncio.Lock] = {}
 _ENGINE_TTL = 120
 
 
@@ -144,12 +145,14 @@ class EngineService:
         return await get_token_status(user_id, broker)
 
     async def _get_engine(self, user_id: str, broker: str) -> ExecutionEngine:
-        global _engine_cache
+        global _engine_cache, _engine_locks
         key = f"{user_id}:{broker}"
         now = time.monotonic()
+
         stale = [k for k, (_, ts) in _engine_cache.items() if now - ts >= _ENGINE_TTL]
         for k in stale:
             entry = _engine_cache.pop(k, None)
+            _engine_locks.pop(k, None)
             if entry:
                 asyncio.ensure_future(entry[0].stop())
 
@@ -157,7 +160,15 @@ class EngineService:
         if entry and now - entry[1] < _ENGINE_TTL:
             return entry[0]
 
-        engine = ExecutionEngine(user_id, broker)
-        await engine.start()
-        _engine_cache[key] = (engine, now)
-        return engine
+        if key not in _engine_locks:
+            _engine_locks[key] = asyncio.Lock()
+
+        async with _engine_locks[key]:
+            entry = _engine_cache.get(key)
+            if entry and now - entry[1] < _ENGINE_TTL:
+                return entry[0]
+
+            engine = ExecutionEngine(user_id, broker)
+            await engine.start()
+            _engine_cache[key] = (engine, time.monotonic())
+            return engine

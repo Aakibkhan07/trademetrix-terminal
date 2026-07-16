@@ -59,28 +59,27 @@ export default function DashboardPage() {
   const loadData = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true)
     setError('')
-    try {
-      const [p, f, o, c] = await Promise.all([
-        api.engine.positions(),
-        api.engine.funds(),
-        api.engine.orders(),
-        api.brokers.credentials().catch(() => []),
-      ])
-      const newPositions = (p as any).positions || []
-      const newFunds = (f as any).funds || null
-      const newOrders = (o as any).orders || []
-      const newCreds = (c as any) || []
+    const withTimeout = (p: Promise<unknown>, ms: number, fallbackVal: unknown): Promise<unknown> =>
+      Promise.race([p, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))])
+        .catch(() => fallbackVal)
 
-      setPositions(prev => shallowArrayEqual(prev, newPositions, x => (x as any).symbol + (x as any).broker) ? prev : newPositions)
-      setFunds(prev => shallowObjectEqual(prev as any, newFunds as any) ? prev : newFunds)
-      setOrders(prev => shallowArrayEqual(prev, newOrders, x => (x as any).id) ? prev : newOrders)
-      setCreds(prev => shallowArrayEqual(prev, newCreds, x => (x as any).id) ? prev : newCreds)
-      setLastRefresh(new Date().toLocaleTimeString())
-    } catch {
-      setError('Failed to load dashboard data')
-    } finally {
-      if (isInitial) setLoading(false)
-    }
+    const [p, f, o, c] = await Promise.all([
+      withTimeout(api.engine.positions(), 8000, { positions: [] }),
+      withTimeout(api.engine.funds(), 8000, { funds: null }),
+      withTimeout(api.engine.orders(), 8000, { orders: [] }),
+      api.brokers.credentials().catch(() => []),
+    ])
+    const newPositions = (p as any).positions || []
+    const newFunds = (f as any).funds || null
+    const newOrders = (o as any).orders || []
+    const newCreds = (c as any) || []
+
+    setPositions(prev => shallowArrayEqual(prev, newPositions, x => (x as any).symbol + (x as any).broker) ? prev : newPositions)
+    setFunds(prev => shallowObjectEqual(prev as any, newFunds as any) ? prev : newFunds)
+    setOrders(prev => shallowArrayEqual(prev, newOrders, x => (x as any).id) ? prev : newOrders)
+    setCreds(prev => shallowArrayEqual(prev, newCreds, x => (x as any).id) ? prev : newCreds)
+    setLastRefresh(new Date().toLocaleTimeString())
+    if (isInitial) setLoading(false)
   }, [])
 
   useEffect(() => { if (token) loadData(true) }, [token, loadData])
