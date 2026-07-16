@@ -12,49 +12,27 @@ import MarketTicker from '@/components/market-ticker'
 
 const NAV_SECTIONS = [
   {
-    label: 'Dashboard',
+    label: 'Control Center',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: '◉' },
+      { href: '/dashboard?tab=users', label: 'Users', icon: 'U' },
+      { href: '/dashboard?tab=trades', label: 'Trades', icon: 'T' },
+      { href: '/dashboard?tab=brokers', label: 'Brokers', icon: 'B' },
     ],
   },
   {
-    label: 'Strategies',
+    label: 'Operations',
     items: [
-      { href: '/strategies', label: 'My Strategies', icon: '◈' },
-      { href: '/backtest', label: 'Backtesting', icon: '◆' },
-      { href: '/strategies/builder', label: 'Builder', icon: '✦' },
-      { href: '/marketplace', label: 'Marketplace', icon: '☆' },
+      { href: '/dashboard?tab=buyer-strategies', label: 'Buyer Strat', icon: 'S' },
+      { href: '/admin/broadcast', label: 'Broadcast', icon: 'W' },
     ],
   },
   {
-    label: 'Trading',
+    label: 'Security',
     items: [
-      { href: '/positions', label: 'Live Portfolio', icon: '●' },
-      { href: '/terminal', label: 'Orders & Execution', icon: '▶' },
-      { href: '/terminal/option-chain', label: 'Option Chain', icon: '◆' },
-    ],
-  },
-  {
-    label: 'Analytics',
-    items: [
-      { href: '/analytics', label: 'Performance', icon: '■' },
-      { href: '/marketdata', label: 'Market Analysis', icon: '▲' },
-      { href: '/marketdata?watchlist=1', label: 'Watchlist', icon: '☆' },
-    ],
-  },
-  {
-    label: 'Risk',
-    items: [
-      { href: '/risk', label: 'Risk Control', icon: '▲' },
-    ],
-  },
-  {
-    label: 'Account',
-    items: [
-      { href: '/settings', label: 'Settings', icon: '⚙' },
-      { href: '/account', label: 'Profile', icon: '◉' },
-      { href: '/brokers', label: 'Brokers', icon: '◈' },
-      { href: '/pricing', label: 'Pricing', icon: '★' },
+      { href: '/dashboard?tab=risk', label: 'Risk', icon: 'R' },
+      { href: '/dashboard?tab=audit', label: 'Audit Log', icon: 'A' },
+      { href: '/admin/admins', label: 'Admins', icon: '#' },
     ],
   },
 ]
@@ -269,36 +247,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               })}
             </div>
           ))}
-          {isAdmin && (
-            <div>
-              {!collapsed && (
-                <div style={{ padding: '8px 12px 2px' }}>
-                  <div style={{
-                    fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                    letterSpacing: '0.12em', color: 'var(--text-faint)',
-                  }}>Admin</div>
-                </div>
-              )}
-              <Link
-                href="/admin"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: collapsed ? '8px' : '6px 12px',
-                  margin: collapsed ? '2px 6px' : '0 6px',
-                  borderRadius: 'var(--radius-sm)',
-                  color: pathname.startsWith('/admin') ? 'var(--cyan)' : 'var(--text-sub)',
-                  fontSize: 12, fontWeight: 700,
-                  textDecoration: 'none',
-                  background: pathname.startsWith('/admin') ? 'var(--bg-active)' : 'transparent',
-                  transition: 'all 150ms ease',
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                }}
-              >
-                <span style={{ fontSize: 14, opacity: 0.5, width: 20, textAlign: 'center' }}>#</span>
-                {!collapsed && <span>Admin Panel</span>}
-              </Link>
-            </div>
-          )}
         </div>
 
         {/* Footer */}

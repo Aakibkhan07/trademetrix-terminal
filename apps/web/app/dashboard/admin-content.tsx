@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, Suspense } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useApi } from '@/lib/use-api'
-import { useAuth } from '@/lib/auth-context'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta, FyersHealthResult, BuyerStrategyStatus } from '@/lib/api'
 
 interface HealthData {
@@ -80,13 +79,9 @@ function SkeletonCard() {
 
 
 
-function NotAuthorized() {
+export function NotAuthorized() {
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 className="t-page-title">Control Center</h1>
-        <p className="t-sub" style={{ fontSize: 13 }}>Administration panel</p>
-      </div>
       <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13 }}>
         You do not have admin access.
       </div>
@@ -94,37 +89,7 @@ function NotAuthorized() {
   )
 }
 
-export default function AdminPage() {
-  const { isAdmin, loading: authLoading } = useAuth()
-  const router = useRouter()
-
-  useEffect(() => {
-    if (!authLoading && !isAdmin) {
-      router.replace('/dashboard')
-    }
-  }, [authLoading, isAdmin, router])
-
-  if (authLoading) {
-    return (
-      <div>
-        <div style={{ marginBottom: 24 }}>
-          <h1 className="t-page-title">Control Center</h1>
-        </div>
-        <SkeletonCard />
-      </div>
-    )
-  }
-
-  if (!isAdmin) return null
-
-  return (
-    <Suspense fallback={<SkeletonCard />}>
-      <AdminDashboard />
-    </Suspense>
-  )
-}
-
-function AdminDashboard() {
+export function AdminDashboard() {
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab') || 'dashboard'
 
