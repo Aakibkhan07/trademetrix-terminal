@@ -2,10 +2,13 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { useTheme } from '@/lib/use-theme'
+import { useMarketData } from '@/lib/use-market-data'
 import Logo from '@/components/logo'
 import StatusBar from '@/components/status-bar'
+import MarketTicker from '@/components/market-ticker'
 
 const NAV_SECTIONS = [
   {
@@ -36,6 +39,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/analytics', label: 'Performance', icon: '■' },
       { href: '/marketdata', label: 'Market Analysis', icon: '▲' },
+      { href: '/marketdata?watchlist=1', label: 'Watchlist', icon: '☆' },
     ],
   },
   {
@@ -68,6 +72,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, signout } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [notifOpen, setNotifOpen] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const { theme, toggleTheme } = useTheme()
+  const { connected } = useMarketData()
 
   const isAuthenticated = !!user
   const standalone = isStandalone(pathname)
@@ -88,9 +98,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [collapsed])
 
   useEffect(() => {
-    const handleClick = () => setProfileOpen(false)
+    const handleClick = () => { setProfileOpen(false); setNotifOpen(false) }
     window.addEventListener('click', handleClick)
     return () => window.removeEventListener('click', handleClick)
+  }, [])
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSearchOpen(false)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true) }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
   }, [])
 
   if (standalone) return <>{children}</>
@@ -306,29 +325,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Top Navbar */}
         <header style={{
           height: 'var(--header-height)', display: 'flex', alignItems: 'center',
-          padding: '0 16px', background: 'var(--bg-secondary)',
-          borderBottom: '1px solid var(--border)', gap: 12, flexShrink: 0,
+          padding: '0 12px', background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border)', gap: 8, flexShrink: 0,
         }}>
           {/* Search */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)', padding: '0 10px',
-            height: 30, flex: 1, maxWidth: 320,
-          }}>
+          <div
+            onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 50) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)', padding: '0 10px',
+              height: 30, width: 240, cursor: 'text', flexShrink: 0,
+            }}>
             <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>🔍</span>
-            <input
-              placeholder="Search strategies, stocks..."
-              style={{
-                background: 'none', border: 'none', outline: 'none',
-                color: 'var(--text)', fontFamily: 'var(--font-sans)',
-                fontSize: 12, width: '100%',
-              }}
-            />
+            <span style={{ color: 'var(--text-faint)', fontSize: 12, flex: 1 }}>
+              {searchQuery || 'Search...'}
+            </span>
             <span style={{ color: 'var(--text-faint)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>⌘K</span>
           </div>
 
-          <div style={{ flex: 1 }} />
+          {/* Market Ticker */}
+          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            <MarketTicker />
+          </div>
 
           {/* AI Assistant button */}
           <Link href="/ai" style={{
@@ -336,34 +355,72 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             padding: '4px 10px', borderRadius: 'var(--radius-sm)',
             background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.15)',
             color: 'var(--cyan)', fontSize: 11, fontWeight: 600,
-            textDecoration: 'none', height: 28,
+            textDecoration: 'none', height: 28, flexShrink: 0,
             transition: 'all 150ms ease',
           }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,212,255,0.12)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(0,212,255,0.15)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,212,255,0.08)'; e.currentTarget.style.boxShadow = 'none' }}
           >
             <span style={{ fontSize: 14 }}>✦</span>
-            AI Assistant
+            AI
           </Link>
 
-          {/* Notifications */}
-          <button style={{
+          {/* Theme toggle */}
+          <button onClick={toggleTheme} style={{
             width: 28, height: 28, borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border)', background: 'transparent',
             color: 'var(--text-sub)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, position: 'relative',
+            fontSize: 14, flexShrink: 0,
             transition: 'all 150ms ease',
           }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-hi)' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-sub)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
-            🔔
-            <span style={{
-              position: 'absolute', top: 2, right: 2, width: 6, height: 6,
-              borderRadius: '50%', background: 'var(--red)',
-            }} />
+            {theme === 'dark' ? '☀' : '☽'}
           </button>
+
+          {/* Notifications */}
+          <div style={{ position: 'relative' }}>
+            <button onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen) }} style={{
+              width: 28, height: 28, borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)', background: 'transparent',
+              color: 'var(--text-sub)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, position: 'relative', flexShrink: 0,
+              transition: 'all 150ms ease',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-hi)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-sub)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              🔔
+              <span style={{
+                position: 'absolute', top: 2, right: 2, width: 6, height: 6,
+                borderRadius: '50%', background: 'var(--red)',
+              }} />
+            </button>
+            {notifOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                width: 280, background: 'var(--bg-secondary)',
+                border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                zIndex: 100, overflow: 'hidden',
+              }} onClick={e => e.stopPropagation()}>
+                <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>Notifications</div>
+                </div>
+                <div style={{ padding: '16px 12px', textAlign: 'center' }}>
+                  <span className="t-faint" style={{ fontSize: 11 }}>No new notifications</span>
+                </div>
+                <Link href="/alerts" style={{
+                  display: 'block', padding: '8px 12px', borderTop: '1px solid var(--border)',
+                  color: 'var(--cyan)', fontSize: 11, fontWeight: 600, textDecoration: 'none', textAlign: 'center',
+                }}>View all alerts →</Link>
+              </div>
+            )}
+          </div>
 
           {/* User Profile */}
           <div style={{ position: 'relative' }}>
@@ -374,7 +431,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 padding: '2px 8px 2px 2px', borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--border)', background: 'transparent',
                 cursor: 'pointer', height: 30,
-                transition: 'all 150ms ease',
+                transition: 'all 150ms ease', flexShrink: 0,
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hi)' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
@@ -390,6 +447,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <span style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
                 {user?.email?.split('@')[0] || 'User'}
               </span>
+              <span className={`t-dot ${connected ? 't-dot-green' : 't-dot-red'}`} style={{ width: 5, height: 5 }} />
             </button>
 
             {profileOpen && (
@@ -428,6 +486,88 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </header>
+
+        {/* Search Overlay */}
+        {searchOpen && (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+            display: 'flex', justifyContent: 'center', paddingTop: '15vh',
+          }} onClick={() => setSearchOpen(false)}>
+            <div className="t-panel" style={{
+              width: 480, maxWidth: '90vw', padding: 0, maxHeight: '60vh', overflow: 'hidden',
+              display: 'flex', flexDirection: 'column',
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-faint)', fontSize: 14 }}>🔍</span>
+                <input
+                  ref={searchRef}
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search symbols, strategies, pages..."
+                  style={{
+                    background: 'none', border: 'none', outline: 'none',
+                    color: 'var(--text)', fontFamily: 'var(--font-sans)',
+                    fontSize: 14, width: '100%',
+                  }}
+                />
+                <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>ESC</span>
+              </div>
+              <div style={{ flex: 1, overflow: 'auto', padding: 8 }}>
+                {searchQuery.length < 2 ? (
+                  <div style={{ padding: '16px', textAlign: 'center' }}>
+                    <span className="t-faint" style={{ fontSize: 12 }}>Type at least 2 characters to search</span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <Link href={`/terminal?symbol=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 12,
+                      textDecoration: 'none', transition: 'all 100ms ease',
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                    >
+                      <span style={{ fontSize: 14 }}>▶</span>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>Trade {searchQuery}</div>
+                        <span className="t-faint" style={{ fontSize: 10 }}>Open in terminal</span>
+                      </div>
+                    </Link>
+                    <Link href={`/marketdata?symbol=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 12,
+                      textDecoration: 'none', transition: 'all 100ms ease',
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                    >
+                      <span style={{ fontSize: 14 }}>▲</span>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>Analyze {searchQuery}</div>
+                        <span className="t-faint" style={{ fontSize: 10 }}>Market analysis & chart</span>
+                      </div>
+                    </Link>
+                    <Link href={`/strategies?search=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 12,
+                      textDecoration: 'none', transition: 'all 100ms ease',
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                    >
+                      <span style={{ fontSize: 14 }}>◈</span>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>Strategies</div>
+                        <span className="t-faint" style={{ fontSize: 10 }}>Search strategies</span>
+                      </div>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="t-content">

@@ -19,21 +19,12 @@ const queryClient = new QueryClient({
 })
 
 function StoreInitializer() {
-  const fetchUser = useAuthStore(s => s.fetchUser)
   const setTheme = useUIStore(s => s.setTheme)
   const theme = useUIStore(s => s.theme)
 
   useEffect(() => {
-    fetchUser()
-  }, [fetchUser])
-
-  useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
-
-  useEffect(() => {
-    setTheme(theme)
-  }, [])
 
   return null
 }

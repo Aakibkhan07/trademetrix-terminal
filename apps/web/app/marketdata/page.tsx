@@ -68,7 +68,7 @@ export default function MarketDataPage() {
   const [apiIndices, setApiIndices] = useState<WatchItem[]>([])
   const [apiStocks, setApiStocks] = useState<WatchItem[]>([])
   const [search, setSearch] = useState('')
-  const [activeTab, setActiveTab] = useState<'all' | 'indices' | 'stocks'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'indices' | 'stocks' | 'custom'>('all')
   const [chartSymbol, setChartSymbol] = useState('NSE:NIFTY50-INDEX')
   const [customItems, setCustomItems] = useState<WatchItem[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
@@ -146,8 +146,15 @@ export default function MarketDataPage() {
     else { await startFeed(); setFeedOn(true) }
   }
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('watchlist') === '1') setActiveTab('custom')
+    }
+  }, [])
+
   const allItems = [...apiIndices, ...apiStocks, ...customItems]
-  const items = activeTab === 'indices' ? allItems.filter(i => i.type === 'index') : activeTab === 'stocks' ? allItems.filter(i => i.type === 'stock') : allItems
+  const items = activeTab === 'indices' ? allItems.filter(i => i.type === 'index') : activeTab === 'stocks' ? allItems.filter(i => i.type === 'stock') : activeTab === 'custom' ? customItems : allItems
   const filtered = search
     ? items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) || i.symbol.toLowerCase().includes(search.toLowerCase()))
     : items
@@ -321,6 +328,9 @@ export default function MarketDataPage() {
         </button>
         <button className={`t-tab ${activeTab === 'stocks' ? 'active' : ''}`} onClick={() => setActiveTab('stocks')}>
           Stocks <span className="t-badge t-badge-cyan">{allItems.filter(i => i.type === 'stock').length}</span>
+        </button>
+        <button className={`t-tab ${activeTab === 'custom' ? 'active' : ''}`} onClick={() => setActiveTab('custom')}>
+          Watchlist <span className="t-badge t-badge-amber">{customItems.length}</span>
         </button>
       </div>
 

@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from './api'
+import { useAuthStore } from '@/lib/stores/auth-store'
 
 export interface User {
   id?: string
@@ -28,6 +29,7 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const setStoreUser = useAuthStore(s => s.setUser)
   const router = useRouter()
 
   const tier = user?.subscription_tier || 'free'
@@ -48,6 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchUser()
   }, [fetchUser])
+
+  useEffect(() => {
+    setStoreUser(user)
+  }, [user, setStoreUser])
 
   const signin = useCallback(async (email: string, password: string) => {
     const data = await api.auth.signin({ email, password }) as { access_token: string; user?: User }

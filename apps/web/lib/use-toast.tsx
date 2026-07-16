@@ -40,7 +40,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toasts, toast, removeToast }}>
       {children}
-      <div className="toast-container">
+      <div className="t-toast-container">
         {toasts.map(t => (
           <ToastItem key={t.id} toast={t} onRemove={removeToast} />
         ))}
@@ -59,11 +59,11 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
 
   return (
     <div
-      className={`toast toast-${toast.type}`}
+      className={`t-toast t-toast-${toast.type}`}
       onClick={() => onRemove(toast.id)}
     >
-      <span className="toast-icon">{icon}</span>
-      <span className="toast-message">{toast.message}</span>
+      <span className="t-toast-icon">{icon}</span>
+      <span className="t-toast-message">{toast.message}</span>
     </div>
   )
 }
