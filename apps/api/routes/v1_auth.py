@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -101,7 +102,7 @@ async def signup(req: SignUpRequest, response: Response):
                 "Content-Type": "application/json",
                 "Prefer": "resolution=merge-duplicates",
             },
-            json={"id": user_id, "full_name": req.full_name, "email": req.email},
+            json={"id": user_id, "full_name": req.full_name, "email": req.email, "created_at": datetime.now(UTC).isoformat()},
         )
     except Exception as e:
         logger.warning("Failed to create auth profile for user %s: %s", user_id, e)

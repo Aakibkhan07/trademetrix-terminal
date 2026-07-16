@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/use-theme'
 import { api } from '@/lib/api'
@@ -47,8 +47,8 @@ function timeAgo(iso?: string) {
   return `${days}d ago`
 }
 
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {})
+function copyToClipboard(text: string, onError?: () => void) {
+  navigator.clipboard.writeText(text).catch(() => onError?.())
 }
 
 export default function AccountPage() {
@@ -59,7 +59,6 @@ export default function AccountPage() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [copiedId, setCopiedId] = useState('')
-  const [showTokens, setShowTokens] = useState(false)
   const [showPwModal, setShowPwModal] = useState(false)
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
@@ -69,20 +68,31 @@ export default function AccountPage() {
   const [pwSaving, setPwSaving] = useState(false)
   const [notifPrefs, setNotifPrefs] = useState({ email: true, sms: false, inapp: true })
   const [savingNotifs, setSavingNotifs] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const mountedRef = useRef(true)
+  const abRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    mountedRef.current = true
+    abRef.current = new AbortController()
+    const errs: string[] = []
     Promise.all([
-      api.brokers.credentials().catch(() => ({ credentials: [] })),
-      api.strategies.assigned().catch(() => ({ strategies: [] })),
-      api.engine.orders().catch(() => ({ orders: [] })),
-      api.alerts.getNotificationPrefs().catch(() => ({ channels: ['email'] })),
+      api.brokers.credentials().catch(() => { errs.push('brokers'); return { credentials: [] } }),
+      api.strategies.assigned().catch(() => { errs.push('strategies'); return { strategies: [] } }),
+      api.engine.orders().catch(() => { errs.push('orders'); return { orders: [] } }),
+      api.alerts.getNotificationPrefs().catch(() => { errs.push('notifications'); return { channels: ['email'] } }),
     ]).then(([c, s, o, n]) => {
+      if (!mountedRef.current) return
       setBrokers((c as { credentials: BrokerCred[] }).credentials || [])
       setStrategies((s as { strategies: AssignedStrategy[] }).strategies || [])
       setRecentOrders(((o as { orders: Order[] }).orders || []).slice(0, 8))
       const channels = (n as { channels: string[] }).channels || ['email']
       setNotifPrefs({ email: channels.includes('email'), sms: channels.includes('sms'), inapp: channels.includes('inapp') })
-    }).finally(() => setLoading(false))
+      if (errs.length > 0) {
+        setLoadError(`Could not load: ${errs.join(', ')}. Some data may be incomplete.`)
+      }
+    }).finally(() => { if (mountedRef.current) setLoading(false) })
+    return () => { mountedRef.current = false; abRef.current?.abort() }
   }, [])
 
   const activeBrokers = brokers.filter(b => b.is_active).length
@@ -92,7 +102,7 @@ export default function AccountPage() {
   const isAdmin = user?.is_admin === true
 
   const handleCopy = (text: string, id: string) => {
-    copyToClipboard(text)
+    copyToClipboard(text, () => setLoadError('Could not copy to clipboard'))
     setCopiedId(id)
     setTimeout(() => setCopiedId(''), 1500)
   }
@@ -199,6 +209,16 @@ export default function AccountPage() {
           </div>
         </div>
       </div>
+
+      {loadError && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, fontSize: 12,
+          background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)',
+          color: 'var(--text-red)',
+        }}>
+          {loadError}
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="t-grid-4">
@@ -317,9 +337,9 @@ export default function AccountPage() {
             >
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>Two-Factor Auth</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Not configured</div>
+                <div className="t-faint" style={{ fontSize: 10 }}>Enhance account security</div>
               </div>
-              <button className="t-btn t-btn-xs t-btn-ghost" disabled style={{ opacity: 0.5 }}>Setup</button>
+              <span className="t-badge t-badge-sub" style={{ fontSize: 9 }}>Coming soon</span>
             </div>
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -331,22 +351,10 @@ export default function AccountPage() {
             >
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>API Tokens</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>0 active tokens</div>
+                <div className="t-faint" style={{ fontSize: 10 }}>Programmatic access for automated trading</div>
               </div>
-              <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setShowTokens(!showTokens)}>
-                {showTokens ? 'Hide' : 'Manage'}
-              </button>
+              <span className="t-badge t-badge-sub" style={{ fontSize: 9 }}>Coming soon</span>
             </div>
-            {showTokens && (
-              <div style={{
-                padding: '10px 12px', borderRadius: 6,
-                background: 'rgba(255,214,0,0.06)', border: '1px solid rgba(255,214,0,0.12)',
-              }}>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-sub)' }}>
-                  API token management is handled by your account manager. Contact support to generate tokens for automated trading.
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>

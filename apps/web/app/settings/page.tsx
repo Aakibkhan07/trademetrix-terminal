@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/use-theme'
 import { api } from '@/lib/api'
@@ -45,15 +45,22 @@ export default function SettingsPage() {
   const [pwMsg, setPwMsg] = useState('')
   const [pwMsgType, setPwMsgType] = useState<'success' | 'error'>('success')
   const [pwSaving, setPwSaving] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
+    const errs: string[] = []
     Promise.all([
-      api.brokers.credentials().catch(() => ({ credentials: [] })),
-      api.strategies.assigned().catch(() => ({ strategies: [] })),
+      api.brokers.credentials().catch(() => { errs.push('brokers'); return { credentials: [] } }),
+      api.strategies.assigned().catch(() => { errs.push('strategies'); return { strategies: [] } }),
     ]).then(([c, s]) => {
+      if (!mountedRef.current) return
       setCreds((c as { credentials: BrokerCred[] }).credentials || [])
       setStrategies((s as { strategies: AssignedStrategy[] }).strategies || [])
-    }).finally(() => setLoading(false))
+      if (errs.length > 0) setLoadError(`Could not load: ${errs.join(', ')}`)
+    }).finally(() => { if (mountedRef.current) setLoading(false) })
+    return () => { mountedRef.current = false }
   }, [])
 
   const connectedCount = creds.filter(c => c.is_active).length
@@ -89,6 +96,16 @@ export default function SettingsPage() {
           <p className="t-page-subtitle">Account &amp; profile management</p>
         </div>
       </div>
+
+      {loadError && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, fontSize: 12,
+          background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)',
+          color: 'var(--text-red)',
+        }}>
+          {loadError}
+        </div>
+      )}
 
       {/* Profile */}
       <div className="t-panel" style={{ padding: 0 }}>
