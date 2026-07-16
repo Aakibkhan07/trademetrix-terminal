@@ -145,6 +145,7 @@ function DashboardTab() {
   const { data: statsData, loading, error } = useApi<AdminStats>('/admin/stats')
   const [health, setHealth] = useState<HealthData | null>(null)
   const [healthReady, setHealthReady] = useState<HealthReady | null>(null)
+  const router = useRouter()
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
   const API_ROOT = API_BASE.replace('/api/v1', '')
@@ -186,23 +187,23 @@ function DashboardTab() {
 
   return (
     <div>
-      <div className="t-grid-4" style={{ gap: 10, marginBottom: 20 }}>
+      <div className="t-grid-4" style={{ gap: 10, marginBottom: 16 }}>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--cyan)' }}>
           <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>TOTAL USERS</div>
           <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
             {statsData ? statsData.total_users : '—'}
           </div>
         </div>
-        <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--violet)' }}>
-          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ADMINS</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-            {statsData ? statsData.total_admins : '—'}
-          </div>
-        </div>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--green)' }}>
           <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ACTIVE ASSIGNMENTS</div>
           <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
             {statsData ? statsData.active_assignments : '—'}
+          </div>
+        </div>
+        <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--violet)' }}>
+          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ADMINS</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            {statsData ? statsData.total_admins : '—'}
           </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--amber)' }}>
@@ -213,7 +214,38 @@ function DashboardTab() {
         </div>
       </div>
 
-      <div className="t-grid-2" style={{ gap: 10, marginBottom: 20 }}>
+      {/* Quick Actions */}
+      <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 16 }}>
+        <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>QUICK ACTIONS</h3>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=users')}
+            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--cyan) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--cyan) 20%, transparent)' }}>
+            Manage Users
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=users')}
+            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--violet) 20%, transparent)' }}>
+            Assign Strategy
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=trades')}
+            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
+            Place Trade
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin/broadcast')}
+            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
+            Broadcast
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=risk')}
+            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--red) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--red) 20%, transparent)' }}>
+            Risk Controls
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=audit')}
+            style={{ fontSize: 10 }}>
+            Audit Log
+          </button>
+        </div>
+      </div>
+
+      <div className="t-grid-2" style={{ gap: 10, marginBottom: 16 }}>
         <div className="t-panel" style={{ padding: '14px 16px' }}>
           <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>SYSTEM HEALTH</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -280,7 +312,7 @@ function DashboardTab() {
       </div>
 
       {statsData && (
-        <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 20 }}>
+        <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 16 }}>
           <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>TIER DISTRIBUTION</h3>
           <div style={{ display: 'flex', gap: 4, height: 6, borderRadius: 3, overflow: 'hidden' }}>
             {['free', 'starter', 'pro', 'enterprise'].map(tier => {

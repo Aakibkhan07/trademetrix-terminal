@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, memo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
@@ -42,7 +43,14 @@ function shallowObjectEqual(a: Record<string, unknown> | null, b: Record<string,
 }
 
 export default function DashboardPage() {
-  const { token } = useAuth()
+  const { token, isAdmin } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isAdmin) {
+      router.replace('/admin')
+    }
+  }, [isAdmin, router])
   const { ticks, connected } = useMarketData()
   const { toast } = useToast()
   const [positions, setPositions] = useState<AggPosition[]>([])
