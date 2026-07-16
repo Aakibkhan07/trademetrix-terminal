@@ -11,6 +11,7 @@ export interface User {
   full_name?: string
   subscription_tier?: string
   is_admin?: boolean
+  created_at?: string
 }
 
 export interface AuthContextType {

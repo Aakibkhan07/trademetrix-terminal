@@ -34,6 +34,7 @@ const BROKER_INFO: Record<string, { name: string; icon: string }> = {
   kotakneo: { name: 'Kotak Neo', icon: 'K' },
   finvasia: { name: 'Shoonya', icon: 'S' },
   flattrade: { name: 'Flattrade', icon: 'F' },
+  aliceblue: { name: 'Alice Blue', icon: 'A' },
 }
 
 const STEPS = ['Account', 'Connect Broker', 'Done']

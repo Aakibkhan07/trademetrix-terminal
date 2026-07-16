@@ -1,25 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { api } from '@/lib/api'
-
-const BROKER_INFO: Record<string, { name: string; icon: string; latency: string; status: string }> = {
-  zerodha: { name: 'Zerodha (Kite)', icon: 'Z', latency: '< 5ms', status: 'Connected' },
-  angelone: { name: 'Angel One', icon: 'A', latency: '< 8ms', status: 'Connected' },
-  upstox: { name: 'Upstox', icon: 'U', latency: '< 5ms', status: 'Connected' },
-  dhan: { name: 'Dhan', icon: 'D', latency: '< 6ms', status: 'Connected' },
-  fyers: { name: 'Fyers', icon: 'F', latency: '< 8ms', status: 'Connected' },
-  fivepaisa: { name: '5Paisa', icon: '5', latency: '< 8ms', status: 'Connected' },
-  icici: { name: 'ICICI Direct', icon: 'I', latency: '< 10ms', status: 'Coming Soon' },
-  hdfc: { name: 'HDFC Securities', icon: 'H', latency: '< 10ms', status: 'Coming Soon' },
-  kotakneo: { name: 'Kotak Neo', icon: 'K', latency: '< 8ms', status: 'Connected' },
-  aliceblue: { name: 'Alice Blue', icon: 'A', latency: '< 12ms', status: 'Connected' },
-  finvasia: { name: 'Shoonya', icon: 'S', latency: '< 6ms', status: 'Connected' },
-  groww: { name: 'Groww', icon: 'G', latency: '-', status: 'Coming Soon' },
-  iifl: { name: 'IIFL', icon: 'I', latency: '< 12ms', status: 'Coming Soon' },
-  flattrade: { name: 'Flattrade', icon: 'F', latency: '< 8ms', status: 'Connected' },
-  motilal: { name: 'Motilal Oswal', icon: 'M', latency: '-', status: 'Coming Soon' },
-}
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { api, type BrokerMeta } from '@/lib/api'
 
 interface BrokerCred {
   id: string
@@ -28,11 +10,17 @@ interface BrokerCred {
   created_at: string
 }
 
+interface MetadataMap {
+  [key: string]: BrokerMeta
+}
+
 export default function BrokersPage() {
   const [credentials, setCredentials] = useState<BrokerCred[]>([])
-  const [available, setAvailable] = useState<string[]>([])
+  const [metadataMap, setMetadataMap] = useState<MetadataMap>({})
+  const [availableBrokers, setAvailableBrokers] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [editBroker, setEditBroker] = useState('')
   const [selectedBroker, setSelectedBroker] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [clientCode, setClientCode] = useState('')
@@ -50,22 +38,31 @@ export default function BrokersPage() {
     msgTimer.current = setTimeout(() => { setMsg(''); msgTimer.current = undefined }, 12000)
   }
 
-  const load = async () => {
+  const displayName = useCallback((broker: string) => {
+    const meta = metadataMap[broker]
+    return meta?.display_name || broker.charAt(0).toUpperCase() + broker.slice(1)
+  }, [metadataMap])
+
+  const load = useCallback(async () => {
     try {
-      const [credData, brokerData] = await Promise.all([
+      const [credData, brokerData, metaData] = await Promise.all([
         api.brokers.credentials(),
         api.brokers.list(),
+        api.brokers.metadata(),
       ])
-      if (mountedRef.current) {
-        setCredentials((credData as { credentials: BrokerCred[] }).credentials || [])
-        setAvailable((brokerData as { brokers: string[] }).brokers || [])
-      }
+      const creds = (credData as { credentials: BrokerCred[] }).credentials || []
+      setCredentials(creds)
+      setAvailableBrokers((brokerData as { brokers: string[] }).brokers || [])
+      const metaArr = (metaData as { brokers: BrokerMeta[] }).brokers || []
+      const mm: MetadataMap = {}
+      metaArr.forEach(m => { mm[m.broker] = m })
+      setMetadataMap(mm)
     } catch {
-      if (mountedRef.current) { setCredentials([]); setAvailable([]) }
+      // keep current state on error
     } finally {
-      if (mountedRef.current) setLoading(false)
+      setLoading(false)
     }
-  }
+  }, [])
 
   const mountedRef = useRef(true)
 
@@ -74,7 +71,7 @@ export default function BrokersPage() {
     const fallback = setTimeout(() => { if (mountedRef.current) setLoading(false) }, 8000)
     load().finally(() => clearTimeout(fallback))
     return () => { mountedRef.current = false; clearTimeout(fallback) }
-  }, [])
+  }, [load])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -104,26 +101,51 @@ export default function BrokersPage() {
       window.history.replaceState({}, '', url.toString())
     }
     return () => { cancelled = true }
-  }, [])
+  }, [load])
 
-  const handleAdd = async () => {
+  const openAdd = (broker?: string) => {
+    setEditBroker('')
+    setSelectedBroker(broker || '')
+    setApiKey('')
+    setClientCode('')
+    setSecretKey('')
+    setTotpSecret('')
+    setShowAdd(true)
+  }
+
+  const openEdit = (broker: string) => {
+    setEditBroker(broker)
+    setSelectedBroker(broker)
+    setApiKey('')
+    setClientCode('')
+    setSecretKey('')
+    setTotpSecret('')
+    setShowAdd(true)
+  }
+
+  const handleSave = async () => {
     try {
       const additional_params: Record<string, string> = {}
       if (totpSecret) additional_params.totp_secret = totpSecret
       if (clientCode) additional_params.client_code = clientCode
       await api.brokers.saveCredentials({ broker: selectedBroker, api_key: apiKey, secret_key: secretKey, additional_params: Object.keys(additional_params).length ? additional_params : undefined })
       setShowAdd(false)
+      setEditBroker('')
       setSelectedBroker('')
       setApiKey('')
       setClientCode('')
       setSecretKey('')
       setTotpSecret('')
-      if (selectedBroker === 'fyers') {
-        const authData = await api.brokers.fyersAuthUrl() as { auth_url: string }
-        showMsg(`Fyers app ID saved! Click the link that opened to login.`)
-        if (authData.auth_url) window.open(authData.auth_url, '_blank')
+      if (metadataMap[selectedBroker]?.oauth_available) {
+        const data = await api.brokers.fyersAuthUrl() as { auth_url: string }
+        if (data.auth_url) {
+          showMsg(`${displayName(selectedBroker)} saved! OAuth link opened in new tab.`)
+          window.open(data.auth_url, '_blank')
+        } else {
+          showMsg(`${displayName(selectedBroker)} connected successfully`)
+        }
       } else {
-        showMsg(`${BROKER_INFO[selectedBroker]?.name || selectedBroker} connected successfully`)
+        showMsg(`${displayName(selectedBroker)} connected successfully`)
       }
       load()
     } catch (e: any) {
@@ -131,14 +153,14 @@ export default function BrokersPage() {
     }
   }
 
-  const handleFyersReAuth = async () => {
+  const handleReAuth = async (broker: string) => {
     try {
-      const data = await api.brokers.fyersReAuth() as { auth_url: string }
+      const data = await api.brokers.reAuth(broker) as { auth_url?: string }
       if (data.auth_url) {
         window.open(data.auth_url, '_blank')
-        showMsg('Fyers re-authentication link opened in new tab.')
+        showMsg(`${displayName(broker)} re-authentication link opened in new tab.`)
       } else {
-        showMsg('Failed to get Fyers auth URL', 'error')
+        showMsg(`Re-authentication initiated for ${displayName(broker)}`, 'success')
       }
     } catch (e: any) {
       showMsg(e?.message || 'Re-authentication failed', 'error')
@@ -148,7 +170,7 @@ export default function BrokersPage() {
   const handleDelete = async (broker: string) => {
     try {
       await api.brokers.deleteCredentials(broker)
-      showMsg(`${BROKER_INFO[broker]?.name || broker} disconnected`)
+      showMsg(`${displayName(broker)} disconnected`)
       load()
     } catch {
       showMsg('Failed to disconnect broker', 'error')
@@ -156,7 +178,15 @@ export default function BrokersPage() {
   }
 
   const connectedBrokers = credentials.map((c) => c.broker)
-  const unconnected = Object.keys(BROKER_INFO).filter((b) => !connectedBrokers.includes(b))
+  const unconnected = availableBrokers.filter((b) => !connectedBrokers.includes(b))
+
+  const metaForBroker = (broker: string) => {
+    const m = metadataMap[broker]
+    if (m) return m
+    return null
+  }
+
+  const isOAuth = (broker: string) => metadataMap[broker]?.oauth_available ?? false
 
   return (
     <div>
@@ -167,7 +197,7 @@ export default function BrokersPage() {
             Connect and manage your broker accounts
           </p>
         </div>
-        <button className="t-btn t-btn-primary" onClick={() => setShowAdd(true)}>
+        <button className="t-btn t-btn-primary" onClick={() => openAdd()}>
           + Connect Broker
         </button>
       </div>
@@ -187,13 +217,11 @@ export default function BrokersPage() {
       {showAdd && (
         <div className="t-modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="t-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="t-modal-title">Connect Broker</div>
-            <div style={{ marginBottom: 16 }}>
-              <div className="t-grid-2" style={{ gap: 8 }}>
-                {unconnected.map((b) => {
-                  const info = BROKER_INFO[b]
-                  if (!info || info.status === 'Coming Soon') return null
-                  return (
+            <div className="t-modal-title">{editBroker ? `Edit ${displayName(editBroker)}` : 'Connect Broker'}</div>
+            {!editBroker && (
+              <div style={{ marginBottom: 16 }}>
+                <div className="t-grid-2" style={{ gap: 8 }}>
+                  {unconnected.map((b) => (
                     <div
                       key={b}
                       onClick={() => setSelectedBroker(b)}
@@ -206,50 +234,73 @@ export default function BrokersPage() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         margin: '0 auto 6px', fontSize: 14, fontWeight: 700, color: 'var(--violet)'
                       }}>
-                        {info.icon}
+                        {displayName(b)[0]}
                       </div>
-                      <p style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>{info.name}</p>
-                      <p className="t-sub" style={{ margin: '2px 0 0', fontSize: 9 }}>{info.latency}</p>
+                      <p style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>{displayName(b)}</p>
                     </div>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-            {selectedBroker && (
+            )}
+            {(selectedBroker || editBroker) && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ marginBottom: 12 }}>
-                  <label className="t-label">
-                    {selectedBroker === 'dhan' ? 'Client ID' : selectedBroker === 'angelone' ? 'API Key (SmartAPI App Key)' : 'API Key'}
-                  </label>
-                  <input className="t-input" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-                    placeholder={selectedBroker === 'dhan' ? 'Your Dhan client ID' : selectedBroker === 'angelone' ? 'Your SmartAPI app key' : 'Your broker API key'} />
-                </div>
-                {selectedBroker === 'angelone' && (
-                  <div style={{ marginBottom: 12 }}>
-                    <label className="t-label">Client ID (Angel One Login ID)</label>
-                    <input className="t-input" value={clientCode} onChange={(e) => setClientCode(e.target.value)}
-                      placeholder="Your Angel One trading account ID" />
+                {(metaForBroker(selectedBroker || editBroker)?.fields || []).map(field => {
+                  if (field.key === 'client_code') {
+                    return (
+                      <div key={field.key} style={{ marginBottom: 12 }}>
+                        <label className="t-label">{field.label}</label>
+                        <input className="t-input" value={clientCode} onChange={(e) => setClientCode(e.target.value)}
+                          placeholder={field.placeholder || `Your ${displayName(selectedBroker || editBroker)} ${field.label}`} />
+                      </div>
+                    )
+                  }
+                  if (field.key === 'api_key') {
+                    return (
+                      <div key={field.key} style={{ marginBottom: 12 }}>
+                        <label className="t-label">{field.label}</label>
+                        <input className="t-input" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+                          placeholder={field.placeholder || `Your ${displayName(selectedBroker || editBroker)} ${field.label}`} />
+                      </div>
+                    )
+                  }
+                  if (field.key === 'client_id') {
+                    return (
+                      <div key={field.key} style={{ marginBottom: 12 }}>
+                        <label className="t-label">{field.label}</label>
+                        <input className="t-input" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+                          placeholder={field.placeholder || `Your ${displayName(selectedBroker || editBroker)} ${field.label}`} />
+                      </div>
+                    )
+                  }
+                  if (field.key === 'secret_key') {
+                    return (
+                      <div key={field.key} style={{ marginBottom: 12 }}>
+                        <label className="t-label">{field.label}</label>
+                        <input className="t-input" type="password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)}
+                          placeholder={field.placeholder || `Your ${displayName(selectedBroker || editBroker)} ${field.label}`} />
+                      </div>
+                    )
+                  }
+                  return null
+                })}
+                {(metaForBroker(selectedBroker || editBroker)?.additional_params_fields || []).map(field => (
+                  <div key={field.key} style={{ marginBottom: 12 }}>
+                    <label className="t-label">{field.label}</label>
+                    <input className="t-input" type={field.type === 'password' ? 'password' : 'text'}
+                      value={field.key === 'totp_secret' ? totpSecret : ''}
+                      onChange={(e) => {
+                        if (field.key === 'totp_secret') setTotpSecret(e.target.value)
+                      }}
+                      placeholder={field.placeholder} />
                   </div>
-                )}
-                <div style={{ marginBottom: selectedBroker === 'angelone' ? 12 : 20 }}>
-                  <label className="t-label">
-                    {selectedBroker === 'angelone' ? 'Password/PIN' : selectedBroker === 'dhan' ? 'Access Token' : 'Secret Key'}
-                  </label>
-                  <input className="t-input" type="password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)}
-                    placeholder={selectedBroker === 'angelone' ? 'Your Angel One login password' : selectedBroker === 'dhan' ? 'Your Dhan access token (JWT)' : 'Your broker secret'} />
-                </div>
-                {selectedBroker === 'angelone' && (
-                  <div style={{ marginBottom: 20 }}>
-                    <label className="t-label">TOTP Secret (Base32)</label>
-                    <input className="t-input" type="password" value={totpSecret} onChange={(e) => setTotpSecret(e.target.value)}
-                      placeholder="Your Angel One TOTP secret key" />
-                  </div>
-                )}
+                ))}
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button className="t-btn t-btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
-              <button className="t-btn t-btn-primary" onClick={handleAdd} disabled={!selectedBroker || !apiKey}>Connect</button>
+              <button className="t-btn t-btn-primary" onClick={handleSave} disabled={!selectedBroker && !editBroker}>
+                {editBroker ? 'Update' : 'Connect'}
+              </button>
             </div>
           </div>
         </div>
@@ -265,34 +316,36 @@ export default function BrokersPage() {
                 Connected Brokers ({credentials.length})
               </h2>
               <div className="t-grid-auto" style={{ marginBottom: 28 }}>
-                {credentials.map((c) => {
-                  const info = BROKER_INFO[c.broker]
-                  return (
-                    <div key={c.id} className="t-panel" style={{ padding: 0 }}>
-                      <div style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <div style={{
-                          width: 40, height: 40, borderRadius: 10,
-                          background: 'color-mix(in srgb, var(--violet) 12%, transparent)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 18, fontWeight: 700, color: 'var(--violet)'
-                        }}>
-                          {info?.icon || c.broker[0].toUpperCase()}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: 0 }}>
-                            {info?.name || c.broker}
-                          </h3>
-                          <p className="t-faint" style={{ margin: '2px 0 0', fontSize: 11 }}>
-                            Connected {new Date(c.created_at).toLocaleDateString()} · Latency {info?.latency || '-'}
-                          </p>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                          <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
-                            {c.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                          {c.broker === 'fyers' && (
-                            <button className="t-btn t-btn-sm t-btn-primary" style={{ fontSize: 10, padding: '3px 8px' }} onClick={handleFyersReAuth}>
-                              Re-authenticate
+                {credentials.map((c) => (
+                  <div key={c.id} className="t-panel" style={{ padding: 0 }}>
+                    <div style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{
+                        width: 40, height: 40, borderRadius: 10,
+                        background: 'color-mix(in srgb, var(--violet) 12%, transparent)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 18, fontWeight: 700, color: 'var(--violet)'
+                      }}>
+                        {displayName(c.broker)[0]}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: 0 }}>
+                          {displayName(c.broker)}
+                        </h3>
+                        <p className="t-faint" style={{ margin: '2px 0 0', fontSize: 11 }}>
+                          Connected {new Date(c.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                        <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
+                          {c.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="t-btn t-btn-sm t-btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => openEdit(c.broker)}>
+                            Edit
+                          </button>
+                          {isOAuth(c.broker) && (
+                            <button className="t-btn t-btn-sm t-btn-primary" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => handleReAuth(c.broker)}>
+                              Re-auth
                             </button>
                           )}
                           <button className="t-btn t-btn-sm t-btn-danger" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => handleDelete(c.broker)}>
@@ -301,8 +354,8 @@ export default function BrokersPage() {
                         </div>
                       </div>
                     </div>
-                  )
-                })}
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -369,33 +422,34 @@ export default function BrokersPage() {
             </div>
           </div>
 
-          <h2 className="t-panel-title" style={{ fontSize: 15, marginBottom: 12 }}>
-            Available Brokers
-          </h2>
-          <div className="t-grid-auto">
-            {Object.entries(BROKER_INFO).filter(([b]) => !connectedBrokers.includes(b)).map(([key, info]) => (
-              <div key={key} className="t-panel" style={{
-                padding: 16, textAlign: 'center',
-                opacity: info.status === 'Coming Soon' ? 0.5 : 1
-              }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10,
-                  background: info.status === 'Connected' ? 'color-mix(in srgb, var(--green) 10%, transparent)' : 'color-mix(in srgb, var(--violet) 6%, transparent)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 8px', fontSize: 18, fontWeight: 700,
-                  color: info.status === 'Connected' ? 'var(--green)' : 'var(--text-faint)'
-                }}>
-                  {info.icon}
-                </div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{info.name}</p>
-                <p className="t-sub" style={{ margin: '2px 0 0', fontSize: 10 }}>Latency {info.latency}</p>
-                <span className={`t-badge ${info.status === 'Connected' ? 't-badge-green' : 't-badge-violet'}`}
-                  style={{ fontSize: 9, padding: '1px 6px', marginTop: 6 }}>
-                  {info.status}
-                </span>
+          {availableBrokers.filter(b => !connectedBrokers.includes(b)).length > 0 && (
+            <>
+              <h2 className="t-panel-title" style={{ fontSize: 15, marginBottom: 12 }}>
+                Available Brokers
+              </h2>
+              <div className="t-grid-auto">
+                {availableBrokers.filter(b => !connectedBrokers.includes(b)).map((b) => (
+                  <div key={b} className="t-panel" style={{
+                    padding: 16, textAlign: 'center', cursor: 'pointer',
+                  }} onClick={() => openAdd(b)}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10,
+                      background: 'color-mix(in srgb, var(--green) 10%, transparent)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      margin: '0 auto 8px', fontSize: 18, fontWeight: 700,
+                      color: 'var(--green)'
+                    }}>
+                      {displayName(b)[0]}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{displayName(b)}</p>
+                    <span className="t-badge t-badge-green" style={{ fontSize: 9, padding: '1px 6px', marginTop: 6 }}>
+                      Connect
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </>
       )}
     </div>

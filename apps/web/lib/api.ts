@@ -244,13 +244,24 @@ export const api = {
     signin: (data: { email: string; password: string }) =>
       request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signin', { method: 'POST', body: data }),
     signout: () => request('/auth/signout', { method: 'POST' }),
-    me: () => request<{ id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string; is_admin?: boolean; onboarding_completed?: boolean }>('/auth/me'),
+    me: () => request<{ id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string; is_admin?: boolean; onboarding_completed?: boolean; created_at?: string }>('/auth/me'),
     sendOTP: (data: { email: string; phone?: string }) =>
       request<{ message: string; exists: boolean }>('/auth/send-otp', { method: 'POST', body: data }),
     registerWithOTP: (data: { email: string; password: string; full_name?: string; phone?: string }) =>
       request<{ message: string; user_id: string }>('/auth/register-with-otp', { method: 'POST', body: data }),
     verifyOTP: (data: { email: string; otp: string }) =>
       request<{ access_token: string; user: { id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string }; is_new: boolean }>('/auth/verify-otp', { method: 'POST', body: data }),
+    changePassword: (data: { current_password: string; new_password: string }) =>
+      request<{ message: string }>('/auth/change-password', { method: 'POST', body: data }),
+    forgotPassword: (data: { email: string }) =>
+      request<{ message: string }>('/auth/forgot-password', { method: 'POST', body: data }),
+  },
+
+  subscriptions: {
+    plans: () => request<{ plans: { id: string; name: string; tier: string; price: number; features: string[]; most_popular: boolean }[] }>('/subscriptions/plans/'),
+    create: (plan: string) => request<{ subscription_id: string; short_url: string; tier: string; key_id: string }>('/subscriptions/create/', { method: 'POST', body: { plan } }),
+    mySubscription: () => request<{ subscription: { id: string; tier: string; status: string; razorpay_subscription_id: string; current_period_start: string | null; current_period_end: string | null; trial_end: string | null; created_at: string } | null }>('/subscriptions/me/'),
+    cancel: (cancel_at_cycle_end = true) => request<{ status: string; razorpay_subscription_id: string }>('/subscriptions/cancel/', { method: 'POST', body: { cancel_at_cycle_end } }),
   },
 
   brokers: {
@@ -270,6 +281,7 @@ export const api = {
     fyersAuthUrl: () => request('/brokers/fyers/auth-url'),
     fyersExchangeCode: (authCode: string) => request('/brokers/fyers/exchange-code', { method: 'POST', body: { auth_code: authCode } }),
     fyersReAuth: () => request('/brokers/fyers/re-auth', { method: 'POST' }),
+    reAuth: (broker: string) => request(`/brokers/${broker}/re-auth`, { method: 'POST' }),
     activate: (broker: string) => request('/brokers/activate', { method: 'POST', body: { broker } }),
   },
 

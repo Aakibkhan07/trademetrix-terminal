@@ -47,6 +47,11 @@ class UpdateProfileRequest(BaseModel):
     onboarding_completed: bool
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class AuthResponse(BaseModel):
     user: UserProfile
     access_token: str
@@ -184,6 +189,47 @@ async def signout(response: Response, current_user: UserProfile = Depends(get_cu
     ))
 
     return {"message": "Signed out"}
+
+
+@router.post("/change-password")
+async def change_password(req: ChangePasswordRequest, current_user: UserProfile = Depends(get_current_user)):
+    try:
+        client = await get_http_client()
+        signin_resp = await client.post(
+            f"{settings.supabase_url}/auth/v1/token?grant_type=password",
+            headers={
+                "apikey": settings.supabase_anon_key,
+                "Content-Type": "application/json",
+            },
+            json={"email": current_user.email, "password": req.current_password},
+        )
+        if signin_resp.status_code != 200:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+
+        admin_resp = await client.put(
+            f"{settings.supabase_url}/auth/v1/admin/users/{current_user.id}",
+            headers={
+                "apikey": settings.supabase_service_key,
+                "Authorization": f"Bearer {settings.supabase_service_key}",
+                "Content-Type": "application/json",
+            },
+            json={"password": req.new_password, "email_confirm": True},
+        )
+        if admin_resp.status_code != 200:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update password")
+
+        record_audit(AuditLogEntry(
+            user_id=current_user.id,
+            action="change_password",
+            resource="auth",
+            ip_address="",
+        ))
+
+        return {"message": "Password changed successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to change password: {str(e)}")
 
 
 @router.get("/csrf")

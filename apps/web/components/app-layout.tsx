@@ -52,7 +52,9 @@ const NAV_SECTIONS = [
     label: 'Account',
     items: [
       { href: '/settings', label: 'Settings', icon: '⚙' },
+      { href: '/account', label: 'Profile', icon: '◉' },
       { href: '/brokers', label: 'Brokers', icon: '◈' },
+      { href: '/pricing', label: 'Pricing', icon: '★' },
     ],
   },
 ]
