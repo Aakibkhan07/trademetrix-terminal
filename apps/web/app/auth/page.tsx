@@ -7,7 +7,7 @@ import { api } from '@/lib/api'
 
 export default function AuthPage() {
   const router = useRouter()
-  const { signin, signup } = useAuth()
+  const { signin, signup, user, isAdmin, loading: authLoading } = useAuth()
   const [authMode, setAuthMode] = useState<'password' | 'otp'>('password')
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
   const [email, setEmail] = useState('')
@@ -35,6 +35,12 @@ export default function AuthPage() {
     const t = setInterval(() => setResendTimer(p => p - 1), 1000)
     return () => clearInterval(t)
   }, [resendTimer])
+
+  useEffect(() => {
+    if (!authLoading && user && !isAdmin) {
+      router.replace('/portal')
+    }
+  }, [authLoading, user, isAdmin, router])
 
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
   const isValidPassword = (v: string) => v.length >= 6
@@ -74,7 +80,12 @@ export default function AuthPage() {
         router.push('/onboarding')
       } else {
         await signin(email, password)
-        router.push('/dashboard')
+        const me = await api.auth.me().catch(() => null) as { is_admin?: boolean } | null
+        if (me?.is_admin) {
+          router.push('/dashboard')
+        } else {
+          router.push('/portal')
+        }
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') {

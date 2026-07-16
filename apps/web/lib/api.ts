@@ -365,6 +365,13 @@ export const api = {
         '/admin/broadcast', { method: 'POST', body: data },
       ),
     },
+    executeTrade: (data: {
+      user_id: string; symbol: string; side: string; quantity: number;
+      price?: number; exchange?: string; order_type?: string; product?: string;
+      trigger_price?: number; instrument_type?: string;
+    }) => request<{ result: Record<string, unknown> }>(
+      '/admin/execute-trade', { method: 'POST', body: data },
+    ),
   },
 
   engine: {

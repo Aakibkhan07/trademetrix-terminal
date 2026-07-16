@@ -664,3 +664,25 @@ class AdminService:
         ))
 
         return {"message": "Admin access removed"}
+
+    async def execute_trade_for_user(self, req: dict, admin_id: str) -> dict:
+        from application.services.engine_service import EngineService
+
+        target_user_id = req.pop("user_id")
+        supabase = get_supabase()
+        user = await async_safe_single(
+            supabase.table("profiles").select("id, email, full_name").eq("id", target_user_id)
+        )
+        if not user:
+            raise ValueError("User not found")
+
+        result = await EngineService().execute_trade(target_user_id, req)
+
+        record_audit(AuditLogEntry(
+            user_id=admin_id,
+            action="admin_place_trade",
+            resource="trade",
+            details={"target_user": target_user_id, "symbol": req.get("symbol"), "side": req.get("side"), "quantity": req.get("quantity")},
+        ))
+
+        return result

@@ -44,6 +44,19 @@ class BroadcastRequest(BaseModel):
     paper: bool = True
 
 
+class AdminTradeRequest(BaseModel):
+    user_id: str
+    symbol: str
+    exchange: str = "NSE"
+    side: str
+    order_type: str = "MARKET"
+    product: str = "INTRADAY"
+    quantity: int
+    price: float = 0.0
+    trigger_price: float | None = None
+    instrument_type: str = "EQ"
+
+
 class SetAdminRoleRequest(BaseModel):
     email: str
     role: str
@@ -80,6 +93,14 @@ async def admin_unassign_strategy(
     admin: UserProfile = Depends(require_admin),
 ):
     return await _service.unassign_strategy(assignment_id, admin.id)
+
+
+@router.post("/execute-trade")
+async def admin_execute_trade(
+    req: AdminTradeRequest,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.execute_trade_for_user(req.model_dump(), admin.id)
 
 
 @router.patch("/users/{user_id}")

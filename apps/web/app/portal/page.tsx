@@ -158,7 +158,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const [brokers, setBrokers] = useState<BrokerInfo[]>([])
   const [availBrokers, setAvailBrokers] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'positions' | 'orders' | 'performance' | 'brokers'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'positions' | 'orders' | 'performance' | 'strategies' | 'brokers'>('overview')
 
   const loadData = useCallback(async () => {
     try {
@@ -333,6 +333,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
           { key: 'positions' as const, label: 'Positions' },
           { key: 'orders' as const, label: 'Orders' },
           { key: 'performance' as const, label: 'Performance' },
+          { key: 'strategies' as const, label: 'Strategies' },
           { key: 'brokers' as const, label: 'Brokers' },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
@@ -400,51 +401,6 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 </div>
               ))}
             </div>
-            {/* Quick Trade */}
-            <div className="t-panel" style={{ padding: '10px 14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-sub)', letterSpacing: '0.03em' }}>QUICK TRADE</span>
-                <input className="t-input" placeholder="Symbol" id="qt-symbol"
-                  style={{ width: 100, fontSize: 11, fontFamily: 'var(--font-mono)' }}
-                  onKeyDown={e => { if (e.key === 'Enter') (document.getElementById('qt-qty') as HTMLInputElement)?.focus() }} />
-                <input className="t-input" type="number" placeholder="Qty" id="qt-qty"
-                  style={{ width: 60, fontSize: 11, fontFamily: 'var(--font-mono)' }}
-                  onKeyDown={e => { if (e.key === 'Enter') (document.getElementById('qt-buy') as HTMLButtonElement)?.click() }} />
-                <button id="qt-buy" className="t-btn t-btn-sm"
-                  onClick={async () => {
-                    const el = document.getElementById('qt-symbol') as HTMLInputElement
-                    const qel = document.getElementById('qt-qty') as HTMLInputElement
-                    const sym = el.value.toUpperCase().trim()
-                    const qty = parseInt(qel.value)
-                    if (!sym || !qty) return
-                    el.style.borderColor = 'var(--violet)'
-                    try {
-                      await api.engine.trade({ symbol: sym, side: 'BUY', quantity: qty })
-                    } catch (e) { alert(e instanceof Error ? e.message : 'Trade failed') }
-                    el.style.borderColor = ''; qel.value = ''; el.value = ''
-                  }}
-                  style={{ fontSize: 10, fontWeight: 700, background: 'color-mix(in srgb, var(--green) 15%, transparent)', color: 'var(--green)', border: '1px solid color-mix(in srgb, var(--green) 20%, transparent)' }}>
-                  BUY
-                </button>
-                <button className="t-btn t-btn-sm"
-                  onClick={async () => {
-                    const el = document.getElementById('qt-symbol') as HTMLInputElement
-                    const qel = document.getElementById('qt-qty') as HTMLInputElement
-                    const sym = el.value.toUpperCase().trim()
-                    const qty = parseInt(qel.value)
-                    if (!sym || !qty) return
-                    el.style.borderColor = 'var(--red)'
-                    try {
-                      await api.engine.trade({ symbol: sym, side: 'SELL', quantity: qty })
-                    } catch (e) { alert(e instanceof Error ? e.message : 'Trade failed') }
-                    el.style.borderColor = ''; qel.value = ''; el.value = ''
-                  }}
-                  style={{ fontSize: 10, fontWeight: 700, background: 'color-mix(in srgb, var(--red) 15%, transparent)', color: 'var(--red)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)' }}>
-                  SELL
-                </button>
-              </div>
-            </div>
-
             {positions.length > 0 && (
               <div className="t-panel" style={{ padding: 0 }}>
                 <div className="t-panel-header" style={{ minHeight: 28, padding: '6px 12px' }}>
@@ -739,6 +695,40 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 </button>
               </div>
             )}
+          </>
+        )}
+
+        {/* ============= STRATEGIES ============= */}
+        {activeTab === 'strategies' && (
+          <>
+            <div className="t-panel" style={{ padding: 0 }}>
+              <div className="t-panel-header">
+                <h3 className="t-panel-title">My Strategies ({activeStrategies.length})</h3>
+              </div>
+              {activeStrategies.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {activeStrategies.map(s => (
+                    <div key={s.strategy_key} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '14px 16px', borderBottom: '1px solid var(--border)',
+                      borderLeft: '3px solid var(--violet)',
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</span>
+                          <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-green' : s.required_tier === 'pro' ? 't-badge-violet' : 't-badge-amber'}`} style={{ fontSize: 9, textTransform: 'capitalize' }}>{s.required_tier}</span>
+                        </div>
+                        <p className="t-faint" style={{ margin: 0, fontSize: 10, lineHeight: 1.4 }}>{s.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="t-panel-body" style={{ textAlign: 'center', padding: 20 }}>
+                  <span className="t-faint">No strategies assigned yet. Contact your admin to get started.</span>
+                </div>
+              )}
+            </div>
           </>
         )}
 

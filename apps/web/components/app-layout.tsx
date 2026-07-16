@@ -85,10 +85,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const standalone = isStandalone(pathname)
 
   useEffect(() => {
-    if (!loading && !isAuthenticated && !standalone) {
+    if (loading || standalone) return
+    if (!isAuthenticated) {
       router.replace('/auth')
+    } else if (!isAdmin) {
+      router.replace('/portal')
     }
-  }, [loading, isAuthenticated, standalone, router])
+  }, [loading, isAuthenticated, isAdmin, standalone, router])
 
   useEffect(() => {
     const stored = localStorage.getItem('sidebar-collapsed')

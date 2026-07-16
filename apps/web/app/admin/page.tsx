@@ -974,6 +974,19 @@ function TradesTab() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [filterUser, setFilterUser] = useState('')
   const [filterPaper, setFilterPaper] = useState('')
+  const [placeOpen, setPlaceOpen] = useState(false)
+  const [placeUserId, setPlaceUserId] = useState('')
+  const [placeSymbol, setPlaceSymbol] = useState('')
+  const [placeSide, setPlaceSide] = useState('BUY')
+  const [placeQty, setPlaceQty] = useState(1)
+  const [placePrice, setPlacePrice] = useState('')
+  const [placeExchange, setPlaceExchange] = useState('NSE')
+  const [placeType, setPlaceType] = useState('MARKET')
+  const [placeProduct, setPlaceProduct] = useState('INTRADAY')
+  const [placing, setPlacing] = useState(false)
+  const [placeMsg, setPlaceMsg] = useState('')
+
+  const { data: usersData } = useApi<{ users: AdminUser[] }>('/admin/users')
 
   const params = new URLSearchParams()
   if (filterUser) params.set('user_id', filterUser)
@@ -984,14 +997,84 @@ function TradesTab() {
   )
 
   const orders = data?.orders || []
+  const users = usersData?.users || []
 
   useEffect(() => {
     const int = setInterval(() => setRefreshKey(k => k + 1), 10000)
     return () => clearInterval(int)
   }, [])
 
+  const handlePlaceTrade = async () => {
+    if (!placeUserId || !placeSymbol || !placeQty) { setPlaceMsg('Fill user, symbol, and qty'); return }
+    setPlacing(true); setPlaceMsg('')
+    try {
+      const body: Parameters<typeof api.admin.executeTrade>[0] = {
+        user_id: placeUserId, symbol: placeSymbol.toUpperCase(), side: placeSide,
+        quantity: placeQty, exchange: placeExchange, order_type: placeType, product: placeProduct,
+      }
+      if (placePrice) body.price = parseFloat(placePrice)
+      await api.admin.executeTrade(body)
+      setPlaceMsg('Trade placed successfully')
+      setRefreshKey(k => k + 1)
+    } catch (e: unknown) {
+      setPlaceMsg(e instanceof Error ? e.message : 'Trade failed')
+    } finally { setPlacing(false) }
+  }
+
   return (
     <div>
+      <div className="t-panel" style={{ padding: 12, marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: placeOpen ? 12 : 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: 0, color: 'var(--text)' }}>Place Trade for User</h3>
+          <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setPlaceOpen(!placeOpen)} style={{ fontSize: 10 }}>
+            {placeOpen ? 'Close' : 'Open'}
+          </button>
+        </div>
+        {placeOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select className="t-input" value={placeUserId} onChange={e => setPlaceUserId(e.target.value)}
+                style={{ fontSize: 11, maxWidth: 200 }}>
+                <option value="">— Select user —</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.email})</option>
+                ))}
+              </select>
+              <input className="t-input" placeholder="Symbol (e.g. NSE:RELIANCE-EQ)" value={placeSymbol}
+                onChange={e => setPlaceSymbol(e.target.value)} style={{ width: 160, fontSize: 11, fontFamily: 'var(--font-mono)' }} />
+              <select className="t-input" value={placeSide} onChange={e => setPlaceSide(e.target.value)}
+                style={{ fontSize: 11, maxWidth: 80 }}>
+                <option value="BUY">BUY</option>
+                <option value="SELL">SELL</option>
+              </select>
+              <input className="t-input" type="number" placeholder="Qty" value={placeQty}
+                onChange={e => setPlaceQty(parseInt(e.target.value) || 0)} style={{ width: 60, fontSize: 11 }} />
+              <input className="t-input" type="number" placeholder="Price (opt)" value={placePrice}
+                onChange={e => setPlacePrice(e.target.value)} style={{ width: 80, fontSize: 11 }} step="0.05" />
+              <select className="t-input" value={placeType} onChange={e => setPlaceType(e.target.value)}
+                style={{ fontSize: 11, maxWidth: 90 }}>
+                <option value="MARKET">MARKET</option>
+                <option value="LIMIT">LIMIT</option>
+                <option value="SL">SL</option>
+                <option value="SL-M">SL-M</option>
+              </select>
+              <select className="t-input" value={placeExchange} onChange={e => setPlaceExchange(e.target.value)}
+                style={{ fontSize: 11, maxWidth: 80 }}>
+                <option value="NSE">NSE</option>
+                <option value="BSE">BSE</option>
+                <option value="NFO">NFO</option>
+                <option value="CDS">CDS</option>
+              </select>
+              <button className="t-btn t-btn-sm" onClick={handlePlaceTrade} disabled={placing}
+                style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 15%, transparent)', color: 'var(--green)', border: '1px solid color-mix(in srgb, var(--green) 20%, transparent)' }}>
+                {placing ? 'Placing...' : 'Place Trade'}
+              </button>
+            </div>
+            {placeMsg && <p style={{ margin: 0, fontSize: 10, color: placeMsg.includes('success') || placeMsg.includes('placed') ? 'var(--green)' : 'var(--red)' }}>{placeMsg}</p>}
+          </div>
+        )}
+      </div>
+
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <input className="t-input" placeholder="Filter by user ID" value={filterUser}
           onChange={e => setFilterUser(e.target.value)} style={{ width: 200, fontSize: 11 }} />
