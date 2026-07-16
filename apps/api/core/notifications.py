@@ -154,6 +154,31 @@ async def send_telegram_alert(message: str, parse_mode: str = "HTML") -> bool:
         return False
 
 
+async def send_otp_email_resend(email: str, otp: str) -> bool:
+    if not settings.resend_api_key:
+        return False
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {settings.resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": settings.smtp_from or "TradeMetrix <onboarding@resend.dev>",
+                    "to": [email],
+                    "subject": "Your TradeMetrix OTP",
+                    "text": f"Your TradeMetrix OTP is {otp}. Valid for 5 minutes.",
+                },
+                timeout=10,
+            )
+            return resp.status_code == 200
+    except Exception as e:
+        logger.warning("Resend email failed: %s", e)
+        return False
+
+
 async def deliver_otp(otp: str, email: str, phone: str = "") -> bool:
     logger.info("[OTP] Code for %s: %s", email, otp)
 
@@ -164,6 +189,8 @@ async def deliver_otp(otp: str, email: str, phone: str = "") -> bool:
             sent = await send_otp_whatsapp(phone, otp)
     if not sent:
         sent = await send_otp_email(email, otp)
+    if not sent:
+        sent = await send_otp_email_resend(email, otp)
     if not sent:
         logger.info("[DEV] OTP %s for %s (no delivery service configured)", otp, email)
     return sent

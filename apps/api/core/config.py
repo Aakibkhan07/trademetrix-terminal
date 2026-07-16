@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "noreply@trademetrix.tech"
 
+    resend_api_key: str = ""
+
     fast2sms_api_key: str = ""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
