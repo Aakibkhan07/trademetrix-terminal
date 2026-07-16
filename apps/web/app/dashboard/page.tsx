@@ -1,10 +1,26 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { useAuth } from '@/lib/auth-context'
 import { SkeletonCard } from '@/components/skeleton'
-import { AdminDashboard, NotAuthorized } from './admin-content'
+
+const AdminDashboard = dynamic(() => import('./admin-content').then(m => ({ default: m.AdminDashboard })), {
+  loading: () => (
+    <div>
+      <div className="t-grid-4" style={{ gap: 10 }}>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="t-panel" style={{ padding: '14px 16px' }}>
+            <SkeletonCard />
+          </div>
+        ))}
+      </div>
+    </div>
+  ),
+})
+
+const NotAuthorized = dynamic(() => import('./admin-content').then(m => ({ default: m.NotAuthorized })))
 
 function DashboardInner() {
   const { isAdmin, loading } = useAuth()
@@ -14,10 +30,15 @@ function DashboardInner() {
   if (loading) {
     return (
       <div>
-        <div style={{ marginBottom: 24 }}>
-          <h1 className="t-page-title">Control Center</h1>
+        <div className="t-grid-4" style={{ gap: 10 }}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="t-panel" style={{ padding: '14px 16px' }}>
+              <div style={{ width: '40%', height: 12, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
+              <div style={{ height: 8 }} />
+              <div style={{ width: '60%', height: 12, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
+            </div>
+          ))}
         </div>
-        <SkeletonCard />
       </div>
     )
   }
@@ -34,19 +55,15 @@ function DashboardInner() {
     : 'Control Center'
 
   return (
-    <Suspense fallback={<SkeletonCard />}>
+    <div>
       <div style={{ marginBottom: 16 }}>
         <h1 className="t-page-title" style={{ margin: 0, fontSize: 18 }}>{tabTitle}</h1>
       </div>
       <AdminDashboard />
-    </Suspense>
+    </div>
   )
 }
 
 export default function DashboardPage() {
-  return (
-    <Suspense fallback={<SkeletonCard />}>
-      <DashboardInner />
-    </Suspense>
-  )
+  return <DashboardInner />
 }
