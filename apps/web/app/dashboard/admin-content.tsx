@@ -9,6 +9,7 @@ import { SubscriptionsTab } from './subscriptions-tab'
 import { TradingLogsTab } from './trading-logs-tab'
 import { ActivityTimelineTab } from './activity-timeline-tab'
 import { PnLDashboardTab } from './pnl-dashboard-tab'
+import { StrategyPerformanceTab } from './strategy-performance-tab'
 
 interface HealthData {
   status: string
@@ -116,6 +117,7 @@ export function AdminDashboard() {
       {tab === 'trading-logs' && <TradingLogsTab />}
       {tab === 'activity' && <ActivityTimelineTab />}
       {tab === 'pnl' && <PnLDashboardTab />}
+      {tab === 'strategy-perf' && <StrategyPerformanceTab />}
       {showBroadcast && <BroadcastDialog onClose={() => setShowBroadcast(false)} />}
     </>
   )

@@ -29,6 +29,7 @@ const NAV_SECTIONS = [
       { href: '/dashboard?tab=subscriptions', label: 'Subscriptions', icon: '💳' },
       { href: '/dashboard?tab=trading-logs', label: 'Trading Logs', icon: '📋' },
       { href: '/dashboard?tab=pnl', label: 'P&L Dashboard', icon: '📊' },
+      { href: '/dashboard?tab=strategy-perf', label: 'Perf Tracker', icon: '📈' },
     ],
   },
   {

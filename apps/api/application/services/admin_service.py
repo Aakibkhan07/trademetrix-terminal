@@ -509,6 +509,91 @@ class AdminService:
         data = await async_safe_execute(query.limit(limit).offset(offset)) or []
         return {"entries": data, "count": len(data)}
 
+    async def get_strategy_performance(self) -> dict:
+        supabase = get_supabase()
+        catalog = get_strategy_catalog()
+        assignments = await async_safe_execute(
+            supabase.table("strategy_assignments").select("strategy_key, user_id").eq("active", True)
+        ) or []
+        strategy_users: dict[str, set[str]] = {}
+        for a in assignments:
+            sk = a.get("strategy_key", "")
+            if sk not in strategy_users:
+                strategy_users[sk] = set()
+            strategy_users[sk].add(a.get("user_id", ""))
+
+        runs = await async_safe_execute(
+            supabase.table("strategy_runs").select("daily_pnl, total_pnl, mode, status, created_at")
+        ) or []
+        total_run_pnl = sum(r.get("total_pnl", 0) or 0 for r in runs)
+        paper_runs = [r for r in runs if r.get("mode") == "PAPER"]
+        live_runs = [r for r in runs if r.get("mode") == "LIVE"]
+        active_runs = [r for r in runs if r.get("status") == "running"]
+
+        filled_orders = await async_safe_execute(
+            supabase.table("orders")
+            .select("side, filled_quantity, average_price, status, is_paper, created_at")
+            .eq("status", "FILLED")
+            .limit(2000)
+        ) or []
+        total_trades = len(filled_orders)
+        profitable = sum(1 for o in filled_orders if o.get("side") == "SELL" and o.get("filled_quantity", 0) > 0)
+        win_rate = round((profitable / total_trades * 100) if total_trades > 0 else 0, 1)
+
+        avg_return = 0
+        if total_trades > 0:
+            total_side_val = sum(
+                (1 if o.get("side") == "SELL" else -1) * o.get("filled_quantity", 0) * o.get("average_price", 0)
+                for o in filled_orders
+            )
+            avg_return = round(total_side_val / total_trades, 2)
+
+        returns = [
+            (1 if o.get("side") == "SELL" else -1) * o.get("filled_quantity", 0) * o.get("average_price", 0)
+            for o in filled_orders if o.get("average_price", 0) > 0
+        ]
+        sharpe = 0
+        if len(returns) > 1:
+            mean_r = sum(returns) / len(returns)
+            std_r = (sum((r - mean_r) ** 2 for r in returns) / len(returns)) ** 0.5
+            sharpe = round(mean_r / std_r, 2) if std_r > 0 else 0
+
+        results = []
+        for s in catalog:
+            sk = s.get("key", s.get("name", ""))
+            users_assigned = len(strategy_users.get(sk, set()))
+            paper_trades = sum(1 for o in filled_orders if o.get("is_paper"))
+            live_trades = total_trades - paper_trades
+            results.append({
+                "key": sk,
+                "name": s.get("name", sk),
+                "tier": s.get("required_tier", "free"),
+                "category": s.get("category", ""),
+                "users_assigned": users_assigned,
+                "total_trades": total_trades,
+                "paper_trades": paper_trades,
+                "live_trades": live_trades,
+                "win_rate": win_rate,
+                "avg_return": avg_return,
+                "sharpe_ratio": sharpe,
+                "total_pnl": total_run_pnl,
+                "active_runs": len(active_runs),
+                "paper_runs": len(paper_runs),
+                "live_runs": len(live_runs),
+            })
+
+        return {
+            "strategies": results,
+            "summary": {
+                "total_strategies": len(catalog),
+                "total_trades": total_trades,
+                "win_rate": win_rate,
+                "avg_return": avg_return,
+                "sharpe_ratio": sharpe,
+                "total_pnl": round(total_run_pnl, 2),
+            },
+        }
+
     async def get_pnl_overview(self, user_id: str = "", period: str = "daily", from_date: str = "", to_date: str = "") -> dict:
         supabase = get_supabase()
         start = from_date or (datetime.utcnow().isoformat()[:10] if period == "daily" else "")
