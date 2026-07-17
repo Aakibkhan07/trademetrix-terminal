@@ -65,6 +65,7 @@ function DashboardInner() {
     : tab === 'trade-router' ? 'Multi-Broker Trade Router'
     : tab === 'backups' ? 'Automated Backup'
     : tab === 'ip-whitelist' ? 'IP Whitelist'
+    : tab === 'scheduled-tasks' ? 'Scheduled Tasks'
     : 'Control Center'
 
   return (

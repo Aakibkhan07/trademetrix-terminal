@@ -14,7 +14,10 @@ from core.db import async_supabase, get_supabase
 from core.models import ADMIN_ROLES, AuditLogEntry, Exchange, NormalizedOrder, OrderSide, OrderType as OrderTypeEnum, ProductType, TIER_ORDER, tier_satisfies
 from core.safe_query import async_safe_execute, async_safe_single
 from core.security import decrypt_broker_credentials
+from application.services.squareoff_service import SquareoffService
 from engine.gate import execute_order, get_mirror_recipients, scaled_qty
+
+_squareoff = SquareoffService()
 from strategies import get_strategy_catalog, get_strategy_category, get_strategy_tier, list_strategies
 
 FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI") or settings.fyers_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback"
@@ -1226,6 +1229,43 @@ class AdminService:
             details={"ip_id": ip_id},
         ))
         return {"deleted": ip_id}
+
+    async def get_scheduled_tasks_summary(self) -> dict:
+        supabase = get_supabase()
+        squareoff_configs = await async_safe_execute(
+            supabase.table("squareoff_config").select("user_id, enabled, squareoff_time, days").eq("enabled", True)
+        ) or []
+        profiles = await async_safe_execute(
+            supabase.table("profiles").select("id, email, full_name")
+        ) or []
+        profile_map = {p["id"]: p for p in profiles}
+        enriched = []
+        for c in squareoff_configs:
+            uid = c["user_id"]
+            p = profile_map.get(uid, {})
+            enriched.append({
+                "user_id": uid,
+                "email": p.get("email", ""),
+                "full_name": p.get("full_name", ""),
+                "enabled": c.get("enabled", False),
+                "time": c.get("squareoff_time", "15:15"),
+                "days": c.get("days", [0, 1, 2, 3, 4]),
+            })
+        return {
+            "scheduler_running": _squareoff._task is not None and not _squareoff._task.done(),
+            "active_squareoff_configs": len(enriched),
+            "squareoff_configs": enriched,
+        }
+
+    async def admin_trigger_squareoff(self, user_id: str) -> dict:
+        result = await _squareoff.run_squareoff(user_id)
+        return {"user_id": user_id, "result": result}
+
+    async def admin_squareoff_config(self, user_id: str) -> dict:
+        return await _squareoff.get_config(user_id)
+
+    async def admin_update_squareoff_config(self, user_id: str, enabled: bool, time: str, days: list[int]) -> dict:
+        return await _squareoff.set_config(user_id, enabled, time, days)
 
     async def list_all_user_strategies(self, user_id: str | None = None) -> dict:
         supabase = get_supabase()

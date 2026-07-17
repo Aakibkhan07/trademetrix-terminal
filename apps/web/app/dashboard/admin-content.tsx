@@ -16,6 +16,7 @@ import { WebhookTesterTab } from './webhook-tester-tab'
 import { TradeRouterTab } from './trade-router-tab'
 import { BackupsTab } from './backups-tab'
 import { IPWhitelistTab } from './ip-whitelist-tab'
+import { ScheduledTasksTab } from './scheduled-tasks-tab'
 
 interface HealthData {
   status: string
@@ -130,6 +131,7 @@ export function AdminDashboard() {
       {tab === 'trade-router' && <TradeRouterTab />}
       {tab === 'backups' && <BackupsTab />}
       {tab === 'ip-whitelist' && <IPWhitelistTab />}
+      {tab === 'scheduled-tasks' && <ScheduledTasksTab />}
       {showBroadcast && <BroadcastDialog onClose={() => setShowBroadcast(false)} />}
     </>
   )

@@ -36,6 +36,7 @@ const NAV_SECTIONS = [
       { href: '/dashboard?tab=trade-router', label: 'Trade Router', icon: '🔀' },
       { href: '/dashboard?tab=backups', label: 'Backups', icon: '💾' },
       { href: '/dashboard?tab=ip-whitelist', label: 'IP Whitelist', icon: '🛡️' },
+      { href: '/dashboard?tab=scheduled-tasks', label: 'Scheduled', icon: '⏰' },
     ],
   },
   {

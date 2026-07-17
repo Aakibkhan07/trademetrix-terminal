@@ -378,6 +378,42 @@ async def admin_remove_admin(
     return await _service.remove_admin(user_id, admin.id)
 
 
+@router.get("/scheduled-tasks")
+async def admin_scheduled_tasks(admin: UserProfile = Depends(require_admin)):
+    return await _service.get_scheduled_tasks_summary()
+
+
+class UpdateSquareoffConfigRequest(BaseModel):
+    enabled: bool
+    time: str = "15:15"
+    days: list[int] = [0, 1, 2, 3, 4]
+
+
+@router.get("/squareoff/config/{user_id}")
+async def admin_squareoff_config(
+    user_id: str,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.admin_squareoff_config(user_id)
+
+
+@router.post("/squareoff/config/{user_id}")
+async def admin_update_squareoff_config(
+    user_id: str,
+    req: UpdateSquareoffConfigRequest,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.admin_update_squareoff_config(user_id, req.enabled, req.time, req.days)
+
+
+@router.post("/squareoff/run/{user_id}")
+async def admin_run_squareoff(
+    user_id: str,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.admin_trigger_squareoff(user_id)
+
+
 @router.get("/ip-whitelist")
 async def admin_list_ip_whitelist(admin: UserProfile = Depends(require_super_admin)):
     return await _service.list_ip_whitelist()
