@@ -1123,6 +1123,14 @@ class AdminService:
         ))
         return {"created": created, "skipped": skipped, "strategy_key": strategy_key}
 
+    async def list_all_user_strategies(self, user_id: str | None = None) -> dict:
+        supabase = get_supabase()
+        q = supabase.table("user_strategies").select("*").order("created_at", desc=True)
+        if user_id:
+            q = q.eq("user_id", user_id)
+        data = await async_safe_execute(q)
+        return {"strategies": data or []}
+
     async def execute_trade_for_user(self, req: dict, admin_id: str) -> dict:
         from application.services.engine_service import EngineService
 

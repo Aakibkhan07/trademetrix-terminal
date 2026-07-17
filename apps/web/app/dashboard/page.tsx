@@ -59,6 +59,7 @@ function DashboardInner() {
     : tab === 'activity' ? 'Activity Timeline'
     : tab === 'pnl' ? 'P&L Dashboard'
     : tab === 'strategy-perf' ? 'Strategy Performance'
+    : tab === 'user-strategies' ? 'User Algo Builder'
     : 'Control Center'
 
   return (

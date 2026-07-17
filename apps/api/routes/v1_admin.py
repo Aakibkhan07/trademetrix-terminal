@@ -319,6 +319,14 @@ async def admin_fyers_re_auth(
     return await _service.fyers_re_auth(credential_id, admin.id)
 
 
+@router.get("/strategies/all-user")
+async def admin_list_all_user_strategies(
+    user_id: str | None = Query(None),
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.list_all_user_strategies(user_id)
+
+
 @router.get("/admins")
 async def admin_list_admins(admin: UserProfile = Depends(require_admin)):
     return await _service.list_admins()
