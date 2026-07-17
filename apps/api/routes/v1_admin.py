@@ -319,6 +319,20 @@ async def admin_fyers_re_auth(
     return await _service.fyers_re_auth(credential_id, admin.id)
 
 
+@router.get("/referrals")
+async def admin_list_referrals(
+    user_id: str | None = Query(None),
+    status: str | None = Query(None),
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.list_referrals(user_id, status)
+
+
+@router.get("/referrals/stats")
+async def admin_referral_stats(admin: UserProfile = Depends(require_admin)):
+    return await _service.referral_stats()
+
+
 @router.get("/strategies/all-user")
 async def admin_list_all_user_strategies(
     user_id: str | None = Query(None),

@@ -43,6 +43,7 @@ class RegisterWithOTPRequest(BaseModel):
     password: str
     full_name: str = ""
     phone: str = ""
+    referral_code: str = ""
 
     @field_validator("password")
     @classmethod
@@ -171,6 +172,21 @@ async def register_with_otp(req: RegisterWithOTPRequest):
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Account created but failed to send OTP. No email service configured. Contact your admin.",
         )
+    if req.referral_code:
+        referrer = supabase.table("profiles").select("id").eq("referral_code", req.referral_code.upper()).maybe_single().execute()
+        if referrer.data and referrer.data["id"] != user_id:
+            supabase.table("referrals").insert({
+                "referrer_id": referrer.data["id"],
+                "referred_user_id": user_id,
+                "referred_email": req.email,
+                "status": "completed",
+                "reward_given": True,
+                "completed_at": datetime.now(UTC).isoformat(),
+            }).execute()
+            current = supabase.table("profiles").select("referral_count").eq("id", referrer.data["id"]).maybe_single().execute()
+            cur_count = (current.data.get("referral_count") or 0) if current.data else 0
+            supabase.table("profiles").update({"referral_count": cur_count + 1}).eq("id", referrer.data["id"]).execute()
+
     record_audit(AuditLogEntry(
         user_id=user_id,
         action="register_with_otp",

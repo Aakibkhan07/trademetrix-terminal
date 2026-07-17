@@ -48,6 +48,7 @@ from routes.v1_buyer_strategies import router as buyer_strategies_router
 from routes.v1_squareoff import router as squareoff_router
 from routes.v1_squareoff import service as squareoff_service
 from routes.v1_multileg import router as multileg_router
+from routes.v1_referrals import router as referrals_router
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,7 @@ app.include_router(buyer_strategies_router, prefix="/api/v1")
 app.include_router(squareoff_router, prefix="/api/v1")
 app.include_router(multileg_router, prefix="/api/v1")
 app.include_router(subscriptions_router, prefix="/api/v1")
+app.include_router(referrals_router, prefix="/api/v1")
 
 
 @app.exception_handler(AppException)

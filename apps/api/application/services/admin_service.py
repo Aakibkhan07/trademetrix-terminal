@@ -1123,6 +1123,53 @@ class AdminService:
         ))
         return {"created": created, "skipped": skipped, "strategy_key": strategy_key}
 
+    async def list_referrals(self, user_id: str | None = None, status: str | None = None) -> dict:
+        supabase = get_supabase()
+        q = supabase.table("referrals").select("*").order("created_at", desc=True)
+        if user_id:
+            q = q.eq("referrer_id", user_id)
+        if status:
+            q = q.eq("status", status)
+        data = await async_safe_execute(q)
+
+        profiles = await async_safe_execute(
+            supabase.table("profiles").select("id, email, full_name, referral_code, referral_count")
+        )
+        profile_map = {p["id"]: p for p in (profiles or [])}
+
+        enriched = []
+        for r in (data or []):
+            referrer = profile_map.get(r.get("referrer_id", ""), {})
+            referred = profile_map.get(r.get("referred_user_id", ""), {}) if r.get("referred_user_id") else {}
+            enriched.append({
+                **r,
+                "referrer_name": referrer.get("full_name", ""),
+                "referrer_email": referrer.get("email", ""),
+                "referred_name": referred.get("full_name", ""),
+                "referred_email": r.get("referred_email", referred.get("email", "")),
+            })
+        return {"referrals": enriched}
+
+    async def referral_stats(self) -> dict:
+        supabase = get_supabase()
+        data = await async_safe_execute(supabase.table("referrals").select("status"))
+        total = len(data or [])
+        completed = sum(1 for r in (data or []) if r["status"] == "completed")
+        pending = total - completed
+
+        with_profiles = await async_safe_execute(
+            supabase.table("profiles").select("id, referral_code, referral_count").not_.is_("referral_code", "null")
+        )
+        users_with_codes = len(with_profiles or [])
+
+        return {
+            "total_referrals": total,
+            "completed_referrals": completed,
+            "pending_referrals": pending,
+            "users_with_referral_codes": users_with_codes,
+            "conversion_rate": round(completed / total * 100, 1) if total > 0 else 0,
+        }
+
     async def list_all_user_strategies(self, user_id: str | None = None) -> dict:
         supabase = get_supabase()
         q = supabase.table("user_strategies").select("*").order("created_at", desc=True)

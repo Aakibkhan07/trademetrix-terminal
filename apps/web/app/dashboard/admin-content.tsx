@@ -11,6 +11,7 @@ import { ActivityTimelineTab } from './activity-timeline-tab'
 import { PnLDashboardTab } from './pnl-dashboard-tab'
 import { StrategyPerformanceTab } from './strategy-performance-tab'
 import { UserStrategiesTab } from './user-strategies-tab'
+import { ReferralsTab } from './referrals-tab'
 
 interface HealthData {
   status: string
@@ -120,6 +121,7 @@ export function AdminDashboard() {
       {tab === 'pnl' && <PnLDashboardTab />}
       {tab === 'strategy-perf' && <StrategyPerformanceTab />}
       {tab === 'user-strategies' && <UserStrategiesTab />}
+      {tab === 'referrals' && <ReferralsTab />}
       {showBroadcast && <BroadcastDialog onClose={() => setShowBroadcast(false)} />}
     </>
   )

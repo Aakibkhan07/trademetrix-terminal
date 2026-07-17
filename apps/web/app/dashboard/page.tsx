@@ -60,6 +60,7 @@ function DashboardInner() {
     : tab === 'pnl' ? 'P&L Dashboard'
     : tab === 'strategy-perf' ? 'Strategy Performance'
     : tab === 'user-strategies' ? 'User Algo Builder'
+    : tab === 'referrals' ? 'Referral System'
     : 'Control Center'
 
   return (
