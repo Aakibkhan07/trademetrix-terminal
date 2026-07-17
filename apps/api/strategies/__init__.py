@@ -12,6 +12,12 @@ from strategies.vwap_band import VWAPBand
 from strategies.momentum_buyer import MomentumBreakoutBuyer
 from strategies.trend_rider_buyer import TrendRiderBuyer
 from strategies.long_straddle import LongStraddle
+from strategies.gap_up_express import GapUpExpress
+from strategies.mean_reversion_pro import MeanReversionPro
+from strategies.breakout_scanner import BreakoutScanner
+from strategies.option_wheel import OptionWheel
+from strategies.arbitrage_hunter import ArbitrageHunter
+from strategies.intraday_momentum import IntradayMomentum
 
 _strategy_registry: dict[str, type[BaseStrategy]] = {}
 
@@ -63,6 +69,12 @@ _STRATEGY_CATEGORIES: dict[str, str] = {
     "momentum_breakout_buyer": "options_buying",
     "trend_rider_buyer": "options_buying",
     "long_straddle": "options_buying",
+    "gap_up_express": "breakout",
+    "mean_reversion_pro": "mean_reversion",
+    "breakout_scanner": "breakout",
+    "option_wheel": "options",
+    "arbitrage_hunter": "mean_reversion",
+    "intraday_momentum": "scalping",
 }
 
 
@@ -103,6 +115,24 @@ _STRATEGY_TIERS: dict[str, StrategyInfo] = {
     "long_straddle": StrategyInfo(
         key="long_straddle", name="Long Straddle", description="ATM CE+PE buy for volatility expansion with IV gate", required_tier="enterprise",
     ),
+    "gap_up_express": StrategyInfo(
+        key="gap_up_express", name="Gap Up Express", description="Captures opening gap momentum with pre-market volume spike confirmation", required_tier="starter",
+    ),
+    "mean_reversion_pro": StrategyInfo(
+        key="mean_reversion_pro", name="Mean Reversion Pro", description="Multi-indicator mean reversion with Bollinger+Keltner confluence and volume profile", required_tier="pro",
+    ),
+    "breakout_scanner": StrategyInfo(
+        key="breakout_scanner", name="Breakout Scanner", description="Real-time consolidation breakout scanner across multiple timeframes with volume surge detection", required_tier="pro",
+    ),
+    "option_wheel": StrategyInfo(
+        key="option_wheel", name="Option Wheel", description="Cash-secured puts + covered calls wheel strategy for consistent premium collection", required_tier="enterprise",
+    ),
+    "arbitrage_hunter": StrategyInfo(
+        key="arbitrage_hunter", name="Arbitrage Hunter", description="Statistical arbitrage between correlated instruments using z-score divergence and pair trading", required_tier="enterprise",
+    ),
+    "intraday_momentum": StrategyInfo(
+        key="intraday_momentum", name="Intraday Momentum", description="Fast intraday momentum scalper using VWAP cross, RSI divergence and volume thrust", required_tier="free",
+    ),
 }
 
 register_strategy("trend_rider", TrendRider)
@@ -116,6 +146,12 @@ register_strategy("vwap_band", VWAPBand)
 register_strategy("momentum_breakout_buyer", MomentumBreakoutBuyer)
 register_strategy("trend_rider_buyer", TrendRiderBuyer)
 register_strategy("long_straddle", LongStraddle)
+register_strategy("gap_up_express", GapUpExpress)
+register_strategy("mean_reversion_pro", MeanReversionPro)
+register_strategy("breakout_scanner", BreakoutScanner)
+register_strategy("option_wheel", OptionWheel)
+register_strategy("arbitrage_hunter", ArbitrageHunter)
+register_strategy("intraday_momentum", IntradayMomentum)
 
 
 __all__ = [
@@ -132,6 +168,12 @@ __all__ = [
     "MomentumBreakoutBuyer",
     "TrendRiderBuyer",
     "LongStraddle",
+    "GapUpExpress",
+    "MeanReversionPro",
+    "BreakoutScanner",
+    "OptionWheel",
+    "ArbitrageHunter",
+    "IntradayMomentum",
     "BuyerBase",
     "BuyerConfig",
     "Phase",

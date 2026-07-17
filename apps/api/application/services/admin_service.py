@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 from typing import Any, cast
 
 from fastapi import HTTPException
@@ -13,7 +14,7 @@ from core.models import ADMIN_ROLES, AuditLogEntry, Exchange, NormalizedOrder, O
 from core.safe_query import async_safe_execute, async_safe_single
 from core.security import decrypt_broker_credentials
 from engine.gate import execute_order, get_mirror_recipients, scaled_qty
-from strategies import get_strategy_catalog, get_strategy_tier, list_strategies
+from strategies import get_strategy_catalog, get_strategy_category, get_strategy_tier, list_strategies
 
 FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI") or settings.fyers_redirect_uri or "https://api.ai.trademetrix.tech/api/v1/brokers/fyers/callback"
 
@@ -92,28 +93,6 @@ class AdminService:
             raise HTTPException(status_code=500, detail="Strategy tier not found in catalog")
 
         target_caps = await resolve_capabilities_by_id(target_user_id)
-        if not tier_satisfies(target_caps.tier, required_tier) and target_caps.tier != "super_admin":
-            raise HTTPException(
-                status_code=400,
-                detail=f"User tier '{target_caps.tier}' is below required tier '{required_tier}' for strategy '{strategy_key}'. "
-                f"User needs at least '{required_tier}' subscription.",
-            )
-
-        existing = await async_safe_single(
-            supabase.table("strategy_assignments")
-            .select("*")
-            .eq("user_id", target_user_id)
-            .eq("strategy_key", strategy_key)
-        )
-        if existing and existing.get("active"):
-            return {
-                "id": existing["id"],
-                "user_id": target_user_id,
-                "strategy_key": strategy_key,
-                "required_tier": required_tier,
-                "message": "Already assigned and active (no-op)",
-            }
-
         limit = target_caps.max_active_strategies
         if limit > 0:
             current_active = await async_safe_execute(
@@ -128,6 +107,13 @@ class AdminService:
                     detail=f"{target_caps.tier} tier allows {limit} active strategies; unassign one first",
                 )
 
+        existing = await async_safe_single(
+            supabase.table("strategy_assignments")
+            .select("*")
+            .eq("user_id", target_user_id)
+            .eq("strategy_key", strategy_key)
+            .eq("active", False)
+        )
         if existing:
             await async_supabase(lambda: supabase.table("strategy_assignments").update({"active": True, "assigned_by": admin_id}).eq(
                 "id", existing["id"]
@@ -408,15 +394,72 @@ class AdminService:
                 "product": o.get("product", ""),
                 "quantity": o.get("quantity", 0),
                 "price": o.get("price", 0.0),
+                "trigger_price": o.get("trigger_price"),
                 "status": o.get("status", ""),
                 "is_paper": o.get("is_paper", True),
                 "message": o.get("message", ""),
                 "filled_quantity": o.get("filled_quantity", 0),
+                "average_price": o.get("average_price", 0.0),
+                "instrument_type": o.get("instrument_type", "EQ"),
+                "strike_price": o.get("strike_price"),
+                "expiry_date": o.get("expiry_date"),
+                "option_type": o.get("option_type", ""),
                 "filled_at": o.get("filled_at", ""),
                 "created_at": o.get("created_at", ""),
             })
 
         return {"orders": orders, "count": len(orders)}
+
+    async def list_positions(self, user_id: str = "") -> dict:
+        supabase = get_supabase()
+        query = supabase.table("positions_snapshot").select("*").order("snapshot_at", desc=True)
+        if user_id:
+            query = query.eq("user_id", user_id)
+
+        data = await async_safe_execute(query) or []
+
+        seen: dict[str, dict] = {}
+        for p in data:
+            key = (p.get("user_id", ""), p.get("symbol", ""))
+            if key not in seen:
+                seen[key] = p
+
+        user_ids = list(set(p["user_id"] for p in seen.values() if p.get("user_id")))
+        profile_map = {}
+        if user_ids:
+            profiles = await async_safe_execute(
+                supabase.table("profiles").select("id, email, full_name").in_("id", user_ids)
+            ) or []
+            profile_map = {p["id"]: p for p in profiles}
+
+        positions = []
+        for p in seen.values():
+            prof = profile_map.get(p.get("user_id", ""), {})
+            positions.append({
+                "id": p.get("id", ""),
+                "user_id": p.get("user_id", ""),
+                "email": prof.get("email", ""),
+                "full_name": prof.get("full_name", ""),
+                "broker": p.get("broker", ""),
+                "symbol": p.get("symbol", ""),
+                "exchange": p.get("exchange", ""),
+                "quantity": p.get("quantity", 0),
+                "buy_quantity": p.get("buy_quantity", 0),
+                "sell_quantity": p.get("sell_quantity", 0),
+                "average_buy_price": p.get("average_buy_price", 0.0),
+                "average_sell_price": p.get("average_sell_price", 0.0),
+                "unrealised_pnl": p.get("unrealised_pnl", 0.0),
+                "realised_pnl": p.get("realised_pnl", 0.0),
+                "m2m": p.get("m2m", 0.0),
+                "product": p.get("product", ""),
+                "instrument_type": p.get("instrument_type", "EQ"),
+                "strike_price": p.get("strike_price"),
+                "expiry_date": p.get("expiry_date"),
+                "option_type": p.get("option_type", ""),
+                "snapshot_at": p.get("snapshot_at", ""),
+            })
+
+        return {"positions": positions, "count": len(positions)}
 
     async def get_audit_log(self, user_id: str = "", action: str = "", limit: int = 50, offset: int = 0) -> dict:
         supabase = get_supabase()
@@ -664,6 +707,229 @@ class AdminService:
         ))
 
         return {"message": "Admin access removed"}
+
+    async def list_catalog_strategies(self) -> dict:
+        supabase = get_supabase()
+        db_entries = await async_safe_execute(
+            supabase.table("strategy_catalog").select("*").eq("is_active", True).order("key")
+        ) or []
+        db_map = {e["key"]: e for e in db_entries}
+        code_catalog = get_strategy_catalog()
+        merged = []
+        for info in code_catalog:
+            db = db_map.pop(info.key, None)
+            merged.append({
+                "key": info.key,
+                "name": db["name"] if db else info.name,
+                "description": db["description"] if db else info.description,
+                "required_tier": db["required_tier"] if db else info.required_tier,
+                "category": db.get("category", get_strategy_category(info.key)) if db else get_strategy_category(info.key),
+                "is_active": True,
+                "db_id": db["id"] if db else None,
+            })
+        for key, db in db_map.items():
+            merged.append({
+                "key": key,
+                "name": db["name"],
+                "description": db["description"],
+                "required_tier": db["required_tier"],
+                "category": db.get("category", "trend"),
+                "is_active": db.get("is_active", True),
+                "db_id": db["id"],
+            })
+        return {"strategies": merged}
+
+    async def create_catalog_strategy(self, key: str, name: str, description: str, required_tier: str, category: str, admin_id: str) -> dict:
+        supabase = get_supabase()
+        existing = await async_safe_single(
+            supabase.table("strategy_catalog").select("id").eq("key", key)
+        )
+        if existing:
+            raise HTTPException(status_code=409, detail=f"Strategy key '{key}' already exists")
+        result = await async_supabase(lambda: supabase.table("strategy_catalog").insert({
+            "key": key, "name": name, "description": description,
+            "required_tier": required_tier, "category": category,
+        }).execute())
+        new_id = str(cast(dict[str, Any], result.data[0])["id"])
+        record_audit(AuditLogEntry(
+            user_id=admin_id, action="create_strategy", resource="strategy_catalog",
+            resource_id=new_id, details={"key": key, "name": name, "tier": required_tier},
+        ))
+        return {"id": new_id, "key": key, "name": name, "message": "Strategy created"}
+
+    async def update_catalog_strategy(self, key: str, updates: dict, admin_id: str) -> dict:
+        supabase = get_supabase()
+        existing = await async_safe_single(
+            supabase.table("strategy_catalog").select("id, key").eq("key", key)
+        )
+        if not existing:
+            raise HTTPException(status_code=404, detail=f"Strategy '{key}' not found in catalog")
+        await async_supabase(lambda: supabase.table("strategy_catalog").update({
+            **updates, "updated_at": "now()",
+        }).eq("key", key).execute())
+        record_audit(AuditLogEntry(
+            user_id=admin_id, action="update_strategy", resource="strategy_catalog",
+            resource_id=existing["id"], details={"key": key, "updates": updates},
+        ))
+        return {"key": key, "message": "Strategy updated"}
+
+    async def delete_catalog_strategy(self, key: str, admin_id: str) -> dict:
+        supabase = get_supabase()
+        existing = await async_safe_single(
+            supabase.table("strategy_catalog").select("id").eq("key", key)
+        )
+        if not existing:
+            raise HTTPException(status_code=404, detail=f"Strategy '{key}' not found in catalog")
+        await async_supabase(lambda: supabase.table("strategy_catalog").update({
+            "is_active": False, "updated_at": "now()",
+        }).eq("key", key).execute())
+        record_audit(AuditLogEntry(
+            user_id=admin_id, action="delete_strategy", resource="strategy_catalog",
+            resource_id=existing["id"], details={"key": key},
+        ))
+        return {"message": f"Strategy '{key}' deactivated"}
+
+    async def list_live_positions(self, user_id: str) -> dict:
+        supabase = get_supabase()
+        creds = await async_safe_execute(
+            supabase.table("broker_credentials")
+            .select("id, user_id, broker, encrypted_access_token, encrypted_api_key")
+            .eq("user_id", user_id)
+            .eq("is_active", True)
+        ) or []
+        if not creds:
+            return {"positions": [], "count": 0, "message": "No active broker for this user"}
+
+        from brokers.fyers_adapter import FyersAdapter
+        from execution.broker_adapter import BrokerExecutionAdapter
+
+        profile = await async_safe_single(
+            supabase.table("profiles").select("email, full_name").eq("id", user_id)
+        )
+        all_positions = []
+        for c in creds:
+            try:
+                token_raw = decrypt_broker_credentials(c["encrypted_access_token"]) if c.get("encrypted_access_token") else None
+                api_key_raw = decrypt_broker_credentials(c["encrypted_api_key"]) if c.get("encrypted_api_key") else None
+                if not token_raw or not api_key_raw:
+                    continue
+                if c["broker"] == "fyers":
+                    adapter = FyersAdapter()
+                    await adapter.authenticate({"client_id": api_key_raw, "access_token": token_raw})
+                    raw_positions = await adapter.get_positions()
+                    for p in raw_positions:
+                        all_positions.append({
+                            "user_id": user_id,
+                            "email": (profile or {}).get("email", ""),
+                            "full_name": (profile or {}).get("full_name", ""),
+                            "broker": c["broker"],
+                            "symbol": p.symbol,
+                            "quantity": p.quantity,
+                            "average_buy_price": p.average_buy_price,
+                            "average_sell_price": p.average_sell_price,
+                            "buy_quantity": p.quantity if p.quantity > 0 else 0,
+                            "sell_quantity": abs(p.quantity) if p.quantity < 0 else 0,
+                            "unrealised_pnl": p.unrealised_pnl,
+                            "realised_pnl": p.realised_pnl,
+                            "m2m": p.m2m,
+                            "product": p.product.value if hasattr(p.product, 'value') else str(p.product),
+                            "instrument_type": "EQ",
+                            "snapshot_at": datetime.utcnow().isoformat(),
+                        })
+            except Exception as e:
+                logger.error("Live positions fetch error for user=%s broker=%s: %s", user_id, c["broker"], e)
+                continue
+        return {"positions": all_positions, "count": len(all_positions), "source": "live"}
+
+    async def export_assignments(self) -> dict:
+        supabase = get_supabase()
+        data = await async_safe_execute(
+            supabase.table("strategy_assignments").select("id, user_id, strategy_key, required_tier, active, assigned_by, created_at").order("created_at", desc=True)
+        ) or []
+        user_ids = list(set(a["user_id"] for a in data))
+        profiles = await async_safe_execute(
+            supabase.table("profiles").select("id, email, full_name").in_("id", user_ids)
+        ) or []
+        profile_map = {p["id"]: p for p in profiles}
+        result = []
+        for a in data:
+            p = profile_map.get(a.get("user_id", ""), {})
+            result.append({
+                "id": a["id"], "user_id": a["user_id"], "email": p.get("email", ""),
+                "full_name": p.get("full_name", ""), "strategy_key": a["strategy_key"],
+                "required_tier": a["required_tier"], "active": a["active"],
+                "assigned_by": a["assigned_by"], "created_at": a.get("created_at", ""),
+            })
+        return {"assignments": result, "count": len(result)}
+
+    async def import_assignments(self, entries: list[dict], admin_id: str) -> dict:
+        supabase = get_supabase()
+        created = 0
+        skipped = 0
+        errors = []
+        for entry in entries:
+            uid = entry.get("user_id", "")
+            skey = entry.get("strategy_key", "")
+            if not uid or not skey:
+                skipped += 1
+                continue
+            if skey not in list_strategies():
+                errors.append({"user_id": uid, "strategy_key": skey, "error": "Unknown strategy"})
+                skipped += 1
+                continue
+            user = await async_safe_single(
+                supabase.table("profiles").select("id").eq("id", uid)
+            )
+            if not user:
+                errors.append({"user_id": uid, "strategy_key": skey, "error": "User not found"})
+                skipped += 1
+                continue
+            existing = await async_safe_single(
+                supabase.table("strategy_assignments")
+                .select("id").eq("user_id", uid).eq("strategy_key", skey).eq("active", True)
+            )
+            if existing:
+                skipped += 1
+                continue
+            try:
+                await async_supabase(lambda: supabase.table("strategy_assignments").insert({
+                    "user_id": uid, "strategy_key": skey,
+                    "required_tier": get_strategy_tier(skey) or "free",
+                    "assigned_by": admin_id,
+                }).execute())
+                created += 1
+            except Exception as e:
+                errors.append({"user_id": uid, "strategy_key": skey, "error": str(e)[:100]})
+        return {"created": created, "skipped": skipped, "errors": errors}
+
+    async def batch_assign(self, user_ids: list[str], strategy_key: str, admin_id: str) -> dict:
+        if strategy_key not in list_strategies():
+            raise HTTPException(status_code=400, detail=f"Unknown strategy '{strategy_key}'")
+        supabase = get_supabase()
+        created = 0
+        skipped = 0
+        for uid in user_ids:
+            existing = await async_safe_single(
+                supabase.table("strategy_assignments")
+                .select("id").eq("user_id", uid).eq("strategy_key", strategy_key).eq("active", True)
+            )
+            if existing:
+                skipped += 1
+                continue
+            try:
+                await async_supabase(lambda: supabase.table("strategy_assignments").insert({
+                    "user_id": uid, "strategy_key": strategy_key,
+                    "required_tier": get_strategy_tier(strategy_key) or "free",
+                    "assigned_by": admin_id,
+                }).execute())
+                created += 1
+            except Exception:
+                skipped += 1
+        record_audit(AuditLogEntry(
+            user_id=admin_id, action="batch_assign", resource="strategy_assignments",
+            details={"user_ids": user_ids, "strategy_key": strategy_key, "created": created, "skipped": skipped},
+        ))
+        return {"created": created, "skipped": skipped, "strategy_key": strategy_key}
 
     async def execute_trade_for_user(self, req: dict, admin_id: str) -> dict:
         from application.services.engine_service import EngineService

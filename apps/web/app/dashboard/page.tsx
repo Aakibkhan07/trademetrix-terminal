@@ -49,8 +49,10 @@ function DashboardInner() {
     : tab === 'users' ? 'Users'
     : tab === 'brokers' ? 'Brokers'
     : tab === 'trades' ? 'Trades'
+    : tab === 'positions-book' ? 'Positions & Orders'
     : tab === 'audit' ? 'Audit Log'
     : tab === 'risk' ? 'Risk'
+    : tab === 'strategies' ? 'Strategies'
     : tab === 'buyer-strategies' ? 'Buyer Strategies'
     : 'Control Center'
 

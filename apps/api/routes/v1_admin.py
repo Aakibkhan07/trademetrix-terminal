@@ -87,6 +87,38 @@ async def admin_assign_strategy(
     return await _service.assign_strategy(req.user_id, req.strategy_key, admin.id)
 
 
+@router.get("/assignments/export")
+async def admin_export_assignments(admin: UserProfile = Depends(require_admin)):
+    return await _service.export_assignments()
+
+
+class ImportRequest(BaseModel):
+    entries: list[AssignRequest]
+
+
+@router.post("/assignments/import", status_code=201)
+async def admin_import_assignments(
+    req: ImportRequest,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.import_assignments(
+        [e.model_dump() for e in req.entries], admin.id,
+    )
+
+
+class BatchAssignRequest(BaseModel):
+    user_ids: list[str]
+    strategy_key: str
+
+
+@router.post("/assignments/batch", status_code=201)
+async def admin_batch_assign(
+    req: BatchAssignRequest,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.batch_assign(req.user_ids, req.strategy_key, admin.id)
+
+
 @router.delete("/assignments/{assignment_id}")
 async def admin_unassign_strategy(
     assignment_id: str,
@@ -137,6 +169,22 @@ async def admin_list_brokers(admin: UserProfile = Depends(require_admin)):
     return await _service.list_brokers()
 
 
+@router.get("/positions")
+async def admin_list_positions(
+    user_id: str = Query(""),
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.list_positions(user_id)
+
+
+@router.get("/positions/live/{user_id}")
+async def admin_list_live_positions(
+    user_id: str,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.list_live_positions(user_id)
+
+
 @router.get("/orders")
 async def admin_list_orders(
     user_id: str = Query(""),
@@ -146,6 +194,52 @@ async def admin_list_orders(
     admin: UserProfile = Depends(require_admin),
 ):
     return await _service.list_orders(user_id, is_paper, limit, offset)
+
+
+class CatalogStrategyRequest(BaseModel):
+    key: str
+    name: str
+    description: str = ""
+    required_tier: str = "free"
+    category: str = "trend"
+
+
+class UpdateCatalogRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    required_tier: str | None = None
+    category: str | None = None
+
+
+@router.get("/strategies")
+async def admin_list_catalog(admin: UserProfile = Depends(require_admin)):
+    return await _service.list_catalog_strategies()
+
+
+@router.post("/strategies", status_code=201)
+async def admin_create_strategy(
+    req: CatalogStrategyRequest,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.create_catalog_strategy(req.key, req.name, req.description, req.required_tier, req.category, admin.id)
+
+
+@router.put("/strategies/{key}")
+async def admin_update_strategy(
+    key: str,
+    req: UpdateCatalogRequest,
+    admin: UserProfile = Depends(require_admin),
+):
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    return await _service.update_catalog_strategy(key, updates, admin.id)
+
+
+@router.delete("/strategies/{key}")
+async def admin_delete_strategy(
+    key: str,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.delete_catalog_strategy(key, admin.id)
 
 
 @router.get("/audit-log")

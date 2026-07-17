@@ -166,16 +166,19 @@ async def send_otp_email_resend(email: str, otp: str) -> bool:
                     "Content-Type": "application/json",
                 },
                 json={
-                    "from": settings.smtp_from or "TradeMetrix <onboarding@resend.dev>",
+                    "from": "TradeMetrix <onboarding@resend.dev>",
                     "to": [email],
                     "subject": "Your TradeMetrix OTP",
                     "text": f"Your TradeMetrix OTP is {otp}. Valid for 5 minutes.",
                 },
                 timeout=10,
             )
-            return resp.status_code == 200
+            if resp.status_code != 200:
+                logger.warning("Resend email failed: status=%s body=%s", resp.status_code, resp.text[:500])
+                return False
+            return True
     except Exception as e:
-        logger.warning("Resend email failed: %s", e)
+        logger.warning("Resend email exception: %s", e)
         return False
 
 

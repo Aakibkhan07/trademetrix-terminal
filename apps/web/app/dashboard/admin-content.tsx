@@ -23,6 +23,8 @@ interface StrategyInfo {
   name: string
   description: string
   required_tier: string
+  category?: string
+  db_id?: string | null
 }
 
 interface Assignment {
@@ -99,8 +101,10 @@ export function AdminDashboard() {
       {tab === 'users' && <UsersTab />}
       {tab === 'brokers' && <BrokersTab />}
       {tab === 'trades' && <TradesTab />}
+      {tab === 'positions-book' && <PositionsOrderBookTab />}
       {tab === 'audit' && <AuditTab />}
       {tab === 'risk' && <RiskTab />}
+      {tab === 'strategies' && <StrategiesTab />}
       {tab === 'buyer-strategies' && <BuyerStrategiesTab />}
     </>
   )
@@ -843,6 +847,435 @@ function FyersTokenSection() {
   )
 }
 
+function StrategyComparisonChart({ catalog, assignments, users, compact }: {
+  catalog: StrategyInfo[]; assignments: Assignment[]; users: AdminUser[]; compact?: boolean
+}) {
+  const tiers = ['free', 'starter', 'pro', 'enterprise']
+  const cats = ['trend', 'breakout', 'mean_reversion', 'scalping', 'options', 'options_buying']
+  const catLabels: Record<string, string> = {
+    trend: 'Trend Following', breakout: 'Breakout', mean_reversion: 'Mean Reversion',
+    scalping: 'Scalping', options: 'Options', options_buying: 'Options Buying',
+  }
+  const groupedByTier: Record<string, StrategyInfo[]> = {}
+  tiers.forEach(t => { groupedByTier[t] = catalog.filter(s => s.required_tier === t) })
+
+  return (
+    <div className="t-panel" style={{ padding: compact ? 10 : 14 }}>
+      <h3 style={{ margin: '0 0 compact ? 8 : 12', fontSize: compact ? 11 : 12, fontWeight: 600, letterSpacing: '0.02em' }}>
+        Strategy Comparison — Find the Right Fit
+      </h3>
+      <p className="t-faint" style={{ fontSize: compact ? 9 : 10, marginBottom: 10 }}>
+        Compare strategies by tier. Upgrade users to unlock higher-tier strategies for better results.
+      </p>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: compact ? 9 : 10 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, color: 'var(--text)', fontSize: compact ? 8 : 9 }}>Strategy</th>
+              <th style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, color: 'var(--text)', fontSize: compact ? 8 : 9 }}>Tier</th>
+              {!compact && <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, color: 'var(--text)', fontSize: compact ? 8 : 9 }}>Category</th>}
+              <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, color: 'var(--text)', fontSize: compact ? 8 : 9 }}>Description</th>
+              {!compact && <th style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, color: 'var(--text)', fontSize: compact ? 8 : 9 }}>Users</th>}
+              {!compact && <th style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, color: 'var(--text)', fontSize: compact ? 8 : 9 }}>Action</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {tiers.map(tier => {
+              const strats = groupedByTier[tier] || []
+              if (strats.length === 0) return null
+              const tierColor = tier === 'free' ? 'var(--text-sub)' : tier === 'starter' ? 'var(--cyan)' : tier === 'pro' ? 'var(--violet)' : 'var(--red)'
+              return (
+                <>
+                  <tr>
+                    <td colSpan={compact ? 3 : 6} style={{
+                      padding: '4px 8px', fontWeight: 700, fontSize: compact ? 8 : 10,
+                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                      color: tierColor,
+                      borderBottom: `1px solid color-mix(in srgb, ${tierColor} 15%, transparent)`,
+                      background: `color-mix(in srgb, ${tierColor} 4%, transparent)`,
+                    }}>
+                      {tier.toUpperCase()} TIER — {strats.length} {strats.length === 1 ? 'strategy' : 'strategies'}
+                    </td>
+                  </tr>
+                  {strats.map(s => {
+                    const assigned = assignments.filter(a => a.strategy_key === s.key)
+                    return (
+                      <tr key={s.key} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
+                        <td style={{ padding: '5px 8px', fontWeight: 600 }}>{s.name}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'center' }}><TierBadge tier={s.required_tier} small /></td>
+                        {!compact && <td style={{ padding: '5px 8px', color: 'var(--text-sub)', textTransform: 'capitalize' }}>{catLabels[s.key] || s.key}</td>}
+                        <td style={{ padding: '5px 8px', color: 'var(--text-sub)', fontSize: compact ? 8 : 9 }}>{s.description}</td>
+                        {!compact && <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                          <span style={{ fontWeight: 600 }}>{assigned.length}</span>
+                          <span className="t-faint" style={{ fontSize: 8, marginLeft: 2 }}>/ {users.length}</span>
+                        </td>}
+                        {!compact && <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                          {assigned.length < users.length && (
+                            <span style={{ fontSize: 9, color: 'var(--cyan)', cursor: 'default' }}>Upgrade eligible</span>
+                          )}
+                        </td>}
+                      </tr>
+                    )
+                  })}
+                </>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function StrategiesTab() {
+  const router = useRouter()
+  const [refreshKey, setRefreshKey] = useState(0)
+  const { data: catalogData, loading: catalogLoading } = useApi<{ strategies: StrategyInfo[] }>(`/admin/strategies?_=${refreshKey}`)
+  const { data: assignData, loading: assignLoading } = useApi<{ assignments: Assignment[] }>(`/admin/assignments?_=${refreshKey}`)
+  const { data: usersData } = useApi<{ users: AdminUser[] }>('/admin/users')
+  const [assigning, setAssigning] = useState(false)
+  const [assignMsg, setAssignMsg] = useState('')
+  const [selUser, setSelUser] = useState('')
+  const [selStrategy, setSelStrategy] = useState('')
+  const [showChart, setShowChart] = useState(true)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addKey, setAddKey] = useState('')
+  const [addName, setAddName] = useState('')
+  const [addDesc, setAddDesc] = useState('')
+  const [addTier, setAddTier] = useState('free')
+  const [addCat, setAddCat] = useState('trend')
+  const [adding, setAdding] = useState(false)
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editTier, setEditTier] = useState('')
+  const [editCat, setEditCat] = useState('')
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [showBatchAssign, setShowBatchAssign] = useState(false)
+  const [batchStrategy, setBatchStrategy] = useState('')
+  const [batchUsers, setBatchUsers] = useState<Set<string>>(new Set())
+  const [batchMsg, setBatchMsg] = useState('')
+  const [importing, setImporting] = useState(false)
+
+  const catalog = catalogData?.strategies || []
+  const assignments = assignData?.assignments || []
+  const users = usersData?.users || []
+
+  const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), [])
+
+  const handleAssign = async () => {
+    if (!selUser || !selStrategy) return
+    setAssigning(true); setAssignMsg('')
+    try {
+      await api.admin.assignments.create({ user_id: selUser, strategy_key: selStrategy })
+      setAssignMsg('Assigned successfully')
+      triggerRefresh()
+    } catch (e: any) {
+      setAssignMsg(e?.message || 'Failed to assign')
+    } finally {
+      setAssigning(false)
+    }
+  }
+
+  const handleUnassign = async (id: string) => {
+    try {
+      await api.admin.assignments.remove(id)
+      triggerRefresh()
+    } catch {}
+  }
+
+  const handleAdd = async () => {
+    if (!addKey || !addName) return
+    setAdding(true); setAssignMsg('')
+    try {
+      await api.admin.strategies.create({ key: addKey, name: addName, description: addDesc, required_tier: addTier, category: addCat })
+      setAssignMsg(`Strategy '${addName}' created`)
+      setShowAddForm(false); setAddKey(''); setAddName(''); setAddDesc(''); setAddTier('free'); setAddCat('trend')
+      triggerRefresh()
+    } catch (e: any) {
+      setAssignMsg(e?.message || 'Failed to create')
+    } finally { setAdding(false) }
+  }
+
+  const handleEditSave = async (key: string) => {
+    setSaving(true)
+    try {
+      await api.admin.strategies.update(key, { name: editName, description: editDesc, required_tier: editTier, category: editCat })
+      setEditingKey(null)
+      triggerRefresh()
+    } catch (e: any) {
+      setAssignMsg(e?.message || 'Failed to update')
+    } finally { setSaving(false) }
+  }
+
+  const handleDelete = async (key: string) => {
+    setSaving(true)
+    try {
+      await api.admin.strategies.delete(key)
+      setDeleting(null)
+      triggerRefresh()
+    } catch (e: any) {
+      setAssignMsg(e?.message || 'Failed to delete')
+    } finally { setSaving(false) }
+  }
+
+  const handleBatchAssign = async () => {
+    if (!batchStrategy || batchUsers.size === 0) return
+    setAssignMsg(''); setBatchMsg('')
+    try {
+      const res = await api.admin.assignments.batch({ user_ids: Array.from(batchUsers), strategy_key: batchStrategy })
+      setBatchMsg(`Created ${res.created}, skipped ${res.skipped}`)
+      setShowBatchAssign(false); setBatchUsers(new Set())
+      triggerRefresh()
+    } catch (e: any) {
+      setBatchMsg(e?.message || 'Batch assign failed')
+    }
+  }
+
+  const handleExport = async () => {
+    try {
+      const data = await api.admin.assignments.export()
+      const blob = new Blob([JSON.stringify(data.assignments, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = 'assignments-export.json'; a.click()
+      URL.revokeObjectURL(url)
+    } catch (e: any) {
+      setAssignMsg(e?.message || 'Export failed')
+    }
+  }
+
+  const startEdit = (s: StrategyInfo) => {
+    setEditingKey(s.key)
+    setEditName(s.name)
+    setEditDesc(s.description)
+    setEditTier(s.required_tier)
+    setEditCat(s.category || 'trend')
+  }
+
+  const strategyAssignments = (key: string) =>
+    assignments.filter(a => a.strategy_key === key)
+
+  const CAT_OPTIONS = ['trend', 'breakout', 'mean_reversion', 'scalping', 'options', 'options_buying']
+  const catLabels: Record<string, string> = {
+    trend: 'Trend', breakout: 'Breakout', mean_reversion: 'Mean Rev',
+    scalping: 'Scalping', options: 'Options', options_buying: 'Options Buy',
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <p className="t-sub" style={{ fontSize: 11, margin: 0 }}>Strategy catalog &amp; assignment management</p>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="t-btn t-btn-sm" onClick={handleExport} style={{ fontSize: 9 }}>Export</button>
+          <label className="t-btn t-btn-sm" style={{ fontSize: 9, cursor: 'pointer' }}>
+            Import
+            <input type="file" accept=".json" style={{ display: 'none' }} onChange={async (e) => {
+              const file = e.target.files?.[0]; if (!file) return; setImporting(true)
+              try {
+                const text = await file.text(); const entries = JSON.parse(text)
+                const res = await api.admin.assignments.import(Array.isArray(entries) ? entries : entries.assignments || [])
+                setAssignMsg(`Import: ${res.created} created, ${res.skipped} skipped`)
+                triggerRefresh()
+              } catch (err: any) { setAssignMsg(err?.message || 'Import failed') }
+              finally { setImporting(false); e.target.value = '' }
+            }} />
+          </label>
+          <button className="t-btn t-btn-sm" onClick={() => setShowBatchAssign(!showBatchAssign)} style={{ fontSize: 9 }}>
+            {showBatchAssign ? 'Cancel' : 'Batch Assign'}
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => setShowAddForm(!showAddForm)} style={{ fontSize: 10 }}>
+            {showAddForm ? 'Cancel' : '+ Add Strategy'}
+          </button>
+        </div>
+      </div>
+
+      {showBatchAssign && (
+        <div className="t-panel" style={{ padding: 12, marginBottom: 12 }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600 }}>Batch Assign Strategy</h4>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <select value={batchStrategy} onChange={e => setBatchStrategy(e.target.value)}
+              className="t-input" style={{ fontSize: 10, maxWidth: 200 }}>
+              <option value="">Select strategy...</option>
+              {catalog.map(s => <option key={s.key} value={s.key}>{s.name}</option>)}
+            </select>
+            <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{batchUsers.size} user(s) selected</span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxHeight: 150, overflowY: 'auto', marginBottom: 8 }}>
+            {users.map(u => (
+              <label key={u.id} style={{
+                display: 'flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 4, fontSize: 10, cursor: 'pointer',
+                background: batchUsers.has(u.id) ? 'color-mix(in srgb, var(--violet) 15%, transparent)' : 'color-mix(in srgb, var(--violet) 5%, transparent)',
+              }}>
+                <input type="checkbox" checked={batchUsers.has(u.id)} onChange={() => {
+                  const next = new Set(batchUsers)
+                  if (next.has(u.id)) next.delete(u.id); else next.add(u.id)
+                  setBatchUsers(next)
+                }} style={{ accentColor: 'var(--violet)' }} />
+                {u.full_name || u.email}
+              </label>
+            ))}
+          </div>
+          <button className="t-btn t-btn-xs" onClick={handleBatchAssign} disabled={!batchStrategy || batchUsers.size === 0}
+            style={{ fontSize: 9 }}>
+            Assign to {batchUsers.size} user(s)
+          </button>
+          {batchMsg && <span style={{ marginLeft: 8, fontSize: 10, color: batchMsg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>{batchMsg}</span>}
+        </div>
+      )}
+
+      {showAddForm && (
+        <div className="t-panel" style={{ padding: 12, marginBottom: 12 }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600 }}>New Strategy</h4>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input className="t-input" value={addKey} onChange={e => setAddKey(e.target.value)}
+              placeholder="Key (e.g. my_strategy)" style={{ fontSize: 10, width: 140 }} />
+            <input className="t-input" value={addName} onChange={e => setAddName(e.target.value)}
+              placeholder="Display name" style={{ fontSize: 10, width: 140 }} />
+            <input className="t-input" value={addDesc} onChange={e => setAddDesc(e.target.value)}
+              placeholder="Description" style={{ fontSize: 10, width: 200 }} />
+            <select value={addTier} onChange={e => setAddTier(e.target.value)} className="t-input" style={{ fontSize: 10, width: 90 }}>
+              {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select value={addCat} onChange={e => setAddCat(e.target.value)} className="t-input" style={{ fontSize: 10, width: 100 }}>
+              {CAT_OPTIONS.map(c => <option key={c} value={c}>{catLabels[c]}</option>)}
+            </select>
+            <button className="t-btn t-btn-xs" onClick={handleAdd} disabled={adding} style={{ fontSize: 9 }}>
+              {adding ? '...' : 'Create'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!catalogLoading && catalog.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <h3 style={{ fontSize: 11, fontWeight: 600, margin: 0, letterSpacing: '0.03em' }}>STRATEGY COMPARISON</h3>
+            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setShowChart(!showChart)} style={{ fontSize: 9 }}>
+              {showChart ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          {showChart && (
+            <StrategyComparisonChart catalog={catalog} assignments={assignments} users={users} />
+          )}
+        </div>
+      )}
+
+      {catalogLoading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[1,2,3].map(i => <SkeletonCard key={i} />)}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {catalog.map(s => (
+            <div key={s.key} className="t-panel" style={{ padding: '10px 12px', borderLeft: '3px solid var(--violet)' }}>
+              {editingKey === s.key ? (
+                <div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 }}>
+                    <input className="t-input" value={editName} onChange={e => setEditName(e.target.value)}
+                      placeholder="Name" style={{ fontSize: 10, width: 140 }} />
+                    <select value={editTier} onChange={e => setEditTier(e.target.value)} className="t-input" style={{ fontSize: 10, width: 80 }}>
+                      {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <select value={editCat} onChange={e => setEditCat(e.target.value)} className="t-input" style={{ fontSize: 10, width: 90 }}>
+                      {CAT_OPTIONS.map(c => <option key={c} value={c}>{catLabels[c]}</option>)}
+                    </select>
+                    <span className="t-faint" style={{ fontSize: 9, fontFamily: 'var(--font-mono)' }}>{s.key}</span>
+                  </div>
+                  <input className="t-input" value={editDesc} onChange={e => setEditDesc(e.target.value)}
+                    placeholder="Description" style={{ fontSize: 10, width: '100%', marginBottom: 6 }} />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button className="t-btn t-btn-xs" onClick={() => handleEditSave(s.key)} disabled={saving} style={{ fontSize: 9 }}>
+                      {saving ? '...' : 'Save'}
+                    </button>
+                    <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setEditingKey(null)} style={{ fontSize: 9 }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</span>
+                      <TierBadge tier={s.required_tier} small />
+                      {s.category && <span className="t-faint" style={{ fontSize: 8, textTransform: 'uppercase' }}>{catLabels[s.category] || s.category}</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <span className="t-faint" style={{ fontSize: 9, fontFamily: 'var(--font-mono)' }}>{s.key}</span>
+                      {s.db_id && (
+                        <>
+                          <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => startEdit(s)} style={{ fontSize: 8, padding: '1px 4px' }}>Edit</button>
+                          {deleting === s.key ? (
+                            <>
+                              <button className="t-btn t-btn-xs" onClick={() => handleDelete(s.key)} disabled={saving} style={{ fontSize: 8, padding: '1px 4px', color: 'var(--red)' }}>
+                                {saving ? '...' : 'Confirm'}
+                              </button>
+                              <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setDeleting(null)} style={{ fontSize: 8, padding: '1px 4px' }}>No</button>
+                            </>
+                          ) : (
+                            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setDeleting(s.key)} style={{ fontSize: 8, padding: '1px 4px', color: 'var(--text-faint)' }}>Del</button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="t-faint" style={{ fontSize: 11, marginBottom: 6 }}>{s.description}</div>
+                </>
+              )}
+
+              {editingKey !== s.key && (
+                <>
+                  {strategyAssignments(s.key).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                      {strategyAssignments(s.key).map(a => {
+                        const u = users.find(us => us.id === a.user_id)
+                        return (
+                          <span key={a.id} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '1px 6px', borderRadius: 4, fontSize: 10,
+                            background: 'color-mix(in srgb, var(--green) 12%, transparent)',
+                            border: '1px solid color-mix(in srgb, var(--green) 20%, transparent)',
+                          }}>
+                            {u?.email || a.user_id.slice(0, 8)}
+                            <span onClick={() => handleUnassign(a.id)}
+                              style={{ cursor: 'pointer', opacity: 0.6, marginLeft: 2 }}>✕</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select value={selStrategy === s.key ? selUser : ''}
+                      onChange={e => { setSelStrategy(s.key); setSelUser(e.target.value) }}
+                      style={{ fontSize: 10, padding: '2px 6px', maxWidth: 180 }}>
+                      <option value="">Assign to user...</option>
+                      {users.map(u => (
+                        <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.subscription_tier})</option>
+                      ))}
+                    </select>
+                    {selStrategy === s.key && selUser && (
+                      <button className="t-btn t-btn-xs" onClick={handleAssign} disabled={assigning}
+                        style={{ fontSize: 9, padding: '2px 8px' }}>
+                        {assigning ? '...' : 'Assign'}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {assignMsg && (
+        <div style={{ marginTop: 8, fontSize: 11, color: assignMsg.includes('Failed') || assignMsg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>
+          {assignMsg}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const BUYER_STRATEGY_OPTIONS = [
   { key: 'momentum_breakout_buyer', name: 'Momentum Breakout Buyer', tier: 'starter', desc: 'OR breakout + volume + premium management' },
   { key: 'trend_rider_buyer', name: 'Trend Rider Buyer', tier: 'pro', desc: 'EMA9/21 + VWAP + ADX + Supertrend trail' },
@@ -977,9 +1410,14 @@ function TradesTab() {
   const [placeSide, setPlaceSide] = useState('BUY')
   const [placeQty, setPlaceQty] = useState(1)
   const [placePrice, setPlacePrice] = useState('')
+  const [placeTrigger, setPlaceTrigger] = useState('')
   const [placeExchange, setPlaceExchange] = useState('NSE')
   const [placeType, setPlaceType] = useState('MARKET')
   const [placeProduct, setPlaceProduct] = useState('INTRADAY')
+  const [placeInstType, setPlaceInstType] = useState('EQ')
+  const [placeExpiry, setPlaceExpiry] = useState('')
+  const [placeStrike, setPlaceStrike] = useState('')
+  const [placeOptionType, setPlaceOptionType] = useState('CE')
   const [placing, setPlacing] = useState(false)
   const [placeMsg, setPlaceMsg] = useState('')
 
@@ -1001,6 +1439,14 @@ function TradesTab() {
     return () => clearInterval(int)
   }, [])
 
+  useEffect(() => {
+    if (placeInstType === 'FUT' || placeInstType === 'OPT') {
+      setPlaceExchange('NFO')
+    } else if (placeInstType === 'EQ') {
+      setPlaceExchange('NSE')
+    }
+  }, [placeInstType])
+
   const handlePlaceTrade = async () => {
     if (!placeUserId || !placeSymbol || !placeQty) { setPlaceMsg('Fill user, symbol, and qty'); return }
     setPlacing(true); setPlaceMsg('')
@@ -1008,8 +1454,16 @@ function TradesTab() {
       const body: Parameters<typeof api.admin.executeTrade>[0] = {
         user_id: placeUserId, symbol: placeSymbol.toUpperCase(), side: placeSide,
         quantity: placeQty, exchange: placeExchange, order_type: placeType, product: placeProduct,
+        instrument_type: placeInstType,
       }
       if (placePrice) body.price = parseFloat(placePrice)
+      if (placeTrigger) body.trigger_price = parseFloat(placeTrigger)
+      if (placeInstType === 'FUT' && placeExpiry) body.expiry_date = placeExpiry
+      if (placeInstType === 'OPT') {
+        if (placeExpiry) body.expiry_date = placeExpiry
+        if (placeStrike) body.strike_price = parseFloat(placeStrike)
+        body.option_type = placeOptionType
+      }
       await api.admin.executeTrade(body)
       setPlaceMsg('Trade placed successfully')
       setRefreshKey(k => k + 1)
@@ -1017,6 +1471,8 @@ function TradesTab() {
       setPlaceMsg(e instanceof Error ? e.message : 'Trade failed')
     } finally { setPlacing(false) }
   }
+
+  const segLabel = (t: string) => t === 'EQ' ? 'Cash' : t === 'FUT' ? 'Futures' : 'Options'
 
   return (
     <div>
@@ -1037,30 +1493,68 @@ function TradesTab() {
                   <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.email})</option>
                 ))}
               </select>
-              <input className="t-input" placeholder="Symbol (e.g. NSE:RELIANCE-EQ)" value={placeSymbol}
-                onChange={e => setPlaceSymbol(e.target.value)} style={{ width: 160, fontSize: 11, fontFamily: 'var(--font-mono)' }} />
+              <input className="t-input" placeholder="Symbol (e.g. RELIANCE)" value={placeSymbol}
+                onChange={e => setPlaceSymbol(e.target.value)} style={{ width: 120, fontSize: 11, fontFamily: 'var(--font-mono)' }} />
+              <div style={{ display: 'flex', gap: 4, background: 'color-mix(in srgb, var(--violet) 6%, transparent)', borderRadius: 6, padding: 2 }}>
+                {['EQ', 'FUT', 'OPT'].map(t => (
+                  <button key={t} onClick={() => setPlaceInstType(t)}
+                    style={{
+                      padding: '3px 10px', fontSize: 9, fontWeight: 600, borderRadius: 4, border: 'none', cursor: 'pointer',
+                      background: placeInstType === t ? 'var(--violet)' : 'transparent',
+                      color: placeInstType === t ? '#fff' : 'var(--text-sub)',
+                    }}>{segLabel(t)}</button>
+                ))}
+              </div>
               <select className="t-input" value={placeSide} onChange={e => setPlaceSide(e.target.value)}
-                style={{ fontSize: 11, maxWidth: 80 }}>
+                style={{ fontSize: 11, maxWidth: 70 }}>
                 <option value="BUY">BUY</option>
                 <option value="SELL">SELL</option>
               </select>
               <input className="t-input" type="number" placeholder="Qty" value={placeQty}
-                onChange={e => setPlaceQty(parseInt(e.target.value) || 0)} style={{ width: 60, fontSize: 11 }} />
-              <input className="t-input" type="number" placeholder="Price (opt)" value={placePrice}
-                onChange={e => setPlacePrice(e.target.value)} style={{ width: 80, fontSize: 11 }} step="0.05" />
+                onChange={e => setPlaceQty(parseInt(e.target.value) || 0)} style={{ width: 55, fontSize: 11 }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input className="t-input" type="number" placeholder="Price" value={placePrice}
+                onChange={e => setPlacePrice(e.target.value)} style={{ width: 70, fontSize: 11 }} step="0.05" />
+              {(placeType === 'SL' || placeType === 'SL-M') && (
+                <input className="t-input" type="number" placeholder="Trigger" value={placeTrigger}
+                  onChange={e => setPlaceTrigger(e.target.value)} style={{ width: 70, fontSize: 11 }} step="0.05" />
+              )}
+              {(placeInstType === 'FUT' || placeInstType === 'OPT') && (
+                <input className="t-input" type="text" placeholder="Expiry (e.g. 25JUL)" value={placeExpiry}
+                  onChange={e => setPlaceExpiry(e.target.value.toUpperCase())} style={{ width: 90, fontSize: 11 }} />
+              )}
+              {placeInstType === 'OPT' && (
+                <>
+                  <input className="t-input" type="number" placeholder="Strike" value={placeStrike}
+                    onChange={e => setPlaceStrike(e.target.value)} style={{ width: 70, fontSize: 11 }} />
+                  <select className="t-input" value={placeOptionType} onChange={e => setPlaceOptionType(e.target.value)}
+                    style={{ fontSize: 11, maxWidth: 60 }}>
+                    <option value="CE">CE</option>
+                    <option value="PE">PE</option>
+                  </select>
+                </>
+              )}
               <select className="t-input" value={placeType} onChange={e => setPlaceType(e.target.value)}
-                style={{ fontSize: 11, maxWidth: 90 }}>
+                style={{ fontSize: 11, maxWidth: 80 }}>
                 <option value="MARKET">MARKET</option>
                 <option value="LIMIT">LIMIT</option>
                 <option value="SL">SL</option>
                 <option value="SL-M">SL-M</option>
               </select>
               <select className="t-input" value={placeExchange} onChange={e => setPlaceExchange(e.target.value)}
-                style={{ fontSize: 11, maxWidth: 80 }}>
+                style={{ fontSize: 11, maxWidth: 70 }}>
                 <option value="NSE">NSE</option>
                 <option value="BSE">BSE</option>
                 <option value="NFO">NFO</option>
                 <option value="CDS">CDS</option>
+              </select>
+              <select className="t-input" value={placeProduct} onChange={e => setPlaceProduct(e.target.value)}
+                style={{ fontSize: 11, maxWidth: 90 }}>
+                <option value="INTRADAY">INTRADAY</option>
+                <option value="CNC">CNC</option>
+                <option value="MIS">MIS</option>
+                <option value="NRML">NRML</option>
               </select>
               <button className="t-btn t-btn-sm" onClick={handlePlaceTrade} disabled={placing}
                 style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 15%, transparent)', color: 'var(--green)', border: '1px solid color-mix(in srgb, var(--green) 20%, transparent)' }}>
@@ -1097,6 +1591,7 @@ function TradesTab() {
               <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
                 <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER</th>
                 <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SYMBOL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SEG</th>
                 <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SIDE</th>
                 <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>QTY</th>
                 <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>PRICE</th>
@@ -1113,7 +1608,11 @@ function TradesTab() {
                     <div style={{ color: 'var(--text)', fontWeight: 500 }}>{o.full_name || '—'}</div>
                     <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{o.email}</div>
                   </td>
-                  <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--text)' }}>{o.symbol}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--text)' }}>{o.symbol?.split(':').pop()}</td>
+                  <td style={{ padding: '6px 8px' }}>
+                    <span className={`t-badge ${o.instrument_type === 'OPT' ? 't-badge-violet' : o.instrument_type === 'FUT' ? 't-badge-cyan' : 't-badge-green'}`}
+                      style={{ fontSize: 8, padding: '0 4px' }}>{o.instrument_type || 'EQ'}</span>
+                  </td>
                   <td style={{ padding: '6px 8px', color: o.side === 'BUY' ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{o.side}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.quantity}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.price ? o.price.toFixed(2) : '—'}</td>
@@ -1141,6 +1640,204 @@ function TradesTab() {
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  )
+}
+
+function PositionsOrderBookTab() {
+  const [userFilter, setUserFilter] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [livePositions, setLivePositions] = useState(false)
+  const [liveData, setLiveData] = useState<any[] | null>(null)
+  const [liveLoading, setLiveLoading] = useState(false)
+
+  const { data: posData, loading: posLoading } = useApi<{ positions: any[]; count: number }>(
+    livePositions ? null : `/admin/positions${userFilter ? `?user_id=${userFilter}` : ''}&_=${refreshKey}`
+  )
+  const { data: ordData, loading: ordLoading } = useApi<{ orders: any[]; count: number }>(
+    `/admin/orders?limit=100${userFilter ? `&user_id=${userFilter}` : ''}&_=${refreshKey}`
+  )
+  const { data: usersData } = useApi<{ users: AdminUser[] }>('/admin/users')
+
+  const positions = liveData || posData?.positions || []
+  const orders = ordData?.orders || []
+  const users = usersData?.users || []
+  const [tab, setTab] = useState<'positions' | 'orders'>('positions')
+
+  const fetchLivePositions = useCallback(async () => {
+    if (!userFilter) return
+    setLiveLoading(true)
+    try {
+      const res = await api.admin.fetch<{ positions: any[]; count: number; source: string }>(`/positions/live/${userFilter}`)
+      setLiveData(res.positions)
+    } catch {
+      setLiveData([])
+    } finally { setLiveLoading(false) }
+  }, [userFilter])
+
+  useEffect(() => {
+    const int = setInterval(() => setRefreshKey(k => k + 1), 10000)
+    return () => clearInterval(int)
+  }, [])
+
+  useEffect(() => {
+    if (!livePositions) setLiveData(null)
+  }, [livePositions])
+
+  const segmentBadge = (t: string) => {
+    const map: Record<string, string> = { EQ: 't-badge-green', FUT: 't-badge-cyan', OPT: 't-badge-violet' }
+    return <span className={`t-badge ${map[t] || 't-badge-green'}`} style={{ fontSize: 9 }}>{t || 'EQ'}</span>
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+        <select className="t-input" value={userFilter} onChange={e => { setUserFilter(e.target.value); if (livePositions && !e.target.value) { setLivePositions(false); setLiveData(null) }}}
+          style={{ fontSize: 11, maxWidth: 220 }}>
+          <option value="">— All users —</option>
+          {users.map(u => (
+            <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.email})</option>
+          ))}
+        </select>
+        <div style={{ display: 'flex', gap: 4, background: 'color-mix(in srgb, var(--violet) 6%, transparent)', borderRadius: 6, padding: 2 }}>
+          {(['positions', 'orders'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{
+                padding: '4px 14px', fontSize: 10, fontWeight: 600, borderRadius: 4, border: 'none', cursor: 'pointer',
+                background: tab === t ? 'var(--violet)' : 'transparent',
+                color: tab === t ? '#fff' : 'var(--text-sub)',
+                textTransform: 'capitalize',
+              }}>{t} {t === 'positions' ? `(${positions.length})` : `(${orders.length})`}</button>
+          ))}
+        </div>
+        {tab === 'positions' && (
+          <button className={`t-btn t-btn-xs`} onClick={() => { setLivePositions(!livePositions); if (!livePositions && userFilter) fetchLivePositions() }}
+            style={{ fontSize: 9, color: livePositions ? 'var(--green)' : 'var(--text-sub)' }}>
+            {livePositions ? 'Live' : 'DB'}
+          </button>
+        )}
+        {livePositions && userFilter && (
+          <button className="t-btn t-btn-xs" onClick={fetchLivePositions} disabled={liveLoading}
+            style={{ fontSize: 9 }}>
+            {liveLoading ? '...' : 'Refresh'}
+          </button>
+        )}
+        <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{livePositions ? 'live broker' : 'auto-refreshes'}</span>
+      </div>
+
+      {tab === 'positions' && (
+        posLoading ? <SkeletonCard /> :
+        positions.length === 0 ? (
+          <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No open positions.</p>
+          </div>
+        ) : (
+          <div className="t-panel" style={{ padding: 0 }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SYMBOL</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SEG</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>QTY</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>BUY AVG</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>Unrealised P&L</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>Realised P&L</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>PRODUCT</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>BROKER</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {positions.map((p: any, i: number) => (
+                    <tr key={i} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
+                      <td style={{ padding: '6px 8px' }}>
+                        <div style={{ fontWeight: 500 }}>{p.full_name || '—'}</div>
+                        <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{p.email}</div>
+                      </td>
+                      <td style={{ padding: '6px 8px', fontWeight: 600 }}>{p.symbol?.split(':').pop()}</td>
+                      <td style={{ padding: '6px 8px' }}>{segmentBadge(p.instrument_type)}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{p.quantity}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{p.average_buy_price?.toFixed(1) || '-'}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: (p.unrealised_pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                        {(p.unrealised_pnl || 0) >= 0 ? '+' : ''}{p.unrealised_pnl?.toFixed(0) || '0'}
+                      </td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: (p.realised_pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {(p.realised_pnl || 0) >= 0 ? '+' : ''}{p.realised_pnl?.toFixed(0) || '0'}
+                      </td>
+                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                        <span style={{ fontSize: 9, opacity: 0.7 }}>{p.product}</span>
+                      </td>
+                      <td style={{ padding: '6px 8px', textTransform: 'capitalize' }}>{p.broker}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      )}
+
+      {tab === 'orders' && (
+        ordLoading ? <SkeletonCard /> :
+        orders.length === 0 ? (
+          <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No orders found.</p>
+          </div>
+        ) : (
+          <div className="t-panel" style={{ padding: 0 }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SYMBOL</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SEG</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SIDE</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>QTY</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>PRICE</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>FILLED</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>AVG</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>STATUS</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>TYPE</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>AT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((o: any) => (
+                    <tr key={o.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
+                      <td style={{ padding: '6px 8px' }}>
+                        <div style={{ fontWeight: 500 }}>{o.full_name || '—'}</div>
+                        <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{o.email}</div>
+                      </td>
+                      <td style={{ padding: '6px 8px', fontWeight: 600 }}>{o.symbol?.split(':').pop()}</td>
+                      <td style={{ padding: '6px 8px' }}>{segmentBadge(o.instrument_type)}</td>
+                      <td style={{ padding: '6px 8px', color: o.side === 'BUY' ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{o.side}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.quantity}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.price?.toFixed(2) || '—'}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.filled_quantity || 0}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.average_price?.toFixed(1) || '-'}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                        <span className={`t-badge ${o.status === 'FILLED' ? 't-badge-green' : o.status === 'OPEN' || o.status === 'PENDING' ? 't-badge-cyan' : o.status === 'REJECTED' ? 't-badge-red' : 't-badge-violet'}`}
+                          style={{ fontSize: 8 }}>{o.status}</span>
+                      </td>
+                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                        {o.is_paper
+                          ? <span style={{ color: 'var(--amber)', fontSize: 9 }}>Paper</span>
+                          : <span style={{ color: 'var(--green)', fontSize: 9 }}>Live</span>
+                        }
+                      </td>
+                      <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)' }}>
+                        {o.created_at ? new Date(o.created_at).toLocaleString() : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
       )}
     </div>
   )

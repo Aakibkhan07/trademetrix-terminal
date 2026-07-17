@@ -477,10 +477,46 @@ SUBSCRIPTION_TIER_ORDER: dict[str, int] = {
 }
 
 SUBSCRIPTION_TIER_FEATURES: dict[str, list[str]] = {
-    "monthly": ["2 strategies", "no builder", "1yr backtest"],
-    "quarterly": ["4 strategies", "trailing SL", "2yr backtest"],
-    "halfyearly": ["8 strategies", "builder UNLOCKED", "5yr backtest"],
-    "yearly": ["15 strategies", "builder + custom dev", "5yr backtest"],
+    "monthly": [
+        "2 Active Strategies",
+        "Auto Execution",
+        "Option Chain Scanner",
+        "Risk Management",
+        "Email Support",
+        "1 Broker Integration",
+        "Backtesting Engine",
+        "Strategy Builder",
+    ],
+    "quarterly": [
+        "4 Active Strategies",
+        "Auto Execution",
+        "Option Chain Scanner",
+        "Risk Management",
+        "Priority Email Support",
+        "3 Broker Integrations",
+        "Backtesting (2-year)",
+        "Trailing Stop-Loss",
+    ],
+    "halfyearly": [
+        "8 Active Strategies",
+        "Auto Execution",
+        "Advanced Option Scanner",
+        "Advanced Risk Management",
+        "24/7 WhatsApp Support",
+        "All 7 Broker Integrations",
+        "Backtesting (5-year)",
+        "Strategy Builder Beta",
+    ],
+    "yearly": [
+        "15 Active Strategies",
+        "Full Platform Access",
+        "Dedicated Manager",
+        "24/7 Priority Support",
+        "All Broker Integrations",
+        "Backtesting (5-year)",
+        "Strategy Builder Full Access",
+        "Custom Strategy Development",
+    ],
 }
 
 SUBSCRIPTION_TIER_PRICES: dict[str, int] = {

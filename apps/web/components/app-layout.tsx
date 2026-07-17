@@ -17,7 +17,9 @@ const NAV_SECTIONS = [
       { href: '/dashboard', label: 'Dashboard', icon: '◉' },
       { href: '/dashboard?tab=users', label: 'Users', icon: 'U' },
       { href: '/dashboard?tab=trades', label: 'Trades', icon: 'T' },
+      { href: '/dashboard?tab=positions-book', label: 'Positions & Orders', icon: 'P' },
       { href: '/dashboard?tab=brokers', label: 'Brokers', icon: 'B' },
+      { href: '/dashboard?tab=strategies', label: 'Strategies', icon: '⚔' },
     ],
   },
   {

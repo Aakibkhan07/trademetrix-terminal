@@ -89,10 +89,16 @@ export interface AdminOrder {
   product: string
   quantity: number
   price: number
+  trigger_price?: number
   status: string
   is_paper: boolean
   message: string
   filled_quantity: number
+  average_price: number
+  instrument_type: string
+  strike_price?: number
+  expiry_date?: string
+  option_type?: string
   filled_at: string
   created_at: string
 }
@@ -319,6 +325,11 @@ export const api = {
       create: (data: { user_id: string; strategy_key: string }) =>
         request('/admin/assignments', { method: 'POST', body: data }),
       remove: (id: string) => request(`/admin/assignments/${id}`, { method: 'DELETE' }),
+      batch: (data: { user_ids: string[]; strategy_key: string }) =>
+        request<{ created: number; skipped: number; strategy_key: string }>('/admin/assignments/batch', { method: 'POST', body: data }),
+      export: () => request<{ assignments: any[]; count: number }>('/admin/assignments/export'),
+      import: (entries: { user_id: string; strategy_key: string }[]) =>
+        request<{ created: number; skipped: number; errors: any[] }>('/admin/assignments/import', { method: 'POST', body: { entries } }),
     },
     fetch: <T>(path: string) => request<T>('/admin' + path),
     brokers: () => request<{ brokers: AdminBroker[] }>('/admin/brokers'),
@@ -326,6 +337,8 @@ export const api = {
       request<{ orders: AdminOrder[]; count: number }>('/admin/orders' + (params ? '?' + new URLSearchParams(
         Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
       ).toString() : '')),
+    positions: (user_id?: string) =>
+      request<{ positions: any[]; count: number }>(user_id ? `/admin/positions?user_id=${user_id}` : '/admin/positions'),
     auditLog: (params?: { user_id?: string; action?: string; limit?: number; offset?: number }) =>
       request<{ entries: AdminAuditEntry[]; count: number }>('/admin/audit-log' + (params ? '?' + new URLSearchParams(
         Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
@@ -365,10 +378,20 @@ export const api = {
         '/admin/broadcast', { method: 'POST', body: data },
       ),
     },
+    strategies: {
+      list: () => request<{ strategies: any[] }>('/admin/strategies'),
+      create: (data: { key: string; name: string; description?: string; required_tier?: string; category?: string }) =>
+        request<{ id: string; key: string; name: string; message: string }>('/admin/strategies', { method: 'POST', body: data }),
+      update: (key: string, data: { name?: string; description?: string; required_tier?: string; category?: string }) =>
+        request<{ key: string; message: string }>(`/admin/strategies/${key}`, { method: 'PUT', body: data }),
+      delete: (key: string) =>
+        request<{ message: string }>(`/admin/strategies/${key}`, { method: 'DELETE' }),
+    },
     executeTrade: (data: {
       user_id: string; symbol: string; side: string; quantity: number;
       price?: number; exchange?: string; order_type?: string; product?: string;
       trigger_price?: number; instrument_type?: string;
+      expiry_date?: string; strike_price?: number; option_type?: string;
     }) => request<{ result: Record<string, unknown> }>(
       '/admin/execute-trade', { method: 'POST', body: data },
     ),
