@@ -64,6 +64,7 @@ function DashboardInner() {
     : tab === 'webhook-tester' ? 'Webhook Tester'
     : tab === 'trade-router' ? 'Multi-Broker Trade Router'
     : tab === 'backups' ? 'Automated Backup'
+    : tab === 'ip-whitelist' ? 'IP Whitelist'
     : 'Control Center'
 
   return (

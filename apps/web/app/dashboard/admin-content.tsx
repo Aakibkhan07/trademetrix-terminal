@@ -15,6 +15,7 @@ import { ReferralsTab } from './referrals-tab'
 import { WebhookTesterTab } from './webhook-tester-tab'
 import { TradeRouterTab } from './trade-router-tab'
 import { BackupsTab } from './backups-tab'
+import { IPWhitelistTab } from './ip-whitelist-tab'
 
 interface HealthData {
   status: string
@@ -128,6 +129,7 @@ export function AdminDashboard() {
       {tab === 'webhook-tester' && <WebhookTesterTab />}
       {tab === 'trade-router' && <TradeRouterTab />}
       {tab === 'backups' && <BackupsTab />}
+      {tab === 'ip-whitelist' && <IPWhitelistTab />}
       {showBroadcast && <BroadcastDialog onClose={() => setShowBroadcast(false)} />}
     </>
   )

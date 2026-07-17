@@ -35,6 +35,7 @@ const NAV_SECTIONS = [
       { href: '/dashboard?tab=webhook-tester', label: 'Webhook Tester', icon: '🔌' },
       { href: '/dashboard?tab=trade-router', label: 'Trade Router', icon: '🔀' },
       { href: '/dashboard?tab=backups', label: 'Backups', icon: '💾' },
+      { href: '/dashboard?tab=ip-whitelist', label: 'IP Whitelist', icon: '🛡️' },
     ],
   },
   {

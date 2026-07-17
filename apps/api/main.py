@@ -14,6 +14,7 @@ from core.exceptions import AppException
 from core.logging import record_request_duration, setup_logging
 from core.middleware.request_id import RequestIDMiddleware
 from core.middleware.request_logging import RequestLoggingMiddleware
+from core.middleware.ip_whitelist import AdminIPWhitelistMiddleware
 from core.middleware.security import SecurityHeadersMiddleware
 from core.prometheus import record_metrics
 from core.prometheus import router as prometheus_router
@@ -121,6 +122,7 @@ app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
 app.add_middleware(InputValidationMiddleware)
 app.add_middleware(CSRFProtectMiddleware)
 app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)
+app.add_middleware(AdminIPWhitelistMiddleware)
 
 
 @app.middleware("http")

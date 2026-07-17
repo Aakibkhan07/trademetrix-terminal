@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from brokers.fyers_adapter import FyersAdapter
 from core.audit import record_audit
+from core.cache import cache
 from core.config import settings
 from core.capabilities import CAP_MAP, FREE, resolve_capabilities_by_id
 from core.db import async_supabase, get_supabase
@@ -1196,6 +1197,35 @@ class AdminService:
             "users_with_referral_codes": users_with_codes,
             "conversion_rate": round(completed / total * 100, 1) if total > 0 else 0,
         }
+
+    async def list_ip_whitelist(self) -> dict:
+        supabase = get_supabase()
+        rows = await async_safe_execute(supabase.table("admin_ip_whitelist").select("*").order("created_at")) or []
+        return {"ips": rows}
+
+    async def add_ip_whitelist(self, ip_address: str, label: str, admin_id: str) -> dict:
+        supabase = get_supabase()
+        result = supabase.table("admin_ip_whitelist").insert({
+            "ip_address": ip_address,
+            "label": label,
+            "created_by": admin_id,
+        }).execute()
+        await cache.delete("admin_ip_whitelist")
+        record_audit(AuditLogEntry(
+            user_id=admin_id, action="whitelist_add", resource="admin",
+            details={"ip_address": ip_address, "label": label},
+        ))
+        return {"ip": result.data[0] if result.data else {"ip_address": ip_address, "label": label}}
+
+    async def remove_ip_whitelist(self, ip_id: str, admin_id: str) -> dict:
+        supabase = get_supabase()
+        supabase.table("admin_ip_whitelist").delete().eq("id", ip_id).execute()
+        await cache.delete("admin_ip_whitelist")
+        record_audit(AuditLogEntry(
+            user_id=admin_id, action="whitelist_remove", resource="admin",
+            details={"ip_id": ip_id},
+        ))
+        return {"deleted": ip_id}
 
     async def list_all_user_strategies(self, user_id: str | None = None) -> dict:
         supabase = get_supabase()
