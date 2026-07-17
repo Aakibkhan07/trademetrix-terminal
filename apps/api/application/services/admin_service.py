@@ -509,6 +509,76 @@ class AdminService:
         data = await async_safe_execute(query.limit(limit).offset(offset)) or []
         return {"entries": data, "count": len(data)}
 
+    async def get_pnl_overview(self, user_id: str = "", period: str = "daily", from_date: str = "", to_date: str = "") -> dict:
+        supabase = get_supabase()
+        start = from_date or (datetime.utcnow().isoformat()[:10] if period == "daily" else "")
+        end = to_date or datetime.utcnow().isoformat()[:10]
+
+        q_pos = supabase.table("positions_snapshot").select("*")
+        q_ord = supabase.table("orders").select("user_id, side, filled_quantity, average_price, filled_at, created_at, status, symbol, is_paper").eq("status", "FILLED")
+        if user_id:
+            q_pos = q_pos.eq("user_id", user_id)
+            q_ord = q_ord.eq("user_id", user_id)
+        if start:
+            q_pos = q_pos.gte("snapshot_at", start)
+            q_ord = q_ord.gte("filled_at", start) if start else q_ord
+        if end:
+            q_ord = q_ord.lte("filled_at", end)
+
+        positions = await async_safe_execute(q_pos.order("snapshot_at", desc=True).limit(500)) or []
+        orders = await async_safe_execute(q_ord.order("filled_at", desc=True).limit(1000)) or []
+
+        total_realised = sum(p.get("realised_pnl", 0) or 0 for p in positions)
+        total_unrealised = sum(p.get("unrealised_pnl", 0) or 0 for p in positions)
+        total_m2m = sum(p.get("m2m", 0) or 0 for p in positions)
+        open_positions = len([p for p in positions if p.get("quantity", 0) != 0])
+
+        filled_buy = sum(o.get("filled_quantity", 0) * o.get("average_price", 0) for o in orders if o.get("side") == "BUY")
+        filled_sell = sum(o.get("filled_quantity", 0) * o.get("average_price", 0) for o in orders if o.get("side") == "SELL")
+        trading_pnl = filled_sell - filled_buy
+
+        daily_groups: dict[str, dict] = {}
+        for o in orders:
+            day = (o.get("filled_at") or o.get("created_at") or "")[:10]
+            if not day:
+                continue
+            if day not in daily_groups:
+                daily_groups[day] = {"buy": 0, "sell": 0, "count": 0, "paper_count": 0}
+            val = o.get("filled_quantity", 0) * o.get("average_price", 0)
+            if o.get("side") == "BUY":
+                daily_groups[day]["buy"] += val
+            else:
+                daily_groups[day]["sell"] += val
+            daily_groups[day]["count"] += 1
+            if o.get("is_paper"):
+                daily_groups[day]["paper_count"] += 1
+
+        daily_pnl = []
+        for day in sorted(daily_groups.keys()):
+            g = daily_groups[day]
+            daily_pnl.append({"date": day, "pnl": round(g["sell"] - g["buy"], 2), "trades": g["count"], "paper_trades": g["paper_count"]})
+
+        user_ids = list(set(p["user_id"] for p in positions) | set(o["user_id"] for o in orders))
+        profile_map = {}
+        if user_ids:
+            profiles = await async_safe_execute(
+                supabase.table("profiles").select("id, email, full_name").in_("id", user_ids)
+            ) or []
+            profile_map = {p["id"]: p for p in profiles}
+
+        return {
+            "summary": {
+                "total_realised": round(total_realised, 2),
+                "total_unrealised": round(total_unrealised, 2),
+                "total_m2m": round(total_m2m, 2),
+                "trading_pnl": round(trading_pnl, 2),
+                "open_positions": open_positions,
+                "filled_orders": len(orders),
+            },
+            "daily_pnl": daily_pnl,
+            "users": [{"id": uid, "email": profile_map.get(uid, {}).get("email", ""), "full_name": profile_map.get(uid, {}).get("full_name", "")} for uid in user_ids],
+        }
+
     async def get_stats(self) -> dict:
         supabase = get_supabase()
         profiles = await async_safe_execute(

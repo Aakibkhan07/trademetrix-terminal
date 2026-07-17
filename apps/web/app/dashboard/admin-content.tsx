@@ -8,6 +8,7 @@ import { BroadcastDialog } from './broadcast-dialog'
 import { SubscriptionsTab } from './subscriptions-tab'
 import { TradingLogsTab } from './trading-logs-tab'
 import { ActivityTimelineTab } from './activity-timeline-tab'
+import { PnLDashboardTab } from './pnl-dashboard-tab'
 
 interface HealthData {
   status: string
@@ -114,6 +115,7 @@ export function AdminDashboard() {
       {tab === 'subscriptions' && <SubscriptionsTab />}
       {tab === 'trading-logs' && <TradingLogsTab />}
       {tab === 'activity' && <ActivityTimelineTab />}
+      {tab === 'pnl' && <PnLDashboardTab />}
       {showBroadcast && <BroadcastDialog onClose={() => setShowBroadcast(false)} />}
     </>
   )
@@ -231,6 +233,10 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
           <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=activity')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
             Activity Timeline
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=pnl')}
+            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
+            P&L Dashboard
           </button>
         </div>
       </div>

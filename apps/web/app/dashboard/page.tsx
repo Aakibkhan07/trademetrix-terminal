@@ -57,6 +57,7 @@ function DashboardInner() {
     : tab === 'subscriptions' ? 'Subscriptions'
     : tab === 'trading-logs' ? 'Trading Logs'
     : tab === 'activity' ? 'Activity Timeline'
+    : tab === 'pnl' ? 'P&L Dashboard'
     : 'Control Center'
 
   return (

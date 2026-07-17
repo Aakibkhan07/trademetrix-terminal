@@ -273,6 +273,17 @@ async def admin_audit_log(
     return await _service.get_audit_log(user_id, action, from_date, to_date, limit, offset)
 
 
+@router.get("/pnl")
+async def admin_pnl(
+    user_id: str = Query(""),
+    period: str = Query("daily"),
+    from_date: str = Query(""),
+    to_date: str = Query(""),
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.get_pnl_overview(user_id, period, from_date, to_date)
+
+
 @router.get("/stats")
 async def admin_stats(admin: UserProfile = Depends(require_admin)):
     return await _service.get_stats()
