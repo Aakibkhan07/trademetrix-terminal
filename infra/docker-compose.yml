@@ -56,9 +56,7 @@ services:
     tmpfs:
       - /tmp
     environment:
-      BACKUP_DIR: /backups
-    volumes:
-      - backup-data:/backups
+      BACKUP_DIR: /tmp/backups
 
   web:
     build:
