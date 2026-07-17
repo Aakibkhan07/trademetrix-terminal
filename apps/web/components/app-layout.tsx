@@ -33,6 +33,7 @@ const NAV_SECTIONS = [
       { href: '/dashboard?tab=user-strategies', label: 'User Algos', icon: '🤖' },
       { href: '/dashboard?tab=referrals', label: 'Referrals', icon: '🔗' },
       { href: '/dashboard?tab=webhook-tester', label: 'Webhook Tester', icon: '🔌' },
+      { href: '/dashboard?tab=trade-router', label: 'Trade Router', icon: '🔀' },
     ],
   },
   {

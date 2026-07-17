@@ -66,6 +66,33 @@ class AdminService:
 
         return {"users": result}
 
+    async def list_users_with_brokers(self) -> dict:
+        supabase = get_supabase()
+        profiles = await async_safe_execute(
+            supabase.table("profiles").select("id, email, full_name, subscription_tier")
+        ) or []
+        brokers_raw = await async_safe_execute(
+            supabase.table("broker_credentials").select("user_id, broker, is_active")
+        ) or []
+        broker_map: dict[str, list[dict]] = {}
+        for b in brokers_raw:
+            uid = b["user_id"]
+            if uid not in broker_map:
+                broker_map[uid] = []
+            broker_map[uid].append({"broker": b["broker"], "active": b.get("is_active", False)})
+        result = []
+        for p in profiles:
+            uid = p["id"]
+            result.append({
+                "id": uid,
+                "email": p.get("email", ""),
+                "full_name": p.get("full_name", ""),
+                "subscription_tier": p.get("subscription_tier", "free"),
+                "brokers": broker_map.get(uid, []),
+                "has_broker": len(broker_map.get(uid, [])) > 0,
+            })
+        return {"users": result}
+
     async def list_assignments(self, user_id: str = "") -> dict:
         supabase = get_supabase()
         query = supabase.table("strategy_assignments").select("*").order("created_at", desc=True)

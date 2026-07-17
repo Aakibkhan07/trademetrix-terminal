@@ -62,6 +62,7 @@ function DashboardInner() {
     : tab === 'user-strategies' ? 'User Algo Builder'
     : tab === 'referrals' ? 'Referral System'
     : tab === 'webhook-tester' ? 'Webhook Tester'
+    : tab === 'trade-router' ? 'Multi-Broker Trade Router'
     : 'Control Center'
 
   return (

@@ -13,6 +13,7 @@ import { StrategyPerformanceTab } from './strategy-performance-tab'
 import { UserStrategiesTab } from './user-strategies-tab'
 import { ReferralsTab } from './referrals-tab'
 import { WebhookTesterTab } from './webhook-tester-tab'
+import { TradeRouterTab } from './trade-router-tab'
 
 interface HealthData {
   status: string
@@ -124,6 +125,7 @@ export function AdminDashboard() {
       {tab === 'user-strategies' && <UserStrategiesTab />}
       {tab === 'referrals' && <ReferralsTab />}
       {tab === 'webhook-tester' && <WebhookTesterTab />}
+      {tab === 'trade-router' && <TradeRouterTab />}
       {showBroadcast && <BroadcastDialog onClose={() => setShowBroadcast(false)} />}
     </>
   )

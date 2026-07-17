@@ -319,6 +319,11 @@ async def admin_fyers_re_auth(
     return await _service.fyers_re_auth(credential_id, admin.id)
 
 
+@router.get("/users/with-brokers")
+async def admin_list_users_with_brokers(admin: UserProfile = Depends(require_admin)):
+    return await _service.list_users_with_brokers()
+
+
 @router.get("/referrals")
 async def admin_list_referrals(
     user_id: str | None = Query(None),
