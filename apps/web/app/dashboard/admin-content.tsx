@@ -14,6 +14,7 @@ import { UserStrategiesTab } from './user-strategies-tab'
 import { ReferralsTab } from './referrals-tab'
 import { WebhookTesterTab } from './webhook-tester-tab'
 import { TradeRouterTab } from './trade-router-tab'
+import { BackupsTab } from './backups-tab'
 
 interface HealthData {
   status: string
@@ -126,6 +127,7 @@ export function AdminDashboard() {
       {tab === 'referrals' && <ReferralsTab />}
       {tab === 'webhook-tester' && <WebhookTesterTab />}
       {tab === 'trade-router' && <TradeRouterTab />}
+      {tab === 'backups' && <BackupsTab />}
       {showBroadcast && <BroadcastDialog onClose={() => setShowBroadcast(false)} />}
     </>
   )

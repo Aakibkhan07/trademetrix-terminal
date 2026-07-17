@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
+import application.services.backup_service
 from application.services.admin_service import AdminService
 from core.deps import require_admin, require_super_admin
 from core.models import UserProfile
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 _service = AdminService()
+_backup = application.services.backup_service.BackupService()
 
 
 class AssignRequest(BaseModel):
@@ -374,3 +376,29 @@ async def admin_remove_admin(
     admin: UserProfile = Depends(require_super_admin),
 ):
     return await _service.remove_admin(user_id, admin.id)
+
+
+@router.get("/backups")
+async def admin_list_backups(admin: UserProfile = Depends(require_admin)):
+    return await _backup.list_backups()
+
+
+@router.post("/backups/run")
+async def admin_run_backup(admin: UserProfile = Depends(require_admin)):
+    return await _backup.run_backup()
+
+
+@router.post("/backups/restore/{filename:path}")
+async def admin_restore_backup(
+    filename: str,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _backup.restore_backup(filename)
+
+
+@router.delete("/backups/{filename:path}")
+async def admin_delete_backup(
+    filename: str,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _backup.delete_backup(filename)

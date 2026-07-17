@@ -55,6 +55,10 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    environment:
+      BACKUP_DIR: /backups
+    volumes:
+      - backup-data:/backups
 
   web:
     build:
@@ -218,3 +222,4 @@ volumes:
   certbot-logs:
   prometheus-data:
   grafana-data:
+  backup-data:

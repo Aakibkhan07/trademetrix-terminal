@@ -63,6 +63,7 @@ function DashboardInner() {
     : tab === 'referrals' ? 'Referral System'
     : tab === 'webhook-tester' ? 'Webhook Tester'
     : tab === 'trade-router' ? 'Multi-Broker Trade Router'
+    : tab === 'backups' ? 'Automated Backup'
     : 'Control Center'
 
   return (
