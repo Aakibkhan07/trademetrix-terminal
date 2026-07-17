@@ -8,7 +8,7 @@ from core.db import get_supabase
 
 logger = logging.getLogger(__name__)
 
-BACKUP_DIR = os.getenv("BACKUP_DIR", "/backups")
+BACKUP_DIR = os.getenv("BACKUP_DIR", "/tmp/backups")
 
 EXPORT_TABLES = [
     "profiles",
@@ -22,8 +22,6 @@ EXPORT_TABLES = [
     "positions_snapshot",
     "subscriptions",
     "referrals",
-    "notifications",
-    "alerts",
 ]
 
 
