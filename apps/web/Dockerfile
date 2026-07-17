@@ -1,9 +1,5 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_WS_URL
 COPY package*.json ./
 RUN npm ci --cache /tmp/npm-cache
 COPY . .

@@ -60,11 +60,6 @@ services:
     build:
       context: ../apps/web
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.ai.trademetrix.tech/api/v1}
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-wss://api.ai.trademetrix.tech/api/v1/marketdata/ws}
     container_name: trademetrix_web
     restart: unless-stopped
     networks: [trademetrix]
