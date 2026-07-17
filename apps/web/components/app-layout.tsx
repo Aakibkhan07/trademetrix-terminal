@@ -32,6 +32,7 @@ const NAV_SECTIONS = [
       { href: '/dashboard?tab=strategy-perf', label: 'Perf Tracker', icon: '📈' },
       { href: '/dashboard?tab=user-strategies', label: 'User Algos', icon: '🤖' },
       { href: '/dashboard?tab=referrals', label: 'Referrals', icon: '🔗' },
+      { href: '/dashboard?tab=webhook-tester', label: 'Webhook Tester', icon: '🔌' },
     ],
   },
   {

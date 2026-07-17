@@ -61,6 +61,7 @@ function DashboardInner() {
     : tab === 'strategy-perf' ? 'Strategy Performance'
     : tab === 'user-strategies' ? 'User Algo Builder'
     : tab === 'referrals' ? 'Referral System'
+    : tab === 'webhook-tester' ? 'Webhook Tester'
     : 'Control Center'
 
   return (
