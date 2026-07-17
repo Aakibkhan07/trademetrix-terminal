@@ -7,6 +7,7 @@ import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, A
 import { BroadcastDialog } from './broadcast-dialog'
 import { SubscriptionsTab } from './subscriptions-tab'
 import { TradingLogsTab } from './trading-logs-tab'
+import { ActivityTimelineTab } from './activity-timeline-tab'
 
 interface HealthData {
   status: string
@@ -112,6 +113,7 @@ export function AdminDashboard() {
       {tab === 'buyer-strategies' && <BuyerStrategiesTab />}
       {tab === 'subscriptions' && <SubscriptionsTab />}
       {tab === 'trading-logs' && <TradingLogsTab />}
+      {tab === 'activity' && <ActivityTimelineTab />}
       {showBroadcast && <BroadcastDialog onClose={() => setShowBroadcast(false)} />}
     </>
   )
@@ -225,6 +227,10 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
           <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=trading-logs')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
             Trading Logs
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=activity')}
+            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
+            Activity Timeline
           </button>
         </div>
       </div>

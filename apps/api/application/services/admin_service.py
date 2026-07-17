@@ -495,14 +495,17 @@ class AdminService:
 
         return {"positions": positions, "count": len(positions)}
 
-    async def get_audit_log(self, user_id: str = "", action: str = "", limit: int = 50, offset: int = 0) -> dict:
+    async def get_audit_log(self, user_id: str = "", action: str = "", from_date: str = "", to_date: str = "", limit: int = 50, offset: int = 0) -> dict:
         supabase = get_supabase()
         query = supabase.table("audit_log").select("*").order("created_at", desc=True)
         if user_id:
             query = query.eq("user_id", user_id)
         if action:
             query = query.eq("action", action)
-
+        if from_date:
+            query = query.gte("created_at", from_date)
+        if to_date:
+            query = query.lte("created_at", to_date)
         data = await async_safe_execute(query.limit(limit).offset(offset)) or []
         return {"entries": data, "count": len(data)}
 

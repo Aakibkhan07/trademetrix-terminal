@@ -56,6 +56,7 @@ function DashboardInner() {
     : tab === 'buyer-strategies' ? 'Buyer Strategies'
     : tab === 'subscriptions' ? 'Subscriptions'
     : tab === 'trading-logs' ? 'Trading Logs'
+    : tab === 'activity' ? 'Activity Timeline'
     : 'Control Center'
 
   return (

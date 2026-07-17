@@ -266,6 +266,12 @@ async def forgot_password(req: ForgotPasswordRequest):
     except Exception as e:
         logger.warning("Failed to send password reset: %s", e)
 
+    record_audit(AuditLogEntry(
+        user_id="",
+        action="forgot_password",
+        resource="auth",
+        details={"email": req.email},
+    ))
     return {"message": "If that email is registered, a password reset link has been sent"}
 
 

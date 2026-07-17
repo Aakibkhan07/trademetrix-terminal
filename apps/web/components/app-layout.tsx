@@ -34,6 +34,7 @@ const NAV_SECTIONS = [
     label: 'Security',
     items: [
       { href: '/dashboard?tab=risk', label: 'Risk', icon: 'R' },
+      { href: '/dashboard?tab=activity', label: 'Activity', icon: '⏱' },
       { href: '/dashboard?tab=audit', label: 'Audit Log', icon: 'A' },
       { href: '/admin/admins', label: 'Admins', icon: '#' },
     ],

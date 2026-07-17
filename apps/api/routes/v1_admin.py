@@ -264,11 +264,13 @@ async def admin_delete_strategy(
 async def admin_audit_log(
     user_id: str = Query(""),
     action: str = Query(""),
+    from_date: str = Query(""),
+    to_date: str = Query(""),
     limit: int = Query(50, le=200),
     offset: int = Query(0, ge=0),
     admin: UserProfile = Depends(require_admin),
 ):
-    return await _service.get_audit_log(user_id, action, limit, offset)
+    return await _service.get_audit_log(user_id, action, from_date, to_date, limit, offset)
 
 
 @router.get("/stats")

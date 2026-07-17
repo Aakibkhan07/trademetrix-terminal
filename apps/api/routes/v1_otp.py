@@ -108,6 +108,12 @@ async def send_otp(req: SendOTPRequest):
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to send OTP. No email service configured. Contact your admin to set SMTP or RESEND_API_KEY.",
         )
+    record_audit(AuditLogEntry(
+        user_id=user["id"] if user else "",
+        action="send_otp",
+        resource="auth",
+        details={"email": req.email, "exists": bool(user)},
+    ))
     return {"message": "OTP sent to your registered contact", "exists": bool(user)}
 
 
@@ -165,6 +171,12 @@ async def register_with_otp(req: RegisterWithOTPRequest):
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Account created but failed to send OTP. No email service configured. Contact your admin.",
         )
+    record_audit(AuditLogEntry(
+        user_id=user_id,
+        action="register_with_otp",
+        resource="auth",
+        details={"email": req.email},
+    ))
     return {"message": "Account created. OTP sent to your registered contact.", "user_id": user_id}
 
 
