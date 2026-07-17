@@ -333,10 +333,12 @@ export const api = {
     },
     fetch: <T>(path: string) => request<T>('/admin' + path),
     brokers: () => request<{ brokers: AdminBroker[] }>('/admin/brokers'),
-    orders: (params?: { user_id?: string; is_paper?: string; limit?: number; offset?: number }) =>
+    orders: (params?: { user_id?: string; is_paper?: string; symbol?: string; from_date?: string; to_date?: string; limit?: number; offset?: number }) =>
       request<{ orders: AdminOrder[]; count: number }>('/admin/orders' + (params ? '?' + new URLSearchParams(
         Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
       ).toString() : '')),
+    broadcastNotify: (data: { title: string; message: string; type?: string; user_ids?: string[] }) =>
+      request<{ results: any[]; total: number; success: number; failed: number }>('/admin/broadcast/notify', { method: 'POST', body: data }),
     positions: (user_id?: string) =>
       request<{ positions: any[]; count: number }>(user_id ? `/admin/positions?user_id=${user_id}` : '/admin/positions'),
     auditLog: (params?: { user_id?: string; action?: string; limit?: number; offset?: number }) =>

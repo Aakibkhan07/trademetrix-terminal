@@ -322,6 +322,34 @@ class AdminService:
 
         return {"results": results, "count": len(results), "paper": paper}
 
+    async def notify_broadcast(self, title: str, message: str, notify_type: str, user_ids: list[str] | None, admin_id: str) -> dict:
+        from core.notifications import send_alert_email, send_alert_sms
+        supabase = get_supabase()
+        if user_ids:
+            users = await async_safe_execute(
+                supabase.table("profiles").select("id, email, full_name, phone").in_("id", user_ids)
+            ) or []
+        else:
+            users = await async_safe_execute(
+                supabase.table("profiles").select("id, email, full_name, phone")
+            ) or []
+        results = []
+        for u in users:
+            email = u.get("email", "")
+            phone = u.get("phone", "")
+            sent = False
+            try:
+                if notify_type in ("email", "both") and email:
+                    sent = await send_alert_email(email, title, message)
+                if notify_type in ("sms", "both") and phone:
+                    sent = await send_alert_sms(phone, f"{title}\n\n{message}") if sent else (await send_alert_sms(phone, f"{title}\n\n{message}") or sent)
+                results.append({"user_id": u["id"], "email": email, "phone": phone, "sent": sent})
+            except Exception as e:
+                results.append({"user_id": u["id"], "email": email, "sent": False, "error": str(e)})
+        success_count = sum(1 for r in results if r.get("sent"))
+        await record_audit(admin_id, "broadcast_notify", "broadcast", {"type": notify_type, "recipients": len(users), "success": success_count})
+        return {"results": results, "total": len(users), "success": success_count, "failed": len(users) - success_count}
+
     async def list_brokers(self) -> dict:
         supabase = get_supabase()
         creds = await async_safe_execute(
@@ -359,13 +387,19 @@ class AdminService:
 
         return {"brokers": result}
 
-    async def list_orders(self, user_id: str = "", is_paper: str = "", limit: int = 50, offset: int = 0) -> dict:
+    async def list_orders(self, user_id: str = "", is_paper: str = "", symbol: str = "", from_date: str = "", to_date: str = "", limit: int = 50, offset: int = 0) -> dict:
         supabase = get_supabase()
         query = supabase.table("orders").select("*").order("created_at", desc=True)
         if user_id:
             query = query.eq("user_id", user_id)
         if is_paper in ("true", "false"):
             query = query.eq("is_paper", is_paper == "true")
+        if symbol:
+            query = query.ilike("symbol", f"%{symbol}%")
+        if from_date:
+            query = query.gte("created_at", from_date)
+        if to_date:
+            query = query.lte("created_at", to_date)
 
         data = await async_safe_execute(query.limit(limit).offset(offset)) or []
 

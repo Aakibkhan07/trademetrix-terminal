@@ -4,6 +4,9 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useApi } from '@/lib/use-api'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta, FyersHealthResult, BuyerStrategyStatus } from '@/lib/api'
+import { BroadcastDialog } from './broadcast-dialog'
+import { SubscriptionsTab } from './subscriptions-tab'
+import { TradingLogsTab } from './trading-logs-tab'
 
 interface HealthData {
   status: string
@@ -50,7 +53,7 @@ function TierColor(tier: string) {
   return map[tier] || map.free
 }
 
-function TierBadge({ tier, small }: { tier: string; small?: boolean }) {
+export function TierBadge({ tier, small }: { tier: string; small?: boolean }) {
   const c = TierColor(tier)
   return (
     <span style={{
@@ -94,10 +97,11 @@ export function NotAuthorized() {
 export function AdminDashboard() {
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab') || 'dashboard'
+  const [showBroadcast, setShowBroadcast] = useState(false)
 
   return (
     <>
-      {tab === 'dashboard' && <DashboardTab />}
+      {tab === 'dashboard' && <DashboardTab onBroadcast={() => setShowBroadcast(true)} />}
       {tab === 'users' && <UsersTab />}
       {tab === 'brokers' && <BrokersTab />}
       {tab === 'trades' && <TradesTab />}
@@ -106,11 +110,14 @@ export function AdminDashboard() {
       {tab === 'risk' && <RiskTab />}
       {tab === 'strategies' && <StrategiesTab />}
       {tab === 'buyer-strategies' && <BuyerStrategiesTab />}
+      {tab === 'subscriptions' && <SubscriptionsTab />}
+      {tab === 'trading-logs' && <TradingLogsTab />}
+      {showBroadcast && <BroadcastDialog onClose={() => setShowBroadcast(false)} />}
     </>
   )
 }
 
-function DashboardTab() {
+function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
   const { data: statsData, loading, error } = useApi<AdminStats>('/admin/stats')
   const [health, setHealth] = useState<HealthData | null>(null)
   const [healthReady, setHealthReady] = useState<HealthReady | null>(null)
@@ -199,7 +206,7 @@ function DashboardTab() {
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
             Place Trade
           </button>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin/broadcast')}
+          <button className="t-btn t-btn-sm" onClick={() => onBroadcast?.()}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
             Broadcast
           </button>
@@ -210,6 +217,14 @@ function DashboardTab() {
           <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=audit')}
             style={{ fontSize: 10 }}>
             Audit Log
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=subscriptions')}
+            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--cyan) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--cyan) 20%, transparent)' }}>
+            Subscriptions
+          </button>
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=trading-logs')}
+            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
+            Trading Logs
           </button>
         </div>
       </div>

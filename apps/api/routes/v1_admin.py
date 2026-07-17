@@ -44,6 +44,13 @@ class BroadcastRequest(BaseModel):
     paper: bool = True
 
 
+class BroadcastNotifyRequest(BaseModel):
+    title: str
+    message: str
+    type: str = "email"
+    user_ids: list[str] | None = None
+
+
 class AdminTradeRequest(BaseModel):
     user_id: str
     symbol: str
@@ -164,6 +171,14 @@ async def admin_broadcast(
     )
 
 
+@router.post("/broadcast/notify")
+async def admin_broadcast_notify(
+    req: BroadcastNotifyRequest,
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.notify_broadcast(req.title, req.message, req.type, req.user_ids, admin.id)
+
+
 @router.get("/brokers")
 async def admin_list_brokers(admin: UserProfile = Depends(require_admin)):
     return await _service.list_brokers()
@@ -189,11 +204,14 @@ async def admin_list_live_positions(
 async def admin_list_orders(
     user_id: str = Query(""),
     is_paper: str = Query(""),
+    symbol: str = Query(""),
+    from_date: str = Query(""),
+    to_date: str = Query(""),
     limit: int = Query(50, le=200),
     offset: int = Query(0, ge=0),
     admin: UserProfile = Depends(require_admin),
 ):
-    return await _service.list_orders(user_id, is_paper, limit, offset)
+    return await _service.list_orders(user_id, is_paper, symbol, from_date, to_date, limit, offset)
 
 
 class CatalogStrategyRequest(BaseModel):

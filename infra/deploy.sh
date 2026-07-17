@@ -120,6 +120,9 @@ docker compose -f "$COMPOSE_FILE" pull redis prometheus node-exporter
 docker compose -f "$COMPOSE_FILE" build --parallel api web market-agent
 docker compose -f "$COMPOSE_FILE" up -d
 
+# Reload nginx to pick up new container IPs (avoid 502 errors)
+docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload 2>/dev/null || true
+
 # Record deployed version
 echo "$BRANCH $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$VERSION_FILE"
 

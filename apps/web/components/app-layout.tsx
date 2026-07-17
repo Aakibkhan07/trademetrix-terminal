@@ -26,7 +26,8 @@ const NAV_SECTIONS = [
     label: 'Operations',
     items: [
       { href: '/dashboard?tab=buyer-strategies', label: 'Buyer Strat', icon: 'S' },
-      { href: '/admin/broadcast', label: 'Broadcast', icon: 'W' },
+      { href: '/dashboard?tab=subscriptions', label: 'Subscriptions', icon: '💳' },
+      { href: '/dashboard?tab=trading-logs', label: 'Trading Logs', icon: '📋' },
     ],
   },
   {
