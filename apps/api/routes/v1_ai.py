@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ai.desk import AIDesk
 from ai.journal import AIJournal
 from ai.copilot import AICopilot
-from core.deps import get_current_user
+from ai.strategy_builder import build_strategy_from_prompt
+from core.deps import get_current_user, get_capabilities, require_feature
 from core.models import UserProfile
+from core.capabilities import Capabilities
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -16,6 +18,10 @@ class CommandRequest(BaseModel):
 
 class CopilotRequest(BaseModel):
     messages: list[dict]
+
+
+class BuildStrategyRequest(BaseModel):
+    prompt: str
 
 
 @router.post("/desk")
@@ -59,3 +65,23 @@ async def ai_copilot_chat(
     copilot = AICopilot(current_user.id)
     response = await copilot.chat(req.messages)
     return {"response": response}
+
+
+@router.post("/build-strategy")
+async def ai_build_strategy(
+    req: BuildStrategyRequest,
+    current_user: UserProfile = Depends(require_feature("custom_strategy_dev")),
+    caps: Capabilities = Depends(get_capabilities),
+):
+    if not req.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt cannot be empty.")
+
+    result = await build_strategy_from_prompt(req.prompt)
+    if result is None:
+        raise HTTPException(status_code=500, detail="AI failed to generate strategy. Try a more specific prompt.")
+
+    return {
+        "strategy": result,
+        "note": "This is an AI-generated strategy draft. Review and deploy via the Strategy Builder.",
+        "tier": caps.tier,
+    }

@@ -85,6 +85,30 @@ A: "Haan. Humari strategies real market data pe backtested hain. Demo dekhna cha
 Q: "Discount / coupon code hai kya? Koi offer?"
 A: "Ji haan, discount available hai! Lekin wo sirf Yearly plan (₹1,25,000) pe milta hai. Yearly plan already ₹61,000 bachata hai monthly rate se, aur uske upar extra bhi discount lag jaata hai. Kya main aapke liye Yearly plan ka discounted quote nikalwa doon? Warna aap pehle free trial se start kar sakte ho."'''
 
+ENTERPRISE_HYPE = """ENTERPRISE HYPE — ONLY ₹1,25,000/YEAR:
+
+What Enterprise unlocks that nothing else does:
+• **AI Strategy Builder**: Bol do "EMA crossover banao with trailing SL for Bank Nifty" aur AI khud strategy bana dega. Koi coding nahi, koi drag-drop nahi — sirf bolna hai.
+• **Custom Strategy Development**: Apni khud ki unique strategy, proprietary logic — TradeMetrix team implement karega.
+• **Dedicated Manager**: Ek dedicated relationship manager jo aapki strategies monitor karega, performance report dega.
+• **24/7 Priority Support**: Call/WhatsApp pe instant access. Koi bhi issue ho, turant resolve.
+• **15 Active Strategies**: Ek saath 15 strategies chalao. Free sirf 1 deta hai.
+• **All 7 Brokers**: Angel, Zerodha, Fyers, Dhan, Upstox, Icicidirect, HDFC — sab ek platform pe.
+• **Custom Strategy Dev**: Full access to strategy builder with dedicated development support.
+• **₹10,000 Daily Loss Cap**: Institutions jaisa risk management.
+• **5-Year Backtesting**: Pura 5 saal ka historical data.
+
+Pitch:
+• "Sir, agar aap serious trader ho aur apni khud ki strategies banana chahte ho, toh Yearly plan le. Sirf ₹1,25,000/yaar — ₹342/day. AI aapki strategy bana dega, bas aap batao."
+• "Free/Affordable plans general trading ke liye hain. Enterprise unke liye hai jo apna proprietary system develop karna chahte hain."
+• "AI Strategy Builder sirf Enterprise customers ke liye hai. Aap bolte ho, AI bana deta hai. Koi aur platform ye feature nahi deta."
+
+When to pitch Enterprise:
+• User asks "can AI build strategies for me?" → Yes, Enterprise plan pe!
+• User compares multiple times or seems serious about automation
+• User asks about custom strategies or proprietary systems
+• User has ₹2,00,000+ capital and wants dedicated support"""
+
 INDIAN_PSYCHOLOGY = """INDIAN TRADER PSYCHOLOGY — understand your audience:
 
 • **F&O addiction**: Most Indian users are obsessed with Bank Nifty, Nifty options, expiry day trading. They love the "lottery" feeling of options buying.
@@ -110,6 +134,8 @@ SALES_CONTEXT = f"""
 {UPSELL_TRIGGERS}
 
 {OBJECTION_HANDLING}
+
+{ENTERPRISE_HYPE}
 
 {INDIAN_PSYCHOLOGY}
 """
