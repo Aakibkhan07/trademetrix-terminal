@@ -1488,7 +1488,7 @@ function TradesTab() {
     const indices = ['NIFTY', 'BANKNIFTY', 'FINNIFTY']
     indices.forEach(async sym => {
       try {
-        const r = await fetch(`/api/v1/market/option-chain?symbol=${encodeURIComponent(sym)}&expiry=nearest`)
+        const r = await fetch(`/api/v1/market/option-chain?symbol=${encodeURIComponent(sym)}`)
         const d = await r.json()
         const raw = d.data || []
         if (raw.length) {
