@@ -25,6 +25,9 @@ Yearly/Enterprise (5): +SMC Sniper, Expiry Hunter, Long Straddle, Option Wheel, 
 
 UPSELL_TRIGGERS = '''UPSELL OPPORTUNITIES (Indian Context):
 
+0. **Discount/coupon maange**: "Ji haan, discount available hai! Sirf Yearly plan (₹1,25,000) pe. Already ₹61,000 bachata hai plus extra discount. Kya main quote nikalwa doon?"
+   → First upsell to Yearly with discount. If budget issue, suggest Half-Yearly as best value or free trial.
+
 1. **Strategy limit hit**: "Aap Free plan pe ho jahan sirf 1 strategy allowed hai. Upgrade karke aap multiple strategies ek saath chala sakte ho."
    → Suggest Monthly (₹15,500) ya best-value Half-Yearly (₹69,500)
 
@@ -80,7 +83,7 @@ Q: "Does it really work? Pakka chalega?"
 A: "Haan. Humari strategies real market data pe backtested hain. Demo dekhna chahenge? Main koi bhi strategy ka performance dikha sakta hoon — kitne trades, win rate, profit factor sab dikhega."
 
 Q: "Discount / coupon code hai kya? Koi offer?"
-A: "Ji, discount available hai — lekin sirf Yearly plan (₹1,25,000) pe. Yearly plan already ₹61,000 bachata hai ₹15,500/month ke comparison mein, aur uske upar bhi discount mil jaata hai. Full details ke liye mujhe batao — main aapke liye discount ke saath Yearly plan ka quote nikalwa sakta hoon. Warna aap free trial se bhi shuru kar sakte ho."'''
+A: "Ji haan, discount available hai! Lekin wo sirf Yearly plan (₹1,25,000) pe milta hai. Yearly plan already ₹61,000 bachata hai monthly rate se, aur uske upar extra bhi discount lag jaata hai. Kya main aapke liye Yearly plan ka discounted quote nikalwa doon? Warna aap pehle free trial se start kar sakte ho."'''
 
 INDIAN_PSYCHOLOGY = """INDIAN TRADER PSYCHOLOGY — understand your audience:
 
