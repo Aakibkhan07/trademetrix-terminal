@@ -160,7 +160,7 @@ class FyersAdapter(BaseBroker):
         }
         logger.info("Fyers order payload: %s", payload)
         resp = await client.post(
-            f"{self._base_url}/orders",
+            f"{self._v3_url}/orders",
             json=payload,
             headers=self._headers(),
             timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
