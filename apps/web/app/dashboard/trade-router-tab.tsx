@@ -87,6 +87,11 @@ export function TradeRouterTab() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  function getCSRF(): string {
+    const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)
+    return m ? decodeURIComponent(m[1]) : ''
+  }
+
   const buyStrike = async (symbol: string, strike: number, optionType: string, ls: number, expiry: string) => {
     if (!selectedUser) { setResultMsg({ success: false, message: 'Select a user first' }); return }
     const key = `${symbol}-${strike}-${optionType}`
@@ -94,7 +99,7 @@ export function TradeRouterTab() {
     setResultMsg(null)
     try {
       const r = await fetch('/api/v1/admin/execute-trade', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
         body: JSON.stringify({
           user_id: selectedUser, symbol, side: 'BUY', quantity: lots * ls,
           exchange: 'NFO', instrument_type: 'OPT', option_type: optionType,
