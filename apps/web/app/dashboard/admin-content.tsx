@@ -1490,7 +1490,7 @@ function TradesTab() {
       try {
         const r = await fetch(`/api/v1/market/option-chain?symbol=${encodeURIComponent(sym)}`)
         const d = await r.json()
-        const raw = d.data || []
+        const raw = d.data?.optionChain || []
         if (raw.length) {
           const expiry = d.expiry || d.expiries?.[0] || ''
           setChainCache(prev => ({ ...prev, [sym]: { expiry, chain: raw } }))
@@ -1511,8 +1511,8 @@ function TradesTab() {
           if (match) {
             const s = match.strikePrice || match.strike
             const ls = LOT_SIZES[sym] || 1
-            const cePrice = match.ce?.last_price || match.ce?.lastPrice || match.ce?.ltp || 0
-            const pePrice = match.pe?.last_price || match.pe?.lastPrice || match.pe?.ltp || 0
+            const cePrice = match.call?.ltp || 0
+            const pePrice = match.put?.ltp || 0
             out.push({ type: 'strike', symbol: sym, strike: s, ce: cePrice, pe: pePrice, lotSize: ls, expiry: cache.expiry })
           }
         }
