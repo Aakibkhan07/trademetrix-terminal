@@ -4,6 +4,7 @@ import logging
 from core.db import get_supabase
 
 from .openrouter import chat_completion
+from .sales_context import get_sales_context
 
 logger = logging.getLogger(__name__)
 
@@ -21,17 +22,22 @@ class AIDesk:
     async def process_command(self, command: str) -> dict:
         context = await self._build_context()
 
+        sales_context = get_sales_context()
+
         prompt = f"""You are the AI Trading Desk for Trade Metrix Terminal.
 
 User context:
 {context}
+
+SALES & PRICING KNOWLEDGE:
+{sales_context}
 
 User command: {command}
 
 Interpret the command and return JSON with:
 1. "action" — one of: {', '.join(sorted(_WHITELISTED_ACTIONS))}, or "unknown" if the command is not in the whitelist, or "query_general" for informational queries
 2. "params" — any parameters needed (symbol, quantity, etc.)
-3. "response" — a natural language response to the user
+3. "response" — a natural language response to the user. If the user asks about something their plan doesn't support, mention the relevant plan upgrade.
 4. "needs_confirmation" — true if the action is destructive (square_off, pause_strategy)
 
 CRITICAL: Never execute destructive actions without user confirmation. Never bypass risk controls.
