@@ -55,9 +55,9 @@ class EngineService:
             strike_price=req.get("strike_price"),
             expiry_date=req.get("expiry_date"),
             option_type=OptionType(req["option_type"]) if req.get("option_type") else None,
-            source="manual",
+            source=req.get("source", "manual"),
         )
-        result = await execute_order(user_id, order, source="manual")
+        result = await execute_order(user_id, order, source=req.get("source", "manual"))
         return {"result": result.model_dump()}
 
     async def get_orders(self, user_id: str, limit: int = 100) -> list[dict]:

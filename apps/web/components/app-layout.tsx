@@ -12,12 +12,18 @@ import MarketTicker from '@/components/market-ticker'
 
 const NAV_SECTIONS = [
   {
+    label: 'Trading',
+    items: [
+      { href: '/dashboard?tab=trade-router', label: 'Place Trade', icon: '⚡' },
+      { href: '/dashboard?tab=trades', label: 'Trades', icon: 'T' },
+      { href: '/dashboard?tab=positions-book', label: 'Positions & Orders', icon: 'P' },
+    ],
+  },
+  {
     label: 'Control Center',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: '◉' },
       { href: '/dashboard?tab=users', label: 'Users', icon: 'U' },
-      { href: '/dashboard?tab=trades', label: 'Trades', icon: 'T' },
-      { href: '/dashboard?tab=positions-book', label: 'Positions & Orders', icon: 'P' },
       { href: '/dashboard?tab=brokers', label: 'Brokers', icon: 'B' },
       { href: '/dashboard?tab=strategies', label: 'Strategies', icon: '⚔' },
     ],
@@ -33,9 +39,7 @@ const NAV_SECTIONS = [
       { href: '/dashboard?tab=user-strategies', label: 'User Algos', icon: '🤖' },
       { href: '/dashboard?tab=referrals', label: 'Referrals', icon: '🔗' },
       { href: '/dashboard?tab=webhook-tester', label: 'Webhook Tester', icon: '🔌' },
-      { href: '/dashboard?tab=trade-router', label: 'Trade Router', icon: '🔀' },
       { href: '/dashboard?tab=backups', label: 'Backups', icon: '💾' },
-      { href: '/dashboard?tab=ip-whitelist', label: 'IP Whitelist', icon: '🛡️' },
       { href: '/dashboard?tab=scheduled-tasks', label: 'Scheduled', icon: '⏰' },
     ],
   },
@@ -45,6 +49,7 @@ const NAV_SECTIONS = [
       { href: '/dashboard?tab=risk', label: 'Risk', icon: 'R' },
       { href: '/dashboard?tab=activity', label: 'Activity', icon: '⏱' },
       { href: '/dashboard?tab=audit', label: 'Audit Log', icon: 'A' },
+      { href: '/dashboard?tab=ip-whitelist', label: 'IP Whitelist', icon: '🛡️' },
       { href: '/admin/admins', label: 'Admins', icon: '#' },
     ],
   },

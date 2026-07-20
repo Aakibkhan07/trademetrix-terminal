@@ -1286,6 +1286,7 @@ class AdminService:
         if not user:
             raise ValueError("User not found")
 
+        req["source"] = "admin"
         result = await EngineService().execute_trade(target_user_id, req)
 
         record_audit(AuditLogEntry(

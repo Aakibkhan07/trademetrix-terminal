@@ -8,7 +8,7 @@ from core.config import settings
 logger = logging.getLogger(__name__)
 
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "google/gemini-2.0-flash-001"
+DEFAULT_MODEL = "google/gemini-2.5-flash"
 
 
 def _headers() -> dict:
@@ -32,6 +32,7 @@ async def chat_completion(prompt: str, model: str = DEFAULT_MODEL) -> str | None
                     "messages": [{"role": "user", "content": prompt}],
                 },
             )
+            resp.raise_for_status()
             data = resp.json()
             return data["choices"][0]["message"]["content"]
     except Exception as e:
