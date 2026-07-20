@@ -25,8 +25,8 @@ class RedisCache:
             self._redis = aioredis.from_url(
                 settings.redis_url,
                 decode_responses=True,
-                socket_connect_timeout=2,
-                socket_timeout=2,
+                socket_connect_timeout=5,
+                socket_timeout=10,
             )
             await self._redis.ping()
             self._enabled = True
