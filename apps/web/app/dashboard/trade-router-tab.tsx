@@ -1,215 +1,182 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
-interface Broker {
-  broker: string
-  active: boolean
-}
+interface Broker { broker: string; active: boolean }
+interface UserWithBroker { id: string; email: string; full_name: string; brokers: Broker[]; has_broker: boolean }
 
-interface UserWithBroker {
-  id: string
-  email: string
-  full_name: string
-  subscription_tier: string
-  brokers: Broker[]
-  has_broker: boolean
-}
-
-interface TradeResult {
-  success: boolean
-  broker_order_id?: string
-  message?: string
-  status?: string
+const LOT_SIZES: Record<string, number> = {
+  NIFTY: 65, BANKNIFTY: 30, FINNIFTY: 60,
+  SENSEX: 20, MIDCPNIFTY: 75,
 }
 
 export function TradeRouterTab() {
   const [users, setUsers] = useState<UserWithBroker[]>([])
-  const [loading, setLoading] = useState(true)
   const [selectedUser, setSelectedUser] = useState('')
-  const [symbol, setSymbol] = useState('NIFTY')
-  const [exchange, setExchange] = useState('NSE')
-  const [side, setSide] = useState('BUY')
-  const [orderType, setOrderType] = useState('MARKET')
-  const [product, setProduct] = useState('INTRADAY')
-  const [quantity, setQuantity] = useState('65')
-  const [price, setPrice] = useState('0')
-  const [sending, setSending] = useState(false)
-  const [result, setResult] = useState<TradeResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<any[]>([])
+  const [searching, setSearching] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [lots, setLots] = useState(1)
+  const [lotSize, setLotSize] = useState(1)
+  const [placing, setPlacing] = useState<string | null>(null)
+  const [resultMsg, setResultMsg] = useState<{ success: boolean; message: string } | null>(null)
+  const searchRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch('/api/v1/admin/users/with-brokers')
-      .then(r => r.json())
-      .then(d => { setUsers(d.users || []); setLoading(false) })
-      .catch(() => setLoading(false))
+    fetch('/api/v1/admin/users/with-brokers').then(r => r.json()).then(d => setUsers(d.users || [])).catch(() => {})
   }, [])
 
-  const placeTrade = async () => {
-    setSending(true)
-    setError(null)
-    setResult(null)
+  const [chainCache, setChainCache] = useState<Record<string, { expiry: string; chain: any[] }>>({})
+
+  useEffect(() => {
+    const indices = ['NIFTY', 'BANKNIFTY', 'FINNIFTY']
+    indices.forEach(async sym => {
+      try {
+        const r = await fetch(`/api/v1/market/option-chain?symbol=${encodeURIComponent(sym)}&expiry=nearest`)
+        const d = await r.json()
+        const raw = d.data || []
+        if (raw.length) {
+          const expiry = d.expiry || d.expiries?.[0] || ''
+          setChainCache(prev => ({ ...prev, [sym]: { expiry, chain: raw } }))
+        }
+      } catch {}
+    })
+  }, [])
+
+  useEffect(() => {
+    if (query.length < 1) { setResults([]); setDropdownOpen(false); return }
+    const t = setTimeout(async () => {
+      const isNum = /^\d+$/.test(query.trim())
+      if (isNum) {
+        const num = parseInt(query)
+        const out: any[] = []
+        for (const [sym, cache] of Object.entries(chainCache)) {
+          const match = cache.chain.find((r: any) => (r.strikePrice || r.strike) === num)
+          if (match) {
+            const s = match.strikePrice || match.strike
+            const ls = LOT_SIZES[sym] || 1
+            const cePrice = match.ce?.last_price || match.ce?.lastPrice || match.ce?.ltp || 0
+            const pePrice = match.pe?.last_price || match.pe?.lastPrice || match.pe?.ltp || 0
+            out.push({ type: 'strike', symbol: sym, strike: s, ce: cePrice, pe: pePrice, lotSize: ls, expiry: cache.expiry })
+          }
+        }
+        setResults(out)
+        setDropdownOpen(out.length > 0)
+      } else {
+        setSearching(true)
+        try {
+          const r = await fetch(`/api/v1/marketdata/instruments?query=${encodeURIComponent(query)}&limit=8`)
+          const d = await r.json()
+          setResults(d.instruments || [])
+          setDropdownOpen(true)
+        } catch {}
+        setSearching(false)
+      }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [query, chainCache])
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const buyStrike = async (symbol: string, strike: number, optionType: string, ls: number, expiry: string) => {
+    if (!selectedUser) { setResultMsg({ success: false, message: 'Select a user first' }); return }
+    const key = `${symbol}-${strike}-${optionType}`
+    setPlacing(key)
+    setResultMsg(null)
     try {
-      const res = await fetch('/api/v1/admin/execute-trade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const r = await fetch('/api/v1/admin/execute-trade', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: selectedUser,
-          symbol: symbol.toUpperCase(),
-          exchange: exchange.toUpperCase(),
-          side: side.toUpperCase(),
-          order_type: orderType.toUpperCase(),
-          product: product.toUpperCase(),
-          quantity: parseInt(quantity) || 0,
-          price: parseFloat(price) || 0,
+          user_id: selectedUser, symbol, side: 'BUY', quantity: lots * ls,
+          exchange: 'NFO', instrument_type: 'OPT', option_type: optionType,
+          strike_price: strike, expiry_date: expiry.slice(0, 10),
+          order_type: 'MARKET', product: 'INTRADAY', price: 0,
         }),
       })
-      const data = await res.json()
-      if (!res.ok) setError(data.detail || `HTTP ${res.status}`)
-      else setResult(data)
-    } catch (e) {
-      setError(String(e))
-    }
-    setSending(false)
+      const d = await r.json()
+      setResultMsg({ success: d.result?.success || d.success || false, message: d.result?.message || d.message || (r.ok ? 'Sent' : d.detail || 'Failed') })
+    } catch (e) { setResultMsg({ success: false, message: String(e) }) }
+    setPlacing(null)
   }
 
-  const selectedUserData = users.find(u => u.id === selectedUser)
-
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 360px', minWidth: 300 }}>
-          <div className="t-panel" style={{ padding: 14 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600 }}>Select User</h3>
-            {loading && <p style={{ fontSize: 11, color: 'var(--text-faint)' }}>Loading users...</p>}
-            {!loading && (
-              <select className="t-input" value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
-                style={{ width: '100%', fontSize: 11 }}>
-                <option value="">— Choose a user —</option>
-                {users.filter(u => u.has_broker).map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.full_name || u.email} ({u.brokers.map(b => b.broker).join(', ')})
-                  </option>
-                ))}
-              </select>
-            )}
-            {selectedUserData && (
-              <div style={{ marginTop: 10, fontSize: 10, color: 'var(--text-sub)' }}>
-                <p style={{ margin: 0 }}>
-                  Brokers: {selectedUserData.brokers.map(b =>
-                    <span key={b.broker} style={{ color: b.active ? 'var(--green)' : 'var(--text-faint)', marginRight: 6 }}>
-                      {b.broker}{b.active ? ' (active)' : ''}
-                    </span>
-                  )}
-                </p>
-                <p style={{ margin: '4px 0 0' }}>Tier: {selectedUserData.subscription_tier}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="t-panel" style={{ padding: 14, marginTop: 12 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600 }}>Trade Form</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-sub)', display: 'block', marginBottom: 2 }}>Symbol</label>
-                <input className="t-input" value={symbol} onChange={e => setSymbol(e.target.value)} style={{ fontSize: 11, width: '100%' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-sub)', display: 'block', marginBottom: 2 }}>Exchange</label>
-                <select className="t-input" value={exchange} onChange={e => setExchange(e.target.value)} style={{ fontSize: 11, width: '100%' }}>
-                  <option value="NSE">NSE</option>
-                  <option value="NFO">NFO</option>
-                  <option value="BSE">BSE</option>
-                  <option value="CDS">CDS</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-sub)', display: 'block', marginBottom: 2 }}>Side</label>
-                <select className="t-input" value={side} onChange={e => setSide(e.target.value)} style={{ fontSize: 11, width: '100%' }}>
-                  <option value="BUY">BUY</option>
-                  <option value="SELL">SELL</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-sub)', display: 'block', marginBottom: 2 }}>Order Type</label>
-                <select className="t-input" value={orderType} onChange={e => setOrderType(e.target.value)} style={{ fontSize: 11, width: '100%' }}>
-                  <option value="MARKET">MARKET</option>
-                  <option value="LIMIT">LIMIT</option>
-                  <option value="SL">SL</option>
-                  <option value="SL-M">SL-M</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-sub)', display: 'block', marginBottom: 2 }}>Product</label>
-                <select className="t-input" value={product} onChange={e => setProduct(e.target.value)} style={{ fontSize: 11, width: '100%' }}>
-                  <option value="INTRADAY">INTRADAY</option>
-                  <option value="DELIVERY">DELIVERY</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-sub)', display: 'block', marginBottom: 2 }}>Quantity</label>
-                <input className="t-input" type="number" value={quantity} onChange={e => setQuantity(e.target.value)} style={{ fontSize: 11, width: '100%' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-sub)', display: 'block', marginBottom: 2 }}>Price (0=market)</label>
-                <input className="t-input" type="number" step="0.05" value={price} onChange={e => setPrice(e.target.value)} style={{ fontSize: 11, width: '100%' }} />
-              </div>
+    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+      <div style={{ flex: '1 1 560px', minWidth: 380 }}>
+        <div className="t-panel" style={{ padding: 12, marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <select className="t-input" value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
+              style={{ fontSize: 12, flex: '1 1 200px' }}>
+              <option value="">— Select User —</option>
+              {users.filter(u => u.has_broker).map(u => (
+                <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={() => setLots(Math.max(1, lots - 1))} style={{ padding: '2px 8px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>−</button>
+              <span style={{ fontSize: 12, fontWeight: 700, padding: '0 6px' }}>{lots}</span>
+              <button onClick={() => setLots(lots + 1)} style={{ padding: '2px 8px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>+</button>
+              {results.find((r: any) => r.type === 'strike') && <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>lot × {lotSize}</span>}
             </div>
-            <button onClick={placeTrade} disabled={sending || !selectedUser}
-              style={{
-                marginTop: 12, width: '100%', padding: '8px 16px', fontSize: 11, fontWeight: 600,
-                background: selectedUser && !sending ? 'var(--violet)' : 'var(--bg)',
-                color: selectedUser && !sending ? '#fff' : 'var(--text-faint)',
-                border: selectedUser && !sending ? 'none' : '1px solid var(--border)',
-                borderRadius: 5, cursor: sending || !selectedUser ? 'not-allowed' : 'pointer',
-              }}>
-              {sending ? 'Placing Trade...' : selectedUser ? `Place Trade for ${selectedUserData?.full_name || selectedUserData?.email || ''}` : 'Select a user first'}
-            </button>
           </div>
         </div>
 
-        <div style={{ flex: '1 1 360px', minWidth: 300 }}>
-          <div className="t-panel" style={{ padding: 14 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600 }}>Result</h3>
-            {error && (
+        <div className="t-panel" style={{ padding: 12 }} ref={searchRef}>
+          <div style={{ position: 'relative' }}>
+            <input className="t-input" value={query} onChange={e => { setQuery(e.target.value); setLotSize(1) }}
+              placeholder="Search symbol or strike (e.g. 24200, NIFTY, RELIANCE)..."
+              style={{ width: '100%', fontSize: 14, padding: '10px 12px' }} />
+            {searching && <span style={{ position: 'absolute', right: 12, top: 12, fontSize: 10, color: 'var(--text-faint)' }}>searching...</span>}
+            {dropdownOpen && results.length > 0 && (
               <div style={{
-                padding: 12, fontSize: 11, fontFamily: 'monospace', borderRadius: 5,
-                background: 'color-mix(in srgb, var(--red) 10%, var(--bg))',
-                border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)',
-                color: 'var(--red)', whiteSpace: 'pre-wrap',
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '0 0 8px 8px',
+                maxHeight: 360, overflowY: 'auto', boxShadow: '0 4px 24px rgba(0,0,0,0.35)',
               }}>
-                {error}
-              </div>
-            )}
-            {result && !error && (
-              <div>
-                <div style={{
-                  padding: '8px 12px', borderRadius: 5, marginBottom: 10,
-                  background: result.success ? 'color-mix(in srgb, var(--green) 10%, var(--bg))' : 'color-mix(in srgb, var(--red) 10%, var(--bg))',
-                  border: `1px solid color-mix(in srgb, ${result.success ? 'var(--green)' : 'var(--red)'} 20%, transparent)`,
-                }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: result.success ? 'var(--green)' : 'var(--red)' }}>
-                    {result.success ? 'Trade Placed ✓' : 'Trade Failed ✗'}
-                  </p>
-                </div>
-                <table className="t-table" style={{ fontSize: 10, width: '100%' }}>
-                  <tbody>
-                    {Object.entries(result).map(([k, v]) => (
-                      <tr key={k} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
-                        <td style={{ padding: '4px 8px', color: 'var(--text-sub)', fontWeight: 600, textTransform: 'capitalize' }}>{k.replace(/_/g, ' ')}</td>
-                        <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>{String(v)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {!result && !error && (
-              <div style={{ padding: 20, textAlign: 'center', fontSize: 11, color: 'var(--text-faint)' }}>
-                Place a trade to see the result
+                {results[0]?.type === 'strike' ? results.map((r: any, i: number) => (
+                  <div key={i} style={{ padding: '10px 14px', borderBottom: '1px solid color-mix(in srgb, var(--border) 30%, transparent)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <strong style={{ fontSize: 14, minWidth: 80 }}>{r.symbol}</strong>
+                    <span style={{ fontSize: 13, fontWeight: 600, minWidth: 60 }}>{r.strike}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-faint)', minWidth: 70 }}>Exp: {r.expiry?.slice(0, 10)}</span>
+                    <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 700, minWidth: 60 }}>CE: {r.ce || '—'}</span>
+                    <span style={{ fontSize: 13, color: 'var(--red)', fontWeight: 700, minWidth: 60 }}>PE: {r.pe || '—'}</span>
+                    <button onClick={() => { setLotSize(r.lotSize); buyStrike(r.symbol, r.strike, 'CE', r.lotSize, r.expiry) }}
+                      disabled={placing !== null || !r.ce}
+                      style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.ce ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--green) 12%, transparent)', color: 'var(--green)' }}>
+                      {placing === `${r.symbol}-${r.strike}-CE` ? '...' : 'CE Buy'}
+                    </button>
+                    <button onClick={() => { setLotSize(r.lotSize); buyStrike(r.symbol, r.strike, 'PE', r.lotSize, r.expiry) }}
+                      disabled={placing !== null || !r.pe}
+                      style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.pe ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--red) 12%, transparent)', color: 'var(--red)' }}>
+                      {placing === `${r.symbol}-${r.strike}-PE` ? '...' : 'PE Buy'}
+                    </button>
+                  </div>
+                )) : results.map((s: any, i: number) => (
+                  <div key={i} onClick={() => { setQuery(s.symbol || s.name || ''); setDropdownOpen(false) }}
+                    style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid color-mix(in srgb, var(--border) 30%, transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--violet) 6%, var(--bg))')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                    <span><strong>{s.symbol || s.name || ''}</strong></span>
+                    <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{s.exchange || ''} {s.instrument_type || ''}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
+
+          {resultMsg && (
+            <div style={{ padding: 10, marginTop: 12 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: resultMsg.success ? 'var(--green)' : 'var(--red)' }}>
+                {resultMsg.success ? '✓ ' : '✗ '}{resultMsg.message}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
