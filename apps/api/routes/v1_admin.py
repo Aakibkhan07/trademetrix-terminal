@@ -64,6 +64,9 @@ class AdminTradeRequest(BaseModel):
     price: float = 0.0
     trigger_price: float | None = None
     instrument_type: str = "EQ"
+    option_type: str | None = None
+    strike_price: float | None = None
+    expiry_date: str | None = None
 
 
 class SetAdminRoleRequest(BaseModel):

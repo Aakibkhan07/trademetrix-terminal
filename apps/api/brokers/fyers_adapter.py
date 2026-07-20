@@ -4,7 +4,7 @@ import inspect
 import logging
 import time
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -114,9 +114,35 @@ class FyersAdapter(BaseBroker):
         )
 
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
+        from core.constants import format_fyers_option_symbol, format_fyers_future_symbol
+
         client = await self._get_client()
+        if order.option_type and order.strike_price and order.expiry_date:
+            expiry_date = None
+            for fmt in ("%Y-%m-%d", "%d%b%Y", "%d%b%y"):
+                try:
+                    expiry_date = datetime.strptime(order.expiry_date[:10], fmt).date()
+                    break
+                except Exception:
+                    continue
+            if expiry_date is None:
+                try:
+                    raw = order.expiry_date[:5]
+                    for yr in (datetime.now().year, datetime.now().year + 1):
+                        try:
+                            candidate = datetime.strptime(raw + str(yr), "%d%b%Y").date()
+                            if candidate >= datetime.now().date() - timedelta(days=7):
+                                expiry_date = candidate
+                                break
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+            symbol = format_fyers_option_symbol(order.symbol, order.strike_price, order.option_type.value, expiry_date)
+        else:
+            symbol = self._ensure_fyers_symbol(order.symbol)
         payload = {
-            "symbol": self._ensure_fyers_symbol(order.symbol),
+            "symbol": symbol,
             "qty": order.quantity,
             "type": self._map_order_type(order.order_type),
             "side": 1 if order.side == OrderSide.BUY else -1,
