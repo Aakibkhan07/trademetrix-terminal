@@ -422,6 +422,8 @@ export const api = {
     journalEntries: () => request('/ai/journal/entries'),
     copilot: (messages: { role: string; content: string }[]) =>
       request<{ response: string }>('/ai/copilot', { method: 'POST', body: { messages } }),
+    chat: (messages: { role: string; content: string }[]) =>
+      request<{ intent: string; response: string; data: any }>('/ai/chat', { method: 'POST', body: { messages } }),
   },
 
   market: {

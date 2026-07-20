@@ -22,6 +22,7 @@ const NAV_SECTIONS = [
   {
     label: 'Control Center',
     items: [
+      { href: '/ai', label: 'AI Assistant', icon: '✦' },
       { href: '/dashboard', label: 'Dashboard', icon: '◉' },
       { href: '/dashboard?tab=users', label: 'Users', icon: 'U' },
       { href: '/dashboard?tab=brokers', label: 'Brokers', icon: 'B' },
