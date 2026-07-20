@@ -1,10 +1,10 @@
 import json
 import logging
-from typing import Optional
 
-from core.config import settings
 from core.db import get_supabase
 from core.safe_query import async_safe_single, async_safe_execute
+
+from .openrouter import chat_completion
 
 logger = logging.getLogger(__name__)
 
@@ -17,22 +17,8 @@ CONTEXT_SECTIONS: list[str] = [
 class AICopilot:
     def __init__(self, user_id: str):
         self.user_id = user_id
-        self._client: Optional = None
-
-    def _get_client(self):
-        if self._client is None and settings.gemini_api_key:
-            try:
-                from google import genai
-                self._client = genai.Client(api_key=settings.gemini_api_key)
-            except ImportError:
-                logger.warning("google-genai not installed; copilot unavailable")
-        return self._client
 
     async def chat(self, messages: list[dict]) -> str:
-        client = self._get_client()
-        if not client:
-            return "AI Copilot is not available. Configure GEMINI_API_KEY."
-
         context = await self._build_context()
         context_json = json.dumps(context, indent=2, default=str)
 
@@ -65,17 +51,11 @@ INSTRUCTIONS:
 - Keep responses concise (2-5 sentences) but informative.
 - Format numbers with appropriate units (%, ₹, $)."""
 
-        try:
-            result = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-            )
-            text = result.text.strip()
-            text = text.replace("```json", "").replace("```", "").strip()
-            return text
-        except Exception as e:
-            logger.error(f"AI copilot error: {e}", exc_info=True)
-            return "I encountered an error processing your request."
+        text = await chat_completion(prompt)
+        if text is None:
+            return "AI Copilot is not available. Configure GEMINI_API_KEY."
+        text = text.replace("```json", "").replace("```", "").strip()
+        return text
 
     async def _build_context(self) -> dict:
         supabase = get_supabase()

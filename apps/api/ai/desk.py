@@ -1,8 +1,9 @@
+import json
 import logging
-from typing import Optional
 
-from core.config import settings
 from core.db import get_supabase
+
+from .openrouter import chat_completion
 
 logger = logging.getLogger(__name__)
 
@@ -16,22 +17,8 @@ _WHITELISTED_ACTIONS = {
 class AIDesk:
     def __init__(self, user_id: str):
         self.user_id = user_id
-        self._client: Optional = None
-
-    def _get_client(self):
-        if self._client is None and settings.gemini_api_key:
-            try:
-                from google import genai
-                self._client = genai.Client(api_key=settings.gemini_api_key)
-            except ImportError:
-                logger.warning("google-genai not installed; AI desk unavailable")
-        return self._client
 
     async def process_command(self, command: str) -> dict:
-        client = self._get_client()
-        if not client:
-            return {"response": "AI desk is not available. Check GEMINI_API_KEY configuration.", "action": None}
-
         context = await self._build_context()
 
         prompt = f"""You are the AI Trading Desk for Trade Metrix Terminal.
@@ -51,17 +38,14 @@ CRITICAL: Never execute destructive actions without user confirmation. Never byp
 Never give financial advice or recommendations. You are a tool, not a SEBI-registered advisor.
 """
 
+        text = await chat_completion(prompt)
+        if text is None:
+            return {"response": "AI desk is not available. Check GEMINI_API_KEY configuration.", "action": None}
         try:
-            result = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-            )
-            text = result.text.strip()
-            import json
             parsed = json.loads(text.replace("```json", "").replace("```", "").strip())
             return parsed
         except Exception as e:
-            logger.error(f"AI desk error: {e}", exc_info=True)
+            logger.error(f"AI desk parse error: {e}", exc_info=True)
             return {"response": "I encountered an error processing your request.", "action": None}
 
     async def _build_context(self) -> str:
