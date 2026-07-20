@@ -1513,7 +1513,9 @@ function TradesTab() {
             const ls = LOT_SIZES[sym] || 1
             const cePrice = match.call?.ltp || 0
             const pePrice = match.put?.ltp || 0
-            out.push({ type: 'strike', symbol: sym, strike: s, ce: cePrice, pe: pePrice, lotSize: ls, expiry: cache.expiry })
+            const ceChg = match.call?.change_pct
+            const peChg = match.put?.change_pct
+            out.push({ type: 'strike', symbol: sym, strike: s, ce: cePrice, pe: pePrice, ceChg, peChg, lotSize: ls, expiry: cache.expiry })
           }
         }
         setResults(out)
@@ -1604,8 +1606,8 @@ function TradesTab() {
                       <strong style={{ fontSize: 14, minWidth: 80 }}>{r.symbol}</strong>
                       <span style={{ fontSize: 13, fontWeight: 600, minWidth: 60 }}>{r.strike}</span>
                       <span style={{ fontSize: 11, color: 'var(--text-faint)', minWidth: 70 }}>Exp: {r.expiry?.slice(0, 10)}</span>
-                      <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 700, minWidth: 60 }}>CE: {r.ce || '—'}</span>
-                      <span style={{ fontSize: 13, color: 'var(--red)', fontWeight: 700, minWidth: 60 }}>PE: {r.pe || '—'}</span>
+                    <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 700, minWidth: 100 }}>CE: {r.ce != null ? r.ce : '—'} {r.ceChg != null ? <span style={{ fontSize: 10, color: r.ceChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.ceChg >= 0 ? '+' : ''}{r.ceChg}%)</span> : ''}</span>
+                    <span style={{ fontSize: 13, color: 'var(--red)', fontWeight: 700, minWidth: 100 }}>PE: {r.pe != null ? r.pe : '—'} {r.peChg != null ? <span style={{ fontSize: 10, color: r.peChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.peChg >= 0 ? '+' : ''}{r.peChg}%)</span> : ''}</span>
                       <button onClick={() => { setLotSize(r.lotSize); buyStrike(r.symbol, r.strike, 'CE', r.lotSize, r.expiry) }}
                         disabled={placing !== null || !r.ce}
                         style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.ce ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--green) 12%, transparent)', color: 'var(--green)' }}>

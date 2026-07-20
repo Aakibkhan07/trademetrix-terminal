@@ -178,12 +178,19 @@ class OptionChainEngine:
             from core.db import get_supabase
             from core.security import decrypt_broker_credentials
             supabase = get_supabase()
-            active = supabase.table("broker_credentials").select("*").eq("broker", "fyers").eq("is_active", True).limit(1).execute()
+            active = supabase.table("broker_credentials").select("*").eq("broker", "fyers").eq("is_active", True).execute()
             if not active.data:
                 return None
-            cred = active.data[0]
-            client_id = decrypt_broker_credentials(cred.get("encrypted_api_key", ""))
-            raw_token = decrypt_broker_credentials(cred.get("encrypted_access_token", ""))
+            client_id = None
+            raw_token = None
+            for cred in active.data:
+                try:
+                    client_id = decrypt_broker_credentials(cred.get("encrypted_api_key", ""))
+                    raw_token = decrypt_broker_credentials(cred.get("encrypted_access_token", ""))
+                    if client_id and raw_token:
+                        break
+                except Exception:
+                    continue
             if not client_id or not raw_token:
                 return None
 
