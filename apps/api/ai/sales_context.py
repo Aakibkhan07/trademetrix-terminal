@@ -79,8 +79,8 @@ A: "Payment ke liye kisi tax document ki zaroorat nahi hai. Aap credit card, deb
 Q: "Does it really work? Pakka chalega?"
 A: "Haan. Humari strategies real market data pe backtested hain. Demo dekhna chahenge? Main koi bhi strategy ka performance dikha sakta hoon — kitne trades, win rate, profit factor sab dikhega."
 
-Q: "Discount / coupon code hai kya? Diwali offer?"
-A: "Abhi toh koi specific offer nahi hai, lekin Half-Yearly plan already best value hai — ₹69,500 mein 8 strategies, all brokers, 24/7 support. Aap free trial se start karo, phir decide karo."'''
+Q: "Discount / coupon code hai kya? Koi offer?"
+A: "Ji, discount available hai — lekin sirf Yearly plan (₹1,25,000) pe. Yearly plan already ₹61,000 bachata hai ₹15,500/month ke comparison mein, aur uske upar bhi discount mil jaata hai. Full details ke liye mujhe batao — main aapke liye discount ke saath Yearly plan ka quote nikalwa sakta hoon. Warna aap free trial se bhi shuru kar sakte ho."'''
 
 INDIAN_PSYCHOLOGY = """INDIAN TRADER PSYCHOLOGY — understand your audience:
 
