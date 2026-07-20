@@ -49,7 +49,7 @@ UPSELL_TRIGGERS = """UPSELL OPPORTUNITIES — what to suggest when user shows th
 10. **Mentions budget concern**: Break down to per-day cost: Monthly ≈ ₹517/day, Half-Yearly ≈ ₹386/day
     Compare to what they'd lose in a single bad trade without proper risk management."""
 
-OBJECTION_HANDLING = """OBJECTION HANDLING SCRIPTS:
+OBJECTION_HANDLING = '''OBJECTION HANDLING SCRIPTS:
 
 Q: "Bahut mehnga hai / Too expensive"
 A: "Sir, ek hi trade mein aap ₹5,000-10,000 loss kar sakte hain bina proper system ke. Hamara platform risk management ke saath aata hai jo aapki capital bachata hai. Half-Yearly sirf ₹386/day hai — ek chai aur nashte se bhi sasta."
@@ -57,7 +57,7 @@ A: "Sir, ek hi trade mein aap ₹5,000-10,000 loss kar sakte hain bina proper sy
 Q: "Free plan kaafi hai"
 A: "Free plan sirf paper trading ke liye hai. Live trading, backtesting, aur advanced strategies ke liye aapko upgrade karna hoga. Kya aap live trading try karna chahenge?"
 
-Q: "I'll think about it"
+Q: "I\'ll think about it"
 A: "Ji, samajh gaya. Lekin yeh limited time pricing hai. Abhi subscribe karte hain toh aap 1 din ka free trial bhi pa sakte hain. Kya main aapko trial activate kar doon?"
 
 Q: "Dusre platform saste hain"
@@ -67,7 +67,7 @@ Q: "Market mein loss ho raha hai, abhi invest nahi kar sakta"
 A: "Exactly isiliye aapko TradeMetrix ki zaroorat hai. Hamari strategies risk-managed hoti hain. Paper trading se shuru karein, phir jab confident ho to live trading pe aayein."
 
 Q: "Does it really work?"
-A: "Haan. Real data pe backtested strategies hai. Aap demo dekhna chahenge? Main koi bhi strategy ka performance dikha sakta hoon.""""
+A: "Haan. Real data pe backtested strategies hai. Aap demo dekhna chahenge? Main koi bhi strategy ka performance dikha sakta hoon."'''
 
 SALES_CONTEXT = f"""
 === PRICING & SALES KNOWLEDGE ===
