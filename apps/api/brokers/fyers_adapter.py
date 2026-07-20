@@ -118,6 +118,7 @@ class FyersAdapter(BaseBroker):
 
         client = await self._get_client()
         if order.option_type and order.strike_price and order.expiry_date:
+            logger.info("Admin order: symbol=%s strike=%s opt_type=%s expiry=%s", order.symbol, order.strike_price, order.option_type, order.expiry_date)
             expiry_date = None
             for fmt in ("%Y-%m-%d", "%d%b%Y", "%d%b%y"):
                 try:
@@ -138,7 +139,9 @@ class FyersAdapter(BaseBroker):
                             continue
                 except Exception:
                     pass
+            logger.info("Parsed expiry_date=%s", expiry_date)
             symbol = format_fyers_option_symbol(order.symbol, order.strike_price, order.option_type.value, expiry_date)
+            logger.info("Constructed fyers symbol=%s", symbol)
         else:
             symbol = self._ensure_fyers_symbol(order.symbol)
         payload = {
@@ -155,6 +158,7 @@ class FyersAdapter(BaseBroker):
             "takeProfit": 0,
             "orderTag": order.client_order_id or "",
         }
+        logger.info("Fyers order payload: %s", payload)
         resp = await client.post(
             f"{self._base_url}/orders",
             json=payload,
@@ -163,6 +167,7 @@ class FyersAdapter(BaseBroker):
         )
         data = resp.json()
         success = data.get("s") == "ok"
+        logger.info("Fyers place_order response: %s", data)
         return OrderResult(
             success=success,
             broker_order_id=data.get("id", ""),
