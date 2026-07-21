@@ -74,6 +74,14 @@ class FyersAdapter(BaseBroker):
             return symbol.upper()
         return f"NSE:{symbol.upper()}"
 
+    @staticmethod
+    def _safe_json(resp: httpx.Response) -> dict:
+        try:
+            return self._safe_json(resp)
+        except Exception as e:
+            logger.error("Fyers JSON parse failed (status=%s, body=%s): %s", resp.status_code, resp.text[:500], e)
+            return {"s": "error", "message": f"Empty or invalid response from broker (HTTP {resp.status_code})"}
+
     async def authenticate(self, credentials: dict) -> Session:
         client_id = credentials.get("client_id", "")
         raw_token = credentials.get("access_token", "")
@@ -100,7 +108,7 @@ class FyersAdapter(BaseBroker):
                 },
                 timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
             )
-            data = resp.json()
+            data = self._safe_json(resp)
             if data.get("s") != "ok":
                 raise ValueError(f"Fyers token exchange failed: {data.get('message', 'unknown')}")
             raw_token = data.get("access_token", "")
@@ -165,7 +173,7 @@ class FyersAdapter(BaseBroker):
             headers=self._headers(),
             timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
-        data = resp.json()
+        data = self._safe_json(resp)
         success = data.get("s") == "ok"
         logger.info("Fyers place_order response: %s", data)
         return OrderResult(
@@ -183,7 +191,7 @@ class FyersAdapter(BaseBroker):
             headers=self._headers(),
             timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
-        data = resp.json()
+        data = self._safe_json(resp)
         return OrderResult(
             success=data.get("s") == "ok",
             broker_order_id=order_id,
@@ -197,7 +205,7 @@ class FyersAdapter(BaseBroker):
             headers=self._headers(),
             timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
-        data = resp.json()
+        data = self._safe_json(resp)
         return OrderResult(
             success=data.get("s") == "ok",
             broker_order_id=order_id,
@@ -211,7 +219,7 @@ class FyersAdapter(BaseBroker):
             headers=self._headers(),
             timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
-        data = resp.json()
+        data = self._safe_json(resp)
         orders = []
         for item in data.get("orderBook", []):
             orders.append(self._normalize_order(item))
@@ -224,7 +232,7 @@ class FyersAdapter(BaseBroker):
             headers=self._headers(),
             timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
-        data = resp.json()
+        data = self._safe_json(resp)
         positions = []
         for item in data.get("netPositions", []):
             positions.append(self._normalize_position(item))
@@ -237,7 +245,7 @@ class FyersAdapter(BaseBroker):
             headers=self._headers(),
             timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
-        data = resp.json()
+        data = self._safe_json(resp)
         holdings = []
         for item in data.get("holdings", []):
             holdings.append(self._normalize_holding(item))
@@ -250,7 +258,7 @@ class FyersAdapter(BaseBroker):
             headers=self._headers(),
             timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
-        data = resp.json()
+        data = self._safe_json(resp)
         fund_limit = data.get("fund_limit", [])
         total = 0.0
         used = 0.0
@@ -283,7 +291,7 @@ class FyersAdapter(BaseBroker):
                 timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
             )
             if resp.status_code == 200:
-                data = resp.json()
+                data = self._safe_json(resp)
                 quotes = []
                 for item in data.get("d", []):
                     v = item.get("v", {})
@@ -329,7 +337,7 @@ class FyersAdapter(BaseBroker):
                 )
                 if resp.status_code == 200:
                     try:
-                        data = resp.json()
+                        data = self._safe_json(resp)
                         candles = data.get("candles", [])
                         if candles:
                             logger.info("Fyers history fetched from %s (%d candles)", url, len(candles))
@@ -502,7 +510,7 @@ class FyersAdapter(BaseBroker):
                     if resp.status_code != 200:
                         await asyncio.sleep(yahoo_interval)
                         continue
-                    data = resp.json()
+                    data = self._safe_json(resp)
                     results = data.get("quoteResponse", {}).get("result", [])
                     for item in results:
                         ys = item.get("symbol", "")
@@ -570,7 +578,7 @@ class FyersAdapter(BaseBroker):
                     headers=self._headers(),
                     timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
                 )
-                data = resp.json()
+                data = self._safe_json(resp)
                 if data.get("s") != "ok":
                     logger.warning("Fyers margin estimate failed for %s: %s", symbol, data.get("message", ""))
                     return {"supported": False, "broker": self.broker_name, "error": data.get("message", "margin estimate failed")}
