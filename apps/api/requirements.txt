@@ -21,6 +21,7 @@ sentry-sdk>=2.0
 pytest>=8.0
 pytest-asyncio>=0.24
 prometheus-client>=0.20.0
+curl-cffi>=0.15.0
 fyers-apiv3>=3.1
 websocket-client>=1.6
 yfinance>=1.4

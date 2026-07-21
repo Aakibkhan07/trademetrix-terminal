@@ -7,10 +7,10 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from curl_cffi.requests import AsyncSession
 
 from brokers.base import BaseBroker
 from core.config import settings
-from core.http_client import get_http_client
 from core.models import (
     Candle,
     Exchange,
@@ -47,8 +47,7 @@ class FyersAdapter(BaseBroker):
     broker_name = "fyers"
 
     def __init__(self):
-        self._client: httpx.AsyncClient | None = None
-        self._client_id: str = ""
+        self._client: AsyncSession | None = None
         self._access_token: str = ""
         self._user_id: str = ""
         self._base_url = "https://api.fyers.in/api/v2"
@@ -56,18 +55,18 @@ class FyersAdapter(BaseBroker):
         self._v3_url = "https://api-t1.fyers.in/api/v3"
         self._running = False
 
-    async def _get_client(self) -> httpx.AsyncClient:
+    async def _get_client(self) -> AsyncSession:
         if self._client is None:
-            self._client = await get_http_client()
+            self._client = AsyncSession(impersonate="chrome131", timeout=30.0)
         return self._client
 
-    _BROWSER_HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Origin": "https://myapi.fyers.in",
-        "Referer": "https://myapi.fyers.in/",
-    }
+    def _headers(self) -> dict:
+        return {
+            "Authorization": f"{self._client_id}:{self._access_token}",
+            "Content-Type": "application/json",
+            "Origin": "https://myapi.fyers.in",
+            "Referer": "https://myapi.fyers.in/",
+        }
 
     def _headers(self) -> dict:
         return {
@@ -84,7 +83,7 @@ class FyersAdapter(BaseBroker):
         return f"NSE:{symbol.upper()}"
 
     @staticmethod
-    def _safe_json(resp: httpx.Response) -> dict:
+    def _safe_json(resp) -> dict:
         body = resp.text[:500]
         if resp.status_code == 403:
             try:
@@ -124,8 +123,8 @@ class FyersAdapter(BaseBroker):
                     "appIdHash": app_id_hash,
                     "code": auth_code,
                 },
-                headers={"Content-Type": "application/json", **self._BROWSER_HEADERS},
-                timeout=httpx.Timeout(settings.broker_request_timeout, settings.broker_connect_timeout),
+                headers={"Content-Type": "application/json", "Origin": "https://myapi.fyers.in", "Referer": "https://myapi.fyers.in/"},
+                timeout=settings.broker_request_timeout,
             )
             data = self._safe_json(resp)
             if data.get("s") != "ok":
@@ -190,7 +189,7 @@ class FyersAdapter(BaseBroker):
             f"{self._v3_url}/orders",
             json=payload,
             headers=self._headers(),
-            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+            timeout=settings.broker_request_timeout,
         )
         data = self._safe_json(resp)
         success = data.get("s") == "ok"
@@ -208,7 +207,7 @@ class FyersAdapter(BaseBroker):
             f"{self._base_url}/orders",
             json=payload,
             headers=self._headers(),
-            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+            timeout=settings.broker_request_timeout,
         )
         data = self._safe_json(resp)
         return OrderResult(
@@ -222,7 +221,7 @@ class FyersAdapter(BaseBroker):
         resp = await client.delete(
             f"{self._base_url}/orders/{order_id}",
             headers=self._headers(),
-            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+            timeout=settings.broker_request_timeout,
         )
         data = self._safe_json(resp)
         return OrderResult(
@@ -236,7 +235,7 @@ class FyersAdapter(BaseBroker):
         resp = await client.get(
             f"{self._base_url}/orders",
             headers=self._headers(),
-            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+            timeout=settings.broker_request_timeout,
         )
         data = self._safe_json(resp)
         orders = []
@@ -249,7 +248,7 @@ class FyersAdapter(BaseBroker):
         resp = await client.get(
             f"{self._base_url}/positions",
             headers=self._headers(),
-            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+            timeout=settings.broker_request_timeout,
         )
         data = self._safe_json(resp)
         positions = []
@@ -262,7 +261,7 @@ class FyersAdapter(BaseBroker):
         resp = await client.get(
             f"{self._base_url}/holdings",
             headers=self._headers(),
-            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+            timeout=settings.broker_request_timeout,
         )
         data = self._safe_json(resp)
         holdings = []
@@ -275,7 +274,7 @@ class FyersAdapter(BaseBroker):
         resp = await client.get(
             f"{self._base_url}/funds",
             headers=self._headers(),
-            timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+            timeout=settings.broker_request_timeout,
         )
         data = self._safe_json(resp)
         fund_limit = data.get("fund_limit", [])
@@ -307,7 +306,7 @@ class FyersAdapter(BaseBroker):
                 f"{self._data_url}/quotes",
                 json={"symbols": ",".join(fyers_symbols)},
                 headers=self._headers(),
-                timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+                timeout=settings.broker_request_timeout,
             )
             if resp.status_code == 200:
                 data = self._safe_json(resp)
@@ -352,7 +351,7 @@ class FyersAdapter(BaseBroker):
                     url,
                     json=params,
                     headers=self._headers(),
-                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+                    timeout=settings.broker_request_timeout,
                 )
                 if resp.status_code == 200:
                     try:
@@ -595,7 +594,7 @@ class FyersAdapter(BaseBroker):
                     f"{self._v3_url}/span_margin",
                     json=payload,
                     headers=self._headers(),
-                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+                    timeout=settings.broker_request_timeout,
                 )
                 data = self._safe_json(resp)
                 if data.get("s") != "ok":
