@@ -76,14 +76,20 @@ class FyersAdapter(BaseBroker):
 
     @staticmethod
     def _safe_json(resp: httpx.Response) -> dict:
+        body = resp.text[:500]
+        if resp.status_code == 403:
+            try:
+                err = resp.json()
+                msg = err.get("message", err.get("errmsg", body))
+            except Exception:
+                msg = body
+            logger.error("Fyers HTTP 403: %s", msg)
+            raise ValueError(f"Fyers order rejected (HTTP 403): {msg}")
         try:
             return resp.json()
         except Exception as e:
-            msg = f"Empty or invalid response from broker (HTTP {resp.status_code})"
-            if resp.status_code == 403:
-                msg = f"token expired or invalid — Fyers returned HTTP 403"
-            logger.error("Fyers JSON parse failed (status=%s, body=%s): %s", resp.status_code, resp.text[:500], e)
-            return {"s": "error", "message": msg}
+            logger.error("Fyers JSON parse failed (status=%s, body=%s): %s", resp.status_code, body, e)
+            return {"s": "error", "message": f"Empty or invalid response (HTTP {resp.status_code})"}
 
     async def authenticate(self, credentials: dict) -> Session:
         client_id = credentials.get("client_id", "")
