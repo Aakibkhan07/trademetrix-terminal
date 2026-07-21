@@ -24,7 +24,7 @@ export function TradeRouterTab() {
   const searchRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch('/api/v1/admin/users/with-brokers').then(r => r.json()).then(d => setUsers(d.users || [])).catch(() => {})
+    fetch('/api/v1/admin/users/with-brokers').then(async r => { try { return await r.json() } catch { return {} } }).then(d => setUsers(d.users || [])).catch(() => {})
   }, [])
 
   const [chainCache, setChainCache] = useState<Record<string, { expiry: string; chain: any[] }>>({})
@@ -34,7 +34,8 @@ export function TradeRouterTab() {
     indices.forEach(async sym => {
       try {
         const r = await fetch(`/api/v1/market/option-chain?symbol=${encodeURIComponent(sym)}`)
-        const d = await r.json()
+        const rawText = await r.text()
+        const d = rawText ? JSON.parse(rawText) : {}
         const raw = d.data?.optionChain || []
         if (raw.length) {
           const expiry = d.expiry || d.expiries?.[0] || ''
@@ -69,7 +70,8 @@ export function TradeRouterTab() {
         setSearching(true)
         try {
           const r = await fetch(`/api/v1/marketdata/instruments?query=${encodeURIComponent(query)}&limit=8`)
-          const d = await r.json()
+          const rawText = await r.text()
+          const d = rawText ? JSON.parse(rawText) : {}
           setResults(d.instruments || [])
           setDropdownOpen(true)
         } catch {}
@@ -107,7 +109,9 @@ export function TradeRouterTab() {
           order_type: 'MARKET', product: 'INTRADAY', price: 0,
         }),
       })
-      const d = await r.json()
+      const rawText = await r.text()
+      let d: any = {}
+      try { d = JSON.parse(rawText) } catch { d = { detail: `Status ${r.status}: ${rawText.slice(0, 200)}` } }
       setResultMsg({ success: d.result?.success || d.success || false, message: d.result?.message || d.message || (r.ok ? 'Sent' : d.detail || 'Failed') })
     } catch (e) { setResultMsg({ success: false, message: String(e) }) }
     setPlacing(null)
