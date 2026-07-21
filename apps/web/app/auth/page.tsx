@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
+import Logo from '@/components/logo'
 
 export default function AuthPage() {
   const router = useRouter()
@@ -275,13 +276,9 @@ export default function AuthPage() {
 
           {/* Logo + Title */}
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 12,
-              background: 'var(--gradient-primary)',
-              boxShadow: '0 0 24px rgba(139,92,246,.45)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 16px', fontSize: 20, fontWeight: 700, color: '#fff',
-            }}>TM</div>
+            <div style={{ margin: '0 auto 16px', width: 48, height: 48 }}>
+              <Logo size={48} />
+            </div>
 
             {authMode === 'password' ? (
               <>

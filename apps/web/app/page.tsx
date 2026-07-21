@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Logo from '@/components/logo'
 
 export default function LandingPage() {
   return (
@@ -17,6 +18,7 @@ export default function LandingPage() {
           background: 'var(--gradient-primary)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>
+          <Logo size={22} />
           TradeMetrix
         </Link>
         <nav style={{ display: 'flex', gap: 16, alignItems: 'center' }}>

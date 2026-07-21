@@ -1,12 +1,11 @@
 export default function Logo({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <rect x="2" y="2" width="28" height="28" rx="6" stroke="url(--gradient-primary)" strokeWidth="1.5" />
-      <text x="16" y="20" textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--cyan)" fontFamily="var(--font-display)">
-        TM
-      </text>
-      <path d="M6 24 L12 16 L18 18 L26 8" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="26" cy="8" r="1.5" fill="var(--green)" />
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.5" y="1.5" width="29" height="29" rx="7" stroke="url(--gradient-primary)" strokeWidth="1.8" />
+      <path d="M9 10.5h14M16 10.5v12" stroke="var(--cyan)" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M15 16l2.5 3.5 2.5-3.5" stroke="var(--cyan)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 24l4-5 5 2 7-9" stroke="var(--green)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="22" cy="12" r="1.5" fill="var(--green)" />
     </svg>
   )
 }

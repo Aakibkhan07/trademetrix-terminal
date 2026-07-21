@@ -159,12 +159,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Link href="/dashboard" style={{
               display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flex: 1, minWidth: 0,
             }}>
-              <div style={{
-                width: 24, height: 24, borderRadius: 6,
-                background: 'var(--gradient-primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0,
-              }}>TM</div>
+              <Logo size={24} />
               <span style={{
                 fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700,
                 background: 'var(--gradient-primary)',
@@ -176,13 +171,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           )}
           {collapsed && (
-            <div style={{
-              width: 24, height: 24, borderRadius: 6,
-              background: 'var(--gradient-primary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0,
-              margin: '0 auto',
-            }}>TM</div>
+            <Logo size={24} />
           )}
           {!collapsed && (
             <button

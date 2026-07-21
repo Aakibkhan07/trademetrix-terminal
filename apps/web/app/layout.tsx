@@ -19,8 +19,12 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Trade Metrix Terminal',
+  title: 'TradeMetrix Terminal',
   description: 'Multi-broker algorithmic trading platform',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
