@@ -1473,7 +1473,7 @@ function TradesTab() {
   const users = usersData?.users || []
 
   useEffect(() => {
-    const int = setInterval(() => setRefreshKey(k => k + 1), 10000)
+    const int = setInterval(() => setRefreshKey(k => k + 1), 30000)
     return () => clearInterval(int)
   }, [])
 
@@ -1756,7 +1756,7 @@ function PositionsOrderBookTab() {
   }, [userFilter])
 
   useEffect(() => {
-    const int = setInterval(() => setRefreshKey(k => k + 1), 10000)
+    const int = setInterval(() => setRefreshKey(k => k + 1), 30000)
     return () => clearInterval(int)
   }, [])
 

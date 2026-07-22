@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { api, BrokerMeta, BrokerFieldMeta } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 
@@ -41,7 +41,7 @@ function otpInputStyle(active: boolean) {
    CHART COMPONENTS (Equity Curve + Histogram + Donut)
    =================================================================== */
 
-function EquityChart({ points, height = 160 }: { points: number[]; height?: number }) {
+const EquityChart = memo(function EquityChart({ points, height = 160 }: { points: number[]; height?: number }) {
   if (points.length < 2) return null
   const min = Math.min(...points)
   const max = Math.max(...points)
@@ -74,9 +74,9 @@ function EquityChart({ points, height = 160 }: { points: number[]; height?: numb
       <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
-}
+})
 
-function MonthlyChart({ returns: r }: { returns: number[] }) {
+const MonthlyChart = memo(function MonthlyChart({ returns: r }: { returns: number[] }) {
   if (r.length < 2) return null
   const mx = Math.max(...r.map(Math.abs), 1)
   const w = 600; const pad = { top: 12, right: 12, bottom: 24, left: 42 }
@@ -98,9 +98,9 @@ function MonthlyChart({ returns: r }: { returns: number[] }) {
       <text x={pad.left} y={mid + 18} fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">-{mx.toFixed(0)}</text>
     </svg>
   )
-}
+})
 
-function WinDonut({ wins, losses }: { wins: number; losses: number }) {
+const WinDonut = memo(function WinDonut({ wins, losses }: { wins: number; losses: number }) {
   const total = wins + losses
   if (total === 0) return null
   const pct = total > 0 ? (wins / total) * 100 : 0
@@ -117,9 +117,9 @@ function WinDonut({ wins, losses }: { wins: number; losses: number }) {
       <text x={50} y={62} textAnchor="middle" fill="var(--text-faint)" fontSize={9}>win</text>
     </svg>
   )
-}
+})
 
-function DrawdownChart({ points }: { points: number[] }) {
+const DrawdownChart = memo(function DrawdownChart({ points }: { points: number[] }) {
   if (points.length < 2) return null
   let peak = points[0]; const dd = points.map(v => { const d = peak > 0 ? ((v - peak) / peak) * 100 : 0; if (v > peak) peak = v; return d })
   const min = Math.min(...dd, -0.1); const max = 0
@@ -143,7 +143,7 @@ function DrawdownChart({ points }: { points: number[] }) {
       <path d={fill} fill="none" stroke="#ef4444" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
-}
+})
 
 /* ===================================================================
    AUTHENTICATED DASHBOARD
@@ -162,13 +162,14 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
 
   const loadData = useCallback(async () => {
     try {
-      const [p, o, f, s, bc, bl] = await Promise.all([
+      const [p, o, f, s, bc, bl, bm] = await Promise.all([
         api.engine.positions().catch(() => ({ positions: [] })),
         api.engine.orders().catch(() => ({ orders: [] })),
         api.engine.funds().catch(() => ({ funds: null })),
         api.strategies.assigned().catch(() => ({ strategies: [] })),
         api.brokers.credentials().catch(() => ({ credentials: [] })),
         api.brokers.list().catch(() => ({ brokers: [] })),
+        api.brokers.metadata().catch(() => ({ brokers: [] })),
       ])
       setPositions((p as { positions: Position[] }).positions || [])
       setOrders((o as { orders: Order[] }).orders || [])
@@ -176,6 +177,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       setStrategies((s as { strategies: Strategy[] }).strategies || [])
       setBrokers((bc as { credentials: BrokerInfo[] }).credentials || [])
       setAvailBrokers((bl as { brokers: string[] }).brokers || [])
+      setBrokerMeta((bm as { brokers: BrokerMeta[] }).brokers || [])
     } catch {} finally { setLoading(false) }
   }, [])
 
@@ -185,14 +187,14 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     subscribe(symbols)
     startFeed().catch(() => {})
     loadData()
-    const interval = setInterval(loadData, 5000)
+    const interval = setInterval(loadData, 15000)
     return () => clearInterval(interval)
   }, [subscribe, startFeed, loadData])
 
-  const totalPnl = positions.reduce((s, p) => {
+  const totalPnl = useMemo(() => positions.reduce((s, p) => {
     const live = ticks[p.symbol]
     return s + (live ? p.quantity * (live.last_price - p.average_buy_price) : p.unrealised_pnl || 0)
-  }, 0)
+  }, 0), [positions, ticks])
 
   const orderStats = {
     total: orders.length,
@@ -213,10 +215,6 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const [authUrl, setAuthUrl] = useState<string | null>(null)
 
   const getBrokerMeta = useCallback((b: string) => brokerMeta.find(m => m.broker === b), [brokerMeta])
-
-  useEffect(() => {
-    api.brokers.metadata().then(r => setBrokerMeta(r.brokers)).catch(() => {})
-  }, [])
 
   const handleConnectBroker = async () => {
     if (!connectForm) return
@@ -277,17 +275,12 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     ? (totalPnl > 0 ? 1.2 : 0.4) + (orderStats.filled / Math.max(orderStats.total, 1)) * 0.8
     : 0
 
-  /* === Broker Health === */
-  const [brokerHealth, setBrokerHealth] = useState<Record<string, string>>({})
-  useEffect(() => {
-    Promise.all(brokers.map(async b => {
-      try {
-        const res = await api.engine.funds()
-        const f = res as { funds: { broker: string } }
-        setBrokerHealth(h => ({ ...h, [b.broker]: f.funds?.broker ? 'connected' : 'active' }))
-      } catch { setBrokerHealth(h => ({ ...h, [b.broker]: 'error' })) }
-    })).catch(() => {})
-  }, [brokers])
+  /* === Broker Health (inferred from funds fetched in loadData) === */
+  const brokerHealth = useMemo(() => {
+    const h: Record<string, string> = {}
+    for (const b of brokers) h[b.broker] = funds?.broker === b.broker ? 'connected' : 'active'
+    return h
+  }, [brokers, funds])
 
   /* === CSV Export === */
   const csvDownload = (headers: string[], rows: string[][], filename: string) => {

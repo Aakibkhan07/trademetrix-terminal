@@ -64,12 +64,17 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
     setFeedMode('idle')
   }, [])
 
-  const subscribe = useCallback((symbols: string[]) => {
+  const subscribe = useCallback(async (symbols: string[]) => {
     for (const s of symbols) subscribedRef.current.add(s)
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'subscribe', symbols }))
+      return
     }
-  }, [])
+    if (!wsRef.current) {
+      connectRef.current?.()
+      try { await startFeed() } catch {}
+    }
+  }, [startFeed])
 
   const unsubscribe = useCallback((symbols: string[]) => {
     for (const s of symbols) subscribedRef.current.delete(s)
@@ -78,7 +83,9 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const connect = useCallback(() => {
+  const connectRef = useRef<() => void>()
+
+  connectRef.current = () => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
     const wsBase = baseUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '')
     const wsUrl = `${wsBase}/api/v1/marketdata/ws`
@@ -101,29 +108,35 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
       }
       ws.onclose = () => {
         setConnected(false)
-        reconnectTimerRef.current = setTimeout(connect, 3000)
+        reconnectTimerRef.current = setTimeout(() => connectRef.current?.(), 3000)
       }
       ws.onerror = () => { ws.close() }
       wsRef.current = ws
     } catch {}
-  }, [])
+  }
 
   useEffect(() => {
-    connect()
-    startFeed()
     flushTimerRef.current = setInterval(() => {
       const buf = tickBufferRef.current
-      if (Object.keys(buf).length > 0) {
-        tickBufferRef.current = {}
-        setTicks((prev) => ({ ...prev, ...buf }))
-      }
-    }, 1000)
+      if (Object.keys(buf).length === 0) return
+      tickBufferRef.current = {}
+      setTicks((prev) => {
+        let changed = false
+        for (const k in buf) {
+          if (prev[k]?.last_price !== buf[k].last_price || prev[k]?.bid !== buf[k].bid) {
+            changed = true
+            break
+          }
+        }
+        return changed ? { ...prev, ...buf } : prev
+      })
+    }, 250)
     return () => {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       if (flushTimerRef.current) clearInterval(flushTimerRef.current)
       wsRef.current?.close()
     }
-  }, [connect, startFeed])
+  }, [])
 
   return (
     <MarketDataContext.Provider value={{ ticks, connected, feedMode, subscribe, unsubscribe, startFeed, stopFeed }}>

@@ -46,9 +46,7 @@ export default function PositionsPage() {
     } catch {} finally { setLoading(false) }
   }, [])
 
-  usePolling(loadData, 3000, !!token)
-
-  useEffect(() => { loadData() }, [loadData])
+  usePolling(loadData, 10000, !!token)
 
   const totalPnl = positions.reduce((sum: number, p: any) => {
     const live = ticks[p.symbol]

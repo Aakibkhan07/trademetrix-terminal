@@ -138,6 +138,19 @@ _register_broker_meta("flattrade", {
     "oauth_available": False,
 })
 
+_register_broker_meta("groww", {
+    "display_name": "Groww",
+    "auth_type": "credentials",
+    "description": "Login with Groww phone + OTP (no official API — uses reverse-engineered endpoints)",
+    "fields": [
+        {"key": "phone", "label": "Phone Number", "placeholder": "+91 9XXXXXXXXX", "required": True},
+        {"key": "otp", "label": "OTP", "type": "password", "placeholder": "6-digit OTP (after sending via phone)", "required": False},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Enter your registered Groww phone number\n2. Call authenticate to receive OTP\n3. Enter OTP to complete login\n4. Subsequent calls reuse the session token",
+    "oauth_available": False,
+})
+
 _register_broker_meta("kotakneo", {
     "display_name": "Kotak Neo",
     "auth_type": "api_key_secret",

@@ -9,9 +9,16 @@ export interface UseApiResult<T> {
   error: ApiError | null
 }
 
+const cache = new Map<string, { data: unknown; ts: number }>()
+const CACHE_TTL = 10_000
+const inflight = new Map<string, Promise<unknown>>()
+
 export function useApi<T = unknown>(path: string | null): UseApiResult<T> {
-  const [data, setData] = useState<T | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<T | null>(() => {
+    if (path && cache.has(path)) return cache.get(path)!.data as T
+    return null
+  })
+  const [loading, setLoading] = useState(!(path && cache.has(path)))
   const [error, setError] = useState<ApiError | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -25,22 +32,47 @@ export function useApi<T = unknown>(path: string | null): UseApiResult<T> {
       return
     }
 
+    const cached = cache.get(path)
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      setData(cached.data as T)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
     const controller = new AbortController()
     abortRef.current = controller
     setLoading(true)
     setError(null)
 
-    api.get<T>(path, controller.signal)
+    let req: Promise<unknown>
+    if (inflight.has(path)) {
+      req = inflight.get(path)!
+    } else {
+      req = api.get<T>(path, controller.signal).then(r => {
+        cache.set(path, { data: r, ts: Date.now() })
+        inflight.delete(path)
+        return r
+      }).catch(e => {
+        inflight.delete(path)
+        throw e
+      })
+      inflight.set(path, req)
+    }
+
+    req
       .then((result) => {
         if (!controller.signal.aborted) {
-          setData(result)
+          setData(result as T)
           setLoading(false)
         }
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
-          setData(null)
-          setError(err instanceof ApiError ? err : new ApiError(0, String(err)))
+          if (!cached) {
+            setData(null)
+            setError(err instanceof ApiError ? err : new ApiError(0, String(err)))
+          }
           setLoading(false)
         }
       })

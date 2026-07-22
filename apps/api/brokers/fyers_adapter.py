@@ -64,15 +64,11 @@ class FyersAdapter(BaseBroker):
         return {
             "Authorization": f"{self._client_id}:{self._access_token}",
             "Content-Type": "application/json",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
             "Origin": "https://myapi.fyers.in",
             "Referer": "https://myapi.fyers.in/",
-        }
-
-    def _headers(self) -> dict:
-        return {
-            **self._BROWSER_HEADERS,
-            "Authorization": f"{self._client_id}:{self._access_token}",
-            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         }
 
     def _ensure_fyers_symbol(self, symbol: str) -> str:

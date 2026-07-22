@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { Suspense, useState, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 
@@ -170,6 +170,14 @@ function BarChart({ data, height = 120 }: { data: { label: string; value: number
 }
 
 export default function BacktestPage() {
+  return (
+    <Suspense fallback={null}>
+      <BacktestContent />
+    </Suspense>
+  )
+}
+
+function BacktestContent() {
   const searchParams = useSearchParams()
   const initialStrategy = searchParams.get('strategy') || 'trend_rider'
   const [strategy, setStrategy] = useState(initialStrategy)

@@ -116,18 +116,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (standalone) return <>{children}</>
 
-  if (loading || !isAuthenticated) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: '100vh', background: 'var(--bg)',
-        color: 'var(--text-faint)',
-      }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>Loading...</p>
-      </div>
-    )
-  }
-
   const isActive_ = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
     return pathname.startsWith(href)
@@ -403,10 +391,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 10, fontWeight: 700, color: '#fff',
               }}>
-                {user?.email?.[0]?.toUpperCase() || 'U'}
+                {user?.email?.[0]?.toUpperCase() || '?'}
               </div>
               <span style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
-                {user?.email?.split('@')[0] || 'User'}
+                {user?.email?.split('@')[0] || '—'}
               </span>
               <span className={`t-dot ${connected ? 't-dot-green' : 't-dot-red'}`} style={{ width: 5, height: 5 }} />
             </button>
