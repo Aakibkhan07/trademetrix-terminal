@@ -64,6 +64,7 @@ class FyersAdapter(BaseBroker):
         self._ws_instance = None
         self._subscribed_symbols: list[str] = []
         self._reconnect_attempts = 0
+        self._ws_lock = threading.Lock()
 
     async def _get_client(self) -> AsyncSession:
         if self._client is None:
@@ -92,9 +93,10 @@ class FyersAdapter(BaseBroker):
 
     @staticmethod
     def _ws_symbol(symbol: str) -> str:
-        s = symbol.split(":")[-1].upper()
-        if s.endswith("-EQ"):
-            s = s[:-3]
+        import re
+        s = symbol.upper()
+        if not s.startswith("NSE:"):
+            s = f"NSE:{s}"
         return s
 
     def _decode_token_expiry(self, token: str) -> None:
@@ -195,7 +197,7 @@ class FyersAdapter(BaseBroker):
         )
 
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
-        from core.constants import format_fyers_option_symbol, format_fyers_future_symbol
+        from core.constants import format_fyers_option_symbol
 
         client = await self._get_client()
         if order.option_type and order.strike_price and order.expiry_date:
@@ -561,9 +563,9 @@ class FyersAdapter(BaseBroker):
             raise ConnectionError("Fyers DataSocket failed to connect")
 
         fyers_symbols = [self._ensure_fyers_symbol(s) for s in symbols]
-        ws_symbols = [self._ws_symbol(s) for s in fyers_symbols]
+        ws_symbols = [self._ws_symbol(s) for s in symbols]
         self._symbol_reverse_map = dict(zip(ws_symbols, symbols))
-        VALID_FYERS_INDICES = {"NIFTY50-INDEX", "NIFTYBANK-INDEX", "FINNIFTY-INDEX", "MIDCPNIFTY-INDEX", "SENSEX-INDEX"}
+        VALID_FYERS_INDICES = {"NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX", "NSE:FINNIFTY-INDEX", "NSE:MIDCPNIFTY-INDEX", "NSE:SENSEX-INDEX"}
         filtered = []
         yahoo_fallback_symbols = []
         for orig, fs in zip(symbols, ws_symbols):
@@ -768,11 +770,13 @@ class FyersAdapter(BaseBroker):
             return None
 
     def _normalize_order(self, item: dict) -> NormalizedOrder:
-        inst = self._parse_instrument(item.get("symbol", ""))
+        raw_symbol = item.get("symbol", "")
+        inst = self._parse_instrument(raw_symbol)
+        clean_symbol = raw_symbol.split(":")[-1]
         return NormalizedOrder(
             id=item.get("id", ""),
             broker_order_id=item.get("id_fyers", ""),
-            symbol=item.get("symbol", ""),
+            symbol=clean_symbol,
             exchange=Exchange.NSE,
             side=OrderSide.BUY if item.get("side", 1) == 1 else OrderSide.SELL,
             order_type=self._rev_map_order_type(item.get("type", 1)),
@@ -791,9 +795,11 @@ class FyersAdapter(BaseBroker):
         )
 
     def _normalize_position(self, item: dict) -> Position:
-        inst = self._parse_instrument(item.get("symbol", ""))
+        raw_symbol = item.get("symbol", "")
+        inst = self._parse_instrument(raw_symbol)
+        clean_symbol = raw_symbol.split(":")[-1]
         return Position(
-            symbol=item.get("symbol", ""),
+            symbol=clean_symbol,
             exchange=Exchange.NSE,
             quantity=int(item.get("netQty", 0)),
             buy_quantity=int(item.get("buyQty", 0)),
@@ -811,8 +817,10 @@ class FyersAdapter(BaseBroker):
         )
 
     def _normalize_holding(self, item: dict) -> Holding:
+        raw_symbol = item.get("symbol", "")
+        clean_symbol = raw_symbol.split(":")[-1]
         return Holding(
-            symbol=item.get("symbol", ""),
+            symbol=clean_symbol,
             exchange=Exchange.NSE,
             quantity=int(item.get("quantity", 0)),
             average_price=float(item.get("averagePrice", 0)),
