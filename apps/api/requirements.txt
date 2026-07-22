@@ -28,4 +28,5 @@ yfinance>=1.4
 smartapi-python>=1.5
 pyotp>=2.9
 asyncpg>=0.29
+psycopg2-binary>=2.9
 sqlalchemy>=2.0
