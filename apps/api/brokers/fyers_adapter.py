@@ -524,7 +524,6 @@ class FyersAdapter(BaseBroker):
                 await yahoo_task
             except (asyncio.CancelledError, Exception):
                 pass
-        finally:
             try:
                 ws.close_connection()
             except Exception:
