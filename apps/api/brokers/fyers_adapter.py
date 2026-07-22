@@ -54,6 +54,7 @@ class FyersAdapter(BaseBroker):
         self._data_url = "https://api-t1.fyers.in/data"
         self._v3_url = "https://api-t1.fyers.in/api/v3"
         self._running = False
+        self._symbol_reverse_map: dict[str, str] = {}
 
     async def _get_client(self) -> AsyncSession:
         if self._client is None:
@@ -73,10 +74,12 @@ class FyersAdapter(BaseBroker):
 
     def _ensure_fyers_symbol(self, symbol: str) -> str:
         if ":" in symbol:
-            return symbol.upper()
-        if symbol.startswith("NSE:") or symbol.startswith("BSE:") or symbol.startswith("NFO:") or symbol.startswith("MCX:"):
-            return symbol.upper()
-        return f"NSE:{symbol.upper()}"
+            s = symbol.upper()
+        else:
+            s = f"NSE:{symbol.upper()}"
+        if s.endswith("-EQ"):
+            s = s[:-3]
+        return s
 
     @staticmethod
     def _safe_json(resp) -> dict:
@@ -477,19 +480,29 @@ class FyersAdapter(BaseBroker):
             return
 
         fyers_symbols = [self._ensure_fyers_symbol(s) for s in symbols]
+        self._symbol_reverse_map = dict(zip(fyers_symbols, symbols))
         VALID_FYERS_INDICES = {"NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX", "NSE:FINNIFTY-INDEX", "NSE:MIDCPNIFTY-INDEX", "NSE:SENSEX-INDEX", "BSE:SENSEX-INDEX"}
         filtered = []
-        for fs in fyers_symbols:
+        yahoo_fallback_symbols = []
+        for orig, fs in zip(symbols, fyers_symbols):
             if fs.endswith("-INDEX") and fs not in VALID_FYERS_INDICES:
-                logger.warning("Skipping invalid Fyers index symbol: %s", fs)
+                logger.info("Fyers does not support %s — will use Yahoo fallback", fs)
+                yahoo_fallback_symbols.append(orig)
                 continue
             filtered.append(fs)
         if not filtered:
-            logger.warning("No valid Fyers symbols after filtering — falling back to Yahoo")
+            logger.warning("No valid Fyers symbols — falling back to Yahoo for all")
             await self._stream_yahoo(symbols, on_tick)
             return
         ws.subscribe(symbols=filtered)
         logger.info("Fyers DataSocket subscribed to %d symbols (filtered from %d)", len(filtered), len(fyers_symbols))
+
+        async def run_yahoo_fallback():
+            if yahoo_fallback_symbols:
+                logger.info("Starting Yahoo fallback for %d unsupported indices", len(yahoo_fallback_symbols))
+                await self._stream_yahoo(yahoo_fallback_symbols, on_tick)
+
+        yahoo_task = asyncio.create_task(run_yahoo_fallback())
 
         try:
             while self._running:
@@ -497,12 +510,20 @@ class FyersAdapter(BaseBroker):
                     msg = await asyncio.wait_for(queue.get(), timeout=1.0)
                     tick = self._parse_sdk_tick(msg)
                     if tick:
+                        orig_symbol = self._symbol_reverse_map.get(tick.symbol, tick.symbol)
+                        tick.symbol = orig_symbol
                         if inspect.iscoroutinefunction(on_tick):
                             await on_tick(tick)
                         else:
                             on_tick(tick)
                 except asyncio.TimeoutError:
                     continue
+        finally:
+            yahoo_task.cancel()
+            try:
+                await yahoo_task
+            except (asyncio.CancelledError, Exception):
+                pass
         finally:
             try:
                 ws.close_connection()
