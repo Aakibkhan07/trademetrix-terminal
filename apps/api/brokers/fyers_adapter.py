@@ -97,7 +97,10 @@ class FyersAdapter(BaseBroker):
         s = symbol.upper()
         if not s.startswith("NSE:"):
             s = f"NSE:{s}"
-        return s
+        rest = s[4:]
+        if rest.endswith("-EQ") or rest.endswith("-INDEX") or re.search(r"\d", rest):
+            return s
+        return f"{s}-EQ"
 
     def _decode_token_expiry(self, token: str) -> None:
         try:
