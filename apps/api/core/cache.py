@@ -55,6 +55,15 @@ class RedisCache:
         except Exception:
             return False
 
+    async def set_nx(self, key: str, value: Any, ttl: int = 300) -> bool:
+        if not self._enabled or not self._redis:
+            return False
+        try:
+            result = await self._redis.set(key, json.dumps(value), ex=ttl, nx=True)
+            return result is not None
+        except Exception:
+            return False
+
     async def delete(self, key: str) -> bool:
         if not self._enabled or not self._redis:
             return False

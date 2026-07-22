@@ -30,7 +30,6 @@ class CleanupService:
         while True:
             try:
                 await self._cancel_stale_pending()
-                await self._delete_yesterdays_orders()
             except Exception as e:
                 logger.error("Order cleanup error: %s", e)
             await asyncio.sleep(CHECK_INTERVAL)
@@ -40,16 +39,18 @@ class CleanupService:
         supabase = get_supabase()
         result = await async_supabase(lambda: supabase.table("orders").update({
             "status": "REJECTED", "message": "Stale pending — auto-cancelled",
-        }).in_("status", ["PENDING", "OPEN"]).lt("created_at", cutoff.isoformat()).execute())
+        }).in_("status", ["PENDING", "OPEN"]).lt("updated_at", cutoff.isoformat()).execute())
         cancelled = len(result.data or [])
         if cancelled:
             logger.info("Auto-cancelled %d stale pending orders older than %dmin", cancelled, STALE_PENDING_MINUTES)
         return cancelled
 
-    async def _delete_yesterdays_orders(self) -> int:
-        cutoff = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    async def _delete_orders_before(self, cutoff: datetime, user_id: str | None = None) -> int:
         supabase = get_supabase()
-        result = await async_supabase(lambda: supabase.table("orders").delete().lt("created_at", cutoff.isoformat()).execute())
+        query = supabase.table("orders").delete().lt("created_at", cutoff.isoformat())
+        if user_id:
+            query = query.eq("user_id", user_id)
+        result = await async_supabase(lambda: query.execute())
         deleted = len(result.data or [])
         if deleted:
             logger.info("Deleted %d orders from previous days", deleted)
