@@ -26,18 +26,18 @@ class FyersOAuthProvider(BrokerOAuthProvider):
         return f"https://api-t1.fyers.in/api/v3/generate-authcode?{params}"
 
     async def exchange_code(self, config: BrokerOAuthConfig, secret_key: str, code: str) -> BrokerTokenResult:
-        from core.http_client import get_http_client
+        from curl_cffi.requests import AsyncSession
 
-        client = await get_http_client()
         app_id_hash = hashlib.sha256(f"{config.client_id}:{secret_key}".encode()).hexdigest()
-        resp = await client.post(
-            "https://api-t1.fyers.in/api/v3/validate-authcode",
-            json={
-                "grant_type": "authorization_code",
-                "appIdHash": app_id_hash,
-                "code": code,
-            },
-        )
+        async with AsyncSession(impersonate="chrome131", timeout=15) as s:
+            resp = await s.post(
+                "https://api-t1.fyers.in/api/v3/validate-authcode",
+                json={
+                    "grant_type": "authorization_code",
+                    "appIdHash": app_id_hash,
+                    "code": code,
+                },
+            )
         data = resp.json()
         if data.get("s") != "ok":
             msg = data.get("message", data.get("errmsg", "unknown"))
