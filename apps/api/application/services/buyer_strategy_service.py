@@ -110,7 +110,7 @@ class BuyerStrategyService:
 
         mins = BuyerStrategyService._parse_interval_minutes(interval)
         count = days * 375 // mins
-        base = 22000.0 if "SENSEX" in symbol else 19500.0
+        base = 22000.0 if symbol.upper().endswith("SENSEX") else 19500.0
         candles = []
         now = datetime.now(timezone.utc)
         price = base

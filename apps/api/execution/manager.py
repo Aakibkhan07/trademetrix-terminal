@@ -68,20 +68,6 @@ class ExecutionManager:
         if not req.execution_request_id:
             req.execution_request_id = request_id
 
-        payload = req.model_dump(mode="json")
-        payload_hash = _compute_payload_hash(payload)
-
-        existing = await self._check_existing_order(request_id)
-        if existing:
-            execution_observability.record_duplicate_prevented()
-            return ExecutionResult(
-                success=True,
-                execution_request_id=request_id,
-                broker_order_id=existing.get("broker_order_id", ""),
-                state=ExecutionState.FILLED if existing.get("status") == "FILLED" else ExecutionState.PENDING,
-                message="DUPLICATE_REQUEST",
-            )
-
         order = self._build_normalized_order(req)
         if not order:
             return ExecutionResult(
@@ -100,6 +86,7 @@ class ExecutionManager:
             if not validation.valid:
                 state = ExecutionState.REJECTED
                 execution_observability.record_validation_failure()
+                payload = order.model_dump(mode="json")
                 await log_validation_failure(req.user_id, req.broker, validation.errors, payload)
                 self._publish_event("OrderRejected", request_id, req, state, message="Validation failed")
                 return ExecutionResult(
@@ -112,6 +99,7 @@ class ExecutionManager:
             if risk_result.decision == RiskDecision.REJECTED:
                 state = ExecutionState.REJECTED
                 execution_observability.record_validation_failure()
+                payload = order.model_dump(mode="json")
                 await log_validation_failure(req.user_id, req.broker, [risk_result.message], payload)
                 self._publish_event("OrderRejected", request_id, req, state, message=risk_result.message)
                 return ExecutionResult(
@@ -131,7 +119,17 @@ class ExecutionManager:
                     error_code="BROKER_UNAVAILABLE",
                 )
 
-            await self._log_order(user_id=req.user_id, order=order)
+            order_inserted = await self._insert_order_atomic(order)
+            if order_inserted is None:
+                execution_observability.record_duplicate_prevented()
+                existing = await self._check_existing_order(request_id)
+                return ExecutionResult(
+                    success=True,
+                    execution_request_id=request_id,
+                    broker_order_id=existing.get("broker_order_id", ""),
+                    state=ExecutionState.FILLED if existing and existing.get("status") == "FILLED" else ExecutionState.PENDING,
+                    message="DUPLICATE_REQUEST",
+                )
 
             broker_result = await self._execute_with_retry(adapter, order, request_id, req)
 
@@ -477,6 +475,27 @@ class ExecutionManager:
                 .eq("client_order_id", request_id)
             )
         except Exception:
+            return None
+
+    async def _insert_order_atomic(self, order: NormalizedOrder) -> dict | None:
+        try:
+            supabase = get_supabase()
+            data = order.model_dump(mode="json")
+            for field in ("id", "run_id", "signal_id", "validity", "disclosed_quantity"):
+                if field in data and not data[field]:
+                    del data[field]
+            if not data.get("client_order_id"):
+                data["client_order_id"] = order.client_order_id or order.broker or ""
+            result = await async_supabase(
+                lambda: supabase.table("orders")
+                .upsert(data, on_conflict=["client_order_id"], ignore_duplicates=True)
+                .execute()
+            )
+            if result.data:
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error("Failed to insert order atomically: %s", e)
             return None
 
     async def _log_order(self, user_id: str, order: NormalizedOrder) -> None:

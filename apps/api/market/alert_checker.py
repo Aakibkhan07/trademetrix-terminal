@@ -48,7 +48,7 @@ async def _check_alerts_loop() -> None:
                 symbol = alert.get("symbol", "")
                 tick = all_ticks.get(symbol) or all_ticks.get(f"NSE:{symbol}")
                 if not tick:
-                    sym_key = next((k for k in all_ticks if symbol in k), None)
+                    sym_key = next((k for k in all_ticks if k == symbol or k.endswith(f":{symbol}")), None)
                     if sym_key:
                         tick = all_ticks[sym_key]
                 if not tick:

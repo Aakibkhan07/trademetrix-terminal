@@ -100,6 +100,8 @@ class Settings(BaseSettings):
             missing.append("supabase_anon_key")
         if not self.secret_key:
             missing.append("secret_key")
+        if self.secret_key == "dev-secret-key-not-for-production":
+            logger.warning("SECRET_KEY is set to the default dev value — replace with a secure random key in production")
         if not self.encryption_key:
             missing.append("encryption_key")
         if missing:

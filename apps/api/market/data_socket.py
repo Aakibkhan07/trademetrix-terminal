@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 from collections.abc import Callable
 
+from core.config import settings
 from core.models import Tick
 from market.observability import market_metrics
 
@@ -30,7 +31,7 @@ class SharedDataSocket:
         self._running = False
         self._active_connections = 0
         self._heartbeat_task: asyncio.Task | None = None
-        self._last_tick_time: dict[str, float] = {}
+        self._last_tick_time: dict[str, int] = {}
         self._total_ticks = 0
         self._gap_ticks = 0
 
@@ -57,7 +58,7 @@ class SharedDataSocket:
             from core.cache import cache
             import redis.asyncio as aioredis
             r = aioredis.from_url(
-                "redis://redis:6379/0",
+                settings.redis_url,
                 decode_responses=True,
                 socket_connect_timeout=2,
                 socket_timeout=2,
@@ -131,12 +132,12 @@ class SharedDataSocket:
         market_cache.put_tick(tick)
         market_metrics.increment_ticks_processed(tick.broker or "unknown")
 
-        now = time.time()
+        now_ms = int(time.time() * 1000)
         last = self._last_tick_time.get(tick.symbol, 0)
-        if last and (now - last) > 5:
+        if last and (now_ms - last) > 5000:
             self._gap_ticks += 1
-            logger.debug("Tick gap detected for %s: %.1fs since last tick", tick.symbol, now - last)
-        self._last_tick_time[tick.symbol] = now
+            logger.debug("Tick gap detected for %s: %dms since last tick", tick.symbol, now_ms - last)
+        self._last_tick_time[tick.symbol] = now_ms
         self._total_ticks += 1
 
         callbacks = self._subscribers.get(tick.symbol, set()) | self._subscribers.get("*", set())

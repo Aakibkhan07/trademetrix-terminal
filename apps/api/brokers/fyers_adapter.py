@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import inspect
 import logging
+import threading
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -45,16 +46,24 @@ _MARGIN_PRODUCT_MAP = {
 
 class FyersAdapter(BaseBroker):
     broker_name = "fyers"
+    MAX_RECONNECT_SEC = 60
+    MAX_RECONNECT_ATTEMPTS = 10
+    TOKEN_REFRESH_MARGIN_SEC = 300
 
     def __init__(self):
         self._client: AsyncSession | None = None
         self._access_token: str = ""
+        self._client_id: str = ""
         self._user_id: str = ""
         self._base_url = "https://api.fyers.in/api/v2"
         self._data_url = "https://api-t1.fyers.in/data"
         self._v3_url = "https://api-t1.fyers.in/api/v3"
         self._running = False
         self._symbol_reverse_map: dict[str, str] = {}
+        self._token_expires_at: float | None = None
+        self._ws_instance = None
+        self._subscribed_symbols: list[str] = []
+        self._reconnect_attempts = 0
 
     async def _get_client(self) -> AsyncSession:
         if self._client is None:
@@ -82,6 +91,51 @@ class FyersAdapter(BaseBroker):
         return s
 
     @staticmethod
+    def _ws_symbol(symbol: str) -> str:
+        s = symbol.split(":")[-1].upper()
+        if s.endswith("-EQ"):
+            s = s[:-3]
+        return s
+
+    def _decode_token_expiry(self, token: str) -> None:
+        try:
+            parts = token.split(".")
+            if len(parts) == 3:
+                import base64, json
+                padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+                payload = json.loads(base64.urlsafe_b64decode(padded))
+                exp = payload.get("exp", 0)
+                self._token_expires_at = float(exp)
+            else:
+                logger.warning("Fyers token is not a standard JWT — cannot decode expiry")
+        except Exception as e:
+            logger.debug("Could not decode Fyers token expiry: %s", e)
+
+    def _needs_token_refresh(self) -> bool:
+        if self._token_expires_at is None:
+            return False
+        return time.time() >= self._token_expires_at - self.TOKEN_REFRESH_MARGIN_SEC
+
+    def unsubscribe_symbols(self, symbols: list[str] | None = None) -> None:
+        ws = self._ws_instance
+        if ws is None:
+            return
+        try:
+            if symbols:
+                ws.unsubscribe(symbols=symbols)
+            else:
+                ws.unsubscribe(symbols=self._subscribed_symbols)
+            for s in (symbols or self._subscribed_symbols):
+                self._symbol_reverse_map.pop(s, None)
+            if symbols:
+                self._subscribed_symbols = [s for s in self._subscribed_symbols if s not in symbols]
+            else:
+                self._subscribed_symbols = []
+            logger.info("Unsubscribed %d symbols from Fyers WS", len(symbols or self._subscribed_symbols))
+        except Exception as e:
+            logger.warning("Fyers unsubscribe error: %s", e)
+
+    @staticmethod
     def _safe_json(resp) -> dict:
         body = resp.text[:500]
         if resp.status_code == 403:
@@ -107,6 +161,7 @@ class FyersAdapter(BaseBroker):
 
         if raw_token:
             self._user_id = client_id
+            self._decode_token_expiry(raw_token)
             logger.info("Fyers authenticate using existing access_token (skipping profile validation)")
         else:
             auth_code = credentials.get("auth_code", "")
@@ -130,6 +185,7 @@ class FyersAdapter(BaseBroker):
                 raise ValueError(f"Fyers token exchange failed: {data.get('message', 'unknown')}")
             raw_token = data.get("access_token", "")
             self._access_token = raw_token
+            self._decode_token_expiry(raw_token)
 
         return Session(
             access_token=raw_token,
@@ -417,6 +473,28 @@ class FyersAdapter(BaseBroker):
             return
 
         self._running = True
+        self._subscribed_symbols = list(symbols)
+        self._reconnect_attempts = 0
+
+        while self._running:
+            try:
+                await self._run_fyers_stream(symbols, on_tick)
+                break
+            except Exception as e:
+                if not self._running:
+                    break
+                self._reconnect_attempts += 1
+                if self._reconnect_attempts > self.MAX_RECONNECT_ATTEMPTS:
+                    logger.warning("Fyers WS reconnect limit reached — falling back to Yahoo")
+                    await self._stream_yahoo(symbols, on_tick)
+                    return
+                delay = min(2 ** self._reconnect_attempts, self.MAX_RECONNECT_SEC)
+                logger.info("Fyers WS reconnect in %ds (attempt %d/%d)", delay, self._reconnect_attempts, self.MAX_RECONNECT_ATTEMPTS)
+                await asyncio.sleep(delay)
+
+        self._ws_instance = None
+
+    async def _run_fyers_stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
 
         from fyers_apiv3.FyersWebsocket.data_ws import FyersDataSocket
 
@@ -430,6 +508,7 @@ class FyersAdapter(BaseBroker):
 
         queue: asyncio.Queue[dict] = asyncio.Queue()
         errors: list[str] = []
+        errors_lock = threading.Lock()
         loop = asyncio.get_running_loop()
         connected = asyncio.Event()
 
@@ -437,7 +516,8 @@ class FyersAdapter(BaseBroker):
             loop.call_soon_threadsafe(queue.put_nowait, msg)
 
         def on_error(err):
-            errors.append(str(err))
+            with errors_lock:
+                errors.append(str(err))
             logger.error("Fyers WS SDK error: %s", err)
 
         def on_connect():
@@ -457,6 +537,7 @@ class FyersAdapter(BaseBroker):
                 reconnect=True,
                 reconnect_retry=5,
             )
+            self._ws_instance = ws
 
             await loop.run_in_executor(None, ws.connect)
 
@@ -467,31 +548,32 @@ class FyersAdapter(BaseBroker):
                 ws.close_connection()
                 ws_ok = False
 
-            if errors or not ws_ok:
+            with errors_lock:
+                has_errors = bool(errors)
+            if has_errors or not ws_ok:
                 ws.close_connection()
                 ws_ok = False
         except Exception as e:
-            logger.warning("Fyers DataSocket init failed (%s) — falling back to Yahoo", e)
+            logger.warning("Fyers DataSocket init failed (%s)", e)
             ws_ok = False
 
         if not ws_ok:
-            logger.warning("Fyers DataSocket failed — falling back to Yahoo Finance streaming")
-            await self._stream_yahoo(symbols, on_tick)
-            return
+            raise ConnectionError("Fyers DataSocket failed to connect")
 
         fyers_symbols = [self._ensure_fyers_symbol(s) for s in symbols]
-        self._symbol_reverse_map = dict(zip(fyers_symbols, symbols))
-        VALID_FYERS_INDICES = {"NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX", "NSE:FINNIFTY-INDEX", "NSE:MIDCPNIFTY-INDEX", "NSE:SENSEX-INDEX", "BSE:SENSEX-INDEX"}
+        ws_symbols = [self._ws_symbol(s) for s in fyers_symbols]
+        self._symbol_reverse_map = dict(zip(ws_symbols, symbols))
+        VALID_FYERS_INDICES = {"NIFTY50-INDEX", "NIFTYBANK-INDEX", "FINNIFTY-INDEX", "MIDCPNIFTY-INDEX", "SENSEX-INDEX"}
         filtered = []
         yahoo_fallback_symbols = []
-        for orig, fs in zip(symbols, fyers_symbols):
+        for orig, fs in zip(symbols, ws_symbols):
             if fs.endswith("-INDEX") and fs not in VALID_FYERS_INDICES:
                 logger.info("Fyers does not support %s — will use Yahoo fallback", fs)
                 yahoo_fallback_symbols.append(orig)
                 continue
             filtered.append(fs)
         if not filtered:
-            logger.warning("No valid Fyers symbols — falling back to Yahoo for all")
+            logger.info("No Fyers-compatible symbols — using Yahoo fallback for all")
             await self._stream_yahoo(symbols, on_tick)
             return
         ws.subscribe(symbols=filtered)
@@ -633,6 +715,7 @@ class FyersAdapter(BaseBroker):
     async def disconnect(self) -> None:
         self._running = False
         self._client = None
+        await self.close_http_client()
 
     def _parse_sdk_tick(self, msg: dict) -> Tick | None:
         try:

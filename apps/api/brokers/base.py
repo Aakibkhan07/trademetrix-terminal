@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
+import httpx
+
+from core.config import settings
 from core.models import (
     Candle,
     Funds,
@@ -16,6 +19,30 @@ from core.models import (
 
 class BaseBroker(ABC):
     broker_name: str = ""
+    _http_client: httpx.AsyncClient | None = None
+
+    async def _get_http_client(self) -> httpx.AsyncClient:
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(
+                    settings.broker_request_timeout,
+                    connect=settings.broker_connect_timeout,
+                ),
+                limits=httpx.Limits(
+                    max_connections=20,
+                    max_keepalive_connections=5,
+                    keepalive_expiry=30.0,
+                ),
+            )
+        return self._http_client
+
+    async def close_http_client(self) -> None:
+        if self._http_client:
+            try:
+                await self._http_client.aclose()
+            except Exception:
+                pass
+            self._http_client = None
 
     @abstractmethod
     async def authenticate(self, credentials: dict) -> Session:
@@ -67,3 +94,6 @@ class BaseBroker(ABC):
 
     async def get_margin_estimate(self, legs: list[dict]) -> dict:
         return {"supported": False, "broker": self.broker_name}
+
+    def unsubscribe_symbols(self, symbols: list[str] | None = None) -> None:
+        pass

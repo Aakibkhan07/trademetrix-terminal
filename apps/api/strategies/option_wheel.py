@@ -1,4 +1,4 @@
-from core.constants import LOT_SIZES
+from core.constants import LOT_SIZES, STRIKE_INTERVALS
 from core.models import (
     Candle, Exchange, NormalizedOrder, OrderSide, OrderType, ProductType, Tick,
 )
@@ -39,11 +39,12 @@ class OptionWheel(BaseStrategy):
         support = sma(self._prices, 20) - atr_val * 2
         resistance = sma(self._prices, 20) + atr_val * 2
         strike_distance = price * self.strike_pct
+        step = STRIKE_INTERVALS.get(self.symbol, 50)
         orders = []
 
         if self.phase == "put_sell":
             if price > support + atr_val:
-                sp = int(round((price - strike_distance) / 50) * 50)
+                sp = int(round((price - strike_distance) / step) * step)
                 orders.append(NormalizedOrder(
                     symbol=self.symbol, exchange=Exchange.NSE, side=OrderSide.SELL,
                     order_type=OrderType.LIMIT, product=ProductType.OPTIONS,
@@ -53,7 +54,7 @@ class OptionWheel(BaseStrategy):
                 return SignalResult(orders=orders, reason=f"Cash-secured put sell at {sp}, price {price:.1f} above support {support:.1f}")
         elif self.phase == "call_sell":
             if price < resistance - atr_val:
-                sc = int(round((price + strike_distance) / 50) * 50)
+                sc = int(round((price + strike_distance) / step) * step)
                 orders.append(NormalizedOrder(
                     symbol=self.symbol, exchange=Exchange.NSE, side=OrderSide.SELL,
                     order_type=OrderType.LIMIT, product=ProductType.OPTIONS,

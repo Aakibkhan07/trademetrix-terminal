@@ -22,6 +22,7 @@ class Profile(Base):
 
     broker_credentials = relationship("BrokerCredential", back_populates="profile")
     orders = relationship("Order", back_populates="profile")
+    trades = relationship("Trade", back_populates="profile")
     risk_settings = relationship("RiskSetting", back_populates="profile")
 
 
@@ -141,6 +142,49 @@ class Order(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     profile = relationship("Profile", back_populates="orders")
+
+
+class Trade(Base):
+    __tablename__ = "trades"
+
+    id = Column(UUID, primary_key=True, server_default=func.gen_random_uuid())
+    user_id = Column(UUID, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
+    order_id = Column(UUID, ForeignKey("orders.id", ondelete="SET NULL"), nullable=True)
+    strategy_id = Column(UUID, ForeignKey("strategies.id", ondelete="SET NULL"), nullable=True)
+    broker = Column(Text, nullable=False)
+    symbol = Column(Text, nullable=False)
+    exchange = Column(Text, nullable=False)
+    side = Column(Text, nullable=False)
+    quantity = Column(Integer, nullable=False)
+    price = Column(Float, nullable=False)
+    value = Column(Float, nullable=False)
+    trade_time = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    is_paper = Column(Boolean, server_default="true")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    profile = relationship("Profile", back_populates="trades")
+
+
+class PositionSnapshot(Base):
+    __tablename__ = "positions_snapshot"
+    __table_args__ = (UniqueConstraint("user_id", "broker", "symbol"),)
+
+    id = Column(UUID, primary_key=True, server_default=func.gen_random_uuid())
+    user_id = Column(UUID, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
+    broker = Column(Text, nullable=False)
+    symbol = Column(Text, nullable=False)
+    exchange = Column(Text, nullable=False)
+    quantity = Column(Integer, server_default="0")
+    buy_quantity = Column(Integer, server_default="0")
+    sell_quantity = Column(Integer, server_default="0")
+    average_buy_price = Column(Float, server_default="0")
+    average_sell_price = Column(Float, server_default="0")
+    unrealised_pnl = Column(Float, server_default="0")
+    realised_pnl = Column(Float, server_default="0")
+    m2m = Column(Float, server_default="0")
+    product = Column(Text, nullable=False)
+    snapshot_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class AuditLog(Base):
