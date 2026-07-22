@@ -72,7 +72,8 @@ class TestAssignStrategy:
     async def test_assigns_strategy(self, mock_audit, mock_caps, mock_tier, mock_list, svc, mock_db) -> None:
         mock_db["async_safe_single"].side_effect = [
             {"id": "u1", "subscription_tier": "free"},
-            None,
+            None,  # no active existing
+            None,  # no inactive existing
         ]
         mock_db["async_safe_execute"].return_value = []
         mock_caps.return_value = MagicMock(tier="free", max_active_strategies=5)
@@ -117,6 +118,7 @@ class TestAssignStrategy:
     async def test_reassigns_inactive(self, mock_audit, mock_caps, mock_tier, mock_list, svc, mock_db) -> None:
         mock_db["async_safe_single"].side_effect = [
             {"id": "u1", "subscription_tier": "free"},
+            None,  # no active existing
             {"id": "a1", "active": False},
         ]
         mock_db["async_safe_execute"].return_value = []

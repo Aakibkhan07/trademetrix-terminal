@@ -124,7 +124,11 @@ def _apply_test_mocks():
     patch.object(rg, "async_safe_single", mock_single).start()
     patch.object(rg, "async_safe_insert", mock_insert).start()
     patch.object(rg, "async_safe_update", mock_update).start()
-    patch.object(rg, "async_safe_execute", mock_execute).start()
+
+    import risk.rules as risk_rules
+    import risk.helpers as risk_helpers
+    patch.object(risk_rules, "async_safe_execute", mock_execute).start()
+    patch.object(risk_helpers, "async_safe_execute", mock_execute).start()
 
     # ── Patch strategies Supabase ──
     import application.services.strategy_catalog_service as strat_svc
@@ -207,8 +211,8 @@ async def client() -> AsyncGenerator:
         yield ac
 
 
-@async_fixture(scope="session")
-async def auth_headers() -> dict:
+@pytest.fixture(scope="session")
+def auth_headers() -> dict:
     global _SESSION_AUTH
     if _SESSION_AUTH is not None:
         return _SESSION_AUTH

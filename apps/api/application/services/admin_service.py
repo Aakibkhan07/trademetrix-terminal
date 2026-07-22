@@ -123,6 +123,13 @@ class AdminService:
         if not required_tier:
             raise HTTPException(status_code=500, detail="Strategy tier not found in catalog")
 
+        user_tier = target_user.get("subscription_tier", "free")
+        if not tier_satisfies(user_tier, required_tier):
+            raise HTTPException(
+                status_code=400,
+                detail=f"User tier '{user_tier}' is below required tier '{required_tier}'",
+            )
+
         target_caps = await resolve_capabilities_by_id(target_user_id)
         limit = target_caps.max_active_strategies
         if limit > 0:
@@ -138,26 +145,42 @@ class AdminService:
                     detail=f"{target_caps.tier} tier allows {limit} active strategies; unassign one first",
                 )
 
-        existing = await async_safe_single(
+        active_existing = await async_safe_single(
+            supabase.table("strategy_assignments")
+            .select("*")
+            .eq("user_id", target_user_id)
+            .eq("strategy_key", strategy_key)
+            .eq("active", True)
+        )
+        if active_existing:
+            return {
+                "id": active_existing["id"],
+                "user_id": target_user_id,
+                "strategy_key": strategy_key,
+                "required_tier": required_tier,
+                "message": "no-op (already active)",
+            }
+
+        inactive_existing = await async_safe_single(
             supabase.table("strategy_assignments")
             .select("*")
             .eq("user_id", target_user_id)
             .eq("strategy_key", strategy_key)
             .eq("active", False)
         )
-        if existing:
+        if inactive_existing:
             await async_supabase(lambda: supabase.table("strategy_assignments").update({"active": True, "assigned_by": admin_id}).eq(
-                "id", existing["id"]
+                "id", inactive_existing["id"]
             ).execute())
             record_audit(AuditLogEntry(
                 user_id=admin_id,
                 action="reassign_strategy",
                 resource="strategy_assignments",
-                resource_id=existing["id"],
+                resource_id=inactive_existing["id"],
                 details={"target_user_id": target_user_id, "strategy_key": strategy_key, "required_tier": required_tier},
             ))
             return {
-                "id": existing["id"],
+                "id": inactive_existing["id"],
                 "user_id": target_user_id,
                 "strategy_key": strategy_key,
                 "required_tier": required_tier,
