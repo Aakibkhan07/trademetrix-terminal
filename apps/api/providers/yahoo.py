@@ -64,7 +64,8 @@ def _from_yahoo(yahoo_symbol: str) -> str:
 async def fetch_quotes(symbols: list[str]) -> list[Quote]:
     yahoo_symbols = [_to_yahoo(s) for s in symbols]
     try:
-        tickers = yf.Tickers(" ".join(yahoo_symbols))
+        loop = asyncio.get_running_loop()
+        tickers = await loop.run_in_executor(None, lambda: yf.Tickers(" ".join(yahoo_symbols)))
         quotes = []
         for i, s in enumerate(symbols):
             ys = yahoo_symbols[i]
@@ -104,8 +105,9 @@ async def fetch_historical(symbol: str, interval: str = "1d", period: str = "7d"
     if y_interval not in ("1m", "5m", "15m", "30m", "60m", "1d", "1wk", "1mo"):
         y_interval = "1d"
     try:
-        ticker = yf.Ticker(ys)
-        hist = ticker.history(period=period, interval=y_interval)
+        loop = asyncio.get_running_loop()
+        ticker = await loop.run_in_executor(None, lambda: yf.Ticker(ys))
+        hist = await loop.run_in_executor(None, lambda: ticker.history(period=period, interval=y_interval))
         if hist.empty:
             return []
         candles = []

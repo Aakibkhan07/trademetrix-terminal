@@ -180,7 +180,7 @@ async function _ensureCSRF(): Promise<void> {
   }
 }
 
-const REQUEST_TIMEOUT = 10_000
+const REQUEST_TIMEOUT = 30_000
 
 async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {}, signal } = options
