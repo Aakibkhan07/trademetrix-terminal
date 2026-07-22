@@ -1,10 +1,14 @@
 import logging
+import secrets
 
 from application.interfaces.broker_oauth import BrokerRepository
+from core.cache import cache
 from domain.broker import BrokerOAuthConfig, BrokerCredential
 from infrastructure.oauth_providers import get_oauth_provider, get_redirect_uri
 
 logger = logging.getLogger(__name__)
+
+STATE_TTL = 600
 
 
 class BrokerService:
@@ -34,9 +38,12 @@ class BrokerService:
         if not client_id:
             raise ValueError(f"Decrypted client ID not found for {broker}")
 
+        state = secrets.token_urlsafe(32)
+        await cache.set(f"oauth_state:{state}", f"{user_id}:{broker}", ttl=STATE_TTL)
+
         provider = get_oauth_provider(broker)
         config = BrokerOAuthConfig(client_id=client_id, redirect_uri=get_redirect_uri(broker))
-        return provider.build_auth_url(config, user_id)
+        return provider.build_auth_url(config, state)
 
     async def re_auth(self, user_id: str, broker: str) -> str:
         cred = await self._repo.get_by_user_and_broker(user_id, broker)
@@ -64,7 +71,15 @@ class BrokerService:
         if not state:
             return False, "Missing state parameter"
         try:
-            cred = await self._repo.get_by_user_and_broker_full(state, broker)
+            mapping = await cache.get(f"oauth_state:{state}")
+            if not mapping:
+                return False, "Invalid or expired state parameter"
+            await cache.delete(f"oauth_state:{state}")
+            user_id, stored_broker = mapping.split(":", 1)
+            if stored_broker != broker:
+                return False, "Broker mismatch in state"
+
+            cred = await self._repo.get_by_user_and_broker_full(user_id, broker)
             if not cred:
                 return False, f"No {broker.title()} credentials found"
 

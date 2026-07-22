@@ -20,7 +20,7 @@ async def event_stream(request: Request, current_user: UserProfile = Depends(get
     cleanup_done = False
 
     async def event_handler(event: ExecutionEvent):
-        if event.user_id in ("", current_user.id):
+        if event.user_id == current_user.id:
             await queue.put(event)
 
     execution_event_bus.subscribe("*", event_handler)

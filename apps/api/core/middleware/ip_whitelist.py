@@ -6,7 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from core.cache import cache
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class AdminIPWhitelistMiddleware(BaseHTTPMiddleware):
             return set(cached)
         try:
             supabase = get_supabase()
-            rows = supabase.table("admin_ip_whitelist").select("ip_address").execute()
+            rows = await async_supabase(lambda: supabase.table("admin_ip_whitelist").select("ip_address").execute())
             ips = {r["ip_address"] for r in (rows.data or [])}
             await cache.set("admin_ip_whitelist", list(ips), ttl=WHITELIST_CACHE_TTL)
             return ips

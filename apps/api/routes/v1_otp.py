@@ -89,15 +89,15 @@ async def _delete_otp(email: str):
     await cache.delete(f"otp:{email}:login")
 
 
-def _check_user_exists(supabase, email: str) -> dict | None:
-    result = supabase.table("profiles").select("*").eq("email", email).maybe_single().execute()
+async def _check_user_exists(supabase, email: str) -> dict | None:
+    result = await async_supabase(lambda: supabase.table("profiles").select("*").eq("email", email).maybe_single().execute())
     return result.data if result and result.data else None
 
 
 @router.post("/send-otp")
 async def send_otp(req: SendOTPRequest):
     supabase = get_supabase()
-    user = _check_user_exists(supabase, req.email)
+    user = await _check_user_exists(supabase, req.email)
 
     code = _generate_otp()
     await _store_otp(req.email, code, req.phone)
@@ -173,19 +173,19 @@ async def register_with_otp(req: RegisterWithOTPRequest):
             detail="Account created but failed to send OTP. No email service configured. Contact your admin.",
         )
     if req.referral_code:
-        referrer = supabase.table("profiles").select("id").eq("referral_code", req.referral_code.upper()).maybe_single().execute()
+        referrer = await async_supabase(lambda: supabase.table("profiles").select("id").eq("referral_code", req.referral_code.upper()).maybe_single().execute())
         if referrer.data and referrer.data["id"] != user_id:
-            supabase.table("referrals").insert({
+            await async_supabase(lambda: supabase.table("referrals").insert({
                 "referrer_id": referrer.data["id"],
                 "referred_user_id": user_id,
                 "referred_email": req.email,
                 "status": "completed",
                 "reward_given": True,
                 "completed_at": datetime.now(UTC).isoformat(),
-            }).execute()
-            current = supabase.table("profiles").select("referral_count").eq("id", referrer.data["id"]).maybe_single().execute()
+            }).execute())
+            current = await async_supabase(lambda: supabase.table("profiles").select("referral_count").eq("id", referrer.data["id"]).maybe_single().execute())
             cur_count = (current.data.get("referral_count") or 0) if current.data else 0
-            supabase.table("profiles").update({"referral_count": cur_count + 1}).eq("id", referrer.data["id"]).execute()
+            await async_supabase(lambda: supabase.table("profiles").update({"referral_count": cur_count + 1}).eq("id", referrer.data["id"]).execute())
 
     record_audit(AuditLogEntry(
         user_id=user_id,

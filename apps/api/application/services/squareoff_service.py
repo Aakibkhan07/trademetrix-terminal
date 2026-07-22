@@ -27,6 +27,7 @@ class SquareoffService:
     def __init__(self) -> None:
         self._cache: dict[str, SquareoffConfigModel] = {}
         self._task: asyncio.Task | None = None
+        self._fired: set[str] = set()
 
     async def get_config(self, user_id: str) -> dict:
         supabase = get_supabase()
@@ -171,6 +172,7 @@ class SquareoffService:
                 now = datetime.now()
                 current_time = f"{now.hour:02d}:{now.minute:02d}"
                 current_dow = now.weekday()
+                today = now.strftime("%Y%m%d")
 
                 configs = await async_safe_execute(
                     supabase.table(SQUAREOFF_TABLE).select("*").eq("enabled", True)
@@ -182,6 +184,10 @@ class SquareoffService:
                         continue
                     if sq_time == current_time:
                         user_id = row["user_id"]
+                        fire_key = f"{user_id}:{sq_time}:{today}"
+                        if fire_key in self._fired:
+                            continue
+                        self._fired.add(fire_key)
                         cfg = SquareoffConfigModel(
                             enabled=True, time=sq_time, days=days, user_id=user_id,
                         )

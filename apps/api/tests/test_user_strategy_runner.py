@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, patch
 
 from engine.user_strategy_runner import (
-    UserStrategyRunner, _is_squared_off_today, _mark_squared_off_today,
+    UserStrategyRunner, _mark_squared_off_today,
 )
 
 
@@ -27,20 +27,18 @@ async def test_square_off_triggers_at_exit_time():
     ]
 
     with patch("engine.user_strategy_runner.async_safe_execute", AsyncMock(return_value=mock_rows)), \
-         patch("engine.user_strategy_runner._is_squared_off_today", AsyncMock(return_value=False)), \
+         patch("engine.user_strategy_runner._mark_squared_off_today", AsyncMock(return_value=True)), \
          patch("engine.user_strategy_runner._get_open_legs", AsyncMock(return_value=[
              {"leg_order": 1, "symbol": "NIFTY...CE", "side": "buy", "quantity": 65},
          ])), \
          patch("engine.user_strategy_runner.handle_square_off", AsyncMock(return_value=[
              {"leg_order": 1, "result": {"success": True, "reason": ""}},
-         ])) as mock_sqoff, \
-         patch("engine.user_strategy_runner._mark_squared_off_today", AsyncMock()) as mock_mark:
+         ])) as mock_sqoff:
 
         ist_now = datetime(2026, 7, 6, 10, 30, tzinfo=timezone(timedelta(hours=5, minutes=30)))
         await runner._check_square_off(ist_now)
 
         assert mock_sqoff.called
-        assert mock_mark.called
 
 
 @pytest.mark.asyncio
@@ -114,7 +112,7 @@ async def test_square_off_skips_already_done():
     ]
 
     with patch("engine.user_strategy_runner.async_safe_execute", AsyncMock(return_value=mock_rows)), \
-         patch("engine.user_strategy_runner._is_squared_off_today", AsyncMock(return_value=True)), \
+         patch("engine.user_strategy_runner._mark_squared_off_today", AsyncMock(return_value=False)), \
          patch("engine.user_strategy_runner.handle_square_off", AsyncMock()) as mock_sqoff:
 
         ist_now = datetime(2026, 7, 6, 15, 30, tzinfo=timezone(timedelta(hours=5, minutes=30)))
@@ -138,26 +136,13 @@ async def test_square_off_no_active_strategies():
 
 
 @pytest.mark.asyncio
-async def test_is_squared_off_cache():
-    """Redis cache correctly tracks daily square-off state."""
-    with patch("engine.user_strategy_runner.cache.get", AsyncMock(return_value=True)):
-        result = await _is_squared_off_today("user-1", "strat-1")
-        assert result is True
-
-    with patch("engine.user_strategy_runner.cache.get", AsyncMock(return_value=False)):
-        result = await _is_squared_off_today("user-1", "strat-1")
-        assert result is False
-
-
-@pytest.mark.asyncio
 async def test_mark_squared_off_cache():
     """Marking square-off persists to Redis with TTL."""
-    with patch("engine.user_strategy_runner.cache.set", AsyncMock()) as mock_set:
+    with patch("engine.user_strategy_runner.cache.set_nx", AsyncMock()) as mock_set:
         await _mark_squared_off_today("user-1", "strat-1")
         assert mock_set.called
         args, kwargs = mock_set.call_args
         assert kwargs.get("ttl") == 86400
-        assert args[1] is True
 
 
 @pytest.mark.asyncio

@@ -122,7 +122,8 @@ class TestGetAuthUrl:
         mock_redirect.return_value = "https://example.com/callback"
         mock_provider.return_value.build_auth_url.return_value = "https://oauth.example.com/auth?client_id=client-123"
 
-        url = await svc.get_auth_url("u1", "fyers")
+        with patch("core.cache.cache.set", AsyncMock(return_value=True)):
+            url = await svc.get_auth_url("u1", "fyers")
 
         assert url == "https://oauth.example.com/auth?client_id=client-123"
         mock_decrypt.assert_called_once_with(sample_cred.encrypted_api_key)
@@ -192,7 +193,8 @@ class TestHandleCallback:
     @pytest.mark.asyncio
     async def test_no_cred_returns_false(self, svc, repo) -> None:
         repo.get_by_user_and_broker_full.return_value = None
-        ok, msg = await svc.handle_callback("fyers", "code123", "user-1")
+        with patch("core.cache.cache.get", AsyncMock(return_value="user-1:fyers")):
+            ok, msg = await svc.handle_callback("fyers", "code123", "user-1")
         assert ok is False
         assert "No Fyers credentials found" in msg
 
@@ -200,6 +202,7 @@ class TestHandleCallback:
     async def test_success_flow_returns_true(self, svc, repo, sample_cred) -> None:
         repo.get_by_user_and_broker_full.return_value = sample_cred
         with (
+            patch("core.cache.cache.get", AsyncMock(return_value="user-1:fyers")),
             patch.object(svc, "_decrypt", return_value="decrypted"),
             patch("application.services.broker_service.get_oauth_provider") as mock_provider,
             patch("application.services.broker_service.get_redirect_uri", return_value="https://cb"),
@@ -214,6 +217,7 @@ class TestHandleCallback:
     async def test_exception_returns_false(self, svc, repo, sample_cred) -> None:
         repo.get_by_user_and_broker_full.return_value = sample_cred
         with (
+            patch("core.cache.cache.get", AsyncMock(return_value="user-1:fyers")),
             patch.object(svc, "_decrypt", side_effect=ValueError("boom")),
             patch("application.services.broker_service.get_redirect_uri"),
         ):

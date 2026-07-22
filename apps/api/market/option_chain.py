@@ -175,10 +175,10 @@ class OptionChainEngine:
         fyers_map = {"NIFTY": "NSE:NIFTY50-INDEX", "BANKNIFTY": "NSE:NIFTYBANK-INDEX", "FINNIFTY": "NSE:FINNIFTY-INDEX", "SENSEX": "BSE:SENSEX-INDEX"}
         fyers_symbol = fyers_map.get(symbol.upper(), f"NSE:{symbol.upper()}")
         try:
-            from core.db import get_supabase
+            from core.db import async_supabase, get_supabase
             from core.security import decrypt_broker_credentials
             supabase = get_supabase()
-            active = supabase.table("broker_credentials").select("*").eq("broker", "fyers").eq("is_active", True).execute()
+            active = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("broker", "fyers").eq("is_active", True).execute())
             if not active.data:
                 return None
             client_id = None

@@ -28,12 +28,12 @@ class ReferralStatsResponse(BaseModel):
 @router.get("/code", response_model=ReferralCodeResponse)
 async def get_referral_code(user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    profile = supabase.table("profiles").select("referral_code").eq("id", user.id).execute()
+    profile = await async_supabase(lambda: supabase.table("profiles").select("referral_code").eq("id", user.id).execute())
     if profile.data and profile.data[0].get("referral_code"):
         return ReferralCodeResponse(referral_code=profile.data[0]["referral_code"])
 
     code = secrets.token_hex(4).upper()
-    supabase.table("profiles").update({"referral_code": code}).eq("id", user.id).execute()
+    await async_supabase(lambda: supabase.table("profiles").update({"referral_code": code}).eq("id", user.id).execute())
     return ReferralCodeResponse(referral_code=code)
 
 
@@ -41,17 +41,17 @@ async def get_referral_code(user: UserProfile = Depends(get_current_user)):
 async def generate_referral_code(user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
     code = secrets.token_hex(4).upper()
-    supabase.table("profiles").update({"referral_code": code}).eq("id", user.id).execute()
+    await async_supabase(lambda: supabase.table("profiles").update({"referral_code": code}).eq("id", user.id).execute())
     return ReferralCodeResponse(referral_code=code)
 
 
 @router.get("/stats", response_model=ReferralStatsResponse)
 async def referral_stats(user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    profile = supabase.table("profiles").select("referral_code").eq("id", user.id).execute()
+    profile = await async_supabase(lambda: supabase.table("profiles").select("referral_code").eq("id", user.id).execute())
     code = profile.data[0].get("referral_code", "") if profile.data else ""
 
-    refs = supabase.table("referrals").select("status").eq("referrer_id", user.id).execute()
+    refs = await async_supabase(lambda: supabase.table("referrals").select("status").eq("referrer_id", user.id).execute())
     all_refs = refs.data or []
     total = len(all_refs)
     completed = sum(1 for r in all_refs if r["status"] == "completed")
@@ -68,5 +68,5 @@ async def referral_stats(user: UserProfile = Depends(get_current_user)):
 @router.get("/list")
 async def referral_list(user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    refs = supabase.table("referrals").select("*").eq("referrer_id", user.id).order("created_at", desc=True).execute()
+    refs = await async_supabase(lambda: supabase.table("referrals").select("*").eq("referrer_id", user.id).order("created_at", desc=True).execute())
     return {"referrals": refs.data or []}

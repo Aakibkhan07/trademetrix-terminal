@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     ws_heartbeat_interval: int = 30
     ws_ping_interval: int = 30
     user_strategy_max_lots: int = 10
-    default_buyer_user_id: str = "fa668109-4b1e-4758-a49b-015027ea4115"
+    default_buyer_user_id: str = "fa668109-4b1e-4758-a49b-015027ea4115"  # override via DEFAULT_BUYER_USER_ID env
 
     @property
     def cors_origin_list(self) -> list[str]:

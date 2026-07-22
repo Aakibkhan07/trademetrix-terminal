@@ -79,8 +79,12 @@ class UpdateAdminRoleRequest(BaseModel):
 
 
 @router.get("/users")
-async def admin_list_users(admin: UserProfile = Depends(require_admin)):
-    return await _service.list_users()
+async def admin_list_users(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.list_users(limit, offset)
 
 
 @router.get("/assignments")
@@ -185,8 +189,12 @@ async def admin_broadcast_notify(
 
 
 @router.get("/brokers")
-async def admin_list_brokers(admin: UserProfile = Depends(require_admin)):
-    return await _service.list_brokers()
+async def admin_list_brokers(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.list_brokers(limit, offset)
 
 
 @router.get("/positions")

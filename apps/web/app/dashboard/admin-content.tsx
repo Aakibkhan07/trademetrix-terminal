@@ -1,34 +1,25 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useApi } from '@/lib/use-api'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta, FyersHealthResult, BuyerStrategyStatus } from '@/lib/api'
-import { BroadcastDialog } from './broadcast-dialog'
-import { SubscriptionsTab } from './subscriptions-tab'
-import { TradingLogsTab } from './trading-logs-tab'
-import { ActivityTimelineTab } from './activity-timeline-tab'
-import { PnLDashboardTab } from './pnl-dashboard-tab'
-import { StrategyPerformanceTab } from './strategy-performance-tab'
-import { UserStrategiesTab } from './user-strategies-tab'
-import { ReferralsTab } from './referrals-tab'
-import { WebhookTesterTab } from './webhook-tester-tab'
-import { TradeRouterTab } from './trade-router-tab'
-import { BackupsTab } from './backups-tab'
-import { IPWhitelistTab } from './ip-whitelist-tab'
-import { ScheduledTasksTab } from './scheduled-tasks-tab'
 
-interface HealthData {
-  status: string
-  service: string
-  version: string
-  uptime_seconds: number
-}
+const BroadcastDialog = dynamic(() => import('./broadcast-dialog').then(m => ({ default: m.BroadcastDialog })), { ssr: false })
+const SubscriptionsTab = dynamic(() => import('./subscriptions-tab').then(m => ({ default: m.SubscriptionsTab })), { ssr: false })
+const TradingLogsTab = dynamic(() => import('./trading-logs-tab').then(m => ({ default: m.TradingLogsTab })), { ssr: false })
+const ActivityTimelineTab = dynamic(() => import('./activity-timeline-tab').then(m => ({ default: m.ActivityTimelineTab })), { ssr: false })
+const PnLDashboardTab = dynamic(() => import('./pnl-dashboard-tab').then(m => ({ default: m.PnLDashboardTab })), { ssr: false })
+const StrategyPerformanceTab = dynamic(() => import('./strategy-performance-tab').then(m => ({ default: m.StrategyPerformanceTab })), { ssr: false })
+const UserStrategiesTab = dynamic(() => import('./user-strategies-tab').then(m => ({ default: m.UserStrategiesTab })), { ssr: false })
+const ReferralsTab = dynamic(() => import('./referrals-tab').then(m => ({ default: m.ReferralsTab })), { ssr: false })
+const WebhookTesterTab = dynamic(() => import('./webhook-tester-tab').then(m => ({ default: m.WebhookTesterTab })), { ssr: false })
+const TradeRouterTab = dynamic(() => import('./trade-router-tab').then(m => ({ default: m.TradeRouterTab })), { ssr: false })
+const BackupsTab = dynamic(() => import('./backups-tab').then(m => ({ default: m.BackupsTab })), { ssr: false })
+const IPWhitelistTab = dynamic(() => import('./ip-whitelist-tab').then(m => ({ default: m.IPWhitelistTab })), { ssr: false })
+const ScheduledTasksTab = dynamic(() => import('./scheduled-tasks-tab').then(m => ({ default: m.ScheduledTasksTab })), { ssr: false })
 
-interface HealthReady {
-  status: string
-  dependencies: { database: boolean; cache: boolean }
-}
 
 
 interface StrategyInfo {
@@ -139,17 +130,7 @@ export function AdminDashboard() {
 
 function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
   const { data: statsData, loading, error } = useApi<AdminStats>('/admin/stats')
-  const [health, setHealth] = useState<HealthData | null>(null)
-  const [healthReady, setHealthReady] = useState<HealthReady | null>(null)
   const router = useRouter()
-
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
-  const API_ROOT = API_BASE.replace('/api/v1', '')
-
-  useEffect(() => {
-    fetch(`${API_ROOT}/health`).then(r => r.json()).then(setHealth).catch(() => {})
-    fetch(`${API_ROOT}/health/ready`).then(r => r.json()).then(setHealthReady).catch(() => {})
-  }, [API_ROOT])
 
   if (loading) {
     return (
@@ -257,43 +238,8 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
         </div>
       </div>
 
-      <div className="t-grid-2" style={{ gap: 10, marginBottom: 16 }}>
-        <div className="t-panel" style={{ padding: '14px 16px' }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>SYSTEM HEALTH</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-              <span className="t-faint">Service</span>
-              <span style={{ fontWeight: 600 }}>{health?.service || '—'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-              <span className="t-faint">Version</span>
-              <span style={{ fontWeight: 600 }}>{health?.version || '—'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-              <span className="t-faint">Uptime</span>
-              <span style={{ fontWeight: 600 }}>{health ? fmtUptime(health.uptime_seconds) : '—'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-              <span className="t-faint">API Status</span>
-              <span style={{ fontWeight: 600, color: health?.status === 'ok' ? 'var(--green)' : 'var(--red)' }}>
-                {health?.status?.toUpperCase() || '—'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
-                <span className={`t-dot ${healthReady?.dependencies?.database ? 't-dot-green' : 't-dot-red'}`} />
-                <span>Database</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
-                <span className={`t-dot ${healthReady?.dependencies?.cache ? 't-dot-green' : 't-dot-red'}`} />
-                <span>Cache</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="t-panel" style={{ padding: '14px 16px' }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>OVERVIEW</h3>
+      <div className="t-panel" style={{ padding: '14px 16px' }}>
+        <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>OVERVIEW</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
               <span className="t-faint">Tier Distribution</span>
@@ -321,7 +267,6 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
             </div>
           </div>
         </div>
-      </div>
 
       {statsData && (
         <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 16 }}>

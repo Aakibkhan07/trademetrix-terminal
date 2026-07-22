@@ -29,7 +29,7 @@ def _make_client(url: str, key: str) -> Client:
         options=ClientOptions(
             httpx_client=httpx.Client(
                 timeout=httpx.Timeout(15.0, connect=5.0),
-                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=30),
+                limits=httpx.Limits(max_connections=50, max_keepalive_connections=20, keepalive_expiry=60),
             ),
         ),
     )

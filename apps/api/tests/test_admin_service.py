@@ -33,13 +33,12 @@ def mock_db() -> Generator[dict, None, None]:
 
 @pytest.mark.asyncio
 class TestListUsers:
-    @patch("application.services.admin_service.resolve_capabilities_by_id")
-    async def test_returns_user_list(self, mock_caps, svc, mock_db) -> None:
+    async def test_returns_user_list(self, svc, mock_db) -> None:
         mock_db["async_safe_execute"].side_effect = [
             [{"id": "u1", "email": "a@b.com", "full_name": "User A", "is_admin": False, "role": "", "subscription_tier": "free", "created_at": "2025-01-01"}],
             [],
+            [],
         ]
-        mock_caps.return_value = MagicMock(max_active_strategies=1)
         result = await svc.list_users()
         assert len(result["users"]) == 1
         assert result["users"][0]["email"] == "a@b.com"
@@ -249,15 +248,14 @@ class TestGetAuditLog:
 
 @pytest.mark.asyncio
 class TestGetStats:
-    @patch("application.services.admin_service.resolve_capabilities_by_id")
     @patch("application.services.admin_service.get_strategy_catalog", return_value=["s1", "s2"])
-    async def test_returns_stats(self, mock_cat, mock_caps, svc, mock_db) -> None:
+    async def test_returns_stats(self, mock_cat, svc, mock_db) -> None:
         mock_db["async_safe_execute"].side_effect = [
-            [{"id": "u1", "is_admin": True, "subscription_tier": "pro", "created_at": ""},
-             {"id": "u2", "is_admin": False, "subscription_tier": "free", "created_at": ""}],
+            [{"id": "u1", "is_admin": True, "subscription_tier": "pro"},
+             {"id": "u2", "is_admin": False, "subscription_tier": "free"}],
+            [{"user_id": "u1", "tier": "pro"}],
             [{"id": "a1"}],
         ]
-        mock_caps.return_value = MagicMock(tier="pro")
         result = await svc.get_stats()
         assert result["total_users"] == 2
         assert result["total_admins"] == 1

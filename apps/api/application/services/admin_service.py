@@ -35,10 +35,13 @@ logger = logging.getLogger(__name__)
 
 class AdminService:
 
-    async def list_users(self) -> dict:
+    async def list_users(self, limit: int = 100, offset: int = 0) -> dict:
         supabase = get_supabase()
         profiles = await async_safe_execute(
-            supabase.table("profiles").select("id, email, full_name, is_admin, role, subscription_tier, created_at")
+            supabase.table("profiles")
+            .select("id, email, full_name, is_admin, role, subscription_tier, created_at")
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
         ) or []
 
         all_assignments = await async_safe_execute(
@@ -50,13 +53,20 @@ class AdminService:
             uid = row["user_id"]
             count_map[uid] = count_map.get(uid, 0) + 1
 
-        tier_cache: dict[str, int] = {}
+        user_ids = [p["id"] for p in profiles]
+        all_subs = await async_safe_execute(
+            supabase.table("subscriptions")
+            .select("user_id, tier")
+            .in_("user_id", user_ids)
+            .eq("status", "active")
+        ) or []
+        sub_tier_map: dict[str, str] = {s["user_id"]: s["tier"] for s in all_subs}
+
         result = []
         for p in profiles:
             uid = p["id"]
-            if uid not in tier_cache:
-                caps = await resolve_capabilities_by_id(uid)
-                tier_cache[uid] = caps.max_active_strategies
+            tier = sub_tier_map.get(uid) or p.get("subscription_tier", "free")
+            max_strategies = CAP_MAP[tier].max_active_strategies if tier in CAP_MAP else FREE.max_active_strategies
             result.append({
                 "id": uid,
                 "email": p.get("email", ""),
@@ -65,7 +75,7 @@ class AdminService:
                 "role": p.get("role", ""),
                 "subscription_tier": p.get("subscription_tier", "free"),
                 "active_assignments": count_map.get(uid, 0),
-                "max_active_strategies": tier_cache[uid],
+                "max_active_strategies": max_strategies,
             })
 
         return {"users": result}
@@ -404,12 +414,13 @@ class AdminService:
         await record_audit(admin_id, "broadcast_notify", "broadcast", {"type": notify_type, "recipients": len(users), "success": success_count})
         return {"results": results, "total": len(users), "success": success_count, "failed": len(users) - success_count}
 
-    async def list_brokers(self) -> dict:
+    async def list_brokers(self, limit: int = 100, offset: int = 0) -> dict:
         supabase = get_supabase()
         creds = await async_safe_execute(
             supabase.table("broker_credentials")
             .select("id, user_id, broker, is_active, encrypted_access_token, created_at, updated_at")
             .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
         ) or []
 
         user_ids = list(set(c["user_id"] for c in creds))
@@ -721,19 +732,24 @@ class AdminService:
     async def get_stats(self) -> dict:
         supabase = get_supabase()
         profiles = await async_safe_execute(
-            supabase.table("profiles").select("id, is_admin, subscription_tier, created_at")
+            supabase.table("profiles").select("id, is_admin, subscription_tier")
         ) or []
 
         total_users = len(profiles)
         total_admins = sum(1 for p in profiles if p.get("is_admin"))
+
+        user_ids = [p["id"] for p in profiles]
+        all_subs = await async_safe_execute(
+            supabase.table("subscriptions")
+            .select("user_id, tier")
+            .in_("user_id", user_ids)
+            .eq("status", "active")
+        ) or []
+        sub_tier_map: dict[str, str] = {s["user_id"]: s["tier"] for s in all_subs}
+
         tier_counts: dict[str, int] = {}
         for p in profiles:
-            uid = p["id"]
-            try:
-                caps = await resolve_capabilities_by_id(uid) if "id" in p else FREE
-                t = caps.tier
-            except Exception:
-                t = p.get("subscription_tier", "free")
+            t = sub_tier_map.get(p["id"]) or p.get("subscription_tier", "free")
             tier_counts[t] = tier_counts.get(t, 0) + 1
 
         assignments = await async_safe_execute(

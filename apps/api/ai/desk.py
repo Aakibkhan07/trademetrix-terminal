@@ -1,7 +1,7 @@
 import json
 import logging
 
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 
 from .openrouter import chat_completion
 from .sales_context import get_sales_context
@@ -59,13 +59,13 @@ Never give financial advice or recommendations. You are a tool, not a SEBI-regis
         parts = []
 
         try:
-            funds = supabase.table("positions_snapshot").select("*").eq("user_id", self.user_id).execute()
+            funds = await async_supabase(lambda: supabase.table("positions_snapshot").select("*").eq("user_id", self.user_id).execute())
             parts.append(f"Open positions: {len(funds.data or [])}")
         except Exception as e:
             logger.warning("Failed to fetch AI desk context for user %s: %s", self.user_id, e)
 
         try:
-            result = supabase.table("risk_settings").select("*").eq("user_id", self.user_id).single().execute()
+            result = await async_supabase(lambda: supabase.table("risk_settings").select("*").eq("user_id", self.user_id).single().execute())
             if result.data:
                 rs = result.data
                 parts.append(f"Risk: kill_switch={'ON' if rs.get('kill_switch_enabled') else 'OFF'}, mode={'LIVE' if rs.get('is_live') else 'PAPER'}, max_daily_loss={rs.get('max_daily_loss', 0)}")
@@ -73,7 +73,7 @@ Never give financial advice or recommendations. You are a tool, not a SEBI-regis
             logger.warning("Failed to fetch AI desk context for user %s: %s", self.user_id, e)
 
         try:
-            strat = supabase.table("strategies").select("name, is_active").eq("user_id", self.user_id).execute()
+            strat = await async_supabase(lambda: supabase.table("strategies").select("name, is_active").eq("user_id", self.user_id).execute())
             names = [s["name"] for s in (strat.data or []) if s.get("is_active")]
             parts.append(f"Active strategies: {', '.join(names) if names else 'none'}")
         except Exception as e:

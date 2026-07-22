@@ -458,11 +458,37 @@ class FivePaisaAdapter(BaseBroker):
         mapping = {Exchange.NSE: "N", Exchange.BSE: "B", Exchange.NFO: "N", Exchange.MCX: "M"}
         return mapping.get(exchange, "N")
 
+    @staticmethod
+    def _parse_instrument(symbol: str) -> dict:
+        import re
+        clean = symbol.split(":")[-1] if ":" in symbol else symbol
+        m = re.match(r"^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$", clean.upper())
+        if m:
+            yy = int(m.group(2))
+            month_code = m.group(3)
+            months = {
+                "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+                "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12,
+            }
+            month_num = months.get(month_code, 1)
+            return {
+                "instrument_type": InstrumentType.OPT,
+                "strike_price": float(m.group(4)),
+                "expiry_date": f"{2000 + yy}-{month_num:02d}",
+                "option_type": OptionType(m.group(5)),
+            }
+        m = re.match(r"^([A-Z]+)(\d{2})([A-Z]{3})$", clean.upper())
+        if m:
+            return {"instrument_type": InstrumentType.FUT, "strike_price": None, "expiry_date": None, "option_type": None}
+        return {"instrument_type": InstrumentType.EQ, "strike_price": None, "expiry_date": None, "option_type": None}
+
     def _normalize_order(self, item: dict) -> NormalizedOrder:
+        raw_symbol = str(item.get("ScripName", item.get("ScripCode", "")))
+        inst = self._parse_instrument(raw_symbol)
         return NormalizedOrder(
             id=str(item.get("OrderNo", "")),
             broker_order_id=str(item.get("OrderNo", "")),
-            symbol=str(item.get("ScripName", item.get("ScripCode", ""))),
+            symbol=raw_symbol,
             exchange=Exchange.NSE,
             side=OrderSide.BUY if item.get("BuySell", "") == "B" else OrderSide.SELL,
             order_type=OrderType.MARKET,
@@ -474,13 +500,15 @@ class FivePaisaAdapter(BaseBroker):
             filled_quantity=int(item.get("FillQty", 0)),
             average_price=float(item.get("AvgRate", 0)),
             broker=self.broker_name,
-            instrument_type=InstrumentType.EQ,
-            strike_price=None,
-            expiry_date=None,
-            option_type=None,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
 
     def _normalize_position(self, item: dict) -> Position:
+        raw_symbol = str(item.get("ScripName", item.get("ScripCode", "")))
+        inst = self._parse_instrument(raw_symbol)
         qty = int(item.get("NetQty", item.get("Qty", 0)))
         buy_qty = int(item.get("BuyQty", 0))
         sell_qty = int(item.get("SellQty", 0))
@@ -488,7 +516,7 @@ class FivePaisaAdapter(BaseBroker):
             buy_qty = qty if qty > 0 else 0
             sell_qty = abs(qty) if qty < 0 else 0
         return Position(
-            symbol=str(item.get("ScripName", item.get("ScripCode", ""))),
+            symbol=raw_symbol,
             exchange=Exchange.NSE,
             quantity=qty,
             buy_quantity=buy_qty,
@@ -498,10 +526,10 @@ class FivePaisaAdapter(BaseBroker):
             realised_pnl=float(item.get("RealizedPL", 0)),
             product=ProductType.INTRADAY,
             broker=self.broker_name,
-            instrument_type=InstrumentType.EQ,
-            strike_price=None,
-            expiry_date=None,
-            option_type=None,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
 
     @staticmethod

@@ -81,6 +81,7 @@ class BuyerStrategyRunner:
         self._running = False
         self._loop_task: asyncio.Task | None = None
         self._tasks: dict[str, asyncio.Task] = {}
+        self._bg_tasks: set[asyncio.Task] = set()
         self._active: list[str] = []
         self._configs: dict[str, dict] = {}
         self._indices: dict[str, str] = {}
@@ -120,19 +121,24 @@ class BuyerStrategyRunner:
         if self._active:
             logger.info("Rehydrated %d buyer strategies from cache", len(self._active))
 
+    def _bg(self, coro):
+        task = asyncio.create_task(coro)
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+
     def _persist_active(self):
-        asyncio.ensure_future(cache.set(CACHE_ACTIVE_KEY, self._active, ttl=86400))
+        self._bg(cache.set(CACHE_ACTIVE_KEY, self._active, ttl=86400))
 
     def _persist_config(self, sid: str):
         cfg = self._configs.get(sid)
         idx = self._indices.get(sid, "NIFTY")
         if cfg:
-            asyncio.ensure_future(cache.set(f"{CACHE_CONFIG_PREFIX}{sid}", cfg, ttl=86400))
-            asyncio.ensure_future(cache.set(f"{CACHE_INDEX_PREFIX}{sid}", idx, ttl=86400))
+            self._bg(cache.set(f"{CACHE_CONFIG_PREFIX}{sid}", cfg, ttl=86400))
+            self._bg(cache.set(f"{CACHE_INDEX_PREFIX}{sid}", idx, ttl=86400))
 
     def _remove_config(self, sid: str):
-        asyncio.ensure_future(cache.delete(f"{CACHE_CONFIG_PREFIX}{sid}"))
-        asyncio.ensure_future(cache.delete(f"{CACHE_INDEX_PREFIX}{sid}"))
+        self._bg(cache.delete(f"{CACHE_CONFIG_PREFIX}{sid}"))
+        self._bg(cache.delete(f"{CACHE_INDEX_PREFIX}{sid}"))
 
     async def _auto_activate(self):
         logger.info("Market open — auto-activating all buyer strategies")
@@ -252,12 +258,19 @@ class BuyerStrategyRunner:
         aggregator = CandleAggregator(index_symbol, CANDLE_INTERVAL)
         live_feed_active = False
 
+        dropped_ticks = 0
+
         async def tick_handler(tick: Tick) -> None:
+            nonlocal dropped_ticks
             if tick.symbol == index_symbol or tick.symbol.endswith(f":{index_symbol}"):
                 try:
                     await asyncio.wait_for(tick_queue.put(tick), timeout=1)
-                except (asyncio.QueueFull, asyncio.TimeoutError):
-                    pass
+                except asyncio.QueueFull:
+                    dropped_ticks += 1
+                    if dropped_ticks == 1 or dropped_ticks % 100 == 0:
+                        logger.warning("Tick queue full for %s — dropped %d ticks", strategy_id, dropped_ticks)
+                except asyncio.TimeoutError:
+                    dropped_ticks += 1
 
         shared_socket.subscribe(index_symbol, tick_handler)
         shared_socket.subscribe("*", tick_handler)
