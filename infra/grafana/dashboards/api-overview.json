@@ -4,7 +4,7 @@
   "title": "TradeMetrix — API Overview",
   "uid": "trademetrix-api",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "timezone": "browser",
   "panels": [
     {
@@ -44,12 +44,39 @@
       ]
     },
     {
-      "title": "Active Connections",
-      "type": "graph",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "title": "API Health",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 8 },
       "targets": [
         {
-          "expr": "nginx_connections_active",
+          "expr": "api_health_status",
+          "legendFormat": "health",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "value": "1", "text": "Healthy" },
+            { "type": "value", "value": "0", "text": "Unhealthy" }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Active Connections",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 4, "y": 8 },
+      "targets": [
+        {
+          "expr": "active_connections{job=\"api\"}",
           "legendFormat": "active",
           "refId": "A"
         }
@@ -58,7 +85,7 @@
     {
       "title": "Memory Usage",
       "type": "graph",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "gridPos": { "h": 8, "w": 8, "x": 12, "y": 8 },
       "targets": [
         {
           "expr": "process_resident_memory_bytes{job=\"api\"}",
@@ -70,11 +97,57 @@
     {
       "title": "CPU Usage",
       "type": "graph",
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "gridPos": { "h": 8, "w": 8, "x": 4, "y": 16 },
       "targets": [
         {
           "expr": "rate(process_cpu_seconds_total{job=\"api\"}[1m])",
           "legendFormat": "api",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "DB Query Duration (P50)",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, rate(db_query_duration_seconds_bucket[5m]))",
+          "legendFormat": "p50",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Broker Request Duration",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(broker_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95 {{broker}} {{operation}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Market Ticks",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "rate(market_ticks_total[1m])",
+          "legendFormat": "ticks/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(market_ticks_errors_total[1m])",
+          "legendFormat": "errors/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(market_ticks_reconnects_total[1m])",
+          "legendFormat": "reconnects/s",
           "refId": "A"
         }
       ]
