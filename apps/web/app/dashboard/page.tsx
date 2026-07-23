@@ -54,7 +54,6 @@ function DashboardInner() {
     : tab === 'risk' ? 'Risk'
     : tab === 'strategies' ? 'Strategies'
     : tab === 'buyer-strategies' ? 'Buyer Strategies'
-    : tab === 'subscriptions' ? 'Subscriptions'
     : tab === 'trading-logs' ? 'Trading Logs'
     : tab === 'activity' ? 'Activity Timeline'
     : tab === 'pnl' ? 'P&L Dashboard'

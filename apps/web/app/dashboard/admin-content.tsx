@@ -7,7 +7,6 @@ import { useApi } from '@/lib/use-api'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta, FyersHealthResult, BuyerStrategyStatus } from '@/lib/api'
 
 const BroadcastDialog = dynamic(() => import('./broadcast-dialog').then(m => ({ default: m.BroadcastDialog })), { ssr: false })
-const SubscriptionsTab = dynamic(() => import('./subscriptions-tab').then(m => ({ default: m.SubscriptionsTab })), { ssr: false })
 const TradingLogsTab = dynamic(() => import('./trading-logs-tab').then(m => ({ default: m.TradingLogsTab })), { ssr: false })
 const ActivityTimelineTab = dynamic(() => import('./activity-timeline-tab').then(m => ({ default: m.ActivityTimelineTab })), { ssr: false })
 const PnLDashboardTab = dynamic(() => import('./pnl-dashboard-tab').then(m => ({ default: m.PnLDashboardTab })), { ssr: false })
@@ -111,7 +110,6 @@ export function AdminDashboard() {
       {tab === 'risk' && <RiskTab />}
       {tab === 'strategies' && <StrategiesTab />}
       {tab === 'buyer-strategies' && <BuyerStrategiesTab />}
-      {tab === 'subscriptions' && <SubscriptionsTab />}
       {tab === 'trading-logs' && <TradingLogsTab />}
       {tab === 'activity' && <ActivityTimelineTab />}
       {tab === 'pnl' && <PnLDashboardTab />}
@@ -218,10 +216,6 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
           <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=audit')}
             style={{ fontSize: 10 }}>
             Audit Log
-          </button>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=subscriptions')}
-            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--cyan) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--cyan) 20%, transparent)' }}>
-            Subscriptions
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=trading-logs')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
