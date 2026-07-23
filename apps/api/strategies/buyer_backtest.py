@@ -5,8 +5,6 @@ collects trades, equity curve, and performance metrics.
 """
 
 import logging
-from datetime import datetime
-from typing import Any
 
 from core.models import Candle
 from strategies import get_strategy

@@ -2,7 +2,6 @@ import logging
 import random
 from datetime import UTC, datetime, timedelta
 
-from core.db import get_supabase
 from core.models import Candle, NormalizedOrder, OrderSide, OrderType
 from strategies import get_strategy
 
@@ -10,7 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 class BacktestResult:
-    def __init__(self):
+    def __init__(self, slippage_pct: float = 0.05, brokerage_pct: float = 0.03,
+                 stt_pct: float = 0.025, exchange_pct: float = 0.003):
         self.total_trades = 0
         self.winning_trades = 0
         self.losing_trades = 0
@@ -26,10 +26,26 @@ class BacktestResult:
         self.equity_curve: list[dict] = []
         self._peak = 0.0
         self._returns: list[float] = []
+        self._slippage_pct = slippage_pct
+        self._brokerage_pct = brokerage_pct
+        self._stt_pct = stt_pct
+        self._exchange_pct = exchange_pct
+
+    def _apply_costs(self, entry_price: float, exit_price: float, quantity: int) -> tuple[float, float]:
+        trade_value_entry = entry_price * quantity
+        trade_value_exit = exit_price * quantity
+        slippage = (entry_price + exit_price) * quantity * (self._slippage_pct / 100)
+        brokerage = (trade_value_entry + trade_value_exit) * (self._brokerage_pct / 100)
+        stt = trade_value_exit * (self._stt_pct / 100)
+        exchange_fee = (trade_value_entry + trade_value_exit) * (self._exchange_pct / 100)
+        total_cost = slippage + brokerage + stt + exchange_fee
+        return total_cost, brokerage + exchange_fee
 
     def record_trade(self, symbol: str, side: str, entry_price: float, exit_price: float,
                      quantity: int, entry_time: str, exit_time: str):
-        pnl = (exit_price - entry_price) * quantity if side == "BUY" else (entry_price - exit_price) * quantity
+        costs, _ = self._apply_costs(entry_price, exit_price, quantity)
+        gross_pnl = (exit_price - entry_price) * quantity if side == "BUY" else (entry_price - exit_price) * quantity
+        pnl = gross_pnl - costs
         self.total_trades += 1
         if pnl > 0:
             self.winning_trades += 1
@@ -81,14 +97,19 @@ class BacktestResult:
 
 
 class BacktestEngine:
-    def __init__(self, strategy_type: str, config: dict, initial_capital: float = 100000):
+    def __init__(self, strategy_type: str, config: dict, initial_capital: float = 100000,
+                 slippage_pct: float = 0.05, brokerage_pct: float = 0.03,
+                 stt_pct: float = 0.025, exchange_pct: float = 0.003):
         strategy_cls = get_strategy(strategy_type)
         if not strategy_cls:
             raise ValueError(f"Unknown strategy: {strategy_type}")
         self.strategy = strategy_cls(config)
         self.initial_capital = initial_capital
         self.capital = initial_capital
-        self.result = BacktestResult()
+        self.result = BacktestResult(
+            slippage_pct=slippage_pct, brokerage_pct=brokerage_pct,
+            stt_pct=stt_pct, exchange_pct=exchange_pct,
+        )
         self._open_positions: dict[str, dict] = {}
 
     async def run(self, candles: list[dict]) -> BacktestResult:
@@ -180,8 +201,10 @@ async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: st
         except Exception as e:
             logger.warning("Failed to fetch real data from Fyers (%s)", e)
 
-    logger.error("No historical data available for backtest — connect a broker with Fyers credentials")
-    return []
+    logger.warning("No broker data available — using synthetic data for backtest")
+    syn = _synthesize_candles(symbol, days, interval)
+    logger.info("Generated %d synthetic candles for %s", len(syn), symbol)
+    return syn
 
 
 def _parse_interval_minutes(interval: str) -> int:
@@ -240,27 +263,48 @@ def _candle_to_dict(c: Candle) -> dict:
 
 
 def _synthesize_candles(symbol: str, days: int = 30, interval: str = "15m") -> list[dict]:
-    base_price = 24000.0
     candles = []
-    interval_minutes = int(interval.replace("m", "").replace("min", "")) if "m" in interval else 60
-    total = days * (24 * 60 // interval_minutes)
+    interval_minutes = max(1, int(interval.replace("m", "").replace("min", "")) if "m" in interval else 60)
+    total = days * (6 * 60 // interval_minutes)  # ~6 trading hours per day
     now = datetime.now(UTC)
-    for i in range(total):
-        open_p = base_price + random.uniform(-100, 100)
-        close_p = open_p + random.uniform(-50, 50)
-        high_p = max(open_p, close_p) + random.uniform(0, 30)
-        low_p = min(open_p, close_p) - random.uniform(0, 30)
-        ts = now - timedelta(minutes=(total - i) * interval_minutes)
-        candles.append({
-            "symbol": symbol,
-            "exchange": "NSE",
-            "interval": interval,
-            "open": round(open_p, 2),
-            "high": round(high_p, 2),
-            "low": round(low_p, 2),
-            "close": round(close_p, 2),
-            "volume": random.randint(1000, 50000),
-            "timestamp": ts,
-            "oi": 0,
-        })
+    base_price = 24000.0
+    drift = 0.0001  # slight upward bias per candle
+    volatility = 0.002  # base volatility per candle
+    price = base_price
+
+    # Pre-generate daily trend shifts for realistic movement
+    daily_trends = [random.uniform(-0.003, 0.005) for _ in range(days)]
+
+    candle_idx = 0
+    for day in range(days):
+        day_trend = daily_trends[day]
+        day_vol = volatility * random.uniform(0.5, 2.0)
+        for _ in range(total // days):
+            open_p = price
+            # Simulate intraday pattern: higher vol at open/close, lower midday
+            intraday_vol = day_vol * random.uniform(0.7, 1.5)
+            ret = drift + day_trend + random.gauss(0, intraday_vol)
+            close_p = open_p * (1 + ret)
+            high_p = max(open_p, close_p) * (1 + abs(random.gauss(0, intraday_vol * 0.6)))
+            low_p = min(open_p, close_p) * (1 - abs(random.gauss(0, intraday_vol * 0.6)))
+            # Volume: higher at open, tapering off
+            vol_mult = max(0.3, 1.0 - (candle_idx % (total // days)) / (total // days) * 0.6)
+            vol = int(random.randint(5000, 100000) * vol_mult)
+
+            ts = now - timedelta(minutes=(total - candle_idx) * interval_minutes)
+            candles.append({
+                "symbol": symbol,
+                "exchange": "NSE",
+                "interval": interval,
+                "open": round(open_p, 2),
+                "high": round(high_p, 2),
+                "low": round(low_p, 2),
+                "close": round(close_p, 2),
+                "volume": vol,
+                "timestamp": ts,
+                "oi": random.randint(100000, 500000),
+            })
+            price = close_p
+            candle_idx += 1
+
     return candles

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 
@@ -151,7 +152,9 @@ export default function StrategyBuilderPage() {
   const [blocks, setBlocks] = useState<PlacedBlock[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [strategyName, setStrategyName] = useState('My Strategy')
+  const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [savedId, setSavedId] = useState<string | null>(null)
   const [saveError, setSaveError] = useState('')
   const canvasRef = useRef<HTMLDivElement>(null)
 
@@ -205,7 +208,7 @@ export default function StrategyBuilderPage() {
     if (selectedId === instanceId) setSelectedId(null)
   }, [selectedId])
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<string | null> => {
     setSaving(true)
     setSaveError('')
     try {
@@ -215,11 +218,22 @@ export default function StrategyBuilderPage() {
           config: b.config,
         })),
       }
-      await api.strategies.create({ name: strategyName, type: 'visual', config })
+      const result = await api.strategies.create({ name: strategyName, type: 'visual', config })
+      const id = (result as { id: string }).id
+      setSavedId(id)
+      return id
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Failed to save')
+      return null
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSaveAndDeploy = async () => {
+    const id = savedId || await handleSave()
+    if (id) {
+      router.push(`/strategies`)
     }
   }
 
@@ -250,17 +264,19 @@ export default function StrategyBuilderPage() {
           onChange={e => setStrategyName(e.target.value)}
           style={{
             background: 'none', border: 'none', color: 'var(--text)',
-            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700,
+            fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700,
             outline: 'none', width: 200,
           }}
         />
         <div style={{ flex: 1 }} />
         <button className="t-btn t-btn-sm" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? 'Saving...' : savedId ? 'Saved ✓' : 'Save'}
         </button>
-        <Link href="/backtest" className="t-btn t-btn-sm t-btn-primary">
-          Backtest
-        </Link>
+        {blocks.length > 0 && (
+          <button className="t-btn t-btn-sm t-btn-primary" onClick={handleSaveAndDeploy} disabled={saving}>
+            Save & Deploy
+          </button>
+        )}
         {saveError && (
           <span style={{ color: 'var(--text-red)', fontSize: 11 }}>{saveError}</span>
         )}
@@ -372,7 +388,7 @@ export default function StrategyBuilderPage() {
                 }}>
                   <span style={{
                     fontSize: 11, fontWeight: 700, color: def.color,
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: 'var(--font-body)',
                   }}>
                     {def.name}
                   </span>

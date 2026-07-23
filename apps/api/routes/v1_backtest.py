@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from backtest.manager import backtest_manager
-from backtest.models import BacktestConfig, BacktestStatus, ReplaySpeed
+from backtest.models import BacktestConfig, ReplaySpeed
 from core.deps import get_current_user, require_feature
 from core.models import UserProfile
 from engine.backtest import BacktestEngine, fetch_historical_data
@@ -22,6 +22,10 @@ class BacktestRequest(BaseModel):
     days: int = 60
     initial_capital: float = 100000
     config: dict = {}
+    slippage_pct: float = 0.05
+    brokerage_pct: float = 0.03
+    stt_pct: float = 0.025
+    exchange_pct: float = 0.003
 
 
 # ─── Static routes (must precede /{run_id}) ───
@@ -51,6 +55,10 @@ async def run_backtest_legacy(
             strategy_type=req.strategy_type,
             config=req.config,
             initial_capital=req.initial_capital,
+            slippage_pct=req.slippage_pct,
+            brokerage_pct=req.brokerage_pct,
+            stt_pct=req.stt_pct,
+            exchange_pct=req.exchange_pct,
         )
 
         result = await engine.run(candles)
@@ -61,6 +69,10 @@ async def run_backtest_legacy(
             "days": req.days,
             "initial_capital": req.initial_capital,
             "candles_analyzed": len(candles),
+            "slippage_pct": req.slippage_pct,
+            "brokerage_pct": req.brokerage_pct,
+            "stt_pct": req.stt_pct,
+            "exchange_pct": req.exchange_pct,
             "results": result.to_dict(),
         }
     except ValueError as e:
@@ -230,6 +242,10 @@ async def create_backtest(
             strategy_type=req.strategy_type,
             config=req.config,
             initial_capital=req.initial_capital,
+            slippage_pct=req.slippage_pct,
+            brokerage_pct=req.brokerage_pct,
+            stt_pct=req.stt_pct,
+            exchange_pct=req.exchange_pct,
         )
 
         result = await engine.run(candles)
@@ -240,6 +256,10 @@ async def create_backtest(
             "days": req.days,
             "initial_capital": req.initial_capital,
             "candles_analyzed": len(candles),
+            "slippage_pct": req.slippage_pct,
+            "brokerage_pct": req.brokerage_pct,
+            "stt_pct": req.stt_pct,
+            "exchange_pct": req.exchange_pct,
             "results": result.to_dict(),
         }
     except ValueError as e:

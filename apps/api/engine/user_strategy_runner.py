@@ -9,14 +9,14 @@ Trailing SL evaluation runs on live ticks (via scheduler callback).
 
 import asyncio
 import logging
-from datetime import UTC, datetime, time, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from core.cache import cache
-from core.db import async_supabase, get_supabase
-from core.models import UserStrategy, UserStrategyLeg, UserStrategyStatus
+from core.db import get_supabase
+from core.models import UserStrategy
 from core.safe_query import async_safe_execute, async_safe_single
 from risk.leg_controls import (
-    cancel_pending_reentries, handle_square_off, handle_trailing_sl,
+    cancel_pending_reentries, handle_square_off,
 )
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class UserStrategyRunner:
                 continue
             if current_time < exit_time:
                 continue
-            if await _is_squared_off_today(user_id, strategy_id):
+            if not await _mark_squared_off_today(user_id, strategy_id):
                 continue
 
             logger.info(
@@ -97,8 +97,6 @@ class UserStrategyRunner:
                             "Square-off leg failed: strategy=%s leg=%s reason=%s",
                             strategy_id, r.get("leg_order"), r.get("result", {}).get("reason", ""),
                         )
-
-            await _mark_squared_off_today(user_id, strategy_id)
 
     async def activate_strategy(self, strategy_id: str):
         logger.info("Activating user strategy runner for id=%s", strategy_id)
@@ -177,15 +175,9 @@ async def _get_open_legs(strategy_id: str) -> list[dict]:
     return result
 
 
-async def _is_squared_off_today(user_id: str, strategy_id: str) -> bool:
+async def _mark_squared_off_today(user_id: str, strategy_id: str) -> bool:
     key = f"sqoff:{user_id}:{strategy_id}:{datetime.now(UTC).strftime('%Y%m%d')}"
-    val = await cache.get(key, False)
-    return bool(val)
-
-
-async def _mark_squared_off_today(user_id: str, strategy_id: str):
-    key = f"sqoff:{user_id}:{strategy_id}:{datetime.now(UTC).strftime('%Y%m%d')}"
-    await cache.set(key, True, ttl=86400)
+    return await cache.set_nx(key, True, ttl=86400)
 
 
 user_strategy_runner = UserStrategyRunner()

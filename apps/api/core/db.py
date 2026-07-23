@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import threading
-from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from typing import TypeVar
 
-from supabase import Client, create_client
+import httpx
+from supabase import Client, ClientOptions, create_client
 
 from core.config import settings
 
@@ -16,7 +18,21 @@ _supabase_lock = threading.Lock()
 _supabase_available = threading.Event()
 _supabase_available.set()
 
+_db_executor = ThreadPoolExecutor(max_workers=32, thread_name_prefix="supabase")
+
 T = TypeVar("T")
+
+
+def _make_client(url: str, key: str) -> Client:
+    return create_client(
+        url, key,
+        options=ClientOptions(
+            httpx_client=httpx.Client(
+                timeout=httpx.Timeout(15.0, connect=5.0),
+                limits=httpx.Limits(max_connections=50, max_keepalive_connections=20, keepalive_expiry=60),
+            ),
+        ),
+    )
 
 
 def get_supabase() -> Client:
@@ -26,7 +42,7 @@ def get_supabase() -> Client:
     if _supabase is None:
         with _supabase_lock:
             if _supabase is None:
-                _supabase = create_client(settings.supabase_url, settings.supabase_service_key)
+                _supabase = _make_client(settings.supabase_url, settings.supabase_service_key)
     return _supabase
 
 
@@ -35,7 +51,7 @@ def get_supabase_anon() -> Client:
     if not _supabase_available.is_set():
         raise RuntimeError("Supabase client is closed or shutting down")
     if _supabase_anon is None:
-        _supabase_anon = create_client(settings.supabase_url, settings.supabase_anon_key)
+        _supabase_anon = _make_client(settings.supabase_url, settings.supabase_anon_key)
     return _supabase_anon
 
 
@@ -44,16 +60,14 @@ async def close_supabase() -> None:
     _supabase_available.clear()
     if _supabase:
         try:
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, _supabase.auth.sign_out)
+            await asyncio.get_running_loop().run_in_executor(_db_executor, _supabase.auth.sign_out)
             await _supabase.postgrest.aclose()
         except Exception as e:
             logger.warning("Error closing supabase client: %s", e)
         _supabase = None
     if _supabase_anon and _supabase_anon.postgrest:
         try:
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, _supabase_anon.auth.sign_out)
+            await asyncio.get_running_loop().run_in_executor(_db_executor, _supabase_anon.auth.sign_out)
             await _supabase_anon.postgrest.aclose()
         except Exception as e:
             logger.warning("Error closing supabase anon client: %s", e)
@@ -62,4 +76,4 @@ async def close_supabase() -> None:
 
 async def async_supabase(call: Callable[..., T], *args, **kwargs) -> T:
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, lambda: call(*args, **kwargs))
+    return await loop.run_in_executor(_db_executor, lambda: call(*args, **kwargs))

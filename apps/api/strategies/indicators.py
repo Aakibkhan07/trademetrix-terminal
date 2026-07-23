@@ -1,5 +1,4 @@
 """Lightweight technical indicators for strategy calculations."""
-import math
 
 
 def ema(values: list[float], period: int) -> float:

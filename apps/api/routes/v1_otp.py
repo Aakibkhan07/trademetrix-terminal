@@ -1,10 +1,7 @@
-import asyncio
 import hashlib
-import json
 import logging
 import random
 from datetime import UTC, datetime
-from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, field_validator
@@ -46,6 +43,7 @@ class RegisterWithOTPRequest(BaseModel):
     password: str
     full_name: str = ""
     phone: str = ""
+    referral_code: str = ""
 
     @field_validator("password")
     @classmethod
@@ -91,25 +89,33 @@ async def _delete_otp(email: str):
     await cache.delete(f"otp:{email}:login")
 
 
-def _check_user_exists(supabase, email: str) -> dict | None:
-    result = supabase.table("profiles").select("*").eq("email", email).maybe_single().execute()
+async def _check_user_exists(supabase, email: str) -> dict | None:
+    result = await async_supabase(lambda: supabase.table("profiles").select("*").eq("email", email).maybe_single().execute())
     return result.data if result and result.data else None
 
 
 @router.post("/send-otp")
 async def send_otp(req: SendOTPRequest):
     supabase = get_supabase()
-    user = _check_user_exists(supabase, req.email)
+    user = await _check_user_exists(supabase, req.email)
 
     code = _generate_otp()
     await _store_otp(req.email, code, req.phone)
     delivered = await deliver_otp(code, req.email, req.phone)
 
-    result = {"message": "OTP sent to your registered contact", "exists": True} if user else \
-             {"message": "OTP sent. Complete registration to continue.", "exists": False}
     if not delivered:
         logger.warning("OTP delivery failed for %s", req.email)
-    return result
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to send OTP. No email service configured. Contact your admin to set SMTP or RESEND_API_KEY.",
+        )
+    record_audit(AuditLogEntry(
+        user_id=user["id"] if user else "",
+        action="send_otp",
+        resource="auth",
+        details={"email": req.email, "exists": bool(user)},
+    ))
+    return {"message": "OTP sent to your registered contact", "exists": bool(user)}
 
 
 @router.post("/register-with-otp", status_code=201)
@@ -162,6 +168,31 @@ async def register_with_otp(req: RegisterWithOTPRequest):
 
     if not delivered:
         logger.warning("Registration OTP delivery failed for %s", req.email)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Account created but failed to send OTP. No email service configured. Contact your admin.",
+        )
+    if req.referral_code:
+        referrer = await async_supabase(lambda: supabase.table("profiles").select("id").eq("referral_code", req.referral_code.upper()).maybe_single().execute())
+        if referrer.data and referrer.data["id"] != user_id:
+            await async_supabase(lambda: supabase.table("referrals").insert({
+                "referrer_id": referrer.data["id"],
+                "referred_user_id": user_id,
+                "referred_email": req.email,
+                "status": "completed",
+                "reward_given": True,
+                "completed_at": datetime.now(UTC).isoformat(),
+            }).execute())
+            current = await async_supabase(lambda: supabase.table("profiles").select("referral_count").eq("id", referrer.data["id"]).maybe_single().execute())
+            cur_count = (current.data.get("referral_count") or 0) if current.data else 0
+            await async_supabase(lambda: supabase.table("profiles").update({"referral_count": cur_count + 1}).eq("id", referrer.data["id"]).execute())
+
+    record_audit(AuditLogEntry(
+        user_id=user_id,
+        action="register_with_otp",
+        resource="auth",
+        details={"email": req.email},
+    ))
     return {"message": "Account created. OTP sent to your registered contact.", "user_id": user_id}
 
 

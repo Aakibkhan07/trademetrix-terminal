@@ -32,6 +32,7 @@ class RiskRuleType(StrEnum):
     KILL_SWITCH = "KILL_SWITCH"
     MAX_CAPITAL = "MAX_CAPITAL"
     MAX_DRAWDOWN = "MAX_DRAWDOWN"
+    LIVE_MODE = "LIVE_MODE"
 
 
 class RiskRuleResult(BaseModel):

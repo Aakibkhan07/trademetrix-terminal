@@ -15,7 +15,7 @@ from risk.leg_controls import (
     MAX_REENTRIES, ReentryMode, build_square_off_order,
     cancel_pending_reentries, check_trailing_sl_trigger,
     compute_trailing_stop, execute_leg_control, handle_reentry,
-    handle_square_off, handle_trailing_sl,
+    handle_square_off,
 )
 
 
@@ -324,20 +324,32 @@ async def test_cancel_pending_reentries():
 
 
 # ═══════════════════════════════════════════
-#  Execute Leg Control — RiskGuard Integration
+#  Execute Leg Control — passes through to engine.gate.execute_order
 # ═══════════════════════════════════════════
 
 @pytest.mark.asyncio
-async def test_leg_control_blocked_by_riskguard():
-    """RiskGuard blocks leg control when kills switch active."""
+async def test_leg_control_passes_through_to_execute_order():
+    """execute_leg_control delegates to engine.gate.execute_order."""
     from core.models import NormalizedOrder, OrderSide, OrderType, ProductType, Exchange
     mock_order = NormalizedOrder(
         symbol="NIFTY...CE", exchange=Exchange.NFO, side=OrderSide.SELL,
         order_type=OrderType.MARKET, product=ProductType.INTRADAY, quantity=65,
     )
-    with patch("risk.leg_controls.RiskGuard.check_order", AsyncMock(return_value={
-        "allowed": False, "reason": "Kill switch is enabled. All trading halted."
-    })), patch("risk.leg_controls._record_audit", AsyncMock()):
+    mock_result = Mock(success=True, message="Order placed", broker_order_id="ord-1")
+    with patch("engine.gate.execute_order", AsyncMock(return_value=mock_result)):
+        result = await execute_leg_control("user-1", "strat-1", mock_order, "test")
+        assert result["success"] is True
+        assert result["reason"] == "Order placed"
+
+@pytest.mark.asyncio
+async def test_leg_control_captures_exception():
+    """execute_leg_control catches exceptions and returns failure dict."""
+    from core.models import NormalizedOrder, OrderSide, OrderType, ProductType, Exchange
+    mock_order = NormalizedOrder(
+        symbol="NIFTY...CE", exchange=Exchange.NFO, side=OrderSide.SELL,
+        order_type=OrderType.MARKET, product=ProductType.INTRADAY, quantity=65,
+    )
+    with patch("engine.gate.execute_order", AsyncMock(side_effect=ValueError("Broker error"))):
         result = await execute_leg_control("user-1", "strat-1", mock_order, "test")
         assert result["success"] is False
-        assert "kill switch" in result["reason"].lower()
+        assert "Broker error" in result["reason"]

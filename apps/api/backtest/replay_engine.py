@@ -1,11 +1,10 @@
 import asyncio
 import logging
 import time
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import UTC, datetime
 
 from backtest.models import ReplaySpeed, SPEED_MULTIPLIERS
-from core.models import Candle, Exchange, NormalizedOrder, OrderSide, ProductType
+from core.models import Candle, Exchange, NormalizedOrder
 from execution.manager import ExecutionManager
 from execution.models import ExecutionRequest
 from portfolio.manager import portfolio_manager

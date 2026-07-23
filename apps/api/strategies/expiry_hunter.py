@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 
-from core.constants import LOT_SIZES, format_fyers_option_symbol, get_weekly_expiry
+from core.constants import LOT_SIZES, STRIKE_INTERVALS, format_fyers_option_symbol, get_weekly_expiry
 from core.models import (
     Candle,
     Exchange,
@@ -56,9 +56,10 @@ class ExpiryHunter(BaseStrategy):
         if now.hour < 10 or now.hour > 14:
             return None
 
-        strike = round(self._at_price / 100) * 100
-        ce_strike = strike + self.strike_distance * 100
-        pe_strike = strike - self.strike_distance * 100
+        step = STRIKE_INTERVALS.get(self.symbol, 50)
+        strike = round(self._at_price / step) * step
+        ce_strike = strike + self.strike_distance * step
+        pe_strike = strike - self.strike_distance * step
 
         self._entry_done = True
         expiry = get_weekly_expiry(self.symbol, date.today())

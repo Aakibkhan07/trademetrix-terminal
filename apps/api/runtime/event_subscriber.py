@@ -1,6 +1,5 @@
 import logging
 
-from execution.event_bus import execution_event_bus, ExecutionEvent
 from market.data_socket import shared_socket
 from runtime.scheduler import scheduler
 

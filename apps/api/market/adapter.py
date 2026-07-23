@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from brokers.base import BaseBroker
 from core.models import Candle, Quote

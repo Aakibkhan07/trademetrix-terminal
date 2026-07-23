@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 from core.models import Candle
 from market.cache import market_cache

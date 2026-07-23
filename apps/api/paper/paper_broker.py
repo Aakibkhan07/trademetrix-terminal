@@ -1,24 +1,20 @@
 import asyncio
 import logging
 import time
-from collections import defaultdict
 from datetime import UTC, datetime
-from typing import Any
 
 from core.db import get_supabase
 from core.models import (
-    Exchange, Funds, Holding, InstrumentType, NormalizedOrder,
-    OptionType, OrderResult, OrderSide, OrderStatus, OrderType, Position, ProductType,
+    Exchange, Funds, NormalizedOrder,
+    OrderResult, OrderStatus, OrderType, Position, ProductType,
 )
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
 from execution.models import BrokerCapabilities
 from paper.fill_engine import FillEngine
 from paper.models import (
-    FillType,
     PaperAccount,
     PaperConfig,
     PaperFill,
-    PaperMetrics,
     PaperOrderStatus,
     PaperPosition,
 )

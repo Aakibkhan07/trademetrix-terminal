@@ -1,7 +1,7 @@
 import logging
 import math
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from backtest.models import BacktestResult, EquityPoint, TradeRecord

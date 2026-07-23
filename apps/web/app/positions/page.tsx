@@ -18,7 +18,7 @@ function downloadCSV(rows: string[][], filename: string) {
 
 export default function PositionsPage() {
   const { token } = useAuth()
-  const { ticks, connected, subscribe, startFeed } = useMarketData()
+  const { ticks, connected, subscribe } = useMarketData()
   const { toast } = useToast()
   const [positions, setPositions] = useState<any[]>([])
   const [orders, setOrders] = useState<any[]>([])
@@ -30,8 +30,7 @@ export default function PositionsPage() {
     const symbols = ['NSE:NIFTY50-INDEX', 'NSE:NIFTYBANK-INDEX', 'NSE:FINNIFTY-INDEX',
       'BSE:SENSEX-INDEX', 'NSE:INDIAVIX-INDEX']
     subscribe(symbols)
-    startFeed()
-  }, [subscribe, startFeed])
+  }, [subscribe])
 
   const loadData = useCallback(async () => {
     try {
@@ -47,9 +46,7 @@ export default function PositionsPage() {
     } catch {} finally { setLoading(false) }
   }, [])
 
-  usePolling(loadData, 3000, !!token)
-
-  useEffect(() => { loadData() }, [loadData])
+  usePolling(loadData, 10000, !!token)
 
   const totalPnl = positions.reduce((sum: number, p: any) => {
     const live = ticks[p.symbol]

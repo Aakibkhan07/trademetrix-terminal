@@ -7,7 +7,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from core.middleware.timeout import TimeoutMiddleware
-from fastapi.responses import JSONResponse
 
 from core.cache import cache
 from core.config import settings
@@ -15,6 +14,7 @@ from core.exceptions import AppException
 from core.logging import record_request_duration, setup_logging
 from core.middleware.request_id import RequestIDMiddleware
 from core.middleware.request_logging import RequestLoggingMiddleware
+from core.middleware.ip_whitelist import AdminIPWhitelistMiddleware
 from core.middleware.security import SecurityHeadersMiddleware
 from core.prometheus import record_metrics
 from core.prometheus import router as prometheus_router
@@ -46,6 +46,11 @@ from routes.v1_feedback import router as feedback_router
 from routes.v1_margin_estimate import router as margin_estimate_router
 from routes.v1_subscriptions import router as subscriptions_router
 from routes.v1_buyer_strategies import router as buyer_strategies_router
+from routes.v1_squareoff import router as squareoff_router
+from routes.v1_squareoff import service as squareoff_service
+from routes.v1_multileg import router as multileg_router
+from application.services.cleanup_service import CleanupService
+from routes.v1_referrals import router as referrals_router
 
 logger = logging.getLogger(__name__)
 
@@ -58,18 +63,31 @@ async def lifespan(app: FastAPI):
     init_sentry()
     init_vault()
     await cache.init()
+    from infrastructure.database import init_db, close_db
+    await init_db()
     from market.cache import market_cache
     await market_cache.start_sweeper()
     from engine.user_strategy_runner import user_strategy_runner
     from engine.buyer_strategy_runner import buyer_strategy_runner
     await user_strategy_runner.start()
     await buyer_strategy_runner.start()
+    from infrastructure.handlers import register_handlers
+    from infrastructure.worker import start as start_worker, stop as stop_worker
+    register_handlers()
+    await start_worker()
+    squareoff_service.start_scheduler()
+    cleanup_service = CleanupService()
+    cleanup_service.start_scheduler()
     yield
+    cleanup_service.stop_scheduler()
+    squareoff_service.stop_scheduler()
+    await stop_worker()
     await buyer_strategy_runner.stop()
     await user_strategy_runner.stop()
     await cache.close()
     from core.db import close_supabase
     await close_supabase()
+    await close_db()
     from core.http_client import shared_http
     await shared_http.close()
     from oms.manager import order_manager
@@ -108,6 +126,7 @@ app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
 app.add_middleware(InputValidationMiddleware)
 app.add_middleware(CSRFProtectMiddleware)
 app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)
+app.add_middleware(AdminIPWhitelistMiddleware)
 
 
 @app.middleware("http")
@@ -143,7 +162,10 @@ app.include_router(prometheus_router)
 app.include_router(user_strategies_router, prefix="/api/v1")
 app.include_router(margin_estimate_router, prefix="/api/v1")
 app.include_router(buyer_strategies_router, prefix="/api/v1")
+app.include_router(squareoff_router, prefix="/api/v1")
+app.include_router(multileg_router, prefix="/api/v1")
 app.include_router(subscriptions_router, prefix="/api/v1")
+app.include_router(referrals_router, prefix="/api/v1")
 
 
 @app.exception_handler(AppException)

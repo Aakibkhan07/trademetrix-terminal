@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/use-theme'
 import { api } from '@/lib/api'
@@ -47,8 +47,8 @@ function timeAgo(iso?: string) {
   return `${days}d ago`
 }
 
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {})
+function copyToClipboard(text: string, onError?: () => void) {
+  navigator.clipboard.writeText(text).catch(() => onError?.())
 }
 
 export default function AccountPage() {
@@ -59,20 +59,40 @@ export default function AccountPage() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [copiedId, setCopiedId] = useState('')
-  const [showTokens, setShowTokens] = useState(false)
+  const [showPwModal, setShowPwModal] = useState(false)
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [pwMsg, setPwMsg] = useState('')
+  const [pwMsgType, setPwMsgType] = useState<'success' | 'error'>('success')
+  const [pwSaving, setPwSaving] = useState(false)
   const [notifPrefs, setNotifPrefs] = useState({ email: true, sms: false, inapp: true })
   const [savingNotifs, setSavingNotifs] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const mountedRef = useRef(true)
+  const abRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    mountedRef.current = true
+    abRef.current = new AbortController()
+    const errs: string[] = []
     Promise.all([
-      api.brokers.credentials().catch(() => ({ credentials: [] })),
-      api.strategies.assigned().catch(() => ({ strategies: [] })),
-      api.engine.orders().catch(() => ({ orders: [] })),
-    ]).then(([c, s, o]) => {
+      api.brokers.credentials().catch(() => { errs.push('brokers'); return { credentials: [] } }),
+      api.strategies.assigned().catch(() => { errs.push('strategies'); return { strategies: [] } }),
+      api.engine.orders().catch(() => { errs.push('orders'); return { orders: [] } }),
+      api.alerts.getNotificationPrefs().catch(() => { errs.push('notifications'); return { channels: ['email'] } }),
+    ]).then(([c, s, o, n]) => {
+      if (!mountedRef.current) return
       setBrokers((c as { credentials: BrokerCred[] }).credentials || [])
       setStrategies((s as { strategies: AssignedStrategy[] }).strategies || [])
       setRecentOrders(((o as { orders: Order[] }).orders || []).slice(0, 8))
-    }).finally(() => setLoading(false))
+      const channels = (n as { channels: string[] }).channels || ['email']
+      setNotifPrefs({ email: channels.includes('email'), sms: channels.includes('sms'), inapp: channels.includes('inapp') })
+      if (errs.length > 0) {
+        setLoadError(`Could not load: ${errs.join(', ')}. Some data may be incomplete.`)
+      }
+    }).finally(() => { if (mountedRef.current) setLoading(false) })
+    return () => { mountedRef.current = false; abRef.current?.abort() }
   }, [])
 
   const activeBrokers = brokers.filter(b => b.is_active).length
@@ -82,15 +102,43 @@ export default function AccountPage() {
   const isAdmin = user?.is_admin === true
 
   const handleCopy = (text: string, id: string) => {
-    copyToClipboard(text)
+    copyToClipboard(text, () => setLoadError('Could not copy to clipboard'))
     setCopiedId(id)
     setTimeout(() => setCopiedId(''), 1500)
   }
 
-  const handleNotifToggle = (key: keyof typeof notifPrefs) => {
+  const handleChangePassword = async () => {
+    setPwMsg('')
+    if (!currentPw) { setPwMsg('Current password is required'); setPwMsgType('error'); return }
+    if (newPw.length < 6) { setPwMsg('New password must be at least 6 characters'); setPwMsgType('error'); return }
+    if (newPw !== confirmPw) { setPwMsg('Passwords do not match'); setPwMsgType('error'); return }
+    setPwSaving(true)
+    try {
+      const res = await api.auth.changePassword({ current_password: currentPw, new_password: newPw })
+      setPwMsg((res as { message: string }).message || 'Password changed successfully')
+      setPwMsgType('success')
+      setCurrentPw(''); setNewPw(''); setConfirmPw('')
+      setTimeout(() => setShowPwModal(false), 1500)
+    } catch (e: any) {
+      setPwMsg(e?.message || 'Failed to change password')
+      setPwMsgType('error')
+    } finally {
+      setPwSaving(false)
+    }
+  }
+
+  const handleNotifToggle = async (key: keyof typeof notifPrefs) => {
     setSavingNotifs(true)
-    setNotifPrefs(prev => ({ ...prev, [key]: !prev[key] }))
-    setTimeout(() => setSavingNotifs(false), 400)
+    const next = { ...notifPrefs, [key]: !notifPrefs[key] }
+    setNotifPrefs(next)
+    try {
+      const channels = Object.entries(next).filter(([, v]) => v).map(([k]) => k)
+      await api.alerts.updateNotificationPrefs(channels)
+    } catch {
+      setNotifPrefs(prev => ({ ...prev, [key]: !prev[key] }))
+    } finally {
+      setSavingNotifs(false)
+    }
   }
 
   return (
@@ -143,7 +191,7 @@ export default function AccountPage() {
             <div style={{ textAlign: 'right' }}>
               <div className="t-faint" style={{ fontSize: 10 }}>Member Since</div>
               <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-                Jun 2026
+                {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'N/A'}
               </div>
               <div className="t-faint" style={{ fontSize: 10, marginTop: 4 }}>ID</div>
               <div style={{
@@ -161,6 +209,16 @@ export default function AccountPage() {
           </div>
         </div>
       </div>
+
+      {loadError && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, fontSize: 12,
+          background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)',
+          color: 'var(--text-red)',
+        }}>
+          {loadError}
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="t-grid-4">
@@ -240,8 +298,7 @@ export default function AccountPage() {
               : {limits.data}
               {tier !== 'enterprise' && (
                 <span style={{ display: 'block', marginTop: 6 }}>
-                  <a href="#" style={{ color: 'var(--cyan)', fontSize: 10, textDecoration: 'none' }}
-                    onClick={e => e.preventDefault()}>
+                  <a href="/pricing" style={{ color: 'var(--cyan)', fontSize: 10, textDecoration: 'none' }}>
                     Upgrade plan →
                   </a>
                 </span>
@@ -266,9 +323,9 @@ export default function AccountPage() {
             >
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>Password</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Last changed: Recently</div>
+                <div className="t-faint" style={{ fontSize: 10 }}>Change your login password</div>
               </div>
-              <button className="t-btn t-btn-xs t-btn-ghost" disabled style={{ opacity: 0.5 }}>Change</button>
+              <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setShowPwModal(true)}>Change</button>
             </div>
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -280,9 +337,9 @@ export default function AccountPage() {
             >
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>Two-Factor Auth</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Not configured</div>
+                <div className="t-faint" style={{ fontSize: 10 }}>Enhance account security</div>
               </div>
-              <button className="t-btn t-btn-xs t-btn-ghost" disabled style={{ opacity: 0.5 }}>Setup</button>
+              <span className="t-badge t-badge-sub" style={{ fontSize: 9 }}>Coming soon</span>
             </div>
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -294,22 +351,10 @@ export default function AccountPage() {
             >
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>API Tokens</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>0 active tokens</div>
+                <div className="t-faint" style={{ fontSize: 10 }}>Programmatic access for automated trading</div>
               </div>
-              <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setShowTokens(!showTokens)}>
-                {showTokens ? 'Hide' : 'Manage'}
-              </button>
+              <span className="t-badge t-badge-sub" style={{ fontSize: 9 }}>Coming soon</span>
             </div>
-            {showTokens && (
-              <div style={{
-                padding: '10px 12px', borderRadius: 6,
-                background: 'rgba(255,214,0,0.06)', border: '1px solid rgba(255,214,0,0.12)',
-              }}>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-sub)' }}>
-                  API token management is handled by your account manager. Contact support to generate tokens for automated trading.
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -419,12 +464,14 @@ export default function AccountPage() {
                 </button>
               </div>
             ))}
-            <div className="t-faint" style={{
-              fontSize: 9, textAlign: 'center', padding: '4px 0',
-              opacity: 0.6,
-            }}>
-              Preferences saved locally
-            </div>
+            {savingNotifs && (
+              <div className="t-faint" style={{
+                fontSize: 9, textAlign: 'center', padding: '4px 0',
+                opacity: 0.6,
+              }}>
+                Saving...
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -481,6 +528,43 @@ export default function AccountPage() {
           )}
         </div>
       </div>
+
+      {/* Password Change Modal */}
+      {showPwModal && (
+        <div className="t-modal-overlay" onClick={() => setShowPwModal(false)}>
+          <div className="t-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="t-modal-title">Change Password</div>
+            <div style={{ marginBottom: 12 }}>
+              <label className="t-label">Current Password</label>
+              <input className="t-input" type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label className="t-label">New Password</label>
+              <input className="t-input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min. 6 characters" />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label className="t-label">Confirm New Password</label>
+              <input className="t-input" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
+            </div>
+            {pwMsg && (
+              <div style={{
+                padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 12,
+                background: pwMsgType === 'error' ? 'color-mix(in srgb, var(--red) 10%, transparent)' : 'color-mix(in srgb, var(--green) 10%, transparent)',
+                border: `1px solid ${pwMsgType === 'error' ? 'color-mix(in srgb, var(--red) 20%, transparent)' : 'color-mix(in srgb, var(--green) 20%, transparent)'}`,
+                color: pwMsgType === 'error' ? 'var(--red)' : 'var(--green)',
+              }}>
+                {pwMsg}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="t-btn t-btn-ghost" onClick={() => { setShowPwModal(false); setPwMsg(''); setCurrentPw(''); setNewPw(''); setConfirmPw('') }}>Cancel</button>
+              <button className="t-btn t-btn-primary" onClick={handleChangePassword} disabled={pwSaving}>
+                {pwSaving ? 'Saving...' : 'Change Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Danger Zone */}
       <div className="t-panel" style={{

@@ -48,7 +48,7 @@ interface ChainResponse {
 /* ─── Constants ─── */
 
 const SYMBOLS = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'SENSEX']
-const POLL_INTERVAL = 10000
+const POLL_INTERVAL = 30000
 
 function fmt(n: number) {
   return n.toLocaleString('en-IN', { maximumFractionDigits: 2 })

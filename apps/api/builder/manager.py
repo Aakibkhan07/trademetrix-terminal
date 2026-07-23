@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 from builder.models import (
     GraphEdge,
     GraphNode,
-    Position,
     StrategyDSL,
-    StrategySettings,
     StrategyStatus,
 )
 from builder.templates import STRATEGY_TEMPLATES

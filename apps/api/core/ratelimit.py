@@ -12,12 +12,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.rpm = requests_per_minute
         self._windows: dict[str, list[float]] = defaultdict(list)
+        self._last_cleanup = time.monotonic()
+
+    def _cleanup_stale(self):
+        now = time.monotonic()
+        cutoff = now - 60.0
+        stale_ips = [ip for ip, window in self._windows.items() if not window or window[-1] < cutoff]
+        for ip in stale_ips:
+            del self._windows[ip]
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         if request.url.path.startswith(("/api/v1",)):
+            now = time.monotonic()
+
+            if now - self._last_cleanup > 60.0:
+                self._cleanup_stale()
+                self._last_cleanup = now
+
             client_ip = request.client.host if request.client else "unknown"
             window = self._windows[client_ip]
-            now = time.monotonic()
             cutoff = now - 60.0
 
             while window and window[0] < cutoff:

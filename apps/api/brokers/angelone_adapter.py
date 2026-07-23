@@ -428,6 +428,7 @@ class AngelOneAdapter(BaseBroker):
 
         try:
             await self._ws_stream(symbols, on_tick)
+            return
         except ImportError:
             logger.info("websockets library not available, falling back to 1s polling")
         except Exception as e:

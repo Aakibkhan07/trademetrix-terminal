@@ -1,10 +1,8 @@
-import hashlib
 import logging
-from datetime import UTC, datetime
 
-from core.db import async_supabase, get_supabase
-from core.models import NormalizedOrder, OrderSide, OrderType, ProductType
-from core.safe_query import async_safe_single, safe_single
+from core.db import get_supabase
+from core.models import NormalizedOrder, OrderType
+from core.safe_query import async_safe_single
 from execution.broker_adapter import BrokerExecutionAdapter
 from execution.models import ValidationResult
 from market.status import market_status_service
@@ -56,7 +54,7 @@ async def validate_order(order: NormalizedOrder, user_id: str, adapter: BrokerEx
         if order.product in ("MIS",) and not caps.supports_bracket:
             warnings.append(f"Broker {adapter.broker} may not support MIS products")
 
-    session_valid = await _validate_trading_session()
+    session_valid = await _validate_trading_session(source=order.source)
     if not session_valid:
         errors.append({"field": "session", "message": "Market is closed"})
 
@@ -71,7 +69,9 @@ async def validate_order(order: NormalizedOrder, user_id: str, adapter: BrokerEx
     return ValidationResult(valid=len(errors) == 0, errors=errors, warnings=warnings)
 
 
-async def _validate_trading_session() -> bool:
+async def _validate_trading_session(source: str = "manual") -> bool:
+    if source == "admin":
+        return True
     try:
         return market_status_service.is_market_open()
     except Exception:

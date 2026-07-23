@@ -35,12 +35,15 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
 
     redis_url: str = "redis://localhost:6379/0"
+    supabase_db_url: str = ""
 
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from: str = "noreply@trademetrix.tech"
+
+    resend_api_key: str = ""
 
     fast2sms_api_key: str = ""
     twilio_account_sid: str = ""
@@ -73,7 +76,7 @@ class Settings(BaseSettings):
     ws_heartbeat_interval: int = 30
     ws_ping_interval: int = 30
     user_strategy_max_lots: int = 10
-    default_buyer_user_id: str = "fa668109-4b1e-4758-a49b-015027ea4115"
+    default_buyer_user_id: str = "fa668109-4b1e-4758-a49b-015027ea4115"  # override via DEFAULT_BUYER_USER_ID env
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -97,6 +100,8 @@ class Settings(BaseSettings):
             missing.append("supabase_anon_key")
         if not self.secret_key:
             missing.append("secret_key")
+        if self.secret_key == "dev-secret-key-not-for-production":
+            logger.warning("SECRET_KEY is set to the default dev value — replace with a secure random key in production")
         if not self.encryption_key:
             missing.append("encryption_key")
         if missing:

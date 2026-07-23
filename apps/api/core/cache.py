@@ -25,8 +25,8 @@ class RedisCache:
             self._redis = aioredis.from_url(
                 settings.redis_url,
                 decode_responses=True,
-                socket_connect_timeout=2,
-                socket_timeout=2,
+                socket_connect_timeout=5,
+                socket_timeout=10,
             )
             await self._redis.ping()
             self._enabled = True
@@ -52,6 +52,15 @@ class RedisCache:
         try:
             await self._redis.setex(key, ttl, json.dumps(value))
             return True
+        except Exception:
+            return False
+
+    async def set_nx(self, key: str, value: Any, ttl: int = 300) -> bool:
+        if not self._enabled or not self._redis:
+            return False
+        try:
+            result = await self._redis.set(key, json.dumps(value), ex=ttl, nx=True)
+            return result is not None
         except Exception:
             return False
 

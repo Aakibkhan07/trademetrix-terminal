@@ -1,10 +1,10 @@
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Optional
 
-from core.config import settings
 from core.db import async_supabase, get_supabase
+
+from .openrouter import chat_completion
 
 logger = logging.getLogger(__name__)
 
@@ -12,22 +12,8 @@ logger = logging.getLogger(__name__)
 class AIJournal:
     def __init__(self, user_id: str):
         self.user_id = user_id
-        self._client: Optional = None
-
-    def _get_client(self):
-        if self._client is None and settings.gemini_api_key:
-            try:
-                from google import genai
-                self._client = genai.Client(api_key=settings.gemini_api_key)
-            except ImportError:
-                pass
-        return self._client
 
     async def analyze_trades(self, lookback_days: int = 7) -> dict:
-        client = self._get_client()
-        if not client:
-            return {"analysis": "AI journal not available. Configure GEMINI_API_KEY."}
-
         trades_data = await self._get_recent_trades(lookback_days)
         if not trades_data:
             return {"analysis": "No trades found in the selected period.", "stats": {}}
@@ -58,12 +44,10 @@ Important guidelines:
 - You are a journal tool, not a SEBI-registered advisor
 """
 
+        text = await chat_completion(prompt)
+        if text is None:
+            return {"analysis": "AI journal not available. Configure GEMINI_API_KEY.", "stats": stats}
         try:
-            result = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-            )
-            text = result.text.strip()
             analysis = json.loads(text.replace("```json", "").replace("```", "").strip())
             await self._save_entry(analysis, trades_data)
             return {"analysis": analysis, "stats": stats}

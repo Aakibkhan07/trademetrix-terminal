@@ -26,7 +26,7 @@ const STATUS_BADGE: Record<string, string> = {
 }
 
 export default function TerminalPage() {
-  const { ticks, subscribe, startFeed } = useMarketData()
+  const { ticks, subscribe } = useMarketData()
   const { toast } = useToast()
   const [positions, setPositions] = useState<Position[]>([])
   const [orders, setOrders] = useState<Order[]>([])
@@ -61,7 +61,7 @@ export default function TerminalPage() {
     }
   }
 
-  useEffect(() => { loadData(); startFeed() }, [])
+  useEffect(() => { loadData() }, [])
   useEffect(() => { if (symbol) subscribe([symbol]) }, [symbol])
 
   const liveTick = symbol ? ticks[symbol] : null
@@ -100,7 +100,7 @@ export default function TerminalPage() {
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Terminal</h1>
+          <h1 className="t-page-title" style={{ margin: 0 }}>Terminal</h1>
           <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
             Real-time order placement & execution
             {funds && <span style={{ marginLeft: 8, color: 'var(--text-faint)' }}>• {funds.broker || 'No broker'}</span>}
@@ -134,7 +134,7 @@ export default function TerminalPage() {
                   border: `1px solid ${side === 'BUY' ? 'var(--green)' : 'var(--border)'}`,
                   background: side === 'BUY' ? 'rgba(34,197,94,0.1)' : 'transparent',
                   color: side === 'BUY' ? 'var(--text-green)' : 'var(--text-sub)',
-                  fontSize: 12, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+                  fontSize: 12, fontWeight: 700,
                   cursor: 'pointer', transition: 'all 120ms ease',
                 }}>BUY</button>
                 <button onClick={() => setSide('SELL')} style={{
@@ -142,7 +142,7 @@ export default function TerminalPage() {
                   border: `1px solid ${side === 'SELL' ? 'var(--red)' : 'var(--border)'}`,
                   background: side === 'SELL' ? 'rgba(239,68,68,0.1)' : 'transparent',
                   color: side === 'SELL' ? 'var(--text-red)' : 'var(--text-sub)',
-                  fontSize: 12, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+                  fontSize: 12, fontWeight: 700,
                   cursor: 'pointer', transition: 'all 120ms ease',
                 }}>SELL</button>
               </div>
@@ -210,15 +210,10 @@ export default function TerminalPage() {
                 }}>{orderError}</div>
               )}
 
-              <button
-                onClick={handlePlaceOrder} disabled={placing || !symbol}
-                style={{
-                  padding: '8px 0', borderRadius: 'var(--radius-sm)', border: 'none',
-                  background: side === 'BUY' ? 'var(--green)' : 'var(--red)',
-                  color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: "'Inter', sans-serif",
-                  transition: 'all 120ms ease',
-                }}
+                  <button
+                    onClick={handlePlaceOrder} disabled={placing || !symbol}
+                    className={`t-order-submit ${side === 'BUY' ? 'buy' : 'sell'}`}
+                    style={{ marginTop: 4 }}
               >
                 {placing ? 'Placing...' : `${side} ${qty} ${symbol || '...'}`}
               </button>

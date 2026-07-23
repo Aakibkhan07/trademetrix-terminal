@@ -1,5 +1,5 @@
 import asyncio
-import json
+import inspect
 import logging
 import re
 from collections.abc import Callable
@@ -17,7 +17,6 @@ from core.models import (
     Holding,
     InstrumentType,
     NormalizedOrder,
-    OptionType,
     OrderResult,
     OrderSide,
     OrderStatus,
@@ -181,10 +180,12 @@ class FivePaisaAdapter(BaseBroker):
         }
         resp = await client.post(f"{self._base_url}/CancelOrder", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
+        body = data.get("body", {})
+        message = body.get("Message", "")
         return OrderResult(
-            success=True,
+            success=message.lower() == "success",
             broker_order_id=order_id,
-            message=data.get("body", {}).get("Message", ""),
+            message=message,
         )
 
     async def get_orderbook(self) -> list[NormalizedOrder]:
@@ -316,6 +317,7 @@ class FivePaisaAdapter(BaseBroker):
             return []
         client = await self._get_client()
         scrap_codes = [self._extract_scripcode(s) for s in symbols]
+        symbol_map = dict(zip(scrap_codes, symbols))
         payload = {
             "head": {
                 "AppName": self._app_name,
@@ -342,9 +344,11 @@ class FivePaisaAdapter(BaseBroker):
             items = data.get("body", {}).get("Data", [])
             quotes = []
             for item in items:
+                sc = int(item.get("ScripCode", 0))
                 ltp = float(item.get("LastTradedPrice", item.get("LTP", 0)))
                 quotes.append(Quote(
-                    symbol=str(item.get("ScripCode", "")),
+                    symbol=symbol_map.get(sc, str(sc)),
+                    exchange=Exchange.NSE,
                     last_price=ltp,
                     change=float(item.get("NetPriceChange", 0)),
                     change_percent=float(item.get("PercentageChange", 0)),
@@ -355,14 +359,41 @@ class FivePaisaAdapter(BaseBroker):
                     low=float(item.get("Low", 0)),
                     open=float(item.get("Open", 0)),
                     close=float(item.get("PreviousClose", 0)),
+                    broker=self.broker_name,
                 ))
             return quotes
         except Exception:
             logger.exception("5Paisa get_quotes failed")
             return []
 
-    async def get_funds(self) -> dict:
-        return {"total_margin": 0, "available_margin": 0, "utilized_margin": 0, "broker": "fivepaisa"}
+    async def get_funds(self) -> Funds:
+        client = await self._get_client()
+        payload = {
+            "head": {
+                "AppName": self._app_name,
+                "AppVer": "1.0.0",
+                "Key": "",
+                "OSName": "Web",
+                "RequestCode": "GetMarginRequest",
+                "UserID": self._client_code,
+            },
+            "body": {"ClientCode": self._client_code},
+        }
+        try:
+            resp = await client.post(f"{self._base_url}/Margin", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
+            data = resp.json()
+            body = data.get("body", {})
+            total = float(body.get("TotalMargin", 0))
+            used = float(body.get("UsedMargin", 0))
+            return Funds(
+                total_margin=total,
+                used_margin=used,
+                available_margin=total - used,
+                broker=self.broker_name,
+            )
+        except Exception:
+            logger.exception("5Paisa get_funds failed")
+            return Funds(broker=self.broker_name)
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
         if not symbols:
@@ -385,7 +416,10 @@ class FivePaisaAdapter(BaseBroker):
                         open=q.open,
                         close=q.close,
                     )
-                    on_tick(tick)
+                    if inspect.iscoroutinefunction(on_tick):
+                        await on_tick(tick)
+                    else:
+                        on_tick(tick)
             except Exception:
                 logger.exception("5Paisa stream polling error")
             await asyncio.sleep(1.0)
@@ -424,11 +458,37 @@ class FivePaisaAdapter(BaseBroker):
         mapping = {Exchange.NSE: "N", Exchange.BSE: "B", Exchange.NFO: "N", Exchange.MCX: "M"}
         return mapping.get(exchange, "N")
 
+    @staticmethod
+    def _parse_instrument(symbol: str) -> dict:
+        import re
+        clean = symbol.split(":")[-1] if ":" in symbol else symbol
+        m = re.match(r"^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$", clean.upper())
+        if m:
+            yy = int(m.group(2))
+            month_code = m.group(3)
+            months = {
+                "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+                "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12,
+            }
+            month_num = months.get(month_code, 1)
+            return {
+                "instrument_type": InstrumentType.OPT,
+                "strike_price": float(m.group(4)),
+                "expiry_date": f"{2000 + yy}-{month_num:02d}",
+                "option_type": OptionType(m.group(5)),
+            }
+        m = re.match(r"^([A-Z]+)(\d{2})([A-Z]{3})$", clean.upper())
+        if m:
+            return {"instrument_type": InstrumentType.FUT, "strike_price": None, "expiry_date": None, "option_type": None}
+        return {"instrument_type": InstrumentType.EQ, "strike_price": None, "expiry_date": None, "option_type": None}
+
     def _normalize_order(self, item: dict) -> NormalizedOrder:
+        raw_symbol = str(item.get("ScripName", item.get("ScripCode", "")))
+        inst = self._parse_instrument(raw_symbol)
         return NormalizedOrder(
             id=str(item.get("OrderNo", "")),
             broker_order_id=str(item.get("OrderNo", "")),
-            symbol=str(item.get("ScripName", item.get("ScripCode", ""))),
+            symbol=raw_symbol,
             exchange=Exchange.NSE,
             side=OrderSide.BUY if item.get("BuySell", "") == "B" else OrderSide.SELL,
             order_type=OrderType.MARKET,
@@ -440,13 +500,15 @@ class FivePaisaAdapter(BaseBroker):
             filled_quantity=int(item.get("FillQty", 0)),
             average_price=float(item.get("AvgRate", 0)),
             broker=self.broker_name,
-            instrument_type=InstrumentType.EQ,
-            strike_price=None,
-            expiry_date=None,
-            option_type=None,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
 
     def _normalize_position(self, item: dict) -> Position:
+        raw_symbol = str(item.get("ScripName", item.get("ScripCode", "")))
+        inst = self._parse_instrument(raw_symbol)
         qty = int(item.get("NetQty", item.get("Qty", 0)))
         buy_qty = int(item.get("BuyQty", 0))
         sell_qty = int(item.get("SellQty", 0))
@@ -454,7 +516,7 @@ class FivePaisaAdapter(BaseBroker):
             buy_qty = qty if qty > 0 else 0
             sell_qty = abs(qty) if qty < 0 else 0
         return Position(
-            symbol=str(item.get("ScripName", item.get("ScripCode", ""))),
+            symbol=raw_symbol,
             exchange=Exchange.NSE,
             quantity=qty,
             buy_quantity=buy_qty,
@@ -464,10 +526,10 @@ class FivePaisaAdapter(BaseBroker):
             realised_pnl=float(item.get("RealizedPL", 0)),
             product=ProductType.INTRADAY,
             broker=self.broker_name,
-            instrument_type=InstrumentType.EQ,
-            strike_price=None,
-            expiry_date=None,
-            option_type=None,
+            instrument_type=inst["instrument_type"],
+            strike_price=inst["strike_price"],
+            expiry_date=inst["expiry_date"],
+            option_type=inst["option_type"],
         )
 
     @staticmethod

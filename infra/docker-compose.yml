@@ -17,8 +17,10 @@ services:
     restart: unless-stopped
     networks: [trademetrix]
     env_file: ./.env.production
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-ywJOacztJAOIO0t1CWFyUyhIaWhw-uiB}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "$REDIS_PASSWORD", "ping"]
+      test: ["CMD", "redis-cli", "-a", "$$REDIS_PASSWORD", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -53,6 +55,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    environment:
+      BACKUP_DIR: /tmp/backups
 
   web:
     build:
@@ -216,3 +220,4 @@ volumes:
   certbot-logs:
   prometheus-data:
   grafana-data:
+  backup-data:

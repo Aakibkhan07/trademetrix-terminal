@@ -95,7 +95,7 @@ async def _fetch_subscription_row(user_id: str) -> dict | None:
 
     Returns the row dict, or None if no subscription exists.
     """
-    from core.db import async_supabase, get_supabase
+    from core.db import get_supabase
     from core.safe_query import async_safe_execute
     supabase = get_supabase()
     try:
@@ -161,7 +161,7 @@ async def resolve_capabilities(user: UserProfile) -> Capabilities:
 
 
 async def resolve_capabilities_by_id(user_id: str) -> Capabilities:
-    from core.db import async_supabase, get_supabase
+    from core.db import get_supabase
     from core.safe_query import async_safe_single
     supabase = get_supabase()
     profile = await async_safe_single(

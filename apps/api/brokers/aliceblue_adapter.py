@@ -4,7 +4,6 @@ import hashlib
 import json
 import logging
 import re
-import struct
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -140,7 +139,7 @@ class AliceBlueAdapter(BaseBroker):
         resp = await client.post(f"{self._base_url}/api/order/cancel", json=payload, headers=self._headers(), timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
         data = resp.json()
         return OrderResult(
-            success=True,
+            success=data.get("success", data.get("status", "") == "success"),
             broker_order_id=order_id,
             message=data.get("message", ""),
         )

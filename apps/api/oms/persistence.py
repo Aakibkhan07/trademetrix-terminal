@@ -29,7 +29,7 @@ import logging
 from typing import Any
 
 from core.db import async_supabase, get_supabase
-from core.safe_query import async_safe_execute, safe_execute
+from core.safe_query import async_safe_execute
 
 logger = logging.getLogger(__name__)
 

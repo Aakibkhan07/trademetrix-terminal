@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -45,6 +46,11 @@ class ForgotPasswordRequest(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     onboarding_completed: bool
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class AuthResponse(BaseModel):
@@ -96,7 +102,7 @@ async def signup(req: SignUpRequest, response: Response):
                 "Content-Type": "application/json",
                 "Prefer": "resolution=merge-duplicates",
             },
-            json={"id": user_id, "full_name": req.full_name, "email": req.email},
+            json={"id": user_id, "full_name": req.full_name, "email": req.email, "created_at": datetime.now(UTC).isoformat()},
         )
     except Exception as e:
         logger.warning("Failed to create auth profile for user %s: %s", user_id, e)
@@ -186,6 +192,47 @@ async def signout(response: Response, current_user: UserProfile = Depends(get_cu
     return {"message": "Signed out"}
 
 
+@router.post("/change-password")
+async def change_password(req: ChangePasswordRequest, current_user: UserProfile = Depends(get_current_user)):
+    try:
+        client = await get_http_client()
+        signin_resp = await client.post(
+            f"{settings.supabase_url}/auth/v1/token?grant_type=password",
+            headers={
+                "apikey": settings.supabase_anon_key,
+                "Content-Type": "application/json",
+            },
+            json={"email": current_user.email, "password": req.current_password},
+        )
+        if signin_resp.status_code != 200:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+
+        admin_resp = await client.put(
+            f"{settings.supabase_url}/auth/v1/admin/users/{current_user.id}",
+            headers={
+                "apikey": settings.supabase_service_key,
+                "Authorization": f"Bearer {settings.supabase_service_key}",
+                "Content-Type": "application/json",
+            },
+            json={"password": req.new_password, "email_confirm": True},
+        )
+        if admin_resp.status_code != 200:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update password")
+
+        record_audit(AuditLogEntry(
+            user_id=current_user.id,
+            action="change_password",
+            resource="auth",
+            ip_address="",
+        ))
+
+        return {"message": "Password changed successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to change password: {str(e)}")
+
+
 @router.get("/csrf")
 async def get_csrf_token(response: Response):
     """Set csrf_token cookie for clients that don't have one yet (CSRF bootstrap)."""
@@ -195,7 +242,7 @@ async def get_csrf_token(response: Response):
         value=token,
         httponly=False,
         secure=True,
-        samesite="lax",
+        samesite="none",
         path="/",
         domain=settings.cookie_domain or None,
     )
@@ -219,6 +266,12 @@ async def forgot_password(req: ForgotPasswordRequest):
     except Exception as e:
         logger.warning("Failed to send password reset: %s", e)
 
+    record_audit(AuditLogEntry(
+        user_id="",
+        action="forgot_password",
+        resource="auth",
+        details={"email": req.email},
+    ))
     return {"message": "If that email is registered, a password reset link has been sent"}
 
 

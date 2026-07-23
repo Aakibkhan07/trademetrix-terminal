@@ -1,38 +1,40 @@
 import Link from 'next/link'
+import Logo from '@/components/logo'
 
 export default function LandingPage() {
   return (
     <div style={{
-      minHeight: '100vh', background: '#0a0a0f', color: '#c0c0d0',
-      fontFamily: 'DM Sans, system-ui, sans-serif',
+      minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)',
+      fontFamily: 'var(--font-body)',
       display: 'flex', flexDirection: 'column',
     }}>
       <header style={{
         height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 24px', borderBottom: '1px solid rgba(139,92,246,0.15)',
+        padding: '0 24px', borderBottom: '1px solid color-mix(in srgb, var(--violet) 15%, transparent)',
       }}>
         <Link href="/" style={{
           display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none',
-          fontFamily: 'Outfit, sans-serif', fontSize: 16, fontWeight: 700,
-          background: 'linear-gradient(135deg, #00e5ff, #7c5cfc)',
+          fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700,
+          background: 'var(--gradient-primary)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>
+          <Logo size={22} />
           TradeMetrix
         </Link>
         <nav style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           <Link href="/portal" style={{
-            fontSize: 12, fontWeight: 600, color: '#8888a0', textDecoration: 'none',
+            fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.03em', transition: 'color 0.15s',
           }}>Client Portal</Link>
           <Link href="/auth" style={{
-            fontSize: 12, fontWeight: 600, color: '#8888a0', textDecoration: 'none',
+            fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.03em', transition: 'color 0.15s',
           }}>Sign In</Link>
           <Link href="/portal" style={{
             fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
             padding: '8px 18px', borderRadius: 6, textDecoration: 'none',
-            background: 'linear-gradient(135deg, #00e5ff, #7c5cfc)',
-            color: '#000', transition: 'opacity 0.15s',
+            background: 'var(--gradient-primary)',
+            color: 'var(--text-inverse)', transition: 'opacity 0.15s',
           }}>Get Started</Link>
         </nav>
       </header>
@@ -42,22 +44,22 @@ export default function LandingPage() {
           <div style={{
             display: 'inline-block', padding: '4px 12px', borderRadius: 20, fontSize: 10,
             fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
-            background: 'rgba(0,229,255,0.08)', color: '#00e5ff',
-            border: '1px solid rgba(0,229,255,0.12)', marginBottom: 24,
+            background: 'color-mix(in srgb, var(--cyan) 8%, transparent)', color: 'var(--cyan)',
+            border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)', marginBottom: 24,
           }}>Multi-Broker Algorithmic Trading Platform</div>
 
           <h1 style={{
             fontSize: 44, fontWeight: 700, lineHeight: 1.15, margin: '0 0 16px',
-            fontFamily: 'Outfit, sans-serif', color: '#fff',
+            fontFamily: 'var(--font-display)', color: 'var(--text-inverse)',
           }}>
             Trade across{' '}
-            <span style={{ background: 'linear-gradient(135deg, #00e5ff, #7c5cfc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <span style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               10+ brokers
             </span>
             {' '}with one terminal
           </h1>
 
-          <p style={{ fontSize: 15, lineHeight: 1.6, color: '#8888a0', maxWidth: 520, margin: '0 auto 32px' }}>
+          <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--text-sub)', maxWidth: 520, margin: '0 auto 32px' }}>
             Automated trading strategies, real-time market data, AI-powered analytics,
             and risk management — all in one place. Connect your broker and start trading.
           </p>
@@ -66,13 +68,13 @@ export default function LandingPage() {
             <Link href="/portal" style={{
               padding: '12px 28px', borderRadius: 8, fontSize: 13, fontWeight: 700,
               letterSpacing: '0.03em', textDecoration: 'none',
-              background: 'linear-gradient(135deg, #00e5ff, #7c5cfc)',
-              color: '#000', transition: 'opacity 0.15s',
+              background: 'var(--gradient-primary)',
+              color: 'var(--text-inverse)', transition: 'opacity 0.15s',
             }}>Launch Client Portal</Link>
             <Link href="/auth" style={{
               padding: '12px 28px', borderRadius: 8, fontSize: 13, fontWeight: 600,
               letterSpacing: '0.03em', textDecoration: 'none',
-              border: '1px solid rgba(139,92,246,0.3)', color: '#c0c0d0',
+              border: '1px solid color-mix(in srgb, var(--violet) 30%, transparent)', color: 'var(--text)',
               transition: 'border-color 0.15s',
             }}>Open Terminal</Link>
           </div>
@@ -90,44 +92,44 @@ export default function LandingPage() {
           ].map(c => (
             <div key={c.title} style={{
               padding: '20px', borderRadius: 10, textAlign: 'left',
-              border: '1px solid rgba(139,92,246,0.1)',
-              background: 'linear-gradient(135deg, rgba(139,92,246,0.04), rgba(0,229,255,0.02))',
+              border: '1px solid color-mix(in srgb, var(--violet) 10%, transparent)',
+              background: 'linear-gradient(135deg, color-mix(in srgb, var(--violet) 4%, transparent), color-mix(in srgb, var(--cyan) 2%, transparent))',
             }}>
               <div style={{
                 width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center',
                 justifyContent: 'center', fontSize: 13, fontWeight: 700, marginBottom: 10,
-                background: 'var(--gradient-primary)', color: '#000',
+                background: 'var(--gradient-primary)', color: 'var(--text-inverse)',
               }}>{c.emoji}</div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px', color: '#fff' }}>{c.title}</h3>
-              <p style={{ fontSize: 11, lineHeight: 1.5, color: '#777790', margin: 0 }}>{c.desc}</p>
+              <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px', color: 'var(--text-inverse)' }}>{c.title}</h3>
+              <p style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-faint)', margin: 0 }}>{c.desc}</p>
             </div>
           ))}
         </div>
 
         <div style={{
           marginTop: 80, padding: '32px', borderRadius: 12, width: '100%', maxWidth: 600,
-          border: '1px solid rgba(0,229,255,0.1)',
-          background: 'linear-gradient(135deg, rgba(0,229,255,0.04), rgba(124,92,252,0.04))',
+          border: '1px solid color-mix(in srgb, var(--cyan) 10%, transparent)',
+          background: 'linear-gradient(135deg, color-mix(in srgb, var(--cyan) 4%, transparent), color-mix(in srgb, var(--violet) 4%, transparent))',
         }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px', color: '#fff' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px', color: 'var(--text-inverse)' }}>
             Get started in 2 minutes
           </h2>
-          <p style={{ fontSize: 12, lineHeight: 1.5, color: '#8888a0', margin: '0 0 20px' }}>
+          <p style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-sub)', margin: '0 0 20px' }}>
             Create your account, connect your broker, and start trading with automated strategies.
             No credit card required.
           </p>
           <Link href="/portal" style={{
             display: 'inline-block', padding: '10px 24px', borderRadius: 6, fontSize: 12,
             fontWeight: 700, letterSpacing: '0.03em', textDecoration: 'none',
-            background: 'linear-gradient(135deg, #00e5ff, #7c5cfc)',
-            color: '#000',
+            background: 'var(--gradient-primary)',
+            color: 'var(--text-inverse)',
           }}>Create Free Account</Link>
         </div>
       </main>
 
       <footer style={{
         height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderTop: '1px solid rgba(139,92,246,0.1)', fontSize: 10, color: '#555570',
+        borderTop: '1px solid color-mix(in srgb, var(--violet) 10%, transparent)', fontSize: 10, color: 'var(--text-faint)',
         fontFamily: 'var(--font-mono)',
       }}>
         TradeMetrix Terminal &copy; 2026

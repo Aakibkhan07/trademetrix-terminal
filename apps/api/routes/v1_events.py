@@ -17,17 +17,25 @@ router = APIRouter(prefix="/events", tags=["events"])
 @router.get("/stream")
 async def event_stream(request: Request, current_user: UserProfile = Depends(get_current_user)):
     queue: asyncio.Queue = asyncio.Queue()
+    cleanup_done = False
 
     async def event_handler(event: ExecutionEvent):
-        if event.user_id in ("", current_user.id):
+        if event.user_id == current_user.id:
             await queue.put(event)
 
     execution_event_bus.subscribe("*", event_handler)
+
+    async def unsubscribe():
+        nonlocal cleanup_done
+        if not cleanup_done:
+            cleanup_done = True
+            execution_event_bus.unsubscribe("*", event_handler)
 
     async def generate():
         try:
             while True:
                 if await request.is_disconnected():
+                    await unsubscribe()
                     break
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=15)
@@ -47,6 +55,6 @@ async def event_stream(request: Request, current_user: UserProfile = Depends(get
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
         finally:
-            execution_event_bus.unsubscribe("*", event_handler)
+            await unsubscribe()
 
     return StreamingResponse(generate(), media_type="text/event-stream")

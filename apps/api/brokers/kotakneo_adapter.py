@@ -152,7 +152,7 @@ class KotakNeoAdapter(BaseBroker):
         )
         data = resp.json()
         return OrderResult(
-            success=True,
+            success=data.get("status") == "success" or data.get("s") == "ok",
             broker_order_id=order_id,
             message=data.get("message", ""),
         )
@@ -200,7 +200,9 @@ class KotakNeoAdapter(BaseBroker):
 
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
         client = await self._get_client()
-        keys = ",".join(self._ensure_neo_symbol(s) for s in symbols)
+        neo_symbols = [self._ensure_neo_symbol(s) for s in symbols]
+        neo_to_orig = dict(zip(neo_symbols, symbols))
+        keys = ",".join(neo_symbols)
         resp = await client.get(
             f"{self._base_url}/api/v1/market/quote",
             params={"instrument_key": keys},
@@ -212,7 +214,8 @@ class KotakNeoAdapter(BaseBroker):
         items = data.get("data", data.get("quotes", data.get("result", {})))
         if isinstance(items, dict):
             for sym, item in items.items():
-                quotes.append(self._normalize_quote(item, sym))
+                orig = neo_to_orig.get(sym, sym)
+                quotes.append(self._normalize_quote(item, orig))
         elif isinstance(items, list):
             for item in items:
                 quotes.append(self._normalize_quote(item))

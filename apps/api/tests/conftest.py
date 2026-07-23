@@ -65,7 +65,7 @@ def _apply_test_mocks():
     app.dependency_overrides[get_current_user] = _override_get_current_user
 
     # ── Patch capabilities resolver ──
-    from core.capabilities import CAP_MAP, Capabilities, FREE, SUPER_ADMIN
+    from core.capabilities import Capabilities, FREE, SUPER_ADMIN
 
     TEST_CAPS = Capabilities(
         tier="enterprise",
@@ -93,10 +93,10 @@ def _apply_test_mocks():
 
     # ── Patch riskguard DB functions ──
     import risk.riskguard as rg
-    import routes.v1_admin as admin_routes
+    import application.services.admin_service as admin_svc
 
     patch.object(rg, "resolve_capabilities_by_id", AsyncMock(return_value=TEST_CAPS)).start()
-    patch.object(admin_routes, "resolve_capabilities_by_id", AsyncMock(return_value=TEST_CAPS)).start()
+    patch.object(admin_svc, "resolve_capabilities_by_id", AsyncMock(return_value=TEST_CAPS)).start()
 
     async def mock_single(query_builder):
         entry = _risk_settings_db.get(test_user_id)
@@ -124,10 +124,14 @@ def _apply_test_mocks():
     patch.object(rg, "async_safe_single", mock_single).start()
     patch.object(rg, "async_safe_insert", mock_insert).start()
     patch.object(rg, "async_safe_update", mock_update).start()
-    patch.object(rg, "async_safe_execute", mock_execute).start()
+
+    import risk.rules as risk_rules
+    import risk.helpers as risk_helpers
+    patch.object(risk_rules, "async_safe_execute", mock_execute).start()
+    patch.object(risk_helpers, "async_safe_execute", mock_execute).start()
 
     # ── Patch strategies Supabase ──
-    import routes.v1_strategies as strat_routes
+    import application.services.strategy_catalog_service as strat_svc
 
     strat_mock_sb = MagicMock()
     strat_mock_table = MagicMock()
@@ -141,7 +145,7 @@ def _apply_test_mocks():
         {"id": "mock-strategy-id", "name": "Test Strategy", "user_id": test_user_id, "type": "builtin"}
     ]
     strat_mock_table.insert.return_value = strat_mock_select
-    patch.object(strat_routes, "get_supabase", return_value=strat_mock_sb).start()
+    patch.object(strat_svc, "get_supabase", return_value=strat_mock_sb).start()
 
     # ── Patch auth HTTP client ──
     import routes.v1_auth as auth_routes
@@ -207,8 +211,8 @@ async def client() -> AsyncGenerator:
         yield ac
 
 
-@async_fixture(scope="session")
-async def auth_headers() -> dict:
+@pytest.fixture(scope="session")
+def auth_headers() -> dict:
     global _SESSION_AUTH
     if _SESSION_AUTH is not None:
         return _SESSION_AUTH

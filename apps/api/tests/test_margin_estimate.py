@@ -1,9 +1,8 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from brokers.fyers_adapter import FyersAdapter
-from core.models import OrderSide, OrderType, ProductType
 
 
 @pytest.fixture

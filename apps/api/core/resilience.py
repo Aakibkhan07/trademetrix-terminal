@@ -3,7 +3,7 @@ import functools
 import inspect
 import logging
 import time
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 T = TypeVar("T")

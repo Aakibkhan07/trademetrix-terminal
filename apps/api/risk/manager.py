@@ -1,9 +1,8 @@
 import logging
 import time
-from typing import Any
 
-from core.db import async_supabase, get_supabase
-from core.safe_query import async_safe_single, safe_single
+from core.db import get_supabase
+from core.safe_query import async_safe_single
 from execution.event_bus import execution_event_bus, ExecutionEvent
 from execution.models import ExecutionRequest
 from risk.models import RiskConfig, RiskDecision, RiskEvalResult, RiskRuleResult
@@ -14,6 +13,7 @@ from risk.rules import (
     DuplicateOrderRule,
     EmergencyStopRule,
     KillSwitchRule,
+    LiveModeRule,
     MarketClosedRule,
     MaxCapitalRule,
     MaxDrawdownRule,
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 RISK_RULES: list[RiskRule] = [
     KillSwitchRule(),
+    LiveModeRule(),
     EmergencyStopRule(),
     BrokerOfflineRule(),
     MarketClosedRule(),

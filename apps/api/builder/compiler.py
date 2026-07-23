@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict, deque
-from typing import Any
 
-from builder.blocks import BLOCK_DEFINITIONS, get_block
+from builder.blocks import get_block
 from builder.models import (
-    DataType,
     ExecutionGraph,
     ExecutionNode,
     GraphEdge,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useApi } from '@/lib/use-api'
 
 interface StrategyInfo {
@@ -18,10 +18,10 @@ const TIERS = ['free', 'starter', 'pro', 'enterprise'] as const
 
 function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
-    free: 'rgba(136,136,160,0.15)',
-    starter: 'rgba(34,211,238,0.15)',
-    pro: 'rgba(139,92,246,0.15)',
-    enterprise: 'rgba(239,68,68,0.15)',
+    free: 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
+    starter: 'color-mix(in srgb, var(--cyan) 15%, transparent)',
+    pro: 'color-mix(in srgb, var(--violet) 15%, transparent)',
+    enterprise: 'color-mix(in srgb, var(--red) 15%, transparent)',
   }
   const textColors: Record<string, string> = {
     free: '#8888a0',
@@ -30,10 +30,10 @@ function TierBadge({ tier }: { tier: string }) {
     enterprise: '#ef4444',
   }
   const borderColors: Record<string, string> = {
-    free: 'rgba(136,136,160,0.2)',
-    starter: 'rgba(34,211,238,0.2)',
-    pro: 'rgba(139,92,246,0.2)',
-    enterprise: 'rgba(239,68,68,0.2)',
+    free: 'color-mix(in srgb, var(--text-sub) 20%, transparent)',
+    starter: 'color-mix(in srgb, var(--cyan) 20%, transparent)',
+    pro: 'color-mix(in srgb, var(--violet) 20%, transparent)',
+    enterprise: 'color-mix(in srgb, var(--red) 20%, transparent)',
   }
   return (
     <span style={{
@@ -53,19 +53,19 @@ function SkeletonCard() {
   return (
     <div className="t-panel" style={{ padding: 20, height: 140 }}>
       <div style={{
-        width: '60%', height: 14, background: 'rgba(139,92,246,0.1)',
+        width: '60%', height: 14, background: 'color-mix(in srgb, var(--violet) 10%, transparent)',
         borderRadius: 4, marginBottom: 12,
       }} />
       <div style={{
-        width: '90%', height: 10, background: 'rgba(139,92,246,0.06)',
+        width: '90%', height: 10, background: 'color-mix(in srgb, var(--violet) 6%, transparent)',
         borderRadius: 4, marginBottom: 8,
       }} />
       <div style={{
-        width: '75%', height: 10, background: 'rgba(139,92,246,0.06)',
+        width: '75%', height: 10, background: 'color-mix(in srgb, var(--violet) 6%, transparent)',
         borderRadius: 4,
       }} />
       <div style={{
-        width: 60, height: 20, background: 'rgba(139,92,246,0.08)',
+        width: 60, height: 20, background: 'color-mix(in srgb, var(--violet) 8%, transparent)',
         borderRadius: 4, marginTop: 16,
       }} />
     </div>
@@ -75,6 +75,7 @@ function SkeletonCard() {
 export default function StrategyCatalogPage() {
   const [search, setSearch] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
+  const [showCompare, setShowCompare] = useState(false)
 
   const { data, loading, error } = useApi<ListBuiltinResponse>('/strategies/list-builtin')
 
@@ -90,6 +91,13 @@ export default function StrategyCatalogPage() {
     [strategies, search, tierFilter],
   )
 
+  const tiers = ['free', 'starter', 'pro', 'enterprise']
+  const groupedByTier: Record<string, StrategyInfo[]> = {}
+  tiers.forEach(t => { groupedByTier[t] = strategies.filter(s => s.required_tier === t) })
+
+  const tierColor = (t: string) => t === 'free' ? 'var(--text-sub)' : t === 'starter' ? 'var(--cyan)' : t === 'pro' ? 'var(--violet)' : 'var(--red)'
+  const tierButton = (t: string) => t === 'free' ? 'Free' : t === 'starter' ? 'Get Starter' : t === 'pro' ? 'Go Pro' : 'Enterprise'
+
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -99,7 +107,7 @@ export default function StrategyCatalogPage() {
         </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
         <input
           className="t-input"
           placeholder="Search strategies..."
@@ -120,10 +128,76 @@ export default function StrategyCatalogPage() {
             </option>
           ))}
         </select>
+        <button className="t-btn t-btn-sm" onClick={() => setShowCompare(!showCompare)}
+          style={{ fontSize: 10, marginLeft: 'auto', background: showCompare ? 'var(--violet)' : 'color-mix(in srgb, var(--violet) 10%, transparent)', color: showCompare ? '#fff' : 'var(--text)', border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)' }}>
+          {showCompare ? 'Hide Comparison' : 'Compare All Strategies'}
+        </button>
       </div>
 
+      {!loading && !error && strategies.length > 0 && showCompare && (
+        <div className="t-panel" style={{ padding: 14, marginBottom: 20 }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 600 }}>Side-by-Side Comparison</h3>
+          <p className="t-faint" style={{ fontSize: 10, marginBottom: 10 }}>
+            Compare all strategies by tier to find what works best for your trading style. Upgrade your plan to unlock higher-tier strategies.
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 9 }}>Strategy</th>
+                  <th style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 9 }}>Tier</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 9 }}>Description</th>
+                  <th style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 9 }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tiers.map(tier => {
+                  const strats = groupedByTier[tier] || []
+                  if (strats.length === 0) return null
+                  return (
+                    <React.Fragment key={tier}>
+                      <tr>
+                        <td colSpan={4} style={{
+                          padding: '4px 8px', fontWeight: 700, fontSize: 9,
+                          textTransform: 'uppercase', letterSpacing: '0.06em',
+                          color: tierColor(tier),
+                          borderBottom: `1px solid color-mix(in srgb, ${tierColor(tier)} 15%, transparent)`,
+                          background: `color-mix(in srgb, ${tierColor(tier)} 4%, transparent)`,
+                        }}>
+                          {tier.toUpperCase()} TIER — {strats.length} {strats.length === 1 ? 'strategy' : 'strategies'}
+                        </td>
+                      </tr>
+                      {strats.map(s => (
+                        <tr key={s.key} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
+                          <td style={{ padding: '5px 8px', fontWeight: 600 }}>{s.name}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                            <TierBadge tier={s.required_tier} />
+                          </td>
+                          <td style={{ padding: '5px 8px', color: 'var(--text-sub)', fontSize: 9 }}>{s.description}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                            <a href={`/pricing?ref=${s.required_tier}`}
+                              style={{
+                                display: 'inline-block', padding: '3px 12px', borderRadius: 4,
+                                fontSize: 9, fontWeight: 600, textDecoration: 'none',
+                                background: s.required_tier === 'free' ? 'color-mix(in srgb, var(--green) 15%, transparent)' : 'var(--gradient-primary)',
+                                color: s.required_tier === 'free' ? 'var(--green)' : '#fff',
+                              }}>
+                              {tierButton(s.required_tier)}
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {error && (
-        <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>
           {error.message}
         </div>
       )}
@@ -138,7 +212,7 @@ export default function StrategyCatalogPage() {
 
       {!loading && !error && filtered.length === 0 && (
         <div style={{
-          background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.12)',
+          background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)',
           borderRadius: 10, padding: '12px 16px', marginBottom: 20,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
@@ -164,7 +238,7 @@ export default function StrategyCatalogPage() {
               <div style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12,
               }}>
-                <h3 style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, margin: 0 }}>
+                <h3 style={{ fontFamily: 'var(--font-body)', fontSize: 14, margin: 0 }}>
                   {s.name}
                 </h3>
                 <TierBadge tier={s.required_tier} />

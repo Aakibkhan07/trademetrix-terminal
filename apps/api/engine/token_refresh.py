@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 
 from brokers import get_broker
 from core.db import get_supabase
-from core.safe_query import safe_execute, safe_update
+from core.safe_query import async_safe_execute, async_safe_update
 from core.security import decrypt_broker_credentials, encrypt_broker_credentials
 
 logger = logging.getLogger(__name__)
@@ -53,13 +53,13 @@ async def refresh_user_token(user_id: str, broker: str, creds: dict) -> dict:
             encrypted = encrypt_broker_credentials(session.access_token)
             update_data["encrypted_access_token"] = encrypted
 
-        safe_update("broker_credentials", update_data, "user_id", user_id, match_value2=broker, match_field2="broker")
+        await async_safe_update("broker_credentials", update_data, "user_id", user_id, match_value2=broker, match_field2="broker")
         logger.info("Token refreshed: user=%s broker=%s", user_id, broker)
         return result
 
     except Exception as e:
         logger.warning("Token refresh failed: user=%s broker=%s error=%s", user_id, broker, e)
-        safe_update("broker_credentials", {"token_status": "needs_attention"}, "user_id", user_id, match_value2=broker, match_field2="broker")
+        await async_safe_update("broker_credentials", {"token_status": "needs_attention"}, "user_id", user_id, match_value2=broker, match_field2="broker")
         return {
             "user_id": user_id,
             "broker": broker,
@@ -71,7 +71,7 @@ async def refresh_user_token(user_id: str, broker: str, creds: dict) -> dict:
 async def refresh_all_tokens() -> list[dict]:
     """Iterate all active broker credentials and refresh tokens."""
     supabase = get_supabase()
-    rows = safe_execute(
+    rows = await async_safe_execute(
         supabase.table("broker_credentials")
         .select("*")
         .eq("is_active", True)
@@ -88,7 +88,7 @@ async def refresh_all_tokens() -> list[dict]:
             existing_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
         except Exception as e:
             logger.warning("Skipping user=%s broker=%s: cannot decrypt credentials (%s)", row["user_id"], row["broker"], e)
-            safe_update("broker_credentials", {"token_status": "needs_attention"}, "user_id", row["user_id"])
+            await async_safe_update("broker_credentials", {"token_status": "needs_attention"}, "user_id", row["user_id"])
             results.append({
                 "user_id": row["user_id"],
                 "broker": row["broker"],
@@ -117,7 +117,7 @@ async def refresh_all_tokens() -> list[dict]:
 async def get_token_status(user_id: str, broker: str) -> dict:
     """Return the current token validity status for a user's broker."""
     supabase = get_supabase()
-    row = safe_execute(
+    row = await async_safe_execute(
         supabase.table("broker_credentials")
         .select("token_status, token_expires_at, last_token_refresh_at, broker")
         .eq("user_id", user_id)

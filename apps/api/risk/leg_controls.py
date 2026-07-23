@@ -6,16 +6,13 @@ pending re-entries, logged to audit trail.
 """
 
 import logging
-import time
-from datetime import UTC, datetime
 
 from core.cache import cache
 from core.capabilities import resolve_capabilities_by_id
 from core.models import (
-    AuditLogEntry, NormalizedOrder, OrderSide, OrderStatus, OrderType,
-    ProductType, SLTargetType, UserStrategyLeg,
+    AuditLogEntry, NormalizedOrder, OrderSide, OrderType,
+    ProductType, UserStrategyLeg,
 )
-from risk.riskguard import RiskGuard
 
 logger = logging.getLogger(__name__)
 
@@ -150,23 +147,14 @@ async def execute_leg_control(
     order: NormalizedOrder,
     source: str,
 ) -> dict:
-    """Execute a leg control order through gate with RiskGuard.
+    """Execute a leg control order through gate.
+
+    Risk checks happen inside engine.gate.execute_order (gate.py → RiskGuard).
+    This function does NOT duplicate the risk check — it passes straight through.
 
     Returns: {"success": bool, "reason": str, "order_result": ...}
     """
     from engine.gate import execute_order
-    riskguard = RiskGuard(user_id)
-    risk_check = await riskguard.check_order(order)
-    if not risk_check["allowed"]:
-        await _record_audit(user_id, "leg_control_blocked", f"strategy/{strategy_id}", {
-            "leg_source": source,
-            "reason": risk_check.get("reason", ""),
-            "symbol": order.symbol,
-            "side": str(order.side.value) if hasattr(order.side, "value") else str(order.side),
-            "quantity": order.quantity,
-        })
-        logger.warning("Leg control blocked by RiskGuard: %s", risk_check["reason"])
-        return {"success": False, "reason": risk_check["reason"]}
     try:
         result = await execute_order(user_id, order, source=source)
         return {"success": result.success, "reason": result.message, "order_result": result}

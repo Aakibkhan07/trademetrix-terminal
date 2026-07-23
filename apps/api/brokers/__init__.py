@@ -6,6 +6,7 @@ from brokers.finvasia_adapter import FinvasiaAdapter
 from brokers.fivepaisa_adapter import FivePaisaAdapter
 from brokers.flattrade_adapter import FlattradeAdapter
 from brokers.fyers_adapter import FyersAdapter
+from brokers.groww_adapter import GrowwAdapter
 from brokers.kotakneo_adapter import KotakNeoAdapter
 from brokers.upstox_adapter import UpstoxAdapter
 from brokers.zerodha_adapter import ZerodhaAdapter
@@ -28,6 +29,7 @@ def list_brokers() -> list[str]:
 
 
 register_broker("fyers", FyersAdapter)
+register_broker("groww", GrowwAdapter)
 register_broker("dhan", DhanAdapter)
 register_broker("zerodha", ZerodhaAdapter)
 register_broker("angelone", AngelOneAdapter)
@@ -48,6 +50,7 @@ __all__ = [
     "FivePaisaAdapter",
     "FlattradeAdapter",
     "FyersAdapter",
+    "GrowwAdapter",
     "KotakNeoAdapter",
     "UpstoxAdapter",
     "ZerodhaAdapter",

@@ -83,15 +83,6 @@ def safe_insert(table: str, data: dict) -> dict | None:
         return None
 
 
-def safe_update(table: str, data: dict, match_field: str, match_value: str) -> dict | None:
-    try:
-        result = get_supabase().table(table).update(data).eq(match_field, match_value).execute()
-        return result.data[0] if result.data else None
-    except Exception as e:
-        logger.debug("safe_update of %s failed: %s", table, e)
-        return None
-
-
 async def async_paginated_query(
     query_builder,
     limit: int = 50,

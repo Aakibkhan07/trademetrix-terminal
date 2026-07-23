@@ -154,7 +154,7 @@ async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
 
     fyers.close_connection()
     pub_task.cancel()
-    await r.close()
+    await r.aclose()
     logger.info("Market agent shutdown complete")
 
 

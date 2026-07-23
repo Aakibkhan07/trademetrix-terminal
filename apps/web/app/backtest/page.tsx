@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { Suspense, useState, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 
 const STRATEGIES = [
@@ -29,6 +30,7 @@ interface Trade {
 interface BacktestResultsData {
   symbol: string; strategy: string; interval: string; days: number
   initial_capital: number; candles_analyzed: number
+  slippage_pct?: number; brokerage_pct?: number; stt_pct?: number; exchange_pct?: number
   results: {
     total_trades: number; winning_trades: number; losing_trades: number
     win_rate: number; total_pnl: number; max_drawdown: number
@@ -95,7 +97,7 @@ function computeDrawdowns(equityCurve: { equity: number }[]): { depth: number; f
   return dd.sort((a, b) => b.depth - a.depth).slice(0, 5)
 }
 
-function EquityChart({ curves, height = 200, color = '#22c55e', label }: { curves: number[][]; height?: number; color?: string; label?: string }) {
+function EquityChart({ curves, height = 200, color = 'var(--green)', label }: { curves: number[][]; height?: number; color?: string; label?: string }) {
   if (curves.length === 0) return null
   const all = curves.flat()
   const min = Math.min(...all)
@@ -119,7 +121,7 @@ function EquityChart({ curves, height = 200, color = '#22c55e', label }: { curve
           const yy = pad.top + (i / 5) * ch
           return (
             <g key={i}>
-              <line x1={pad.left} y1={yy} x2={width - pad.right} y2={yy} stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
+              <line x1={pad.left} y1={yy} x2={width - pad.right} y2={yy} stroke="color-mix(in srgb, var(--text-inverse) 3%, transparent)" strokeWidth={1} />
               <text x={pad.left - 6} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">
                 {Math.round(min + (range / 5) * (5 - i)).toLocaleString()}
               </text>
@@ -146,8 +148,8 @@ function BarChart({ data, height = 120 }: { data: { label: string; value: number
   const barW = Math.max(8, (w - 60) / data.length - 4)
   return (
     <svg viewBox={`0 0 ${w} ${height}`} style={{ width: '100%', height: 'auto' }}>
-      <line x1={40} y1={height - 20} x2={w - 10} y2={height - 20} stroke="rgba(255,255,255,0.06)" />
-      <line x1={40} y1={20} x2={40} y2={height - 20} stroke="rgba(255,255,255,0.06)" />
+      <line x1={40} y1={height - 20} x2={w - 10} y2={height - 20} stroke="color-mix(in srgb, var(--text-inverse) 6%, transparent)" />
+      <line x1={40} y1={20} x2={40} y2={height - 20} stroke="color-mix(in srgb, var(--text-inverse) 6%, transparent)" />
       {data.map((d, i) => {
         const xPos = 44 + i * (barW + 4)
         const barH = (Math.abs(d.value) / maxVal) * (height - 40)
@@ -168,11 +170,23 @@ function BarChart({ data, height = 120 }: { data: { label: string; value: number
 }
 
 export default function BacktestPage() {
-  const [strategy, setStrategy] = useState('trend_rider')
+  return (
+    <Suspense fallback={null}>
+      <BacktestContent />
+    </Suspense>
+  )
+}
+
+function BacktestContent() {
+  const searchParams = useSearchParams()
+  const initialStrategy = searchParams.get('strategy') || 'trend_rider'
+  const [strategy, setStrategy] = useState(initialStrategy)
   const [symbol, setSymbol] = useState('NIFTY')
   const [interval, setInterval] = useState('15m')
   const [days, setDays] = useState(60)
   const [capital, setCapital] = useState(100000)
+  const [slippage, setSlippage] = useState(0.05)
+  const [brokerage, setBrokerage] = useState(0.03)
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<BacktestResultsData | null>(null)
   const [error, setError] = useState('')
@@ -188,7 +202,11 @@ export default function BacktestPage() {
   const handleRun = async () => {
     setRunning(true); setError(''); setResult(null)
     try {
-      const data = await api.post('/backtests/run', { strategy_type: strategy, symbol, interval, days, initial_capital: capital, config: {} })
+      const data = await api.post('/backtests/run', {
+        strategy_type: strategy, symbol, interval, days,
+        initial_capital: capital, config: {},
+        slippage_pct: slippage, brokerage_pct: brokerage,
+      })
       setResult(data as BacktestResultsData)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Backtest failed')
@@ -247,7 +265,7 @@ export default function BacktestPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div>
-        <h1 style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Backtest</h1>
+        <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Backtest</h1>
         <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>Test strategies against historical data</p>
       </div>
 
@@ -281,6 +299,14 @@ export default function BacktestPage() {
             <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Capital</label>
             <input className="t-input" type="number" value={capital} onChange={e => setCapital(Number(e.target.value))} min={1000} />
           </div>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Slippage %</label>
+            <input className="t-input" type="number" value={slippage} onChange={e => setSlippage(Number(e.target.value))} min={0} step={0.01} />
+          </div>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Brokerage %</label>
+            <input className="t-input" type="number" value={brokerage} onChange={e => setBrokerage(Number(e.target.value))} min={0} step={0.01} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button className="t-btn t-btn-primary" onClick={handleRun} disabled={running} style={{ width: '100%', height: 28 }}>
               {running ? 'Running...' : 'Run'}
@@ -291,7 +317,7 @@ export default function BacktestPage() {
 
       {error && (
         <div style={{
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)',
+          background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 15%, transparent)',
           borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12,
         }}>{error}</div>
       )}
@@ -311,7 +337,7 @@ export default function BacktestPage() {
             <>
               {/* KPI Row */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-                {kpiCard('Total P&L', `${r.total_pnl >= 0 ? '+' : ''}${r.total_pnl.toFixed(0)}`, `${r.total_trades} trades`, r.total_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)')}
+                {kpiCard('Total P&L (after costs)', `${r.total_pnl >= 0 ? '+' : ''}${r.total_pnl.toFixed(0)}`, `${r.total_trades} trades`, r.total_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)')}
                 {kpiCard('Win Rate', `${r.win_rate}%`, `${r.winning_trades}W / ${r.losing_trades}L`, r.win_rate >= 50 ? 'var(--text-green)' : 'var(--text-red)')}
                 {kpiCard('Sharpe', r.sharpe_ratio.toFixed(2), r.sharpe_ratio >= 1 ? 'Good' : 'Below threshold', r.sharpe_ratio >= 1 ? 'var(--text-green)' : 'var(--amber)')}
                 {kpiCard('Max DD', `-${r.max_drawdown.toFixed(1)}%`, drawdowns[0] ? `${drawdowns[0].depth.toFixed(1)}% deepest` : '', 'var(--text-red)')}
@@ -319,11 +345,22 @@ export default function BacktestPage() {
                 {kpiCard('Candles', result!.candles_analyzed.toLocaleString(), `${result!.symbol} ${result!.interval}`)}
               </div>
 
+              {/* Costs Summary */}
+              <div className="t-panel" style={{ padding: 12 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Transaction Costs Applied</div>
+                <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-sub)' }}>
+                  <span>Slippage: <strong>{result!.slippage_pct ?? 0.05}%</strong></span>
+                  <span>Brokerage: <strong>{result!.brokerage_pct ?? 0.03}%</strong></span>
+                  <span>STT: <strong>{result!.stt_pct ?? 0.025}%</strong></span>
+                  <span>Exchange: <strong>{result!.exchange_pct ?? 0.003}%</strong></span>
+                </div>
+              </div>
+
               {/* Charts Row */}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
                 {/* Equity Curve */}
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <EquityChart curves={[r.equity_curve.map(p => p.equity)]} height={180} color={r.total_pnl >= 0 ? '#22c55e' : '#ef4444'} label="Equity Curve" />
+                  <EquityChart curves={[r.equity_curve.map(p => p.equity)]} height={180} color={r.total_pnl >= 0 ? 'var(--green)' : 'var(--red)'} label="Equity Curve" />
                 </div>
 
                 {/* Monthly Returns */}
@@ -414,7 +451,7 @@ export default function BacktestPage() {
                   500 simulated paths based on trade outcome distribution. Solid line = actual equity curve.
                 </div>
               </div>
-              <EquityChart curves={mcPaths} height={240} color="#7c5cfc" />
+              <EquityChart curves={mcPaths} height={240} color="var(--violet)" />
               {mcPaths.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
                   {(() => {
@@ -483,7 +520,7 @@ export default function BacktestPage() {
                         const cr = or.result.results
                         const best = or === optResults.sort((a, b) => b.result.results.sharpe_ratio - a.result.results.sharpe_ratio)[0]
                         return (
-                          <tr key={or.value} style={best ? { background: 'rgba(0,212,255,0.04)' } : {}}>
+                          <tr key={or.value} style={best ? { background: 'color-mix(in srgb, var(--cyan) 4%, transparent)' } : {}}>
                             <td style={{ fontWeight: 700 }}>{or.value}{best ? ' ✓' : ''}</td>
                             <td className={`num ${cr.total_pnl >= 0 ? 't-up' : 't-down'}`}>{cr.total_pnl >= 0 ? '+' : ''}{cr.total_pnl.toFixed(0)}</td>
                             <td className="num">{cr.win_rate}%</td>

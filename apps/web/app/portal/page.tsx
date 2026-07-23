@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { api, BrokerMeta, BrokerFieldMeta } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 
@@ -31,7 +31,7 @@ function otpInputStyle(active: boolean) {
   return {
     width: 44, height: 48, textAlign: 'center' as const, fontSize: 20, fontWeight: 700 as const,
     fontFamily: 'var(--font-mono)', border: `2px solid ${active ? 'var(--cyan)' : 'var(--border)'}`,
-    borderRadius: 8, background: active ? 'rgba(0,229,255,0.06)' : 'var(--bg-tertiary)',
+    borderRadius: 8, background: active ? 'color-mix(in srgb, var(--cyan) 6%, transparent)' : 'var(--bg-tertiary)',
     color: 'var(--text)', outline: 'none', caretColor: 'var(--cyan)',
     transition: 'border-color 0.15s, background 0.15s',
   }
@@ -41,7 +41,7 @@ function otpInputStyle(active: boolean) {
    CHART COMPONENTS (Equity Curve + Histogram + Donut)
    =================================================================== */
 
-function EquityChart({ points, height = 160 }: { points: number[]; height?: number }) {
+const EquityChart = memo(function EquityChart({ points, height = 160 }: { points: number[]; height?: number }) {
   if (points.length < 2) return null
   const min = Math.min(...points)
   const max = Math.max(...points)
@@ -49,7 +49,7 @@ function EquityChart({ points, height = 160 }: { points: number[]; height?: numb
   const w = 600; const pad = { top: 16, right: 16, bottom: 24, left: 52 }
   const cw = w - pad.left - pad.right; const ch = height - pad.top - pad.bottom
   const start = points[0]; const end = points[points.length - 1]
-  const up = end >= start; const color = up ? '#22c55e' : '#ef4444'
+  const up = end >= start; const color = up ? 'var(--green)' : 'var(--red)'
   const x = (i: number) => pad.left + (i / (points.length - 1)) * cw
   const y = (v: number) => pad.top + ch - ((v - min) / range) * ch
   const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p)}`).join('')
@@ -63,7 +63,7 @@ function EquityChart({ points, height = 160 }: { points: number[]; height?: numb
         const yy = pad.top + (i / 5) * ch
         return (
           <g key={i}>
-            <line x1={pad.left} y1={yy} x2={w - pad.right} y2={yy} stroke="rgba(139,92,246,0.08)" strokeWidth={1} />
+            <line x1={pad.left} y1={yy} x2={w - pad.right} y2={yy} stroke="color-mix(in srgb, var(--violet) 8%, transparent)" strokeWidth={1} />
             <text x={pad.left - 6} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">
               {(min + (range / 5) * (5 - i)).toFixed(0)}
             </text>
@@ -74,9 +74,9 @@ function EquityChart({ points, height = 160 }: { points: number[]; height?: numb
       <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
-}
+})
 
-function MonthlyChart({ returns: r }: { returns: number[] }) {
+const MonthlyChart = memo(function MonthlyChart({ returns: r }: { returns: number[] }) {
   if (r.length < 2) return null
   const mx = Math.max(...r.map(Math.abs), 1)
   const w = 600; const pad = { top: 12, right: 12, bottom: 24, left: 42 }
@@ -91,16 +91,16 @@ function MonthlyChart({ returns: r }: { returns: number[] }) {
         const yp = v >= 0 ? mid - barH : mid
         return (
           <rect key={i} x={xp} y={yp} width={bw} height={Math.max(barH, 1)} rx={2}
-            fill={v >= 0 ? '#22c55e' : '#ef4444'} opacity={0.8} />
+            fill={v >= 0 ? 'var(--green)' : 'var(--red)'} opacity={0.8} />
         )
       })}
       <text x={pad.left} y={mid - 8} fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">+{mx.toFixed(0)}</text>
       <text x={pad.left} y={mid + 18} fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">-{mx.toFixed(0)}</text>
     </svg>
   )
-}
+})
 
-function WinDonut({ wins, losses }: { wins: number; losses: number }) {
+const WinDonut = memo(function WinDonut({ wins, losses }: { wins: number; losses: number }) {
   const total = wins + losses
   if (total === 0) return null
   const pct = total > 0 ? (wins / total) * 100 : 0
@@ -117,9 +117,9 @@ function WinDonut({ wins, losses }: { wins: number; losses: number }) {
       <text x={50} y={62} textAnchor="middle" fill="var(--text-faint)" fontSize={9}>win</text>
     </svg>
   )
-}
+})
 
-function DrawdownChart({ points }: { points: number[] }) {
+const DrawdownChart = memo(function DrawdownChart({ points }: { points: number[] }) {
   if (points.length < 2) return null
   let peak = points[0]; const dd = points.map(v => { const d = peak > 0 ? ((v - peak) / peak) * 100 : 0; if (v > peak) peak = v; return d })
   const min = Math.min(...dd, -0.1); const max = 0
@@ -131,19 +131,19 @@ function DrawdownChart({ points }: { points: number[] }) {
   const fill = dd.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(v)}`).join('')
   return (
     <svg viewBox={`0 0 ${w} ${pad.top + ch + pad.bottom}`} style={{ width: '100%', height: 'auto' }}>
-      <line x1={pad.left} y1={y(0)} x2={w - pad.right} y2={y(0)} stroke="rgba(139,92,246,0.1)" strokeWidth={1} />
+      <line x1={pad.left} y1={y(0)} x2={w - pad.right} y2={y(0)} stroke="color-mix(in srgb, var(--violet) 10%, transparent)" strokeWidth={1} />
       {[-5, -10, -15, -20].filter(v => v >= min).map(v => (
         <g key={v}>
-          <line x1={pad.left} y1={y(v)} x2={w - pad.right} y2={y(v)} stroke="rgba(239,68,68,0.06)" strokeWidth={1} />
+          <line x1={pad.left} y1={y(v)} x2={w - pad.right} y2={y(v)} stroke="color-mix(in srgb, var(--red) 6%, transparent)" strokeWidth={1} />
           <text x={pad.left - 4} y={y(v) + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">{v}%</text>
         </g>
       ))}
       <path d={`${fill}L${x(dd.length - 1)},${pad.top + ch}L${x(0)},${pad.top + ch}Z`}
-        fill="rgba(239,68,68,0.08)" />
+        fill="color-mix(in srgb, var(--red) 8%, transparent)" />
       <path d={fill} fill="none" stroke="#ef4444" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
-}
+})
 
 /* ===================================================================
    AUTHENTICATED DASHBOARD
@@ -158,17 +158,18 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const [brokers, setBrokers] = useState<BrokerInfo[]>([])
   const [availBrokers, setAvailBrokers] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'positions' | 'orders' | 'performance' | 'brokers'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'positions' | 'orders' | 'performance' | 'strategies' | 'brokers'>('overview')
 
   const loadData = useCallback(async () => {
     try {
-      const [p, o, f, s, bc, bl] = await Promise.all([
+      const [p, o, f, s, bc, bl, bm] = await Promise.all([
         api.engine.positions().catch(() => ({ positions: [] })),
         api.engine.orders().catch(() => ({ orders: [] })),
         api.engine.funds().catch(() => ({ funds: null })),
         api.strategies.assigned().catch(() => ({ strategies: [] })),
         api.brokers.credentials().catch(() => ({ credentials: [] })),
         api.brokers.list().catch(() => ({ brokers: [] })),
+        api.brokers.metadata().catch(() => ({ brokers: [] })),
       ])
       setPositions((p as { positions: Position[] }).positions || [])
       setOrders((o as { orders: Order[] }).orders || [])
@@ -176,6 +177,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       setStrategies((s as { strategies: Strategy[] }).strategies || [])
       setBrokers((bc as { credentials: BrokerInfo[] }).credentials || [])
       setAvailBrokers((bl as { brokers: string[] }).brokers || [])
+      setBrokerMeta((bm as { brokers: BrokerMeta[] }).brokers || [])
     } catch {} finally { setLoading(false) }
   }, [])
 
@@ -185,14 +187,14 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     subscribe(symbols)
     startFeed().catch(() => {})
     loadData()
-    const interval = setInterval(loadData, 5000)
+    const interval = setInterval(loadData, 15000)
     return () => clearInterval(interval)
   }, [subscribe, startFeed, loadData])
 
-  const totalPnl = positions.reduce((s, p) => {
+  const totalPnl = useMemo(() => positions.reduce((s, p) => {
     const live = ticks[p.symbol]
     return s + (live ? p.quantity * (live.last_price - p.average_buy_price) : p.unrealised_pnl || 0)
-  }, 0)
+  }, 0), [positions, ticks])
 
   const orderStats = {
     total: orders.length,
@@ -213,10 +215,6 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const [authUrl, setAuthUrl] = useState<string | null>(null)
 
   const getBrokerMeta = useCallback((b: string) => brokerMeta.find(m => m.broker === b), [brokerMeta])
-
-  useEffect(() => {
-    api.brokers.metadata().then(r => setBrokerMeta(r.brokers)).catch(() => {})
-  }, [])
 
   const handleConnectBroker = async () => {
     if (!connectForm) return
@@ -277,17 +275,12 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     ? (totalPnl > 0 ? 1.2 : 0.4) + (orderStats.filled / Math.max(orderStats.total, 1)) * 0.8
     : 0
 
-  /* === Broker Health === */
-  const [brokerHealth, setBrokerHealth] = useState<Record<string, string>>({})
-  useEffect(() => {
-    Promise.all(brokers.map(async b => {
-      try {
-        const res = await api.engine.funds()
-        const f = res as { funds: { broker: string } }
-        setBrokerHealth(h => ({ ...h, [b.broker]: f.funds?.broker ? 'connected' : 'active' }))
-      } catch { setBrokerHealth(h => ({ ...h, [b.broker]: 'error' })) }
-    })).catch(() => {})
-  }, [brokers])
+  /* === Broker Health (inferred from funds fetched in loadData) === */
+  const brokerHealth = useMemo(() => {
+    const h: Record<string, string> = {}
+    for (const b of brokers) h[b.broker] = funds?.broker === b.broker ? 'connected' : 'active'
+    return h
+  }, [brokers, funds])
 
   /* === CSV Export === */
   const csvDownload = (headers: string[], rows: string[][], filename: string) => {
@@ -333,6 +326,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
           { key: 'positions' as const, label: 'Positions' },
           { key: 'orders' as const, label: 'Orders' },
           { key: 'performance' as const, label: 'Performance' },
+          { key: 'strategies' as const, label: 'Strategies' },
           { key: 'brokers' as const, label: 'Brokers' },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
@@ -356,8 +350,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
             {funds && (
               <div style={{
                 padding: '14px 18px', borderRadius: 10,
-                background: 'linear-gradient(135deg, rgba(0,229,255,0.08), rgba(124,92,252,0.08))',
-                border: '1px solid rgba(0,229,255,0.1)',
+                background: 'linear-gradient(135deg, color-mix(in srgb, var(--cyan) 8%, transparent), color-mix(in srgb, var(--violet) 8%, transparent))',
+                border: '1px solid color-mix(in srgb, var(--cyan) 10%, transparent)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontSize: 10, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.04em' }}>
@@ -400,51 +394,6 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 </div>
               ))}
             </div>
-            {/* Quick Trade */}
-            <div className="t-panel" style={{ padding: '10px 14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#8888a0', letterSpacing: '0.03em' }}>QUICK TRADE</span>
-                <input className="t-input" placeholder="Symbol" id="qt-symbol"
-                  style={{ width: 100, fontSize: 11, fontFamily: 'var(--font-mono)' }}
-                  onKeyDown={e => { if (e.key === 'Enter') (document.getElementById('qt-qty') as HTMLInputElement)?.focus() }} />
-                <input className="t-input" type="number" placeholder="Qty" id="qt-qty"
-                  style={{ width: 60, fontSize: 11, fontFamily: 'var(--font-mono)' }}
-                  onKeyDown={e => { if (e.key === 'Enter') (document.getElementById('qt-buy') as HTMLButtonElement)?.click() }} />
-                <button id="qt-buy" className="t-btn t-btn-sm"
-                  onClick={async () => {
-                    const el = document.getElementById('qt-symbol') as HTMLInputElement
-                    const qel = document.getElementById('qt-qty') as HTMLInputElement
-                    const sym = el.value.toUpperCase().trim()
-                    const qty = parseInt(qel.value)
-                    if (!sym || !qty) return
-                    el.style.borderColor = 'var(--violet)'
-                    try {
-                      await api.engine.trade({ symbol: sym, side: 'BUY', quantity: qty })
-                    } catch (e) { alert(e instanceof Error ? e.message : 'Trade failed') }
-                    el.style.borderColor = ''; qel.value = ''; el.value = ''
-                  }}
-                  style={{ fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>
-                  BUY
-                </button>
-                <button className="t-btn t-btn-sm"
-                  onClick={async () => {
-                    const el = document.getElementById('qt-symbol') as HTMLInputElement
-                    const qel = document.getElementById('qt-qty') as HTMLInputElement
-                    const sym = el.value.toUpperCase().trim()
-                    const qty = parseInt(qel.value)
-                    if (!sym || !qty) return
-                    el.style.borderColor = '#ef4444'
-                    try {
-                      await api.engine.trade({ symbol: sym, side: 'SELL', quantity: qty })
-                    } catch (e) { alert(e instanceof Error ? e.message : 'Trade failed') }
-                    el.style.borderColor = ''; qel.value = ''; el.value = ''
-                  }}
-                  style={{ fontSize: 10, fontWeight: 700, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  SELL
-                </button>
-              </div>
-            </div>
-
             {positions.length > 0 && (
               <div className="t-panel" style={{ padding: 0 }}>
                 <div className="t-panel-header" style={{ minHeight: 28, padding: '6px 12px' }}>
@@ -742,6 +691,40 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
           </>
         )}
 
+        {/* ============= STRATEGIES ============= */}
+        {activeTab === 'strategies' && (
+          <>
+            <div className="t-panel" style={{ padding: 0 }}>
+              <div className="t-panel-header">
+                <h3 className="t-panel-title">My Strategies ({activeStrategies.length})</h3>
+              </div>
+              {activeStrategies.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {activeStrategies.map(s => (
+                    <div key={s.strategy_key} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '14px 16px', borderBottom: '1px solid var(--border)',
+                      borderLeft: '3px solid var(--violet)',
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</span>
+                          <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-green' : s.required_tier === 'pro' ? 't-badge-violet' : 't-badge-amber'}`} style={{ fontSize: 9, textTransform: 'capitalize' }}>{s.required_tier}</span>
+                        </div>
+                        <p className="t-faint" style={{ margin: 0, fontSize: 10, lineHeight: 1.4 }}>{s.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="t-panel-body" style={{ textAlign: 'center', padding: 20 }}>
+                  <span className="t-faint">No strategies assigned yet. Contact your admin to get started.</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {/* ============= BROKERS ============= */}
         {activeTab === 'brokers' && (
           <>
@@ -805,8 +788,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               {authUrl && (
                 <div style={{
                   padding: '8px 12px', borderRadius: 6, fontSize: 10, marginBottom: 10,
-                  background: 'rgba(0,200,83,0.08)', color: 'var(--text-green)',
-                  border: '1px solid rgba(0,200,83,0.12)',
+                  background: 'color-mix(in srgb, var(--green) 8%, transparent)', color: 'var(--text-green)',
+                  border: '1px solid color-mix(in srgb, var(--green) 12%, transparent)',
                 }}>
                   Credentials saved.{' '}
                   <a href={authUrl} target="_blank" rel="noopener noreferrer"
@@ -1026,7 +1009,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 48, height: 48, borderRadius: 12,
             background: 'var(--gradient-primary)', marginBottom: 12,
-            fontSize: 20, fontWeight: 700, color: '#000',
+            fontSize: 20, fontWeight: 700, color: 'var(--text-inverse)',
           }}>TM</div>
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Client Portal</h2>
           <p className="t-faint" style={{ fontSize: 11, margin: 0 }}>
@@ -1086,18 +1069,18 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
             <div style={{
               padding: '8px 12px', borderRadius: 6, fontSize: 10,
-              background: 'rgba(0,200,83,0.08)', color: 'var(--text-green)',
+              background: 'color-mix(in srgb, var(--green) 8%, transparent)', color: 'var(--text-green)',
               width: '100%', textAlign: 'center',
-              border: '1px solid rgba(0,200,83,0.12)',
+              border: '1px solid color-mix(in srgb, var(--green) 12%, transparent)',
             }}>
               OTP sent to {email}
             </div>
             {debugOtp && (
               <div style={{
                 padding: '8px 12px', borderRadius: 6, fontSize: 12,
-                background: 'rgba(255,193,7,0.1)', color: '#ffc107',
+                background: 'color-mix(in srgb, var(--amber) 10%, transparent)', color: '#ffc107',
                 width: '100%', textAlign: 'center', fontFamily: 'var(--font-mono)',
-                border: '1px solid rgba(255,193,7,0.2)',
+                border: '1px solid color-mix(in srgb, var(--amber) 20%, transparent)',
               }}>
                 Dev OTP: <strong>{debugOtp}</strong>
               </div>

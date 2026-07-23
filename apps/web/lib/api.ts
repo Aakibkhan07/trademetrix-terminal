@@ -89,10 +89,16 @@ export interface AdminOrder {
   product: string
   quantity: number
   price: number
+  trigger_price?: number
   status: string
   is_paper: boolean
   message: string
   filled_quantity: number
+  average_price: number
+  instrument_type: string
+  strike_price?: number
+  expiry_date?: string
+  option_type?: string
   filled_at: string
   created_at: string
 }
@@ -244,13 +250,24 @@ export const api = {
     signin: (data: { email: string; password: string }) =>
       request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signin', { method: 'POST', body: data }),
     signout: () => request('/auth/signout', { method: 'POST' }),
-    me: () => request<{ id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string; is_admin?: boolean; onboarding_completed?: boolean }>('/auth/me'),
+    me: () => request<{ id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string; is_admin?: boolean; onboarding_completed?: boolean; created_at?: string }>('/auth/me'),
     sendOTP: (data: { email: string; phone?: string }) =>
       request<{ message: string; exists: boolean }>('/auth/send-otp', { method: 'POST', body: data }),
     registerWithOTP: (data: { email: string; password: string; full_name?: string; phone?: string }) =>
       request<{ message: string; user_id: string }>('/auth/register-with-otp', { method: 'POST', body: data }),
     verifyOTP: (data: { email: string; otp: string }) =>
       request<{ access_token: string; user: { id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string }; is_new: boolean }>('/auth/verify-otp', { method: 'POST', body: data }),
+    changePassword: (data: { current_password: string; new_password: string }) =>
+      request<{ message: string }>('/auth/change-password', { method: 'POST', body: data }),
+    forgotPassword: (data: { email: string }) =>
+      request<{ message: string }>('/auth/forgot-password', { method: 'POST', body: data }),
+  },
+
+  subscriptions: {
+    plans: () => request<{ plans: { id: string; name: string; tier: string; price: number; features: string[]; most_popular: boolean }[] }>('/subscriptions/plans/'),
+    create: (plan: string) => request<{ subscription_id: string; short_url: string; tier: string; key_id: string }>('/subscriptions/create/', { method: 'POST', body: { plan } }),
+    mySubscription: () => request<{ subscription: { id: string; tier: string; status: string; razorpay_subscription_id: string; current_period_start: string | null; current_period_end: string | null; trial_end: string | null; created_at: string } | null }>('/subscriptions/me/'),
+    cancel: (cancel_at_cycle_end = true) => request<{ status: string; razorpay_subscription_id: string }>('/subscriptions/cancel/', { method: 'POST', body: { cancel_at_cycle_end } }),
   },
 
   brokers: {
@@ -270,6 +287,7 @@ export const api = {
     fyersAuthUrl: () => request('/brokers/fyers/auth-url'),
     fyersExchangeCode: (authCode: string) => request('/brokers/fyers/exchange-code', { method: 'POST', body: { auth_code: authCode } }),
     fyersReAuth: () => request('/brokers/fyers/re-auth', { method: 'POST' }),
+    reAuth: (broker: string) => request(`/brokers/${broker}/re-auth`, { method: 'POST' }),
     activate: (broker: string) => request('/brokers/activate', { method: 'POST', body: { broker } }),
   },
 
@@ -307,13 +325,22 @@ export const api = {
       create: (data: { user_id: string; strategy_key: string }) =>
         request('/admin/assignments', { method: 'POST', body: data }),
       remove: (id: string) => request(`/admin/assignments/${id}`, { method: 'DELETE' }),
+      batch: (data: { user_ids: string[]; strategy_key: string }) =>
+        request<{ created: number; skipped: number; strategy_key: string }>('/admin/assignments/batch', { method: 'POST', body: data }),
+      export: () => request<{ assignments: any[]; count: number }>('/admin/assignments/export'),
+      import: (entries: { user_id: string; strategy_key: string }[]) =>
+        request<{ created: number; skipped: number; errors: any[] }>('/admin/assignments/import', { method: 'POST', body: { entries } }),
     },
     fetch: <T>(path: string) => request<T>('/admin' + path),
     brokers: () => request<{ brokers: AdminBroker[] }>('/admin/brokers'),
-    orders: (params?: { user_id?: string; is_paper?: string; limit?: number; offset?: number }) =>
+    orders: (params?: { user_id?: string; is_paper?: string; symbol?: string; from_date?: string; to_date?: string; limit?: number; offset?: number }) =>
       request<{ orders: AdminOrder[]; count: number }>('/admin/orders' + (params ? '?' + new URLSearchParams(
         Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
       ).toString() : '')),
+    broadcastNotify: (data: { title: string; message: string; type?: string; user_ids?: string[] }) =>
+      request<{ results: any[]; total: number; success: number; failed: number }>('/admin/broadcast/notify', { method: 'POST', body: data }),
+    positions: (user_id?: string) =>
+      request<{ positions: any[]; count: number }>(user_id ? `/admin/positions?user_id=${user_id}` : '/admin/positions'),
     auditLog: (params?: { user_id?: string; action?: string; limit?: number; offset?: number }) =>
       request<{ entries: AdminAuditEntry[]; count: number }>('/admin/audit-log' + (params ? '?' + new URLSearchParams(
         Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
@@ -353,6 +380,23 @@ export const api = {
         '/admin/broadcast', { method: 'POST', body: data },
       ),
     },
+    strategies: {
+      list: () => request<{ strategies: any[] }>('/admin/strategies'),
+      create: (data: { key: string; name: string; description?: string; required_tier?: string; category?: string }) =>
+        request<{ id: string; key: string; name: string; message: string }>('/admin/strategies', { method: 'POST', body: data }),
+      update: (key: string, data: { name?: string; description?: string; required_tier?: string; category?: string }) =>
+        request<{ key: string; message: string }>(`/admin/strategies/${key}`, { method: 'PUT', body: data }),
+      delete: (key: string) =>
+        request<{ message: string }>(`/admin/strategies/${key}`, { method: 'DELETE' }),
+    },
+    executeTrade: (data: {
+      user_id: string; symbol: string; side: string; quantity: number;
+      price?: number; exchange?: string; order_type?: string; product?: string;
+      trigger_price?: number; instrument_type?: string;
+      expiry_date?: string; strike_price?: number; option_type?: string;
+    }) => request<{ result: Record<string, unknown> }>(
+      '/admin/execute-trade', { method: 'POST', body: data },
+    ),
   },
 
   engine: {
@@ -378,6 +422,8 @@ export const api = {
     journalEntries: () => request('/ai/journal/entries'),
     copilot: (messages: { role: string; content: string }[]) =>
       request<{ response: string }>('/ai/copilot', { method: 'POST', body: { messages } }),
+    chat: (messages: { role: string; content: string }[]) =>
+      request<{ intent: string; response: string; data: any }>('/ai/chat', { method: 'POST', body: { messages } }),
   },
 
   market: {
@@ -462,6 +508,23 @@ export const api = {
     delete: (id: string) => request(`/user-strategies/${id}`, { method: 'DELETE' }),
     deploy: (id: string, mode: string) => request(`/user-strategies/${id}/deploy`, { method: 'POST', body: { mode } }),
     activity: (id: string) => request(`/user-strategies/${id}/activity`),
+  },
+
+  squareoff: {
+    config: () => request<{ config: { enabled: boolean; time: string; days: number[] } }>('/engine/squareoff/config'),
+    setConfig: (data: { enabled: boolean; time: string; days: number[] }) =>
+      request('/engine/squareoff/config', { method: 'POST', body: data }),
+    run: () => request('/engine/squareoff/run', { method: 'POST' }),
+  },
+
+  multiLeg: {
+    list: () => request('/strategies/multi-leg/strategies'),
+    get: (id: string) => request(`/strategies/multi-leg/strategies/${id}`),
+    create: (data: { name: string; description?: string; underlying?: string; expiry?: string; legs: { action: string; symbol: string; quantity: number; exchange?: string; order_type?: string; product?: string; price?: number; instrument_type?: string; strike_price?: number; expiry_date?: string; option_type?: string }[] }) =>
+      request('/strategies/multi-leg/strategies', { method: 'POST', body: data }),
+    delete: (id: string) => request(`/strategies/multi-leg/strategies/${id}`, { method: 'DELETE' }),
+    place: (strategyId: string, broker?: string) =>
+      request(`/strategies/multi-leg/strategies/${strategyId}/place`, { method: 'POST', body: { strategy_id: strategyId, broker: broker || 'fyers' } }),
   },
 
   marginEstimate: (data: { index_symbol: string; legs: Record<string, unknown>[]; broker?: string }) =>

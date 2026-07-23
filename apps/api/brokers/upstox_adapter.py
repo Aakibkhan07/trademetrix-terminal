@@ -272,7 +272,9 @@ class UpstoxAdapter(BaseBroker):
 
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
         client = await self._get_client()
-        keys = ",".join(self._ensure_upstox_key(s) for s in symbols)
+        upstox_symbols = [self._ensure_upstox_key(s) for s in symbols]
+        upstox_to_orig = dict(zip(upstox_symbols, symbols))
+        keys = ",".join(upstox_symbols)
         resp = await client.get(
             f"{self._base_url}/market-quote/quotes",
             params={"instrument_key": keys},
@@ -282,7 +284,8 @@ class UpstoxAdapter(BaseBroker):
         data = resp.json()
         quotes = []
         for sym, item in data.get("data", {}).items():
-            quotes.append(self._normalize_quote(item, sym))
+            orig = upstox_to_orig.get(sym, sym)
+            quotes.append(self._normalize_quote(item, orig))
         return quotes
 
     async def get_historical(
