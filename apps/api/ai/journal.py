@@ -46,7 +46,7 @@ Important guidelines:
 
         text = await chat_completion(prompt)
         if text is None:
-            return {"analysis": "AI journal not available. Configure GEMINI_API_KEY.", "stats": stats}
+            return {"analysis": "AI journal not available. Configure OPENROUTER_API_KEY.", "stats": stats}
         try:
             analysis = json.loads(text.replace("```json", "").replace("```", "").strip())
             await self._save_entry(analysis, trades_data)

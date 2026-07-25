@@ -84,7 +84,7 @@ INSTRUCTIONS:
 
         text = await chat_completion(prompt)
         if text is None:
-            return "AI Copilot is not available. Configure GEMINI_API_KEY."
+            return "AI Copilot is not available. Configure OPENROUTER_API_KEY."
         text = text.replace("```json", "").replace("```", "").strip()
         return text
 

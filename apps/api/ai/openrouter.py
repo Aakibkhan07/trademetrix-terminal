@@ -13,14 +13,14 @@ DEFAULT_MODEL = "google/gemini-2.5-flash"
 
 def _headers() -> dict:
     return {
-        "Authorization": f"Bearer {settings.gemini_api_key}",
+        "Authorization": f"Bearer {settings.openrouter_api_key}",
         "Content-Type": "application/json",
     }
 
 
 async def chat_completion(prompt: str, model: str = DEFAULT_MODEL, max_tokens: int = 2000) -> str | None:
-    if not settings.gemini_api_key:
-        logger.warning("GEMINI_API_KEY not set — AI features unavailable")
+    if not settings.openrouter_api_key:
+        logger.warning("OPENROUTER_API_KEY not set — AI features unavailable")
         return None
     try:
         async with httpx.AsyncClient(timeout=60) as client:

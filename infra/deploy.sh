@@ -37,12 +37,12 @@ echo "  Branch/ref:  $BRANCH"
 echo "  Install dir: $INSTALL_DIR"
 echo ""
 
-# ── Prompt for Gemini key ──
-if [ -z "${GEMINI_API_KEY:-}" ]; then
-  read -rp "Enter Gemini API key (or press Enter to skip AI): " GEMINI_KEY
-  GEMINI_API_KEY="${GEMINI_KEY:-}"
+# ── Prompt for OpenRouter key ──
+if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+  read -rp "Enter OpenRouter API key (or press Enter to skip AI): " OPENROUTER_KEY
+  OPENROUTER_API_KEY="${OPENROUTER_KEY:-}"
 fi
-export GEMINI_API_KEY
+export OPENROUTER_API_KEY
 
 # ── Install Docker if missing ──
 info "Checking prerequisites..."
@@ -84,14 +84,14 @@ if [ ! -f infra/.env.production ]; then
   exit 1
 fi
 
-# Inject Gemini key into .env.production if provided
-if [ -n "$GEMINI_API_KEY" ]; then
-  if grep -q "GEMINI_API_KEY=" infra/.env.production; then
-    sed -i "s/^GEMINI_API_KEY=.*/GEMINI_API_KEY=$GEMINI_API_KEY/" infra/.env.production
+# Inject OpenRouter key into .env.production if provided
+if [ -n "$OPENROUTER_API_KEY" ]; then
+  if grep -q "OPENROUTER_API_KEY=" infra/.env.production; then
+    sed -i "s/^OPENROUTER_API_KEY=.*/OPENROUTER_API_KEY=$OPENROUTER_API_KEY/" infra/.env.production
   else
-    echo "GEMINI_API_KEY=$GEMINI_API_KEY" >> infra/.env.production
+    echo "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" >> infra/.env.production
   fi
-  ok "Gemini API key configured"
+  ok "OpenRouter API key configured"
 fi
 
 ok "Environment file ready"

@@ -60,14 +60,14 @@ async def close_supabase() -> None:
     _supabase_available.clear()
     if _supabase:
         try:
-            await asyncio.get_running_loop().run_in_executor(_db_executor, _supabase.auth.sign_out)
+            _supabase.auth.sign_out()
             await _supabase.postgrest.aclose()
         except Exception as e:
             logger.warning("Error closing supabase client: %s", e)
         _supabase = None
     if _supabase_anon and _supabase_anon.postgrest:
         try:
-            await asyncio.get_running_loop().run_in_executor(_db_executor, _supabase_anon.auth.sign_out)
+            _supabase_anon.auth.sign_out()
             await _supabase_anon.postgrest.aclose()
         except Exception as e:
             logger.warning("Error closing supabase anon client: %s", e)

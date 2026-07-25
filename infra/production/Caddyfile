@@ -13,3 +13,7 @@ api.ai.trademetrix.tech {
 monitor.ai.trademetrix.tech {
     reverse_proxy grafana:3000
 }
+
+n8n.trademetrix.tech {
+    reverse_proxy n8n:5678
+}

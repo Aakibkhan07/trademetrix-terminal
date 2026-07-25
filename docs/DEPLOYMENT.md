@@ -60,7 +60,7 @@ ENCRYPTION_KEY
 
 ### Strongly recommended
 ```
-GEMINI_API_KEY        — AI signals, chat
+OPENROUTER_API_KEY    — AI signals, chat
 REDIS_URL             — Caching (default: redis://redis:6379/0)
 SENTRY_DSN            — Error tracking
 TRADINGVIEW_WEBHOOK_SECRET  — Webhook signature verification

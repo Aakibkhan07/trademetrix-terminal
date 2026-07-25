@@ -57,7 +57,7 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
                 key=CSRF_COOKIE_NAME,
                 value=token,
                 httponly=False,
-                secure=True,
+                secure=settings.env == "production",
                 samesite="none",
                 path="/",
                 domain=settings.cookie_domain or None,

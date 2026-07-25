@@ -1,4 +1,5 @@
 import pytest
+from core.config import settings
 
 
 @pytest.mark.asyncio
@@ -66,7 +67,10 @@ async def test_csrf_bootstrap(client):
     # Cookie should be set in the response
     set_cookie = resp.headers.get("set-cookie", "")
     assert "csrf_token=" in set_cookie
-    assert "Secure" in set_cookie
+    if settings.env == "production":
+        assert "Secure" in set_cookie
+    else:
+        assert "Secure" not in set_cookie
     assert "HttpOnly" not in set_cookie  # must be readable by JS
 
 

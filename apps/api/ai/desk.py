@@ -46,7 +46,7 @@ Never give financial advice or recommendations. You are a tool, not a SEBI-regis
 
         text = await chat_completion(prompt)
         if text is None:
-            return {"response": "AI desk is not available. Check GEMINI_API_KEY configuration.", "action": None}
+            return {"response": "AI desk is not available. Check OPENROUTER_API_KEY configuration.", "action": None}
         try:
             parsed = json.loads(text.replace("```json", "").replace("```", "").strip())
             return parsed

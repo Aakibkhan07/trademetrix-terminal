@@ -136,6 +136,25 @@ services:
     depends_on:
       - prometheus
 
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: trademetrix-n8n
+    restart: unless-stopped
+    networks:
+      - trademetrix
+    environment:
+      N8N_HOST: n8n.trademetrix.tech
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.trademetrix.tech
+      N8N_EDITOR_BASE_URL: https://n8n.trademetrix.tech
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: 168
+    volumes:
+      - n8n-data:/home/node/.n8n
+    mem_limit: 512m
+    cpus: 1.0
+
   market-agent:
     build:
       context: ../../apps/market-agent
@@ -203,3 +222,4 @@ volumes:
   caddy-config:
   prometheus-data:
   grafana-data:
+  n8n-data:

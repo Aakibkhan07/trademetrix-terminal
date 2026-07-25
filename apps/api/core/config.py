@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     paytm_merchant_id: str = ""
     paytm_merchant_key: str = ""
 
-    gemini_api_key: str = ""
+    openrouter_api_key: str = ""
 
     redis_url: str = "redis://localhost:6379/0"
     supabase_db_url: str = ""
@@ -108,8 +108,8 @@ class Settings(BaseSettings):
             logger.warning("Critical secrets not configured: %s", ", ".join(missing))
         if not self.tradingview_webhook_secret:
             logger.warning("TRADINGVIEW_WEBHOOK_SECRET not set — webhook signatures will not be verified")
-        if not self.gemini_api_key:
-            logger.info("GEMINI_API_KEY not set — AI features will be unavailable")
+        if not self.openrouter_api_key:
+            logger.info("OPENROUTER_API_KEY not set — AI features will be unavailable")
         if not self.redis_url or self.redis_url == "redis://localhost:6379/0":
             logger.info("REDIS_URL using default — caching will use local Redis")
         return self

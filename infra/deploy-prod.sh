@@ -41,8 +41,8 @@ ssh "$VPS" bash -s << 'DEPLOY'
   set -euo pipefail
   cd "$HOME/trademetrix-terminal"
 
-  # Default Gemini key from env (set on VPS ahead of time or leave empty)
-  GEMINI_API_KEY="${GEMINI_API_KEY:-}"
+  # Default OpenRouter key from env (set on VPS ahead of time or leave empty)
+  OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}"
 
   echo "[VPS] Updating repo..."
   git fetch origin

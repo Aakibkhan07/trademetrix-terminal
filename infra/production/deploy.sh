@@ -8,7 +8,7 @@ set -euo pipefail
 # Before running:
 #   1. Create apps/api/.env and apps/web/.env on the VPS
 #      (SCP them from your local machine, or create manually)
-#   2. Set the GEMINI_API_KEY env var or enter it when prompted
+#   2. Set the OPENROUTER_API_KEY env var or enter it when prompted
 # ============================================================
 
 REPO_URL="https://github.com/Aakibkhan07/trademetrix-terminal.git"
@@ -28,11 +28,11 @@ echo "║      TradeMetrix Terminal — VPS Deploy       ║"
 echo "╚══════════════════════════════════════════════╝"
 echo -e "${NC}"
 
-if [ -z "${GEMINI_API_KEY:-}" ]; then
-  read -rp "Enter your Gemini API key (or press Enter to skip AI): " GEMINI_KEY
-  GEMINI_API_KEY="${GEMINI_KEY:-}"
+if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+  read -rp "Enter your OpenRouter API key (or press Enter to skip AI): " OPENROUTER_KEY
+  OPENROUTER_API_KEY="${OPENROUTER_KEY:-}"
 fi
-export GEMINI_API_KEY
+export OPENROUTER_API_KEY
 
 info "Checking prerequisites..."
 if ! command -v docker &>/dev/null; then
@@ -82,14 +82,14 @@ if [ ! -f apps/web/.env ]; then
   exit 1
 fi
 
-# Inject Gemini key into API .env
-if [ -n "$GEMINI_API_KEY" ]; then
-  if grep -q "GEMINI_API_KEY=" apps/api/.env; then
-    sed -i "s/^GEMINI_API_KEY=.*/GEMINI_API_KEY=$GEMINI_API_KEY/" apps/api/.env
+# Inject OpenRouter key into API .env
+if [ -n "$OPENROUTER_API_KEY" ]; then
+  if grep -q "OPENROUTER_API_KEY=" apps/api/.env; then
+    sed -i "s/^OPENROUTER_API_KEY=.*/OPENROUTER_API_KEY=$OPENROUTER_API_KEY/" apps/api/.env
   else
-    echo "GEMINI_API_KEY=$GEMINI_API_KEY" >> apps/api/.env
+    echo "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" >> apps/api/.env
   fi
-  ok "Gemini API key configured"
+  ok "OpenRouter API key configured"
 fi
 
 ok "Environment files ready"
