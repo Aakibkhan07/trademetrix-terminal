@@ -54,8 +54,9 @@ class RiskGuard:
 
     async def update_settings(self, settings: RiskSettings) -> None:
         supabase = get_supabase()
-        data = settings.model_dump(exclude={"user_id"}, exclude_none=True)
+        data = settings.model_dump(exclude={"user_id", "created_at"}, exclude_none=True)
         data["user_id"] = self.user_id
+        data["strategy_id"] = settings.strategy_id
         data["updated_at"] = datetime.now(UTC).isoformat()
         try:
             await async_supabase(lambda: supabase.table("risk_settings").upsert(data, on_conflict=["user_id", "strategy_id"]).execute())
