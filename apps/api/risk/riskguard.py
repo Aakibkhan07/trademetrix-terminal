@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from core.capabilities import resolve_capabilities_by_id
 from core.db import async_supabase, get_supabase
 from core.models import NormalizedOrder, RiskSettings
-from core.safe_query import async_safe_insert, async_safe_single, async_safe_update
+from core.safe_query import async_safe_execute, async_safe_insert, async_safe_single, async_safe_update
 from risk.helpers import compute_daily_pnl_fifo, get_current_capital_usage, get_drawdown, get_open_position_count
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,24 @@ class RiskGuard:
         data["strategy_id"] = settings.strategy_id
         data["updated_at"] = datetime.now(UTC).isoformat()
         try:
-            await async_supabase(lambda: supabase.table("risk_settings").upsert(data, on_conflict=["user_id", "strategy_id"]).execute())
+            existing = await async_safe_execute(
+                supabase.table("risk_settings")
+                .select("id")
+                .eq("user_id", self.user_id)
+                .eq("strategy_id", settings.strategy_id)
+                .limit(1)
+            )
+            if existing:
+                await async_safe_execute(
+                    supabase.table("risk_settings")
+                    .update(data)
+                    .eq("id", existing[0]["id"])
+                )
+            else:
+                await async_safe_execute(
+                    supabase.table("risk_settings")
+                    .insert(data)
+                )
         except Exception as e:
             logger.warning("Failed to update risk settings: %s", e)
 
