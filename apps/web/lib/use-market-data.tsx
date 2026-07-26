@@ -55,13 +55,14 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
     try {
       const res = await api.post<{ broker?: string }>('/marketdata/feed/start')
       setFeedMode(res?.broker === 'simulator' ? 'simulator' : 'broker')
-    } catch {
+    } catch (e) {
+      console.error('startFeed', e)
       setFeedMode('idle')
     }
   }, [])
 
   const stopFeed = useCallback(async () => {
-    try { await api.post('/marketdata/feed/stop') } catch {}
+    try { await api.post('/marketdata/feed/stop') } catch (e) { console.error('stopFeed', e) }
     setFeedMode('idle')
   }, [])
 
@@ -73,7 +74,7 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
     }
     if (!wsRef.current) {
       connectRef.current?.()
-      try { await startFeed() } catch {}
+      try { await startFeed() } catch (e) { console.error('subscribe startFeed', e) }
     }
   }, [startFeed])
 
@@ -106,7 +107,7 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
           if (msg.type === 'tick') {
             tickBufferRef.current[msg.symbol] = msg
           }
-        } catch {}
+        } catch (e) { console.error('ws parse', e) }
       }
       ws.onclose = () => {
         setConnected(false)
@@ -116,7 +117,7 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
       }
       ws.onerror = () => { ws.close() }
       wsRef.current = ws
-    } catch {}
+    } catch (e) { console.error('ws connect', e) }
   }
 
   useEffect(() => {
