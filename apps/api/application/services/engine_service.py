@@ -83,6 +83,22 @@ class EngineService:
         result = await execution_manager.cancel_order(req, order_id)
         return {"result": result.model_dump()}
 
+    async def modify_order(self, user_id: str, order_id: str, changes: dict) -> dict:
+        from execution import execution_manager
+        from execution.models import ExecutionRequest
+
+        creds = await async_safe_single(
+            get_supabase().table("broker_credentials").select("broker").eq("user_id", user_id).eq("is_active", True)
+        )
+        if not creds:
+            raise ValueError("No active broker configured")
+
+        req = ExecutionRequest(
+            user_id=user_id, broker=creds["broker"], symbol="", side="", quantity=0, source="modify",
+        )
+        result = await execution_manager.modify_order(req, order_id, changes)
+        return {"result": result.model_dump()}
+
     async def add_order_note(self, user_id: str, order_id: str, note: str, tags: list[str] | None = None) -> dict:
         order = await async_safe_single(
             get_supabase().table("orders").select("id").eq("id", order_id).eq("user_id", user_id)

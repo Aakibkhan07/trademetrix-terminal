@@ -70,6 +70,21 @@ async def cancel_order(order_id: str, current_user: UserProfile = Depends(get_cu
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class ModifyOrderRequest(BaseModel):
+    quantity: int | None = None
+    price: float | None = None
+    trigger_price: float | None = None
+
+
+@router.post("/orders/{order_id}/modify")
+async def modify_order(order_id: str, req: ModifyOrderRequest, current_user: UserProfile = Depends(get_current_user)):
+    try:
+        changes = {k: v for k, v in req.model_dump().items() if v is not None}
+        return await _engine_service.modify_order(current_user.id, order_id, changes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/orders/{order_id}/note", status_code=201)
 async def add_order_note(order_id: str, req: OrderNoteRequest, current_user: UserProfile = Depends(get_current_user)):
     try:

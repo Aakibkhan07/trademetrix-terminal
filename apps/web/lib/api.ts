@@ -412,6 +412,8 @@ export const api = {
     runs: () => request('/engine/runs'),
     orders: () => request('/engine/orders'),
     cancelOrder: (orderId: string) => request(`/engine/orders/${orderId}/cancel`, { method: 'POST' }),
+    modifyOrder: (orderId: string, changes: { quantity?: number; price?: number; trigger_price?: number }) =>
+      request(`/engine/orders/${orderId}/modify`, { method: 'POST', body: changes }),
     positions: () => request('/engine/positions'),
     funds: () => request('/engine/funds'),
   },

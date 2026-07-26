@@ -160,6 +160,9 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const [availBrokers, setAvailBrokers] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'positions' | 'orders' | 'performance' | 'strategies' | 'brokers'>('overview')
+  const [orderPage, setOrderPage] = useState(0)
+  const [positionPage, setPositionPage] = useState(0)
+  const PAGE_SIZE = 20
 
   const loadData = useCallback(async () => {
     try {
@@ -191,6 +194,23 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     const interval = setInterval(loadData, 15000)
     return () => clearInterval(interval)
   }, [subscribe, startFeed, loadData])
+
+  const handleCancelOrder = useCallback(async (orderId: string) => {
+    if (!confirm('Cancel this order?')) return
+    try { await api.engine.cancelOrder(orderId); loadData() }
+    catch (e) { alert(e instanceof Error ? e.message : 'Cancel failed') }
+  }, [loadData])
+
+  const handleModifyOrder = useCallback(async (orderId: string) => {
+    const qty = prompt('New quantity (leave blank to keep):')
+    const price = prompt('New price (leave blank to keep):')
+    const changes: { quantity?: number; price?: number } = {}
+    if (qty && !isNaN(Number(qty))) changes.quantity = Number(qty)
+    if (price && !isNaN(Number(price))) changes.price = Number(price)
+    if (!Object.keys(changes).length) return
+    try { await api.engine.modifyOrder(orderId, changes); loadData() }
+    catch (e) { alert(e instanceof Error ? e.message : 'Modify failed') }
+  }, [loadData])
 
   const totalPnl = useMemo(() => positions.reduce((s, p) => {
     const live = ticks[p.symbol]
@@ -471,11 +491,12 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               )}
             </div>
             {positions.length > 0 ? (
+              <>
               <div className="t-table-wrap">
                 <table className="t-table">
                   <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&L</th><th>Product</th><th>Type</th></tr></thead>
                   <tbody>
-                    {positions.map((p, i) => {
+                    {positions.slice(positionPage * PAGE_SIZE, (positionPage + 1) * PAGE_SIZE).map((p, i) => {
                       const live = ticks[p.symbol]
                       const ltp = live?.last_price || 0
                       const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
@@ -494,6 +515,14 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                   </tbody>
                 </table>
               </div>
+              {positions.length > PAGE_SIZE && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '8px 16px', alignItems: 'center' }}>
+                  <button className="t-btn t-btn-xs" disabled={positionPage === 0} onClick={() => setPositionPage(p => p - 1)}>Prev</button>
+                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>Page {positionPage + 1} of {Math.ceil(positions.length / PAGE_SIZE)}</span>
+                  <button className="t-btn t-btn-xs" disabled={(positionPage + 1) * PAGE_SIZE >= positions.length} onClick={() => setPositionPage(p => p + 1)}>Next</button>
+                </div>
+              )}
+              </>
             ) : (
               <div className="t-panel-body" style={{ textAlign: 'center', padding: 24 }}>
                 <span className="t-faint">No open positions</span>
@@ -521,11 +550,12 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               )}
             </div>
             {orders.length > 0 ? (
+              <>
               <div className="t-table-wrap">
                 <table className="t-table">
-                  <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Price</th><th>Filled</th><th>Avg</th><th>Status</th><th>Time</th></tr></thead>
+                  <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Price</th><th>Filled</th><th>Avg</th><th>Status</th><th>Time</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {orders.map(o => (
+                    {orders.slice(orderPage * PAGE_SIZE, (orderPage + 1) * PAGE_SIZE).map(o => (
                       <tr key={o.id}>
                         <td style={{ fontWeight: 600 }}>{o.symbol}</td>
                         <td className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{o.side}</td>
@@ -535,11 +565,27 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                         <td className="t-num">{o.average_price ? `\u20B9${fmt(o.average_price)}` : '-'}</td>
                         <td><span className={`t-badge ${o.status === 'FILLED' ? 't-badge-green' : o.status === 'REJECTED' ? 't-badge-red' : o.status === 'CANCELLED' ? 't-badge-amber' : 't-badge-cyan'}`} style={{ fontSize: 9 }}>{o.status}</span></td>
                         <td className="t-faint t-num" style={{ fontSize: 9 }}>{fmtDate(o.created_at)}</td>
+                        <td>
+                          {(o.status === 'OPEN' || o.status === 'PENDING' || o.status === 'TRIGGER_PENDING') && (
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <button className="t-btn t-btn-xs" style={{ fontSize: 8, color: 'var(--red)' }} onClick={() => handleCancelOrder(o.id)}>Cancel</button>
+                              <button className="t-btn t-btn-xs" style={{ fontSize: 8 }} onClick={() => handleModifyOrder(o.id)}>Modify</button>
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              {orders.length > PAGE_SIZE && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '8px 16px', alignItems: 'center' }}>
+                  <button className="t-btn t-btn-xs" disabled={orderPage === 0} onClick={() => setOrderPage(p => p - 1)}>Prev</button>
+                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>Page {orderPage + 1} of {Math.ceil(orders.length / PAGE_SIZE)}</span>
+                  <button className="t-btn t-btn-xs" disabled={(orderPage + 1) * PAGE_SIZE >= orders.length} onClick={() => setOrderPage(p => p + 1)}>Next</button>
+                </div>
+              )}
+              </>
             ) : (
               <div className="t-panel-body" style={{ textAlign: 'center', padding: 24 }}>
                 <span className="t-faint">No orders yet</span>
