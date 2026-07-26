@@ -4,6 +4,12 @@ x-healthcheck: &healthcheck
   retries: 5
   start_period: 15s
 
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   redis:
     image: redis:7-alpine
@@ -22,6 +28,7 @@ services:
       - redis-data:/data
       - ../redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--protected-mode", "no"]
+    logging: *default-logging
 
   api:
     build:
@@ -53,8 +60,7 @@ services:
       - "127.0.0.1:8000:8000"
     security_opt:
       - no-new-privileges:true
-    labels:
-      - "autoheal=true"
+    logging: *default-logging
 
   web:
     build:
@@ -79,60 +85,8 @@ services:
       retries: 3
       start_period: 20s
     mem_limit: 512m
-    cpus: 1.0
-    security_opt:
-      - no-new-privileges:true
-
-  caddy:
-    image: caddy:2-alpine
-    container_name: trademetrix_caddy
-    restart: unless-stopped
-    networks:
-      - trademetrix
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy-data:/data
-      - caddy-config:/config
-    mem_limit: 128m
     cpus: 0.5
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: trademetrix_prometheus
-    restart: unless-stopped
-    networks:
-      - trademetrix
-    ports:
-      - "127.0.0.1:9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
-      - ../prometheus/alerts:/etc/prometheus/alerts:ro
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-    mem_limit: 512m
-    cpus: 0.5
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: trademetrix_grafana
-    restart: unless-stopped
-    networks:
-      - trademetrix
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-      GF_SERVER_ROOT_URL: https://monitor.ai.trademetrix.tech
-      GF_INSTALL_PLUGINS: "grafana-piechart-panel"
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ../grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ../grafana/datasources:/etc/grafana/provisioning/datasources:ro
-    mem_limit: 256m
-    cpus: 0.5
+    logging: *default-logging
     depends_on:
       - prometheus
 
@@ -155,6 +109,7 @@ services:
       - n8n-data:/home/node/.n8n
     mem_limit: 1g
     cpus: 1.0
+    logging: *default-logging
 
   market-agent:
     build:
@@ -164,7 +119,7 @@ services:
     restart: unless-stopped
     networks:
       - trademetrix
-    env_file: .env
+    env_file: ../../apps/api/.env
     environment:
       REDIS_URL: redis://redis:6379/0
       SYMBOLS: "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"
@@ -174,6 +129,7 @@ services:
         condition: service_healthy
     mem_limit: 256m
     cpus: 0.5
+    logging: *default-logging
 
   autoheal:
     image: willfarrell/autoheal:latest
@@ -188,6 +144,7 @@ services:
       AUTOHEAL_START_PERIOD: 60
     mem_limit: 32m
     cpus: 0.1
+    logging: *default-logging
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -208,6 +165,7 @@ services:
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     mem_limit: 128m
     cpus: 0.2
+    logging: *default-logging
 
 networks:
   trademetrix:
@@ -223,4 +181,5 @@ volumes:
   caddy-config:
   prometheus-data:
   grafana-data:
+  n8n-data:
   n8n-data:

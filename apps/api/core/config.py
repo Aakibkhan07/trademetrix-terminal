@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     broker_request_timeout: int = 8
     broker_connect_timeout: int = 5
 
-    ws_reconnect_max_retries: int = 0
+    ws_reconnect_max_retries: int = 10
     ws_reconnect_base_delay: float = 1.0
     ws_reconnect_max_delay: float = 30.0
     ws_heartbeat_interval: int = 30
