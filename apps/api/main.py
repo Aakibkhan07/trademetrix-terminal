@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -57,6 +58,17 @@ logger = logging.getLogger(__name__)
 _PROD = os.getenv("ENV", "").lower() == "production"
 
 
+async def _startup_recovery():
+    try:
+        await asyncio.sleep(10)
+        from execution.recovery import reconcile_pending_orders
+        result = await reconcile_pending_orders()
+        if result.get("reconciled", 0) > 0:
+            logger.info("Startup recovery reconciled %d pending orders", result["reconciled"])
+    except Exception as e:
+        logger.warning("Startup recovery skipped: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
@@ -78,6 +90,8 @@ async def lifespan(app: FastAPI):
     squareoff_service.start_scheduler()
     cleanup_service = CleanupService()
     cleanup_service.start_scheduler()
+    from execution.recovery import reconcile_pending_orders
+    asyncio.ensure_future(_startup_recovery())
     yield
     cleanup_service.stop_scheduler()
     squareoff_service.stop_scheduler()

@@ -10,6 +10,7 @@ from core.models import NormalizedOrder, OrderResult
 from core.prometheus import record_broker_metrics
 from core.resilience import _get_breaker
 from execution.models import BrokerCapabilities
+from execution.rate_limiter import acquire_broker_token
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,7 @@ class BrokerExecutionAdapter:
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
         if not self._adapter or not self._authenticated:
             return OrderResult(success=False, message="Broker not connected")
+        await acquire_broker_token(self.broker)
         breaker = _get_breaker(f"broker_{self.broker}")
         start = time.monotonic()
         result = None
@@ -155,6 +157,7 @@ class BrokerExecutionAdapter:
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
         if not self._adapter or not self._authenticated:
             return OrderResult(success=False, message="Broker not connected")
+        await acquire_broker_token(self.broker)
         breaker = _get_breaker(f"broker_{self.broker}")
         start = time.monotonic()
         result = None
@@ -179,6 +182,7 @@ class BrokerExecutionAdapter:
     async def cancel_order(self, order_id: str) -> OrderResult:
         if not self._adapter or not self._authenticated:
             return OrderResult(success=False, message="Broker not connected")
+        await acquire_broker_token(self.broker)
         breaker = _get_breaker(f"broker_{self.broker}")
         start = time.monotonic()
         result = None

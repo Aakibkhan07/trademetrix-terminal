@@ -64,6 +64,15 @@ broker_requests_failure = Counter(
     "broker_requests_failure_total", "Failed broker API calls", ["broker", "operation"]
 )
 
+broadcast_total = Counter(
+    "broadcast_total", "Admin broadcast operations", ["strategy_key", "paper"]
+)
+
+broadcast_recipients = Histogram(
+    "broadcast_recipients", "Number of recipients per broadcast", ["strategy_key"],
+    buckets=(1, 5, 10, 25, 50, 100),
+)
+
 
 def record_broker_metrics(broker: str, operation: str, duration_s: float, success: bool):
     broker_request_duration_seconds.labels(broker=broker, operation=operation).observe(duration_s)
@@ -71,6 +80,11 @@ def record_broker_metrics(broker: str, operation: str, duration_s: float, succes
         broker_requests_success.labels(broker=broker, operation=operation).inc()
     else:
         broker_requests_failure.labels(broker=broker, operation=operation).inc()
+
+
+def record_broadcast_metrics(strategy_key: str, total: int, success_count: int, paper: bool):
+    broadcast_total.labels(strategy_key=strategy_key, paper=str(paper)).inc()
+    broadcast_recipients.labels(strategy_key=strategy_key).observe(total)
 
 
 def record_metrics(method: str, path: str, status_code: int, duration_s: float):

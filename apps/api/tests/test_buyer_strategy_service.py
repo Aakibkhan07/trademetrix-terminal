@@ -20,7 +20,7 @@ def patches() -> Generator[dict, None, None]:
     ):
         mock_runner.activate = AsyncMock()
         mock_runner.deactivate = AsyncMock()
-        mock_runner.get_statuses = AsyncMock()
+        mock_runner.get_statuses = AsyncMock(return_value=[])
         yield {"runner": mock_runner, "get_strategy": mock_get_strat}
 
 

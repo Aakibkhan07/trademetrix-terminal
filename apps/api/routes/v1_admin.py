@@ -181,6 +181,22 @@ async def admin_broadcast(
     )
 
 
+@router.post("/broadcast/reconcile-orders")
+async def admin_reconcile_orders(
+    admin: UserProfile = Depends(require_admin),
+):
+    from execution.recovery import reconcile_pending_orders
+    return await reconcile_pending_orders()
+
+
+@router.post("/broadcast/reconcile-positions")
+async def admin_reconcile_positions(
+    admin: UserProfile = Depends(require_admin),
+):
+    from execution.reconciliation import sync_all_positions
+    return await sync_all_positions()
+
+
 @router.post("/broadcast/notify")
 async def admin_broadcast_notify(
     req: BroadcastNotifyRequest,

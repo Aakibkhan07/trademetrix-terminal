@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import secrets
@@ -7,12 +8,13 @@ from typing import Any, cast
 from fastapi import HTTPException
 
 from brokers.fyers_adapter import FyersAdapter
-from core.audit import record_audit
+from core.audit import AuditLogEntry, record_audit
 from core.cache import cache
 from core.config import settings
 from core.capabilities import CAP_MAP, FREE, resolve_capabilities_by_id
 from core.db import async_supabase, get_supabase
-from core.models import ADMIN_ROLES, AuditLogEntry, Exchange, NormalizedOrder, OrderSide, OrderType as OrderTypeEnum, ProductType, TIER_ORDER, tier_satisfies
+from core.models import ADMIN_ROLES, Exchange, NormalizedOrder, OrderSide, OrderStatus, OrderType as OrderTypeEnum, ProductType, TIER_ORDER, tier_satisfies
+from core.prometheus import record_broadcast_metrics
 from core.safe_query import async_safe_execute, async_safe_single
 from core.security import decrypt_broker_credentials
 from infrastructure.oauth_providers import get_oauth_provider, get_redirect_uri
@@ -351,6 +353,7 @@ class AdminService:
         source = "broadcast_paper" if paper else "broadcast_live"
 
         results = []
+        failed = []
         for r in recipients:
             uid = r["user_id"]
             try:
@@ -367,7 +370,7 @@ class AdminService:
                     reason=broadcast_reason,
                 )
                 result = await execute_order(uid, order, source=source)
-                results.append({
+                res = {
                     "user_id": uid,
                     "email": r.get("email", ""),
                     "full_name": r.get("full_name", ""),
@@ -375,7 +378,10 @@ class AdminService:
                     "broker_order_id": result.broker_order_id,
                     "message": result.message,
                     "status": result.status,
-                })
+                }
+                results.append(res)
+                if not result.success:
+                    failed.append((r, order))
             except Exception as e:
                 logger.error("Broadcast execution error for user=%s: %s", uid, e)
                 results.append({
@@ -386,7 +392,32 @@ class AdminService:
                     "message": str(e),
                     "status": "error",
                 })
+                failed.append((r, None))
 
+        if failed:
+            logger.info("Retrying %d failed broadcast recipients with delay", len(failed))
+            await asyncio.sleep(3)
+            for r, order in failed:
+                uid = r["user_id"]
+                if order is None:
+                    continue
+                try:
+                    retry_result = await execute_order(uid, order, source=source)
+                    res = {
+                        "user_id": uid,
+                        "email": r.get("email", ""),
+                        "full_name": r.get("full_name", ""),
+                        "success": retry_result.success,
+                        "broker_order_id": retry_result.broker_order_id,
+                        "message": retry_result.message,
+                        "status": retry_result.status,
+                        "retry": True,
+                    }
+                    results.append(res)
+                except Exception as e:
+                    logger.error("Broadcast retry failed for user=%s: %s", uid, e)
+
+        record_broadcast_metrics(strategy_key, len(recipients), sum(1 for r in results if r.get("success")), paper)
         return {"results": results, "count": len(results), "paper": paper}
 
     async def notify_broadcast(self, title: str, message: str, notify_type: str, user_ids: list[str] | None, admin_id: str) -> dict:

@@ -314,3 +314,73 @@ class TestRemoveAdmin:
         mock_db["async_safe_single"].return_value = None
         with pytest.raises(Exception, match="Admin user not found"):
             await svc.remove_admin("nonexistent", "admin-1")
+
+
+@pytest.mark.asyncio
+class TestBroadcast:
+    @patch("application.services.admin_service.get_mirror_recipients")
+    @patch("application.services.admin_service.execute_order")
+    @patch("application.services.admin_service.list_strategies")
+    async def test_broadcast_no_recipients(self, mock_list, mock_exec, mock_recip, svc):
+        mock_list.return_value = ["test_strat"]
+        mock_recip.return_value = []
+        result = await svc.broadcast("test_strat", "RELIANCE", "BUY", 10, 0, "NSE", "MARKET", "INTRADAY", "", True)
+        assert result["count"] == 0
+        assert "No recipients" in result["message"]
+
+    @patch("application.services.admin_service.get_mirror_recipients")
+    @patch("application.services.admin_service.execute_order")
+    @patch("application.services.admin_service.scaled_qty")
+    @patch("application.services.admin_service.list_strategies")
+    @patch("application.services.admin_service.record_broadcast_metrics")
+    async def test_broadcast_single_recipient(self, mock_metrics, mock_list, mock_scaled, mock_exec, mock_recip, svc):
+        from core.models import OrderResult
+        mock_list.return_value = ["test_strat"]
+        mock_recip.return_value = [{"user_id": "u1", "email": "a@b.com", "full_name": "User1"}]
+        mock_scaled.return_value = 10
+        mock_exec.return_value = OrderResult(success=True, broker_order_id="BO123", message="OK", status="FILLED")
+        result = await svc.broadcast("test_strat", "RELIANCE", "BUY", 10, 0, "NSE", "MARKET", "INTRADAY", "", True)
+        assert result["count"] == 1
+        assert result["results"][0]["success"] is True
+        assert result["results"][0]["broker_order_id"] == "BO123"
+
+    @patch("application.services.admin_service.get_mirror_recipients")
+    @patch("application.services.admin_service.execute_order")
+    @patch("application.services.admin_service.scaled_qty")
+    @patch("application.services.admin_service.list_strategies")
+    @patch("application.services.admin_service.record_broadcast_metrics")
+    async def test_broadcast_partial_retry(self, mock_metrics, mock_list, mock_scaled, mock_exec, mock_recip, svc):
+        from core.models import OrderResult
+        mock_list.return_value = ["test_strat"]
+        mock_recip.return_value = [
+            {"user_id": "u1", "email": "a@b.com", "full_name": "A"},
+            {"user_id": "u2", "email": "c@d.com", "full_name": "B"},
+        ]
+        mock_scaled.return_value = 10
+        call_count = 0
+
+        async def _side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 2:
+                return OrderResult(success=False, message="FAIL", status="REJECTED")
+            return OrderResult(success=True, broker_order_id="BO123", message="OK", status="FILLED")
+
+        mock_exec.side_effect = _side_effect
+        result = await svc.broadcast("test_strat", "RELIANCE", "BUY", 10, 0, "NSE", "MARKET", "INTRADAY", "", True)
+        successes = sum(1 for r in result["results"] if r.get("success"))
+        assert successes >= 1, "At least one should succeed after retry"
+        asserts = sum(1 for r in result["results"] if r.get("success"))
+        assert call_count > 2, "Should have retried"
+
+    @patch("application.services.admin_service.get_mirror_recipients")
+    @patch("application.services.admin_service.execute_order")
+    @patch("application.services.admin_service.scaled_qty")
+    @patch("application.services.admin_service.list_strategies")
+    @patch("application.services.admin_service.record_broadcast_metrics")
+    async def test_broadcast_unknown_strategy(self, mock_metrics, mock_list, mock_scaled, mock_exec, mock_recip, svc):
+        mock_list.return_value = []
+        import pytest
+        from fastapi import HTTPException
+        with pytest.raises(HTTPException, match="Unknown strategy_key"):
+            await svc.broadcast("unknown", "RELIANCE", "BUY", 10, 0, "NSE", "MARKET", "INTRADAY", "", True)
