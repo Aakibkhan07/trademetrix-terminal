@@ -91,7 +91,7 @@ export default function BrokersPage() {
       showMsg('Fyers authenticated successfully! Market feed will start shortly.')
       load()
     } else if (params.get('auth_error')) {
-      showMsg(`Fyers auth error: ${params.get('auth_error')}`, 'error')
+      showMsg(`Fyers auth error: ${decodeURIComponent(params.get('auth_error')!)}`, 'error')
     }
     if (authCode || params.get('auth_success') || params.get('auth_error')) {
       const url = new URL(window.location.href)

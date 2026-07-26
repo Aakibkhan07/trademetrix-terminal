@@ -128,9 +128,11 @@ async def broker_exchange_code(broker: str, req: AuthCodeInput, current_user: Us
 
 @router.get("/{broker}/callback")
 async def broker_callback(broker: str, code: str = Query(None, alias="auth_code"), state: str | None = Query(None)):
+    from urllib.parse import quote
     query_code = code
     if not query_code:
         query_code = state
     success, msg = await _broker_service.handle_callback(broker, query_code, state)
-    key = "auth_success" if success else "auth_error"
-    return RedirectResponse(url=f"{_frontend_url()}?{key}=1")
+    if success:
+        return RedirectResponse(url=f"{_frontend_url()}/brokers?auth_success=1")
+    return RedirectResponse(url=f"{_frontend_url()}/brokers?auth_error={quote(msg)}")
