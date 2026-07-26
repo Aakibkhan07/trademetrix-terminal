@@ -1,5 +1,5 @@
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TypedDict
 
 from pydantic import BaseModel, Field
@@ -62,4 +62,4 @@ class MarketStatus(BaseModel):
     close_time: str = ""
     next_open: str = ""
     next_holiday: str = ""
-    last_check: datetime = Field(default_factory=datetime.utcnow)
+    last_check: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

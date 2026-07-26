@@ -1,7 +1,7 @@
 import logging
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, cast
 
 from fastapi import HTTPException
@@ -663,8 +663,8 @@ class AdminService:
 
     async def get_pnl_overview(self, user_id: str = "", period: str = "daily", from_date: str = "", to_date: str = "") -> dict:
         supabase = get_supabase()
-        start = from_date or (datetime.utcnow().isoformat()[:10] if period == "daily" else "")
-        end = to_date or datetime.utcnow().isoformat()[:10]
+        start = from_date or (datetime.now(timezone.utc).isoformat()[:10] if period == "daily" else "")
+        end = to_date or datetime.now(timezone.utc).isoformat()[:10]
 
         q_pos = supabase.table("positions_snapshot").select("*")
         q_ord = supabase.table("orders").select("user_id, side, filled_quantity, average_price, filled_at, created_at, status, symbol, is_paper").eq("status", "FILLED")
@@ -1099,7 +1099,7 @@ class AdminService:
                             "m2m": p.m2m,
                             "product": p.product.value if hasattr(p.product, 'value') else str(p.product),
                             "instrument_type": "EQ",
-                            "snapshot_at": datetime.utcnow().isoformat(),
+                            "snapshot_at": datetime.now(timezone.utc).isoformat(),
                         })
             except Exception as e:
                 logger.error("Live positions fetch error for user=%s broker=%s: %s", user_id, c["broker"], e)

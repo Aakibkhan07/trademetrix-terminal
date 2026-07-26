@@ -10,11 +10,12 @@ import uuid
 import requests
 
 # ── Env must be set before any app imports ──────────────────────
-os.environ.setdefault("SUPABASE_URL", "https://nwutlfuowiulfpbsrldn.supabase.co")
-os.environ.setdefault("SUPABASE_SERVICE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dXRsZnVvd2l1bGZwYnNybGRuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTYyMTk1MSwiZXhwIjoyMDk3MTk3OTUxfQ.D2nVCb_gdUpfnZQ9xKU1Dibppvec6umjr5qTI5qKGT8")
-os.environ.setdefault("ENCRYPTION_KEY", "ZTtsuGQCgigNHKjnANV_FyTsMqZuRKPOCyYK8nps7x0=")
-os.environ.setdefault("SECRET_KEY", "a7f8c9d0e1b2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7")
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+# Use test defaults; override with real values in CI via env vars
+os.environ.setdefault("SUPABASE_URL", os.getenv("TEST_SUPABASE_URL", "https://test-project.supabase.co"))
+os.environ.setdefault("SUPABASE_SERVICE_KEY", os.getenv("TEST_SUPABASE_SERVICE_KEY", "test-service-key"))
+os.environ.setdefault("ENCRYPTION_KEY", os.getenv("TEST_ENCRYPTION_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
+os.environ.setdefault("SECRET_KEY", os.getenv("TEST_SECRET_KEY", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"))
+os.environ.setdefault("REDIS_URL", os.getenv("TEST_REDIS_URL", "redis://localhost:6379/0"))
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

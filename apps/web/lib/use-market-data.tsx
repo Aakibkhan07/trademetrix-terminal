@@ -47,6 +47,7 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null)
   const subscribedRef = useRef<Set<string>>(new Set())
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectAttemptRef = useRef(0)
   const tickBufferRef = useRef<Record<string, TickData>>({})
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -94,6 +95,7 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
       const ws = new WebSocket(wsUrl)
       ws.onopen = () => {
         setConnected(true)
+        reconnectAttemptRef.current = 0
         if (subscribedRef.current.size > 0) {
           ws.send(JSON.stringify({ action: 'subscribe', symbols: Array.from(subscribedRef.current) }))
         }
@@ -108,7 +110,9 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
       }
       ws.onclose = () => {
         setConnected(false)
-        reconnectTimerRef.current = setTimeout(() => connectRef.current?.(), 3000)
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current), 30000)
+        reconnectAttemptRef.current++
+        reconnectTimerRef.current = setTimeout(() => connectRef.current?.(), delay)
       }
       ws.onerror = () => { ws.close() }
       wsRef.current = ws

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -37,7 +37,7 @@ async def submit_feedback(request: Request, user: UserProfile = Depends(get_curr
         "description": description,
         "metadata": metadata,
         "status": "new",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     _feedback.append(entry)
 

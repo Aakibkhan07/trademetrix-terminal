@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -71,8 +71,8 @@ class OmniOrder(BaseModel):
     error_code: str = ""
     message: str = ""
     latency_ms: float = 0.0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     sent_at: datetime | None = None
     filled_at: datetime | None = None
     cancelled_at: datetime | None = None
@@ -112,7 +112,7 @@ class OrderQueueItem(BaseModel):
     user_id: str = ""
     broker: str = ""
     priority: int = 0
-    enqueued_at: datetime = Field(default_factory=datetime.utcnow)
+    enqueued_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     retry_count: int = 0
     next_retry_at: datetime | None = None
 

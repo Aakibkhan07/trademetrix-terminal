@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -37,7 +37,7 @@ class RuntimeSignal(BaseModel):
     strategy_id: str = ""
     signal_id: str = ""
     side: SignalSide = SignalSide.HOLD
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     confidence: float = 0.0
     reason: str = ""
     symbol: str = ""

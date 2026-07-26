@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -23,7 +23,7 @@ async def track_event(request: Request):
             properties=body.get("properties", {}),
             session_id=body.get("session_id", ""),
             user_id=body.get("user_id", ""),
-            timestamp=body.get("timestamp", datetime.utcnow().isoformat()),
+            timestamp=body.get("timestamp", datetime.now(timezone.utc).isoformat()),
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

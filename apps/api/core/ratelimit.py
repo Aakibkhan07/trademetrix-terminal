@@ -17,7 +17,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def _cleanup_stale(self):
         now = time.monotonic()
         cutoff = now - 60.0
-        stale_ips = [ip for ip, window in self._windows.items() if not window or window[-1] < cutoff]
+        stale_ips = []
+        for ip, window in list(self._windows.items()):
+            while window and window[0] < cutoff:
+                window.pop(0)
+            if not window:
+                stale_ips.append(ip)
         for ip in stale_ips:
             del self._windows[ip]
 

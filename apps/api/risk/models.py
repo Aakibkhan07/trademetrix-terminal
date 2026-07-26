@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -71,7 +71,7 @@ class PortfolioRisk(BaseModel):
     gross_exposure: float = 0.0
     instrument_exposure: dict[str, float] = Field(default_factory=dict)
     symbol_exposure: dict[str, float] = Field(default_factory=dict)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RiskConfig(BaseModel):
@@ -95,4 +95,4 @@ class RiskConfig(BaseModel):
     is_live: bool = False
     emergency_stop: bool = False
     broker_blocked: list[str] = Field(default_factory=list)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

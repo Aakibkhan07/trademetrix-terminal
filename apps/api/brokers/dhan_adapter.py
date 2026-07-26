@@ -220,7 +220,7 @@ class DhanAdapter(BaseBroker):
         data = resp.json()
         total = float(data.get("sodLimit", data.get("totalBalance", 0)))
         used = float(data.get("utilizedAmount", data.get("usedBalance", 0)))
-        avail = float(data.get("availabelBalance", data.get("availableBalance", 0)))
+        avail = float(data.get("availableBalance", data.get("availabelBalance", 0)))
         return Funds(
             total_margin=total,
             used_margin=used,

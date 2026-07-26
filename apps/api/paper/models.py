@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -67,7 +67,7 @@ class PaperFill(BaseModel):
     side: str = ""
     filled_quantity: int = 0
     filled_price: float = 0.0
-    fill_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    fill_timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     commission: float = 0.0
     exchange_charges: float = 0.0
     stt: float = 0.0

@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, cast
 
 from core.db import async_supabase, get_supabase
@@ -30,8 +30,8 @@ class AnalyticsService:
             "properties": properties or {},
             "session_id": session_id or "",
             "user_id": user_id or "",
-            "timestamp": timestamp or datetime.utcnow().isoformat(),
-            "received_at": datetime.utcnow().isoformat(),
+            "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
+            "received_at": datetime.now(timezone.utc).isoformat(),
         }
         self._events.append(entry)
 
@@ -80,7 +80,7 @@ class AnalyticsService:
         )
         audit_entries: list[dict[str, Any]] = cast(list[dict[str, Any]], audit_q.data) if audit_q and audit_q.data else []
 
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         last_7d = today - timedelta(days=7)
         last_30d = today - timedelta(days=30)
 

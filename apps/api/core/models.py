@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -87,7 +87,7 @@ class NormalizedOrder(BaseModel):
     expiry_date: str | None = None
     option_type: OptionType | None = None
     is_paper: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class OrderResult(BaseModel):
@@ -154,7 +154,7 @@ class Quote(BaseModel):
     bid_qty: int = 0
     ask_qty: int = 0
     oi: int = 0
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     broker: str = ""
     instrument_type: InstrumentType = InstrumentType.EQ
     strike_price: float | None = None
@@ -188,7 +188,7 @@ class Tick(BaseModel):
     oi: int = 0
     change: float = 0.0
     change_pct: float = 0.0
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     broker: str = ""
     instrument_type: InstrumentType = InstrumentType.EQ
     strike_price: float | None = None
@@ -211,7 +211,7 @@ class AuditLogEntry(BaseModel):
     resource_id: str = ""
     details: dict | None = None
     ip_address: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RiskSettings(BaseModel):
@@ -224,18 +224,9 @@ class RiskSettings(BaseModel):
     max_drawdown_pct: float = 0.0
     kill_switch_enabled: bool = False
     is_live: bool = False
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-
-class StrategyAssignment(BaseModel):
-    id: str = ""
-    user_id: str
-    strategy_key: str
-    required_tier: str = "free"
-    mirror_enabled: bool = True
-    active: bool = True
-    assigned_by: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 TIER_ORDER: dict[str, int] = {

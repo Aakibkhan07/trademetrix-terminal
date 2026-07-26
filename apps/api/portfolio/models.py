@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -32,7 +32,7 @@ class PortfolioPosition(BaseModel):
     option_type: str | None = None
     lot_size: int = 1
     multiplier: float = 1.0
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PortfolioHolding(BaseModel):
@@ -47,7 +47,7 @@ class PortfolioHolding(BaseModel):
     current_price: float = 0.0
     pnl: float = 0.0
     cost_price: float = 0.0
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PortfolioFunds(BaseModel):
@@ -60,7 +60,7 @@ class PortfolioFunds(BaseModel):
     payout: float = 0.0
     collateral: float = 0.0
     m2m_unrealised: float = 0.0
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PortfolioPnL(BaseModel):
@@ -76,7 +76,7 @@ class PortfolioPnL(BaseModel):
     current_equity: float = 0.0
     peak_equity: float = 0.0
     drawdown_pct: float = 0.0
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BrokerSyncStatus(BaseModel):
@@ -97,7 +97,7 @@ class BrokerSyncStatus(BaseModel):
 class ReconciliationResult(BaseModel):
     user_id: str = ""
     broker: str = ""
-    synced_at: datetime = Field(default_factory=datetime.utcnow)
+    synced_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     local_positions: int = 0
     broker_positions: int = 0
     missing_orders: list[str] = Field(default_factory=list)
@@ -118,7 +118,7 @@ class PortfolioState(BaseModel):
     orders: list[dict] = Field(default_factory=list)
     sync_status: BrokerSyncStatus = Field(default_factory=lambda: BrokerSyncStatus())
     reconciliation: ReconciliationResult = Field(default_factory=lambda: ReconciliationResult())
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PortfolioSummary(BaseModel):

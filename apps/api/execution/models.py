@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -65,8 +65,8 @@ class OrderLifecycle(BaseModel):
     previous_state: ExecutionState | None = None
     message: str = ""
     error_code: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     latency_ms: float = 0.0
     retry_count: int = 0
     payload_hash: str = ""
@@ -115,7 +115,7 @@ class ExecutionEvent(BaseModel):
     state: ExecutionState = ExecutionState.NEW
     message: str = ""
     payload: dict = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ExecutionMetrics(BaseModel):
