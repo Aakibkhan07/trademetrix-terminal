@@ -32,10 +32,10 @@ def mock_deps() -> Generator[dict, None, None]:
 
 
 class TestVerifySignature:
-    def test_passes_without_secret(self, svc) -> None:
+    def test_rejects_without_secret(self, svc) -> None:
         with patch("application.services.tradingview_service.WEBHOOK_SECRET", ""):
             result = svc.verify_signature(b"{}", "anything")
-            assert result is True
+            assert result is False
 
     def test_verifies_correctly_with_secret(self, svc) -> None:
         import hashlib

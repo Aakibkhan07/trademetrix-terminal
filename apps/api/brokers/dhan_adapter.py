@@ -338,7 +338,7 @@ class DhanAdapter(BaseBroker):
 
     async def disconnect(self) -> None:
         self._running = False
-        self._client = None
+        await self.close_http_client()
 
     def _parse_tick(self, data: dict) -> Tick | None:
         try:

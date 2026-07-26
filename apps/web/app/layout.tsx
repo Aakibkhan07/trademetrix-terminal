@@ -19,12 +19,26 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'TradeMetrix Terminal',
-  description: 'Multi-broker algorithmic trading platform',
+  title: { default: 'TradeMetrix Terminal', template: '%s | TradeMetrix' },
+  description: 'Multi-broker algorithmic trading platform with AI-powered strategies, real-time market data, and automated execution.',
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
   },
+  openGraph: {
+    title: 'TradeMetrix Terminal',
+    description: 'Multi-broker algorithmic trading platform with AI-powered strategies, real-time market data, and automated execution.',
+    url: 'https://ai.trademetrix.tech',
+    siteName: 'TradeMetrix',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'TradeMetrix Terminal',
+    description: 'Multi-broker algorithmic trading platform with AI-powered strategies.',
+  },
+  robots: { index: true, follow: true },
+  keywords: ['trading', 'algorithmic trading', 'stock market', 'broker', 'Fyers', 'Zerodha', 'Angel One', 'automated trading'],
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

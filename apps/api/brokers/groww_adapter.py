@@ -412,6 +412,7 @@ class GrowwAdapter(BaseBroker):
 
     async def disconnect(self) -> None:
         self._running = False
+        await self.close_http_client()
 
     @staticmethod
     def _map_order_type(ot: OrderType) -> str:

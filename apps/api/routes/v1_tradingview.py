@@ -18,7 +18,7 @@ async def tradingview_webhook(request: Request):
     try:
         result = await service.handle_webhook(body, signature)
     except ValueError as e:
-        if "signature" in str(e).lower():
+        if "signature" in str(e).lower() or "signature" in str(e):
             raise HTTPException(status_code=401, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
 

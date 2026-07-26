@@ -144,8 +144,9 @@ class ZerodhaAdapter(BaseBroker):
             timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
         )
         data = resp.json()
+        success = data.get("status") == "success"
         return OrderResult(
-            success=True,
+            success=success,
             broker_order_id=order_id,
             message=data.get("message", ""),
         )
@@ -262,7 +263,7 @@ class ZerodhaAdapter(BaseBroker):
 
     async def disconnect(self) -> None:
         self._running = False
-        self._client = None
+        await self.close_http_client()
 
     def _parse_binary(self, data: bytes) -> list[Tick]:
         ticks = []

@@ -282,7 +282,8 @@ class KotakNeoAdapter(BaseBroker):
 
         subscribe_msg = json.dumps({
             "action": "subscribe",
-            "instruments": symbols,
+            "key": "marketdata",
+            "value": ",".join(symbols),
         })
 
         while self._running:
@@ -290,11 +291,11 @@ class KotakNeoAdapter(BaseBroker):
                 ws_headers = {
                     "Authorization": f"Bearer {self._access_token}",
                 }
-                async for ws in websockets.connect(
+                async with websockets.connect(
                     f"{self._base_url}/ws/market",
                     additional_headers=ws_headers,
                     ping_interval=30,
-                ):
+                ) as ws:
                     retry_delay = 1
                     try:
                         await ws.send(subscribe_msg)
@@ -325,7 +326,7 @@ class KotakNeoAdapter(BaseBroker):
 
     async def disconnect(self) -> None:
         self._running = False
-        self._client = None
+        await self.close_http_client()
 
     def _parse_tick(self, data: dict) -> Tick | None:
         try:

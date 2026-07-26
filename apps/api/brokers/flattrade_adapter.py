@@ -271,7 +271,7 @@ class FlattradeAdapter(BaseBroker):
 
     async def disconnect(self) -> None:
         self._running = False
-        self._client = None
+        await self.close_http_client()
 
     def _headers(self) -> dict:
         return {

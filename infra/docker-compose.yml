@@ -18,7 +18,7 @@ services:
     networks: [trademetrix]
     env_file: ./.env.production
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-ywJOacztJAOIO0t1CWFyUyhIaWhw-uiB}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "$$REDIS_PASSWORD", "ping"]
       interval: 5s
@@ -170,7 +170,7 @@ services:
     restart: unless-stopped
     networks: [trademetrix]
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}
       GF_SERVER_ROOT_URL: ${GRAFANA_URL:-https://monitor.ai.trademetrix.tech}
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       GF_AUTH_ANONYMOUS_ENABLED: "false"

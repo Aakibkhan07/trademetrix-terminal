@@ -12,14 +12,13 @@ logger = logging.getLogger(__name__)
 WEBHOOK_SECRET = os.getenv("TRADINGVIEW_WEBHOOK_SECRET", "")
 
 if not WEBHOOK_SECRET:
-    logger.warning("TRADINGVIEW_WEBHOOK_SECRET not set — webhook signatures NOT verified. Set this in production.")
+    logger.warning("TRADINGVIEW_WEBHOOK_SECRET not set — webhook will reject all requests. Set this in production.")
 
 
 class TradingViewService:
     def verify_signature(self, payload_bytes: bytes, signature: str) -> bool:
         if not WEBHOOK_SECRET:
-            logger.warning("Webhook received without WEBHOOK_SECRET configured — allowing unverified request")
-            return True
+            return False
         expected = hmac.new(WEBHOOK_SECRET.encode(), payload_bytes, hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, signature)
 
@@ -107,7 +106,7 @@ class TradingViewService:
             return {"results": results, "count": len(results)}
 
         if not user_id:
-            raise ValueError("user_id is required when webhook secret is not configured")
+            raise ValueError("user_id is required in webhook payload")
 
         result = await self.execute_for_user(
             user_id, symbol, action, quantity, price, exchange,
