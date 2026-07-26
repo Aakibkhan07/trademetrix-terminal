@@ -368,8 +368,8 @@ async def admin_list_admins(admin: UserProfile = Depends(require_admin)):
 @router.post("/admins", status_code=201)
 async def admin_create_admin(
     req: SetAdminRoleRequest,
-    admin: UserProfile = Depends(require_super_admin),
     background_tasks: BackgroundTasks,
+    admin: UserProfile = Depends(require_super_admin),
 ):
     result = await _service.create_admin(req.email, req.role, admin.id)
     background_tasks.add_task(send_admin_notification_email, req.email, req.role, admin.email)
