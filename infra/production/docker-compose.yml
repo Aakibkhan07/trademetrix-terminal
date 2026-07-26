@@ -143,16 +143,17 @@ services:
     networks:
       - trademetrix
     environment:
+      NODE_OPTIONS: "--max-old-space-size=1024"
       N8N_HOST: n8n.trademetrix.tech
       N8N_PORT: 5678
       N8N_PROTOCOL: https
-      WEBHOOK_URL: https://n8n.trademetrix.tech
+      N8N_WEBHOOK_URL: https://n8n.trademetrix.tech
       N8N_EDITOR_BASE_URL: https://n8n.trademetrix.tech
       EXECUTIONS_DATA_PRUNE: "true"
       EXECUTIONS_DATA_MAX_AGE: 168
     volumes:
       - n8n-data:/home/node/.n8n
-    mem_limit: 512m
+    mem_limit: 1g
     cpus: 1.0
 
   market-agent:
