@@ -154,7 +154,7 @@ async def send_telegram_alert(message: str, parse_mode: str = "HTML") -> bool:
         return False
 
 
-RESEND_FROM = "TradeMetrix <onboarding@resend.dev>"
+RESEND_FROM = "TradeMetrix <noreply@trademetrix.tech>"
 
 
 async def send_email_resend(
