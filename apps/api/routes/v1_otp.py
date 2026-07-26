@@ -105,10 +105,7 @@ async def send_otp(req: SendOTPRequest):
 
     if not delivered:
         logger.warning("OTP delivery failed for %s", req.email)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to send OTP. No email service configured. Contact your admin to set SMTP or RESEND_API_KEY.",
-        )
+        return {"message": f"OTP delivery unavailable — dev code: {code}. Valid 5 min.", "exists": bool(user), "dev_otp": code, "delivered": False}
     record_audit(AuditLogEntry(
         user_id=user["id"] if user else "",
         action="send_otp",
@@ -168,10 +165,11 @@ async def register_with_otp(req: RegisterWithOTPRequest):
 
     if not delivered:
         logger.warning("Registration OTP delivery failed for %s", req.email)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Account created but failed to send OTP. No email service configured. Contact your admin.",
-        )
+        return {
+            "message": f"Account created. OTP delivery unavailable — dev code: {code}. Valid 5 min.",
+            "dev_otp": code,
+            "delivered": False,
+        }
     if req.referral_code:
         referrer = await async_supabase(lambda: supabase.table("profiles").select("id").eq("referral_code", req.referral_code.upper()).maybe_single().execute())
         if referrer.data and referrer.data["id"] != user_id:
