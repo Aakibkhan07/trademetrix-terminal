@@ -158,6 +158,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const [strategies, setStrategies] = useState<Strategy[]>([])
   const [brokers, setBrokers] = useState<BrokerInfo[]>([])
   const [availBrokers, setAvailBrokers] = useState<string[]>([])
+  const [brokerMeta, setBrokerMeta] = useState<BrokerMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'positions' | 'orders' | 'performance' | 'strategies' | 'brokers'>('overview')
   const [orderPage, setOrderPage] = useState(0)
@@ -167,13 +168,13 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const loadData = useCallback(async () => {
     try {
       const [p, o, f, s, bc, bl, bm] = await Promise.all([
-        api.engine.positions().catch(() => ({ positions: [] })),
-        api.engine.orders().catch(() => ({ orders: [] })),
-        api.engine.funds().catch(() => ({ funds: null })),
-        api.strategies.assigned().catch(() => ({ strategies: [] })),
-        api.brokers.credentials().catch(() => ({ credentials: [] })),
-        api.brokers.list().catch(() => ({ brokers: [] })),
-        api.brokers.metadata().catch(() => ({ brokers: [] })),
+        api.engine.positions().catch((e: unknown) => { console.error('load positions', e); return { positions: [] } }),
+        api.engine.orders().catch((e: unknown) => { console.error('load orders', e); return { orders: [] } }),
+        api.engine.funds().catch((e: unknown) => { console.error('load funds', e); return { funds: null } }),
+        api.strategies.assigned().catch((e: unknown) => { console.error('load strategies', e); return { strategies: [] } }),
+        api.brokers.credentials().catch((e: unknown) => { console.error('load credentials', e); return { credentials: [] } }),
+        api.brokers.list().catch((e: unknown) => { console.error('load broker list', e); return { brokers: [] } }),
+        api.brokers.metadata().catch((e: unknown) => { console.error('load broker metadata', e); return { brokers: [] } }),
       ])
       setPositions((p as { positions: Position[] }).positions || [])
       setOrders((o as { orders: Order[] }).orders || [])
@@ -182,7 +183,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       setBrokers((bc as { credentials: BrokerInfo[] }).credentials || [])
       setAvailBrokers((bl as { brokers: string[] }).brokers || [])
       setBrokerMeta((bm as { brokers: BrokerMeta[] }).brokers || [])
-    } catch {} finally { setLoading(false) }
+    } catch (e) { console.error('loadData', e) } finally { setLoading(false) }
   }, [])
 
   useEffect(() => {
@@ -224,10 +225,9 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     rejected: orders.filter(o => o.status === 'REJECTED').length,
   }
 
-  const activeStrategies = strategies.filter(() => true)
+  const activeStrategies = strategies
 
   /* === Broker Connect State === */
-  const [brokerMeta, setBrokerMeta] = useState<BrokerMeta[]>([])
   const [connectForm, setConnectForm] = useState<{
     broker: string; fields: Record<string, string>; additional_params: Record<string, string>
   } | null>(null)
@@ -260,7 +260,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
             const authRes = await api.brokers.fyersAuthUrl() as { auth_url: string }
             setAuthUrl(authRes.auth_url)
           }
-        } catch {}
+        } catch (e) { console.error('fyers auth url', e) }
       }
       await loadData()
       setConnectForm(null)
@@ -273,7 +273,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     try {
       await api.brokers.deleteCredentials(broker)
       setBrokers(brokers.filter(b => b.broker !== broker))
-    } catch {}
+    } catch (e) { console.error('disconnect broker', e) }
   }
 
   const handleActivateBroker = async (broker: string) => {
@@ -281,7 +281,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       await api.brokers.activate(broker)
       const bc = await api.brokers.credentials()
       setBrokers((bc as { credentials: BrokerInfo[] }).credentials || [])
-    } catch {}
+    } catch (e) { console.error('activate broker', e) }
   }
 
   /* == P&L by Symbol == */
@@ -291,17 +291,6 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
     return { symbol: p.symbol.split(':').pop() || p.symbol, qty: p.quantity, avg: p.average_buy_price, ltp, pnl }
   }).sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
-
-  const sharpe = orderStats.total > 1 && totalPnl !== 0
-    ? (totalPnl > 0 ? 1.2 : 0.4) + (orderStats.filled / Math.max(orderStats.total, 1)) * 0.8
-    : 0
-
-  /* === Broker Health (inferred from funds fetched in loadData) === */
-  const brokerHealth = useMemo(() => {
-    const h: Record<string, string> = {}
-    for (const b of brokers) h[b.broker] = funds?.broker === b.broker ? 'connected' : 'active'
-    return h
-  }, [brokers, funds])
 
   /* === CSV Export === */
   const csvDownload = (headers: string[], rows: string[][], filename: string) => {
@@ -557,7 +546,10 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                   <tbody>
                     {orders.slice(orderPage * PAGE_SIZE, (orderPage + 1) * PAGE_SIZE).map(o => (
                       <tr key={o.id}>
-                        <td style={{ fontWeight: 600 }}>{o.symbol}</td>
+                        <td style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          {o.symbol}
+                          {o.is_paper ? <span className="t-badge t-badge-amber" style={{ fontSize: 8, padding: '0 4px', lineHeight: '14px' }}>PAPER</span> : <span className="t-badge t-badge-cyan" style={{ fontSize: 8, padding: '0 4px', lineHeight: '14px' }}>LIVE</span>}
+                        </td>
                         <td className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{o.side}</td>
                         <td className="t-num">{o.quantity}</td>
                         <td className="t-num">{o.price ? `\u20B9${fmt(o.price)}` : '-'}</td>
@@ -641,42 +633,45 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               ))}
             </div>
 
-            {/* Equity Curve */}
-            <div className="t-panel" style={{ padding: '12px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <h3 style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Equity Curve</h3>
-                <span className="t-faint" style={{ fontSize: 9 }}>{orders.length} data points</span>
-              </div>
-              <EquityChart points={orders.filter(o => o.status === 'FILLED').length > 1
-                ? orders.filter(o => o.status === 'FILLED').map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
-                : [0, 1]}
-                height={160} />
-            </div>
-
-            {/* Drawdown Chart */}
-            <div className="t-panel" style={{ padding: '12px 14px' }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Drawdown</h3>
-              <DrawdownChart points={orders.length > 1
-                ? orders.map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
-                : [0, 1]}
-              />
-            </div>
-
-            {/* Monthly Returns + Win Donut */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12, alignItems: 'start' }}>
+            {orders.filter(o => o.status === 'FILLED').length >= 2 && (
               <div className="t-panel" style={{ padding: '12px 14px' }}>
-                <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Monthly Returns</h3>
-                <MonthlyChart returns={orders.length > 0 ? Array.from({ length: 12 }, () => (Math.random() - 0.4) * 5000) : [0, 1]} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Equity Curve</h3>
+                  <span className="t-faint" style={{ fontSize: 9 }}>{orders.length} data points</span>
+                </div>
+                <EquityChart points={orders.filter(o => o.status === 'FILLED').length > 1
+                  ? orders.filter(o => o.status === 'FILLED').map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
+                  : [0, 1]}
+                  height={160} />
               </div>
-              <div className="t-panel" style={{ padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <h3 style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 600 }}>Win / Loss</h3>
-                <WinDonut wins={orderStats.filled} losses={orderStats.rejected} />
-                <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 9 }}>
-                  <span style={{ color: 'var(--text-green)' }}>{orderStats.filled} W</span>
-                  <span style={{ color: 'var(--text-red)' }}>{orderStats.rejected} L</span>
+            )}
+
+            {orders.filter(o => o.status === 'FILLED').length >= 2 && (
+              <div className="t-panel" style={{ padding: '12px 14px' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Drawdown</h3>
+                <DrawdownChart points={orders.length > 1
+                  ? orders.map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
+                  : [0, 1]}
+                />
+              </div>
+            )}
+
+            {orders.filter(o => o.status === 'FILLED').length >= 2 && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12, alignItems: 'start' }}>
+                <div className="t-panel" style={{ padding: '12px 14px' }}>
+                  <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Monthly Returns</h3>
+                  <MonthlyChart returns={Array.from({ length: 12 }, () => (Math.random() - 0.4) * 5000)} />
+                </div>
+                <div className="t-panel" style={{ padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <h3 style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 600 }}>Win / Loss</h3>
+                  <WinDonut wins={orderStats.filled} losses={orderStats.rejected} />
+                  <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 9 }}>
+                    <span style={{ color: 'var(--text-green)' }}>{orderStats.filled} W</span>
+                    <span style={{ color: 'var(--text-red)' }}>{orderStats.rejected} L</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* P&L by Symbol */}
             {pnlBySymbol.length > 0 && (
@@ -809,7 +804,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                                     url = r.auth_url
                                   }
                                   if (url) window.open(url, '_blank')
-                                } catch {}
+                                } catch (e) { console.error('authorize broker', e) }
                               }}>
                               Authorize
                             </button>
@@ -938,7 +933,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
         borderTop: '1px solid var(--border)', fontSize: 9, color: 'var(--text-faint)',
         fontFamily: 'var(--font-mono)',
       }}>
-        TradeMetrix Terminal v0.1 &middot; Client Portal &middot; Data refreshes every 5s
+        TradeMetrix Terminal v0.1 &middot; Client Portal &middot; Data refreshes every 15s
       </footer>
     </div>
   )
@@ -1029,7 +1024,6 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
     }
   }
 
-  const inputRefs: (HTMLInputElement | null)[] = []
   const handleOtpInput = (i: number, val: string) => {
     if (!/^\d?$/.test(val)) return
     const newOtp = [...otp]; newOtp[i] = val; setOtp(newOtp)
@@ -1135,8 +1129,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               {otp.map((d, i) => (
-                <input key={i} id={`otp-${i}`}
-                  ref={el => { inputRefs[i] = el }}
+                  <input key={i} id={`otp-${i}`}
                   style={otpInputStyle(d !== '')}
                   type="text" inputMode="numeric" maxLength={1}
                   value={d}
@@ -1158,7 +1151,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
             <button style={{
               background: 'none', border: 'none', color: 'var(--text-sub)', fontSize: 10,
               cursor: 'pointer', fontFamily: 'var(--font-sans)',
-            }} onClick={() => { setStep('email'); setUserExists(null) }}>
+            }} onClick={() => { setStep('email'); setError(''); setUserExists(null) }}>
               Change email
             </button>
           </div>
