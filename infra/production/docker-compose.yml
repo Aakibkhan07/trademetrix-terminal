@@ -88,6 +88,26 @@ services:
     cpus: 0.5
     logging: *default-logging
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: trademetrix_prometheus
+    restart: unless-stopped
+    networks:
+      - trademetrix
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+      - ../prometheus/alerts:/etc/prometheus/alerts:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    mem_limit: 512m
+    cpus: 0.5
+    logging: *default-logging
+
   grafana:
     image: grafana/grafana:latest
     container_name: trademetrix_grafana
