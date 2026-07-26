@@ -88,6 +88,23 @@ services:
     cpus: 0.5
     logging: *default-logging
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: trademetrix_caddy
+    restart: unless-stopped
+    networks:
+      - trademetrix
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    mem_limit: 128m
+    cpus: 0.5
+    logging: *default-logging
+
   prometheus:
     image: prom/prometheus:latest
     container_name: trademetrix_prometheus
