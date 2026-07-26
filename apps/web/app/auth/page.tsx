@@ -37,11 +37,6 @@ export default function AuthPage() {
     return () => clearInterval(t)
   }, [resendTimer])
 
-  useEffect(() => {
-    if (!authLoading && user && !isAdmin) {
-      router.replace('/portal')
-    }
-  }, [authLoading, user, isAdmin, router])
 
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
   const isValidPassword = (v: string) => v.length >= 6
