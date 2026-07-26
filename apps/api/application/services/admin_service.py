@@ -181,7 +181,7 @@ class AdminService:
             .eq("active", False)
         )
         if inactive_existing:
-            await async_supabase(lambda: supabase.table("strategy_assignments").update({"active": True, "assigned_by": admin_id}).eq(
+            await async_supabase(lambda: supabase.table("strategy_assignments").update({"active": True, "mirror_enabled": True, "assigned_by": admin_id}).eq(
                 "id", inactive_existing["id"]
             ).execute())
             record_audit(AuditLogEntry(
@@ -203,6 +203,7 @@ class AdminService:
             "user_id": target_user_id,
             "strategy_key": strategy_key,
             "required_tier": required_tier,
+            "mirror_enabled": True,
             "assigned_by": admin_id,
         }
         result = await async_supabase(lambda: supabase.table("strategy_assignments").insert(insert_data).execute())
