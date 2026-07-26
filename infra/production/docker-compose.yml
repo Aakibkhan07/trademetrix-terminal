@@ -87,6 +87,24 @@ services:
     mem_limit: 512m
     cpus: 0.5
     logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: trademetrix_grafana
+    restart: unless-stopped
+    networks:
+      - trademetrix
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SERVER_ROOT_URL: https://monitor.ai.trademetrix.tech
+      GF_INSTALL_PLUGINS: "grafana-piechart-panel"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *default-logging
     depends_on:
       - prometheus
 
@@ -181,5 +199,4 @@ volumes:
   caddy-config:
   prometheus-data:
   grafana-data:
-  n8n-data:
   n8n-data:
