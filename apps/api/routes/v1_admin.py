@@ -1,9 +1,10 @@
 import logging
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from pydantic import BaseModel
 
 import application.services.backup_service
+from core.notifications import send_admin_notification_email
 from application.services.admin_service import AdminService
 from core.deps import require_admin, require_super_admin
 from core.models import UserProfile
@@ -368,8 +369,11 @@ async def admin_list_admins(admin: UserProfile = Depends(require_admin)):
 async def admin_create_admin(
     req: SetAdminRoleRequest,
     admin: UserProfile = Depends(require_super_admin),
+    background_tasks: BackgroundTasks,
 ):
-    return await _service.create_admin(req.email, req.role, admin.id)
+    result = await _service.create_admin(req.email, req.role, admin.id)
+    background_tasks.add_task(send_admin_notification_email, req.email, req.role, admin.email)
+    return result
 
 
 @router.patch("/admins/{user_id}")

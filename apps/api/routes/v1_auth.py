@@ -2,10 +2,11 @@ import logging
 from datetime import UTC, datetime
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 
 from core.audit import record_audit
+from core.notifications import send_welcome_email
 from core.config import settings
 from core.db import async_supabase, get_supabase
 from core.deps import get_capabilities, get_current_user
@@ -67,7 +68,7 @@ def _clear_session_cookie(response: Response):
 
 
 @router.post("/signup", status_code=201)
-async def signup(req: SignUpRequest, response: Response):
+async def signup(req: SignUpRequest, response: Response, background_tasks: BackgroundTasks):
 
     try:
         client = await get_http_client()
@@ -122,6 +123,8 @@ async def signup(req: SignUpRequest, response: Response):
         resource="auth",
         ip_address="",
     ))
+
+    background_tasks.add_task(send_welcome_email, req.email, req.full_name or req.email)
 
     return AuthResponse(user=user, access_token=access_token)
 

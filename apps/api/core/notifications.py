@@ -154,10 +154,27 @@ async def send_telegram_alert(message: str, parse_mode: str = "HTML") -> bool:
         return False
 
 
-async def send_otp_email_resend(email: str, otp: str) -> bool:
+RESEND_FROM = "TradeMetrix <onboarding@resend.dev>"
+
+
+async def send_email_resend(
+    to_email: str,
+    subject: str,
+    text_body: str,
+    html_body: str | None = None,
+) -> bool:
     if not settings.resend_api_key:
+        logger.info("[DEV] No Resend API key — would send email to %s: %s", to_email, subject)
         return False
     try:
+        payload: dict = {
+            "from": RESEND_FROM,
+            "to": [to_email],
+            "subject": subject,
+            "text": text_body,
+        }
+        if html_body:
+            payload["html"] = html_body
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 "https://api.resend.com/emails",
@@ -165,12 +182,7 @@ async def send_otp_email_resend(email: str, otp: str) -> bool:
                     "Authorization": f"Bearer {settings.resend_api_key}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "from": "TradeMetrix <onboarding@resend.dev>",
-                    "to": [email],
-                    "subject": "Your TradeMetrix OTP",
-                    "text": f"Your TradeMetrix OTP is {otp}. Valid for 5 minutes.",
-                },
+                json=payload,
                 timeout=10,
             )
             if resp.status_code != 200:
@@ -180,6 +192,57 @@ async def send_otp_email_resend(email: str, otp: str) -> bool:
     except Exception as e:
         logger.warning("Resend email exception: %s", e)
         return False
+
+
+async def send_otp_email_resend(email: str, otp: str) -> bool:
+    return await send_email_resend(
+        email,
+        "Your TradeMetrix OTP",
+        f"Your TradeMetrix OTP is {otp}. Valid for 5 minutes.",
+    )
+
+
+async def send_welcome_email(to_email: str, user_name: str) -> bool:
+    subject = "Welcome to TradeMetrix!"
+    text_body = (
+        f"Hi {user_name},\n\n"
+        f"Welcome to TradeMetrix! Your account has been created successfully.\n\n"
+        f"Start exploring the platform and set up your trading strategies.\n\n"
+        f"Best,\nThe TradeMetrix Team"
+    )
+    html_body = (
+        f"<h2>Welcome to TradeMetrix!</h2>"
+        f"<p>Hi {user_name},</p>"
+        f"<p>Your account has been created successfully.</p>"
+        f"<p>Start exploring the platform and set up your trading strategies.</p>"
+        f"<br><p>Best,<br>The TradeMetrix Team</p>"
+    )
+    return await send_email_resend(to_email, subject, text_body, html_body)
+
+
+async def send_admin_notification_email(
+    to_email: str,
+    role: str,
+    assigned_by: str | None = None,
+) -> bool:
+    subject = "You have been granted admin access on TradeMetrix"
+    text_body = (
+        f"Hi,\n\n"
+        f"You have been granted the '{role}' admin role on TradeMetrix."
+        + (f" This was assigned by {assigned_by}." if assigned_by else "")
+        + "\n\n"
+        f"You now have access to the admin panel and administrative features.\n\n"
+        f"Best,\nThe TradeMetrix Team"
+    )
+    html_body = (
+        f"<h2>Admin Access Granted</h2>"
+        f"<p>You have been granted the <strong>{role}</strong> admin role on TradeMetrix."
+        + (f" This was assigned by {assigned_by}." if assigned_by else "")
+        + "</p>"
+        f"<p>You now have access to the admin panel and administrative features.</p>"
+        f"<br><p>Best,<br>The TradeMetrix Team</p>"
+    )
+    return await send_email_resend(to_email, subject, text_body, html_body)
 
 
 async def deliver_otp(otp: str, email: str, phone: str = "") -> bool:
