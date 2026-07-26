@@ -5,6 +5,7 @@ from core.models import NormalizedOrder, OrderType
 from core.safe_query import async_safe_single
 from execution.broker_adapter import BrokerExecutionAdapter
 from execution.models import ValidationResult
+from market.cache import market_cache
 from market.status import market_status_service
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,7 @@ VALID_SIDES = {"BUY", "SELL"}
 VALID_ORDER_TYPES = {"MARKET", "LIMIT", "SL", "SLM"}
 VALID_PRODUCTS = {"INTRADAY", "DELIVERY", "MIS", "NRML"}
 VALID_EXCHANGES = {"NSE", "BSE", "NFO", "CDS", "MCX"}
+MAX_PRICE_DEVIATION_PCT = 5.0
 
 
 async def validate_order(order: NormalizedOrder, user_id: str, adapter: BrokerExecutionAdapter | None = None) -> ValidationResult:
@@ -66,6 +68,10 @@ async def validate_order(order: NormalizedOrder, user_id: str, adapter: BrokerEx
     if not margin_ok:
         errors.append({"field": "margin", "message": "Insufficient margin"})
 
+    price_ok = await _check_price_band(order)
+    if not price_ok["valid"]:
+        errors.append({"field": "price", "message": price_ok["message"]})
+
     return ValidationResult(valid=len(errors) == 0, errors=errors, warnings=warnings)
 
 
@@ -95,6 +101,26 @@ async def _check_duplicate(user_id: str, order: NormalizedOrder) -> str | None:
     except Exception as e:
         logger.warning("Duplicate check failed: %s", e)
     return None
+
+
+async def _check_price_band(order: NormalizedOrder) -> dict:
+    if order.order_type in (OrderType.MARKET, OrderType.SLM):
+        return {"valid": True, "message": ""}
+    if order.price is None or order.price <= 0:
+        return {"valid": True, "message": ""}
+    quote = market_cache.get_quote(order.symbol)
+    if quote is None:
+        return {"valid": True, "message": ""}
+    ltp = quote.get("last_price") if isinstance(quote, dict) else getattr(quote, "last_price", None)
+    if not ltp or ltp <= 0:
+        return {"valid": True, "message": ""}
+    deviation_pct = abs(order.price - ltp) / ltp * 100
+    if deviation_pct > MAX_PRICE_DEVIATION_PCT:
+        return {
+            "valid": False,
+            "message": f"Price {order.price:.2f} deviates {deviation_pct:.1f}% from LTP {ltp:.2f} (max {MAX_PRICE_DEVIATION_PCT}%)",
+        }
+    return {"valid": True, "message": ""}
 
 
 async def _check_margin(user_id: str, order: NormalizedOrder) -> bool:

@@ -136,14 +136,18 @@ class ExecutionManager:
             elapsed_ms = round((time.monotonic() - exec_start) * 1000, 2)
 
             if broker_result.success:
-                state = ExecutionState.FILLED
+                is_partial = broker_result.status == "partially_filled"
+                state = ExecutionState.PARTIALLY_FILLED if is_partial else ExecutionState.FILLED
                 order.broker_order_id = broker_result.broker_order_id
-                order.status = OrderStatus.FILLED
-                await self._update_order_in_db(order, req.user_id, broker_result.broker_order_id)
+                order.status = OrderStatus.PARTIALLY_FILLED if is_partial else OrderStatus.FILLED
+                if broker_result.filled_qty:
+                    order.filled_quantity = broker_result.filled_qty
+                await self._update_order_in_db(order, req.user_id, broker_result.broker_order_id, is_partial=is_partial)
 
                 execution_observability.record_order_placed()
                 execution_observability.record_latency(elapsed_ms, req.broker)
-                self._publish_event("OrderPlaced", request_id, req, state, message="Order placed successfully")
+                event_type = "OrderPartiallyFilled" if is_partial else "OrderPlaced"
+                self._publish_event(event_type, request_id, req, state, message="Order placed successfully")
                 try:
                     from portfolio.manager import portfolio_manager as _pm
                     fire_and_forget(_pm.refresh(req.user_id, req.broker))
@@ -161,7 +165,7 @@ class ExecutionManager:
                 result = ExecutionResult(
                     success=True, execution_request_id=request_id,
                     broker_order_id=broker_result.broker_order_id,
-                    state=ExecutionState.FILLED, message="Order placed successfully",
+                    state=state, message="Order placed successfully",
                     latency_ms=elapsed_ms,
                 )
             else:
@@ -509,14 +513,17 @@ class ExecutionManager:
         except Exception as e:
             logger.error("Failed to log order: %s", e)
 
-    async def _update_order_in_db(self, order: NormalizedOrder, user_id: str, broker_order_id: str) -> None:
+    async def _update_order_in_db(self, order: NormalizedOrder, user_id: str, broker_order_id: str, is_partial: bool = False) -> None:
         try:
             supabase = get_supabase()
-            await async_supabase(lambda: supabase.table("orders").update({
+            update_data = {
                 "broker_order_id": broker_order_id,
-                "status": "FILLED",
+                "status": "PARTIALLY_FILLED" if is_partial else "FILLED",
                 "filled_at": datetime.now(UTC).isoformat(),
-            }).eq("user_id", user_id).eq("client_order_id", order.client_order_id).execute())
+            }
+            if order.filled_quantity:
+                update_data["filled_quantity"] = order.filled_quantity
+            await async_supabase(lambda: supabase.table("orders").update(update_data).eq("user_id", user_id).eq("client_order_id", order.client_order_id).execute())
         except Exception as e:
             logger.error("Failed to update order in DB: %s", e)
 

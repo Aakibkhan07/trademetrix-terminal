@@ -113,21 +113,72 @@ async def get_open_position_count(user_id: str) -> int:
         return 0
 
 
-async def get_drawdown(user_id: str) -> float:
+async def get_drawdown(user_id: str, initial_capital: float = 100000.0) -> float:
     try:
         supabase = get_supabase()
-        rows = await async_safe_execute(
-            supabase.table("strategy_runs")
-            .select("total_pnl").eq("user_id", user_id)
+
+        realized_rows = await async_safe_execute(
+            supabase.table("orders")
+            .select("symbol, side, quantity, filled_quantity, average_price, created_at")
+            .eq("user_id", user_id)
+            .eq("status", "FILLED")
+            .order("created_at")
         )
-        if not rows:
+
+        running_pnl = 0.0
+        peak_equity = initial_capital
+        if realized_rows:
+            buy_queue: dict[str, list[list[float]]] = {}
+            current_pnl = 0.0
+            for o in realized_rows:
+                sym = o["symbol"]
+                qty = float(o.get("filled_quantity") or o.get("quantity") or 0)
+                price = float(o.get("average_price") or 0)
+                if qty <= 0:
+                    continue
+                if o["side"] == "BUY":
+                    buy_queue.setdefault(sym, []).append([qty, price])
+                else:
+                    rem = qty
+                    queue = buy_queue.setdefault(sym, [])
+                    while rem > 0 and queue:
+                        bqty, bprice = queue[0]
+                        used = min(rem, bqty)
+                        current_pnl += used * (price - bprice)
+                        rem -= used
+                        queue[0][0] -= used
+                        if queue[0][0] <= 1e-8:
+                            queue.pop(0)
+            running_pnl = current_pnl
+
+        pos_rows = await async_safe_execute(
+            supabase.table("positions_snapshot")
+            .select("quantity, average_buy_price, last_price, unrealised_pnl")
+            .eq("user_id", user_id)
+        )
+        unrealized_pnl = 0.0
+        if pos_rows:
+            for p in pos_rows:
+                unrealized_pnl += float(p.get("unrealised_pnl", 0))
+
+        current_equity = initial_capital + running_pnl + unrealized_pnl
+
+        row = await async_safe_single(
+            supabase.table("risk_settings")
+            .select("max_drawdown_pct")
+            .eq("user_id", user_id)
+        )
+        if row:
+            stored_peak = float(row.get("max_drawdown_pct", 0))
+            peak_equity = max(peak_equity, stored_peak) if stored_peak > 0 else peak_equity
+
+        if current_equity > peak_equity:
+            peak_equity = current_equity
+
+        if peak_equity <= 0:
             return 0.0
-        pnls = [float(r.get("total_pnl", 0)) for r in rows]
-        peak = max(pnls) if pnls else 0
-        current = sum(pnls)
-        if peak <= 0:
-            return 0.0
-        return max(0.0, (peak - current) / peak * 100)
+        dd = max(0.0, (peak_equity - current_equity) / peak_equity * 100)
+        return dd
     except Exception as e:
         logger.warning("Drawdown calc failed for user=%s: %s", user_id, e)
         return 0.0

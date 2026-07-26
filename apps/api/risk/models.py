@@ -33,6 +33,7 @@ class RiskRuleType(StrEnum):
     MAX_CAPITAL = "MAX_CAPITAL"
     MAX_DRAWDOWN = "MAX_DRAWDOWN"
     LIVE_MODE = "LIVE_MODE"
+    TRADE_COOLDOWN = "TRADE_COOLDOWN"
 
 
 class RiskRuleResult(BaseModel):
@@ -94,5 +95,7 @@ class RiskConfig(BaseModel):
     kill_switch_enabled: bool = False
     is_live: bool = False
     emergency_stop: bool = False
+    trade_cooldown_seconds: int = 5
+    max_price_deviation_pct: float = 5.0
     broker_blocked: list[str] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

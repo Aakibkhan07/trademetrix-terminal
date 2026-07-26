@@ -379,6 +379,33 @@ class MaxCapitalRule(RiskRule):
         return await get_current_capital_usage(user_id)
 
 
+class TradeCooldownRule(RiskRule):
+    rule_type = RiskRuleType.TRADE_COOLDOWN
+
+    def __init__(self):
+        self._last_trade_time: dict[str, float] = {}
+
+    async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
+        start = time.monotonic()
+        if config.trade_cooldown_seconds <= 0:
+            return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
+
+        key = f"{req.user_id}:{req.broker}:{req.symbol}"
+        last = self._last_trade_time.get(key, 0.0)
+        now = time.time()
+        elapsed = now - last
+        if elapsed < config.trade_cooldown_seconds:
+            remaining = round(config.trade_cooldown_seconds - elapsed, 1)
+            return RiskRuleResult(
+                rule=self.rule_type, decision=RiskDecision.REJECTED,
+                reason=f"Trade cooldown active for {req.symbol}. Wait {remaining}s.",
+                details={"symbol": req.symbol, "elapsed_s": round(elapsed, 1), "cooldown_s": config.trade_cooldown_seconds},
+                latency_ms=(time.monotonic() - start) * 1000,
+            )
+        self._last_trade_time[key] = now
+        return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
+
+
 class MaxDrawdownRule(RiskRule):
     rule_type = RiskRuleType.MAX_DRAWDOWN
 

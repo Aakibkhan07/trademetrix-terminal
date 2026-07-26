@@ -24,6 +24,7 @@ from risk.rules import (
     MaxSymbolExposureRule,
     MaxTradesPerDayRule,
     RiskRule,
+    TradeCooldownRule,
     TradingWindowRule,
 )
 
@@ -36,6 +37,7 @@ RISK_RULES: list[RiskRule] = [
     BrokerOfflineRule(),
     MarketClosedRule(),
     TradingWindowRule(),
+    TradeCooldownRule(),
     DailyLossLimitRule(),
     DailyProfitTargetRule(),
     MaxTradesPerDayRule(),
@@ -143,7 +145,7 @@ class RiskManager:
             allow_warning=bool(row.get("allow_warning", True)),
             kill_switch_enabled=bool(row.get("kill_switch_enabled", False)),
             is_live=bool(row.get("is_live", False)),
-            emergency_stop=False,
+            emergency_stop=bool(row.get("emergency_stop", False)),
         )
 
     async def _publish_decision(self, req: ExecutionRequest, decision: RiskDecision, results: list[RiskRuleResult], latency_ms: float):

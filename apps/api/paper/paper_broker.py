@@ -108,6 +108,7 @@ class PaperBroker:
                 message="Order pending (limit/stop not triggered)", status="pending",
             )
 
+        is_partial = fill.filled_quantity < order.quantity
         self._update_position(order, fill)
         self._update_account(order, fill)
         self._orders[order_id] = {
@@ -115,7 +116,7 @@ class PaperBroker:
             "created_at": datetime.now(UTC),
         }
 
-        order.status = OrderStatus.FILLED
+        order.status = OrderStatus.PARTIALLY_FILLED if is_partial else OrderStatus.FILLED
         order.filled_quantity = fill.filled_quantity
         order.average_price = fill.filled_price
         order.filled_at = datetime.now(UTC)
@@ -124,12 +125,14 @@ class PaperBroker:
         paper_metrics.record_fill()
 
         elapsed_ms = (time.monotonic() - start) * 1000
-        self._publish_event("PaperOrderFilled", order, order_id, fill)
+        event_type = "PaperOrderPartiallyFilled" if is_partial else "PaperOrderFilled"
+        self._publish_event(event_type, order, order_id, fill)
 
+        state = "partially_filled" if is_partial else "filled"
         return OrderResult(
             success=True, broker_order_id=order_id, order=order,
-            message=f"Paper order filled {fill.filled_quantity} @ {fill.filled_price:.2f}",
-            status="filled", filled_qty=fill.filled_quantity, avg_price=fill.filled_price,
+            message=f"Paper order {'partially filled' if is_partial else 'filled'} {fill.filled_quantity} @ {fill.filled_price:.2f}",
+            status=state, filled_qty=fill.filled_quantity, avg_price=fill.filled_price,
         )
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:

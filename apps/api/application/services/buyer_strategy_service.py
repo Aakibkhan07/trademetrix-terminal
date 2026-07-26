@@ -19,6 +19,8 @@ class BuyerStrategyService:
         index: str,
         config: dict,
     ) -> dict:
+        from core.capabilities import resolve_capabilities_by_id
+
         if strategy_key not in BUYER_KEYS:
             raise ValueError(f"Unknown buyer strategy: {strategy_key}")
         try:
@@ -28,6 +30,17 @@ class BuyerStrategyService:
 
         if index not in ("NIFTY", "SENSEX"):
             raise ValueError("index must be NIFTY or SENSEX")
+
+        caps = await resolve_capabilities_by_id(user_id)
+        statuses = await buyer_strategy_runner.get_statuses()
+        user_active = sum(
+            1 for s in statuses.values()
+            if s.get("user_id") == user_id and s.get("status") == "RUNNING"
+        )
+        if user_active >= caps.max_active_strategies:
+            raise ValueError(
+                f"Your plan allows a maximum of {caps.max_active_strategies} active strategies."
+            )
 
         merged_config = {
             "strategy_id": strategy_id,
