@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import signal
+import time
 
 import httpx
 
@@ -83,6 +84,10 @@ async def _fetch_fyers_token() -> str | None:
         return None
 
 
+MAX_RECONNECT_DELAY = 60
+INITIAL_RECONNECT_DELAY = 2
+
+
 async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
     import redis.asyncio as aioredis
     from fyers_apiv3.FyersWebsocket import data_ws
@@ -99,49 +104,8 @@ async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
 
     loop = asyncio.get_running_loop()
     tick_queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=1000)
-
-    async def handle_tick(tick: dict) -> None:
-        try:
-            await asyncio.wait_for(tick_queue.put(tick), timeout=0.5)
-        except (asyncio.QueueFull, asyncio.TimeoutError):
-            pass
-
-    def on_message(message: dict) -> None:
-        if not isinstance(message, dict):
-            return
-        asyncio.run_coroutine_threadsafe(handle_tick(message), loop)
-
-    fyers = data_ws.FyersDataSocket(
-        access_token=access_token,
-        write_to_file=False,
-        log_path="",
-        on_message=on_message,
-        on_error=lambda msg: logger.error("Fyers WS error: %s", msg),
-        on_connect=lambda: logger.info("Fyers WS connected"),
-        on_close=lambda msg: logger.info("Fyers WS closed: %s", msg),
-    )
-
-    def ws_connect():
-        fyers.connect()
-
-    await loop.run_in_executor(None, ws_connect)
-    logger.info("Fyers WS connected, subscribing to %s", symbols)
-
-    fyers.subscribe(symbols=symbols, data_type="SymbolUpdate", channel=11)
-
-    async def publisher():
-        while True:
-            tick = await tick_queue.get()
-            symbol = tick.get("symbol", "unknown")
-            channel = f"market:ticks:{symbol}"
-            try:
-                await r.publish(channel, json.dumps(tick))
-            except Exception as e:
-                logger.warning("Redis publish error: %s", e)
-
-    pub_task = asyncio.create_task(publisher())
-
     shutdown_event = asyncio.Event()
+    ws_disconnected = asyncio.Event()
 
     def _signal():
         logger.info("Shutdown signal received")
@@ -150,9 +114,92 @@ async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
     loop.add_signal_handler(signal.SIGTERM, _signal)
     loop.add_signal_handler(signal.SIGINT, _signal)
 
-    await shutdown_event.wait()
+    async def handle_tick(tick: dict) -> None:
+        try:
+            await asyncio.wait_for(tick_queue.put(tick), timeout=0.5)
+        except (asyncio.QueueFull, asyncio.TimeoutError):
+            pass
 
-    fyers.close_connection()
+    async def publisher():
+        while not shutdown_event.is_set():
+            try:
+                tick = await asyncio.wait_for(tick_queue.get(), timeout=1)
+                symbol = tick.get("symbol", "unknown")
+                channel = f"market:ticks:{symbol}"
+                try:
+                    await r.publish(channel, json.dumps(tick))
+                except Exception as e:
+                    logger.warning("Redis publish error: %s", e)
+            except asyncio.TimeoutError:
+                continue
+
+    pub_task = asyncio.create_task(publisher())
+
+    reconnect_delay = INITIAL_RECONNECT_DELAY
+
+    while not shutdown_event.is_set():
+        ws_disconnected.clear()
+        fyers = None
+
+        def on_message(message: dict) -> None:
+            if not isinstance(message, dict):
+                return
+            asyncio.run_coroutine_threadsafe(handle_tick(message), loop)
+
+        def on_error(msg: str) -> None:
+            logger.error("Fyers WS error: %s", msg)
+
+        def on_connect() -> None:
+            logger.info("Fyers WS connected")
+            nonlocal reconnect_delay
+            reconnect_delay = INITIAL_RECONNECT_DELAY
+
+        def on_close(msg: str) -> None:
+            logger.info("Fyers WS closed: %s", msg)
+            ws_disconnected.set()
+
+        fyers = data_ws.FyersDataSocket(
+            access_token=access_token,
+            write_to_file=False,
+            log_path="",
+            on_message=on_message,
+            on_error=on_error,
+            on_connect=on_connect,
+            on_close=on_close,
+        )
+
+        def ws_connect():
+            fyers.connect()
+
+        try:
+            await loop.run_in_executor(None, ws_connect)
+            logger.info("Fyers WS connected, subscribing to %s", symbols)
+            fyers.subscribe(symbols=symbols, data_type="SymbolUpdate", channel=11)
+        except Exception as e:
+            logger.error("Fyers WS connection failed: %s", e)
+            ws_disconnected.set()
+
+        wait_task = asyncio.create_task(shutdown_event.wait())
+        disconnect_task = asyncio.create_task(ws_disconnected.wait())
+        done, _ = await asyncio.wait(
+            [wait_task, disconnect_task],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        if shutdown_event.is_set():
+            break
+
+        if reconnect_delay > INITIAL_RECONNECT_DELAY:
+            logger.info("Reconnecting in %ds...", reconnect_delay)
+        try:
+            await asyncio.wait_for(shutdown_event.wait(), timeout=reconnect_delay)
+            break
+        except asyncio.TimeoutError:
+            reconnect_delay = min(reconnect_delay * 2, MAX_RECONNECT_DELAY)
+            continue
+
+    if fyers:
+        fyers.close_connection()
     pub_task.cancel()
     await r.aclose()
     logger.info("Market agent shutdown complete")

@@ -98,6 +98,7 @@ class TokenManager:
                     "client_id": decrypt_broker_credentials(row["encrypted_api_key"]),
                     "secret_key": decrypt_broker_credentials(row["encrypted_secret_key"]),
                     "access_token": decrypt_broker_credentials(row.get("encrypted_access_token", "")) if row.get("encrypted_access_token") else "",
+                    "token_expires_at": row.get("token_expires_at", ""),
                     **row.get("additional_params", {}),
                 }
             except InvalidToken:

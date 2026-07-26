@@ -167,6 +167,8 @@ class FyersAdapter(BaseBroker):
         if raw_token:
             self._user_id = client_id
             self._decode_token_expiry(raw_token)
+            if self._token_expires_at is not None and time.time() >= self._token_expires_at:
+                raise ValueError("Fyers access token has expired — user must re-authenticate via OAuth")
             logger.info("Fyers authenticate using existing access_token (skipping profile validation)")
         else:
             auth_code = credentials.get("auth_code", "")
@@ -192,11 +194,16 @@ class FyersAdapter(BaseBroker):
             self._access_token = raw_token
             self._decode_token_expiry(raw_token)
 
+        expires_at = None
+        if self._token_expires_at is not None:
+            expires_at = datetime.fromtimestamp(self._token_expires_at, tz=UTC)
+
         return Session(
             access_token=raw_token,
             user_id=self._user_id or client_id,
             broker=self.broker_name,
             authenticated=True,
+            expires_at=expires_at,
         )
 
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
