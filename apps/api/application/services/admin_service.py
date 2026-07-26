@@ -1,5 +1,6 @@
 import logging
 import os
+import secrets
 from datetime import datetime
 from typing import Any, cast
 
@@ -14,6 +15,7 @@ from core.db import async_supabase, get_supabase
 from core.models import ADMIN_ROLES, AuditLogEntry, Exchange, NormalizedOrder, OrderSide, OrderType as OrderTypeEnum, ProductType, TIER_ORDER, tier_satisfies
 from core.safe_query import async_safe_execute, async_safe_single
 from core.security import decrypt_broker_credentials
+from infrastructure.oauth_providers import get_oauth_provider, get_redirect_uri
 from application.services.squareoff_service import SquareoffService
 from engine.gate import execute_order, get_mirror_recipients, scaled_qty
 
@@ -857,6 +859,10 @@ class AdminService:
         if not cred:
             raise HTTPException(status_code=404, detail="Fyers credential not found")
         client_id = decrypt_broker_credentials(cred["encrypted_api_key"])
+
+        state = secrets.token_urlsafe(32)
+        await cache.set(f"oauth_state:{state}", f"{cred['user_id']}:fyers", ttl=600)
+
         await async_supabase(lambda: supabase.table("broker_credentials").update(
             {"is_active": False, "encrypted_access_token": ""}
         ).eq("id", credential_id).execute())
@@ -867,13 +873,10 @@ class AdminService:
             resource_id=credential_id,
             details={"target_user_id": cred["user_id"]},
         ))
-        auth_url = (
-            f"https://api-t1.fyers.in/api/v3/generate-authcode"
-            f"?client_id={client_id}"
-            f"&redirect_uri={FYERS_REDIRECT_URI}"
-            f"&response_type=code"
-            f"&state={cred['user_id']}"
-        )
+        provider = get_oauth_provider("fyers")
+        from domain.broker import BrokerOAuthConfig
+        config = BrokerOAuthConfig(client_id=client_id, redirect_uri=get_redirect_uri("fyers"))
+        auth_url = provider.build_auth_url(config, state)
         return {"auth_url": auth_url, "user_id": cred["user_id"]}
 
     async def list_admins(self) -> dict:

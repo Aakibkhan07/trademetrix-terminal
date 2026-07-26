@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useApi } from '@/lib/use-api'
 import { api } from '@/lib/api'
+import { BrokerLogo } from '@/components/broker-logos'
 
 /* -------- types -------- */
 
@@ -24,17 +25,17 @@ interface AssignedStrategy {
   active: boolean
 }
 
-const BROKER_INFO: Record<string, { name: string; icon: string }> = {
-  zerodha: { name: 'Zerodha (Kite)', icon: 'Z' },
-  angelone: { name: 'Angel One', icon: 'A' },
-  upstox: { name: 'Upstox', icon: 'U' },
-  dhan: { name: 'Dhan', icon: 'D' },
-  fyers: { name: 'Fyers', icon: 'F' },
-  fivepaisa: { name: '5Paisa', icon: '5' },
-  kotakneo: { name: 'Kotak Neo', icon: 'K' },
-  finvasia: { name: 'Shoonya', icon: 'S' },
-  flattrade: { name: 'Flattrade', icon: 'F' },
-  aliceblue: { name: 'Alice Blue', icon: 'A' },
+const BROKER_INFO: Record<string, { name: string }> = {
+  zerodha: { name: 'Zerodha (Kite)' },
+  angelone: { name: 'Angel One' },
+  upstox: { name: 'Upstox' },
+  dhan: { name: 'Dhan' },
+  fyers: { name: 'Fyers' },
+  fivepaisa: { name: '5Paisa' },
+  kotakneo: { name: 'Kotak Neo' },
+  finvasia: { name: 'Shoonya' },
+  flattrade: { name: 'Flattrade' },
+  aliceblue: { name: 'Alice Blue' },
 }
 
 const STEPS = ['Account', 'Connect Broker', 'Done']
@@ -240,9 +241,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
             return (
               <div key={c.id} className="t-panel" style={{ padding: '10px 14px', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--violet)' }}>
-                    {info?.icon || c.broker[0].toUpperCase()}
-                  </div>
+                  <BrokerLogo broker={c.broker} size={32} />
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{info?.name || c.broker}</p>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>
@@ -295,9 +294,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
                     textAlign: 'center', transition: 'all 150ms ease',
                   }}
                 >
-                  <div style={{ width: 28, height: 28, borderRadius: 6, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', fontSize: 12, fontWeight: 700, color: 'var(--violet)' }}>
-                    {info.icon}
-                  </div>
+                  <BrokerLogo broker={b} size={28} />
                   <p style={{ margin: 0, fontSize: 10, fontWeight: 600 }}>{info.name}</p>
                 </div>
               )

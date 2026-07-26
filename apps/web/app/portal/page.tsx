@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { api, BrokerMeta, BrokerFieldMeta } from '@/lib/api'
+import { BrokerLogo } from '@/components/broker-logos'
 import { useMarketData } from '@/lib/use-market-data'
 
 /* ========== Types ========== */
@@ -743,7 +744,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                         padding: '12px 16px', borderBottom: '1px solid var(--border)',
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span className={`t-dot ${brokerHealth[b.broker] === 'connected' ? 't-dot-green' : brokerHealth[b.broker] === 'error' ? 't-dot-red' : 't-dot-sub'}`} />
+                          <BrokerLogo broker={b.broker} size={28} />
                           <span style={{ fontWeight: 600, fontSize: 13 }}>{displayName}</span>
                           {b.is_active && <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>Active</span>}
                         </div>
@@ -859,7 +860,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                         padding: '10px 12px', borderRadius: 6,
                         background: 'var(--bg-sub)', border: '1px solid var(--border)',
                       }}>
-                        <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <BrokerLogo broker={m.broker} size={24} />
                           <span style={{ fontWeight: 600, fontSize: 12 }}>{m.display_name}</span>
                           <span className="t-faint" style={{ fontSize: 9, marginLeft: 6, textTransform: 'none' }}>({m.auth_type})</span>
                           <p style={{ margin: '2px 0 0', fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.3 }}>{m.description}</p>

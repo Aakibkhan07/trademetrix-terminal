@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useApi } from '@/lib/use-api'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta, FyersHealthResult, BuyerStrategyStatus } from '@/lib/api'
+import { BrokerLogo } from '@/components/broker-logos'
 
 const BroadcastDialog = dynamic(() => import('./broadcast-dialog').then(m => ({ default: m.BroadcastDialog })), { ssr: false })
 const TradingLogsTab = dynamic(() => import('./trading-logs-tab').then(m => ({ default: m.TradingLogsTab })), { ssr: false })
@@ -691,7 +692,10 @@ function BrokersTab() {
                       <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>{b.email}</div>
                     </td>
                     <td style={{ padding: '8px 10px' }}>
-                      <span>{meta?.display_name || b.broker}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <BrokerLogo broker={b.broker} size={20} />
+                        <span>{meta?.display_name || b.broker}</span>
+                      </span>
                       {b.broker === 'fyers' && !b.has_access_token && (
                         <button className="t-btn t-btn-xs" style={{ marginLeft: 6, fontSize: 8 }}
                           onClick={async () => {

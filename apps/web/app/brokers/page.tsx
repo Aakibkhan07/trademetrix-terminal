@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { api, type BrokerMeta } from '@/lib/api'
+import { BrokerLogo } from '@/components/broker-logos'
 
 interface BrokerCred {
   id: string
@@ -319,14 +320,7 @@ export default function BrokersPage() {
                 {credentials.map((c) => (
                   <div key={c.id} className="t-panel" style={{ padding: 0 }}>
                     <div style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
-                      <div style={{
-                        width: 40, height: 40, borderRadius: 10,
-                        background: 'color-mix(in srgb, var(--violet) 12%, transparent)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 18, fontWeight: 700, color: 'var(--violet)'
-                      }}>
-                        {displayName(c.broker)[0]}
-                      </div>
+                      <BrokerLogo broker={c.broker} size={40} />
                       <div style={{ flex: 1 }}>
                         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: 0 }}>
                           {displayName(c.broker)}
