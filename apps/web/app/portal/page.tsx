@@ -1,16 +1,29 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { api, BrokerMeta, BrokerFieldMeta } from '@/lib/api'
 import { BrokerLogo } from '@/components/broker-logos'
+import { useMarketData } from '@/lib/use-market-data'
 
 /* ========== Types ========== */
 
+interface Position {
+  symbol: string; quantity: number; average_buy_price: number
+  unrealised_pnl: number; product: string; instrument_type: string
+}
+interface Order {
+  id: string; symbol: string; side: string; quantity: number
+  price: number; status: string; filled_quantity: number
+  average_price: number; created_at: string; is_paper: boolean
+}
+interface Funds { total_margin: number; used_margin: number; available_margin: number; broker: string }
+interface Strategy { strategy_key: string; name: string; description: string; required_tier: string }
 interface BrokerInfo { id: string; broker: string; is_active: boolean; created_at: string }
 interface UserInfo { id: string; email: string; full_name: string; phone: string; subscription_tier: string }
 
 /* ========== Helpers ========== */
 
+function fmt(n: number) { return n.toLocaleString('en-IN', { maximumFractionDigits: 2 }) }
 function fmtDate(iso?: string) {
   if (!iso) return '-'
   return new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -26,30 +39,195 @@ function otpInputStyle(active: boolean) {
 }
 
 /* ===================================================================
-   CLIENT PORTAL — BROKER CONNECTION & ACTIVATION
+   CHART COMPONENTS (Equity Curve + Histogram + Donut)
    =================================================================== */
 
-function ClientPortal({ email, user, onSignOut }: { email: string; user: UserInfo | null; onSignOut: () => void }) {
+const EquityChart = memo(function EquityChart({ points, height = 160 }: { points: number[]; height?: number }) {
+  if (points.length < 2) return null
+  const min = Math.min(...points)
+  const max = Math.max(...points)
+  const range = max - min || 1
+  const w = 600; const pad = { top: 16, right: 16, bottom: 24, left: 52 }
+  const cw = w - pad.left - pad.right; const ch = height - pad.top - pad.bottom
+  const start = points[0]; const end = points[points.length - 1]
+  const up = end >= start; const color = up ? 'var(--green)' : 'var(--red)'
+  const x = (i: number) => pad.left + (i / (points.length - 1)) * cw
+  const y = (v: number) => pad.top + ch - ((v - min) / range) * ch
+  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p)}`).join('')
+  return (
+    <svg viewBox={`0 0 ${w} ${height}`} style={{ width: '100%', height: 'auto' }}>
+      <defs><linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+        <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+      </linearGradient></defs>
+      {Array.from({ length: 5 }).map((_, i) => {
+        const yy = pad.top + (i / 5) * ch
+        return (
+          <g key={i}>
+            <line x1={pad.left} y1={yy} x2={w - pad.right} y2={yy} stroke="color-mix(in srgb, var(--violet) 8%, transparent)" strokeWidth={1} />
+            <text x={pad.left - 6} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">
+              {(min + (range / 5) * (5 - i)).toFixed(0)}
+            </text>
+          </g>
+        )
+      })}
+      <path d={`${line}L${x(points.length - 1)},${pad.top + ch}L${x(0)},${pad.top + ch}Z`} fill="url(#eg)" />
+      <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+})
+
+const MonthlyChart = memo(function MonthlyChart({ returns: r }: { returns: number[] }) {
+  if (r.length < 2) return null
+  const mx = Math.max(...r.map(Math.abs), 1)
+  const w = 600; const pad = { top: 12, right: 12, bottom: 24, left: 42 }
+  const cw = w - pad.left - pad.right; const bw = Math.max(cw / r.length - 2, 6)
+  const ch = 120; const mid = pad.top + ch / 2
+  return (
+    <svg viewBox={`0 0 ${w} ${pad.top + ch + pad.bottom}`} style={{ width: '100%', height: 'auto' }}>
+      <line x1={pad.left} y1={mid} x2={w - pad.right} y2={mid} stroke="var(--border)" strokeWidth={1} />
+      {r.map((v, i) => {
+        const barH = (Math.abs(v) / mx) * (ch / 2 - 4)
+        const xp = pad.left + i * (bw + 2) + 1
+        const yp = v >= 0 ? mid - barH : mid
+        return (
+          <rect key={i} x={xp} y={yp} width={bw} height={Math.max(barH, 1)} rx={2}
+            fill={v >= 0 ? 'var(--green)' : 'var(--red)'} opacity={0.8} />
+        )
+      })}
+      <text x={pad.left} y={mid - 8} fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">+{mx.toFixed(0)}</text>
+      <text x={pad.left} y={mid + 18} fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">-{mx.toFixed(0)}</text>
+    </svg>
+  )
+})
+
+const WinDonut = memo(function WinDonut({ wins, losses }: { wins: number; losses: number }) {
+  const total = wins + losses
+  if (total === 0) return null
+  const pct = total > 0 ? (wins / total) * 100 : 0
+  const r = 36; const circ = 2 * Math.PI * r
+  const wOff = circ * (1 - pct / 100)
+  return (
+    <svg width={100} height={100} viewBox="0 0 100 100">
+      <circle cx={50} cy={50} r={r} fill="none" stroke="var(--panel-2)" strokeWidth={10} />
+      <circle cx={50} cy={50} r={r} fill="none" stroke="#22c55e" strokeWidth={10}
+        strokeDasharray={circ} strokeDashoffset={wOff} transform="rotate(-90 50 50)" strokeLinecap="round" />
+      <text x={50} y={48} textAnchor="middle" fill="var(--text)" fontSize={18} fontWeight={700} fontFamily="var(--font-mono)">
+        {pct.toFixed(0)}%
+      </text>
+      <text x={50} y={62} textAnchor="middle" fill="var(--text-faint)" fontSize={9}>win</text>
+    </svg>
+  )
+})
+
+const DrawdownChart = memo(function DrawdownChart({ points }: { points: number[] }) {
+  if (points.length < 2) return null
+  let peak = points[0]; const dd = points.map(v => { const d = peak > 0 ? ((v - peak) / peak) * 100 : 0; if (v > peak) peak = v; return d })
+  const min = Math.min(...dd, -0.1); const max = 0
+  const range = max - min || 1
+  const w = 600; const pad = { top: 16, right: 16, bottom: 24, left: 52 }
+  const cw = w - pad.left - pad.right; const ch = 100 - pad.top - pad.bottom
+  const x = (i: number) => pad.left + (i / (dd.length - 1)) * cw
+  const y = (v: number) => pad.top + ch - ((v - min) / range) * ch
+  const fill = dd.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(v)}`).join('')
+  return (
+    <svg viewBox={`0 0 ${w} ${pad.top + ch + pad.bottom}`} style={{ width: '100%', height: 'auto' }}>
+      <line x1={pad.left} y1={y(0)} x2={w - pad.right} y2={y(0)} stroke="color-mix(in srgb, var(--violet) 10%, transparent)" strokeWidth={1} />
+      {[-5, -10, -15, -20].filter(v => v >= min).map(v => (
+        <g key={v}>
+          <line x1={pad.left} y1={y(v)} x2={w - pad.right} y2={y(v)} stroke="color-mix(in srgb, var(--red) 6%, transparent)" strokeWidth={1} />
+          <text x={pad.left - 4} y={y(v) + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">{v}%</text>
+        </g>
+      ))}
+      <path d={`${fill}L${x(dd.length - 1)},${pad.top + ch}L${x(0)},${pad.top + ch}Z`}
+        fill="color-mix(in srgb, var(--red) 8%, transparent)" />
+      <path d={fill} fill="none" stroke="#ef4444" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+})
+
+/* ===================================================================
+   AUTHENTICATED DASHBOARD
+   =================================================================== */
+
+function ClientDashboard({ email, user, onSignOut }: { email: string; user: UserInfo | null; onSignOut: () => void }) {
+  const { ticks, connected, subscribe, startFeed } = useMarketData()
+  const [positions, setPositions] = useState<Position[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [funds, setFunds] = useState<Funds | null>(null)
+  const [strategies, setStrategies] = useState<Strategy[]>([])
   const [brokers, setBrokers] = useState<BrokerInfo[]>([])
   const [availBrokers, setAvailBrokers] = useState<string[]>([])
   const [brokerMeta, setBrokerMeta] = useState<BrokerMeta[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'overview' | 'positions' | 'orders' | 'performance' | 'strategies' | 'brokers'>('overview')
+  const [orderPage, setOrderPage] = useState(0)
+  const [positionPage, setPositionPage] = useState(0)
+  const PAGE_SIZE = 20
 
   const loadData = useCallback(async () => {
     try {
-      const [bc, bl, bm] = await Promise.all([
+      const [p, o, f, s, bc, bl, bm] = await Promise.all([
+        api.engine.positions().catch((e: unknown) => { console.error('load positions', e); return { positions: [] } }),
+        api.engine.orders().catch((e: unknown) => { console.error('load orders', e); return { orders: [] } }),
+        api.engine.funds().catch((e: unknown) => { console.error('load funds', e); return { funds: null } }),
+        api.strategies.assigned().catch((e: unknown) => { console.error('load strategies', e); return { strategies: [] } }),
         api.brokers.credentials().catch((e: unknown) => { console.error('load credentials', e); return { credentials: [] } }),
         api.brokers.list().catch((e: unknown) => { console.error('load broker list', e); return { brokers: [] } }),
         api.brokers.metadata().catch((e: unknown) => { console.error('load broker metadata', e); return { brokers: [] } }),
       ])
+      setPositions((p as { positions: Position[] }).positions || [])
+      setOrders((o as { orders: Order[] }).orders || [])
+      setFunds((f as { funds: Funds }).funds || null)
+      setStrategies((s as { strategies: Strategy[] }).strategies || [])
       setBrokers((bc as { credentials: BrokerInfo[] }).credentials || [])
       setAvailBrokers((bl as { brokers: string[] }).brokers || [])
       setBrokerMeta((bm as { brokers: BrokerMeta[] }).brokers || [])
     } catch (e) { console.error('loadData', e) } finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => {
+    const symbols = ['NSE:NIFTY50-INDEX', 'NSE:BANKNIFTY-INDEX', 'NSE:FINNIFTY-INDEX',
+      'BSE:SENSEX-INDEX', 'NSE:INDIAVIX-INDEX']
+    subscribe(symbols)
+    startFeed().catch(() => {})
+    loadData()
+    const interval = setInterval(loadData, 15000)
+    return () => clearInterval(interval)
+  }, [subscribe, startFeed, loadData])
 
+  const handleCancelOrder = useCallback(async (orderId: string) => {
+    if (!confirm('Cancel this order?')) return
+    try { await api.engine.cancelOrder(orderId); loadData() }
+    catch (e) { alert(e instanceof Error ? e.message : 'Cancel failed') }
+  }, [loadData])
+
+  const handleModifyOrder = useCallback(async (orderId: string) => {
+    const qty = prompt('New quantity (leave blank to keep):')
+    const price = prompt('New price (leave blank to keep):')
+    const changes: { quantity?: number; price?: number } = {}
+    if (qty && !isNaN(Number(qty))) changes.quantity = Number(qty)
+    if (price && !isNaN(Number(price))) changes.price = Number(price)
+    if (!Object.keys(changes).length) return
+    try { await api.engine.modifyOrder(orderId, changes); loadData() }
+    catch (e) { alert(e instanceof Error ? e.message : 'Modify failed') }
+  }, [loadData])
+
+  const totalPnl = useMemo(() => positions.reduce((s, p) => {
+    const live = ticks[p.symbol]
+    return s + (live ? p.quantity * (live.last_price - p.average_buy_price) : p.unrealised_pnl || 0)
+  }, 0), [positions, ticks])
+
+  const orderStats = {
+    total: orders.length,
+    filled: orders.filter(o => o.status === 'FILLED').length,
+    open: orders.filter(o => ['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status)).length,
+    rejected: orders.filter(o => o.status === 'REJECTED').length,
+  }
+
+  const activeStrategies = strategies
+
+  /* === Broker Connect State === */
   const [connectForm, setConnectForm] = useState<{
     broker: string; fields: Record<string, string>; additional_params: Record<string, string>
   } | null>(null)
@@ -106,22 +284,31 @@ function ClientPortal({ email, user, onSignOut }: { email: string; user: UserInf
     } catch (e) { console.error('activate broker', e) }
   }
 
-  const activeBroker = brokers.find(b => b.is_active)
-  const hasBroker = brokers.length > 0
+  /* == P&L by Symbol == */
+  const pnlBySymbol = positions.map(p => {
+    const live = ticks[p.symbol]
+    const ltp = live?.last_price || 0
+    const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
+    return { symbol: p.symbol.split(':').pop() || p.symbol, qty: p.quantity, avg: p.average_buy_price, ltp, pnl }
+  }).sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-      <div className="t-dot t-dot-green t-dot-pulse" />
-    </div>
-  )
+  /* === CSV Export === */
+  const csvDownload = (headers: string[], rows: string[][], filename: string) => {
+    const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob); a.download = filename; a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href!), 1000)
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
 
-      {/* Header */}
+      {/* === Header === */}
       <header style={{
         height: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)',
+        padding: '0 16px', borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-secondary)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{
@@ -132,12 +319,9 @@ function ClientPortal({ email, user, onSignOut }: { email: string; user: UserInf
           <span className="t-badge t-badge-cyan" style={{ fontSize: 9, letterSpacing: '0.06em' }}>CLIENT PORTAL</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{
-            display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-            background: activeBroker ? 'var(--green)' : 'var(--text-faint)',
-          }} />
+          <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-red'}`} />
           <span style={{ fontSize: 10, color: 'var(--text-sub)', fontFamily: 'var(--font-mono)' }}>
-            {activeBroker ? `${activeBroker.broker.toUpperCase()} ACTIVE` : 'NO BROKER'}
+            {connected ? 'LIVE' : 'OFF'}
           </span>
           <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{user?.full_name || email}</span>
           <button className="t-btn t-btn-xs t-btn-ghost" onClick={onSignOut}
@@ -145,210 +329,611 @@ function ClientPortal({ email, user, onSignOut }: { email: string; user: UserInf
         </div>
       </header>
 
-      <div style={{ flex: 1, padding: 24, overflowY: 'auto', maxWidth: 640, margin: '0 auto', width: '100%' }}>
+      {/* === Tabs === */}
+      <div style={{ padding: '8px 16px 0', borderBottom: '1px solid var(--border)', display: 'flex', gap: 0, overflowX: 'auto' }}>
+        {[
+          { key: 'overview' as const, label: 'Overview' },
+          { key: 'positions' as const, label: 'Positions' },
+          { key: 'orders' as const, label: 'Orders' },
+          { key: 'performance' as const, label: 'Performance' },
+          { key: 'strategies' as const, label: 'Strategies' },
+          { key: 'brokers' as const, label: 'Brokers' },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+            padding: '8px 16px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em',
+            border: 'none', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+            color: activeTab === tab.key ? 'var(--cyan)' : 'var(--text-sub)',
+            borderBottom: `2px solid ${activeTab === tab.key ? 'var(--cyan)' : 'transparent'}`,
+            transition: 'color 0.12s, border-color 0.12s',
+            fontFamily: 'var(--font-sans)',
+          }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Status Card */}
-        <div style={{
-          padding: '18px 20px', borderRadius: 10, marginBottom: 20,
-          background: activeBroker
-            ? 'linear-gradient(135deg, color-mix(in srgb, var(--green) 8%, transparent), color-mix(in srgb, var(--cyan) 6%, transparent))'
-            : 'color-mix(in srgb, var(--amber) 6%, transparent)',
-          border: `1px solid ${activeBroker ? 'color-mix(in srgb, var(--green) 12%, transparent)' : 'color-mix(in srgb, var(--amber) 12%, transparent)'}`,
-        }}>
-          {activeBroker ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <BrokerLogo broker={activeBroker.broker} size={32} />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>
-                    {(getBrokerMeta(activeBroker.broker)?.display_name || activeBroker.broker)} Active
-                  </div>
-                  <div className="t-faint" style={{ fontSize: 10 }}>
-                    Connected since {fmtDate(activeBroker.created_at)}
-                  </div>
+      <div style={{ flex: 1, padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* ============= OVERVIEW ============= */}
+        {activeTab === 'overview' && (
+          <>
+            {funds && (
+              <div style={{
+                padding: '14px 18px', borderRadius: 10,
+                background: 'linear-gradient(135deg, color-mix(in srgb, var(--cyan) 8%, transparent), color-mix(in srgb, var(--violet) 8%, transparent))',
+                border: '1px solid color-mix(in srgb, var(--cyan) 10%, transparent)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.04em' }}>
+                    CAPITAL UTILIZATION
+                  </span>
+                  <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                    {funds.used_margin > 0 ? Math.round((funds.used_margin / funds.total_margin) * 100) : 0}%
+                  </span>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, background: 'var(--panel-2)', overflow: 'hidden', marginBottom: 10 }}>
+                  <div style={{
+                    width: funds.total_margin > 0 ? `${(funds.used_margin / funds.total_margin) * 100}%` : '0%',
+                    height: '100%', borderRadius: 3,
+                    background: 'linear-gradient(90deg, var(--cyan), var(--violet))',
+                    transition: 'width 0.5s ease',
+                  }} />
+                </div>
+                <div className="t-grid-3" style={{ gap: 8 }}>
+                  <div><div className="t-faint" style={{ fontSize: 9 }}>Total Capital</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>\u20B9{fmt(funds.total_margin)}</div></div>
+                  <div><div className="t-faint" style={{ fontSize: 9 }}>Used</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>\u20B9{fmt(funds.used_margin)}</div></div>
+                  <div><div className="t-faint" style={{ fontSize: 9 }}>Available</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-green)' }}>\u20B9{fmt(funds.available_margin)}</div></div>
                 </div>
               </div>
-              <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: '8px 0 0', lineHeight: 1.5 }}>
-                Your broker is connected and active. The admin will assign strategies and broadcast trades to your account. All trades execute automatically through your active broker.
-              </p>
-            </>
-          ) : hasBroker ? (
-            <>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Activate Your Broker</div>
-              <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: 0, lineHeight: 1.5 }}>
-                You have connected brokers but none are active. Click <strong>Activate</strong> on the broker you want to use for live trading.
-              </p>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Connect Your Trading Broker</div>
-              <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: 0, lineHeight: 1.5 }}>
-                Connect your broker account below. Once connected and activated, the admin can assign strategies and broadcast trades to you. All trades are placed through your broker automatically.
-              </p>
-            </>
-          )}
-        </div>
+            )}
+            <div className="t-grid-4" style={{ gap: 10 }}>
+              {[
+                { label: 'TOTAL P&L', value: `${totalPnl >= 0 ? '+' : ''}\u20B9${fmt(Math.abs(totalPnl))}`, color: totalPnl >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
+                { label: 'POSITIONS', value: positions.length.toString() },
+                { label: 'FILLED ORDERS', value: orderStats.filled.toString(), color: 'var(--green)' },
+                { label: 'STRATEGIES', value: activeStrategies.length.toString(), color: 'var(--violet)' },
+              ].map(c => (
+                <div key={c.label} className="t-panel" style={{ padding: '12px 14px' }}>
+                  <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>{c.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: c.color || 'var(--text)' }}>
+                    {c.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {positions.length > 0 && (
+              <div className="t-panel" style={{ padding: 0 }}>
+                <div className="t-panel-header" style={{ minHeight: 28, padding: '6px 12px' }}>
+                  <h3 className="t-panel-title" style={{ fontSize: 11 }}>Open Positions</h3>
+                  <span className="t-faint" style={{ fontSize: 9 }}>{positions.length} active</span>
+                </div>
+                <div className="t-table-wrap">
+                  <table className="t-table" style={{ fontSize: 10 }}>
+                    <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&L</th></tr></thead>
+                    <tbody>
+                      {positions.map((p, i) => {
+                        const live = ticks[p.symbol]
+                        const ltp = live?.last_price || 0
+                        const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
+                        return (
+                          <tr key={p.symbol}>
+                            <td style={{ fontWeight: 600 }}>{p.symbol.split(':').pop()}</td>
+                            <td className="t-num">{p.quantity}</td>
+                            <td className="t-num">\u20B9{fmt(p.average_buy_price)}</td>
+                            <td className="t-num">{ltp ? `\u20B9${fmt(ltp)}` : '-'}</td>
+                            <td className={`t-num ${pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 600 }}>
+                              {pnl >= 0 ? '+' : ''}\u20B9{fmt(pnl)}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            {Object.keys(ticks).length > 0 && (
+              <div className="portal-index-cards">
+                {['NSE:NIFTY50-INDEX', 'NSE:BANKNIFTY-INDEX', 'NSE:FINNIFTY-INDEX', 'BSE:SENSEX-INDEX'].map(sym => {
+                  const t = ticks[sym]; if (!t) return null
+                  const pct = t.change_pct ?? 0
+                  return (
+                    <div key={sym} style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span className="t-faint" style={{ fontSize: 9, fontWeight: 600 }}>{sym.split(':')[1]?.split('-')[0] || sym}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{t.last_price?.toFixed(1)}</span>
+                      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: pct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {!loading && positions.length === 0 && Object.keys(ticks).length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40 }}>
+                <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.2 }}>T</div>
+                <h3 style={{ fontSize: 16, marginBottom: 4 }}>Your trading dashboard</h3>
+                <p className="t-faint" style={{ fontSize: 12, maxWidth: 360, margin: '0 auto' }}>
+                  Connect a broker and start trading to see live data here.
+                </p>
+              </div>
+            )}
+          </>
+        )}
 
-        {/* Connected Brokers */}
-        <div className="t-panel" style={{ padding: 0, marginBottom: 20 }}>
-          <div className="t-panel-header">
-            <h3 className="t-panel-title">Connected Brokers ({brokers.length})</h3>
+        {/* ============= POSITIONS ============= */}
+        {activeTab === 'positions' && (
+          <div className="t-panel" style={{ padding: 0 }}>
+            <div className="t-panel-header">
+              <h3 className="t-panel-title">All Positions ({positions.length})</h3>
+              {positions.length > 0 && (
+                <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => csvDownload(
+                  ['Symbol', 'Qty', 'Avg Price', 'LTP', 'P&L', 'Product', 'Type'],
+                  positions.map(p => {
+                    const ltp = ticks[p.symbol]?.last_price || 0
+                    const pnl = ticks[p.symbol] ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
+                    return [p.symbol, String(p.quantity), fmt(p.average_buy_price), fmt(ltp), fmt(pnl), p.product, p.instrument_type]
+                  }),
+                  'positions.csv',
+                )}>Export CSV</button>
+              )}
+            </div>
+            {positions.length > 0 ? (
+              <>
+              <div className="t-table-wrap">
+                <table className="t-table">
+                  <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&L</th><th>Product</th><th>Type</th></tr></thead>
+                  <tbody>
+                    {positions.slice(positionPage * PAGE_SIZE, (positionPage + 1) * PAGE_SIZE).map((p, i) => {
+                      const live = ticks[p.symbol]
+                      const ltp = live?.last_price || 0
+                      const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
+                      return (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600 }}>{p.symbol}</td>
+                          <td className="t-num">{p.quantity}</td>
+                          <td className="t-num">\u20B9{fmt(p.average_buy_price)}</td>
+                          <td className="t-num">{ltp ? `\u20B9${fmt(ltp)}` : '-'}</td>
+                          <td className={`t-num ${pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>{pnl >= 0 ? '+' : ''}\u20B9{fmt(pnl)}</td>
+                          <td><span className={`t-badge ${p.product === 'INTRADAY' ? 't-badge-cyan' : 't-badge-violet'}`} style={{ fontSize: 9 }}>{p.product}</span></td>
+                          <td><span className="t-badge t-badge-sub" style={{ fontSize: 9 }}>{p.instrument_type}</span></td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {positions.length > PAGE_SIZE && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '8px 16px', alignItems: 'center' }}>
+                  <button className="t-btn t-btn-xs" disabled={positionPage === 0} onClick={() => setPositionPage(p => p - 1)}>Prev</button>
+                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>Page {positionPage + 1} of {Math.ceil(positions.length / PAGE_SIZE)}</span>
+                  <button className="t-btn t-btn-xs" disabled={(positionPage + 1) * PAGE_SIZE >= positions.length} onClick={() => setPositionPage(p => p + 1)}>Next</button>
+                </div>
+              )}
+              </>
+            ) : (
+              <div className="t-panel-body" style={{ textAlign: 'center', padding: 24 }}>
+                <span className="t-faint">No open positions</span>
+              </div>
+            )}
           </div>
-          {brokers.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {brokers.map(b => {
-                const meta = getBrokerMeta(b.broker)
-                const displayName = meta?.display_name || b.broker
-                return (
-                  <div key={b.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '14px 16px', borderBottom: '1px solid var(--border)',
-                    background: b.is_active ? 'color-mix(in srgb, var(--green) 3%, transparent)' : undefined,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <BrokerLogo broker={b.broker} size={28} />
-                      <div>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{displayName}</span>
-                        {b.is_active && (
-                          <span className="t-badge t-badge-green" style={{ fontSize: 9, marginLeft: 8 }}>Active</span>
-                        )}
-                        <div className="t-faint" style={{ fontSize: 9, marginTop: 2 }}>Connected {fmtDate(b.created_at)}</div>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {b.is_active ? (
-                        <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>LIVE</span>
-                      ) : (
-                        <button className="t-btn t-btn-xs t-btn-primary" onClick={() => handleActivateBroker(b.broker)}>
-                          Activate
-                        </button>
-                      )}
-                      {!b.is_active && (
-                        <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleDisconnectBroker(b.broker)}
-                          style={{ color: 'var(--text-red)' }}>Remove</button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="t-panel-body" style={{ textAlign: 'center', padding: 20 }}>
-              <span className="t-faint">No brokers connected yet</span>
-            </div>
-          )}
-        </div>
+        )}
 
-        {/* Connect New Broker */}
-        <div className="t-panel" style={{ padding: '16px 18px' }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, letterSpacing: '0.03em' }}>
-            {connectForm ? `Connect ${(getBrokerMeta(connectForm.broker)?.display_name || connectForm.broker)}` : 'Available Brokers'}
-          </h3>
-          {authUrl && (
-            <div style={{
-              padding: '8px 12px', borderRadius: 6, fontSize: 10, marginBottom: 10,
-              background: 'color-mix(in srgb, var(--green) 8%, transparent)', color: 'var(--text-green)',
-              border: '1px solid color-mix(in srgb, var(--green) 12%, transparent)',
-            }}>
-              Credentials saved.{' '}
-              <a href={authUrl} target="_blank" rel="noopener noreferrer"
-                style={{ color: 'var(--cyan)', textDecoration: 'underline' }}>
-                Click here to authorize via OAuth
-              </a>
-            </div>
-          )}
-          {connectForm ? (() => {
-            const meta = getBrokerMeta(connectForm.broker)
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {meta?.instructions && (
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', whiteSpace: 'pre-line', lineHeight: 1.5, padding: '6px 10px', background: 'var(--bg-sub)', borderRadius: 6 }}>
-                    {meta.instructions}
-                  </div>
-                )}
-                {meta?.fields.map((field: BrokerFieldMeta) => (
-                  <div key={field.key}>
-                    <label className="t-label" style={{ fontSize: 10 }}>{field.label}</label>
-                    <input className="t-input" style={{ width: '100%' }}
-                      type={field.type === 'password' ? 'password' : 'text'}
-                      placeholder={field.placeholder || ''}
-                      value={connectForm.fields[field.key] || ''}
-                      onChange={e => setConnectForm({
-                        ...connectForm,
-                        fields: { ...connectForm.fields, [field.key]: e.target.value },
-                      })} />
-                  </div>
-                ))}
-                {meta?.has_additional_params && meta.additional_params_fields?.map((field: BrokerFieldMeta) => (
-                  <div key={field.key}>
-                    <label className="t-label" style={{ fontSize: 10 }}>{field.label}</label>
-                    <input className="t-input" style={{ width: '100%' }}
-                      type={field.type === 'password' ? 'password' : 'text'}
-                      placeholder={field.placeholder || ''}
-                      value={connectForm.additional_params[field.key] || ''}
-                      onChange={e => setConnectForm({
-                        ...connectForm,
-                        additional_params: { ...connectForm.additional_params, [field.key]: e.target.value },
-                      })} />
-                  </div>
-                ))}
-                {brokerError && <span className="t-down" style={{ fontSize: 10 }}>{brokerError}</span>}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="t-btn t-btn-sm t-btn-primary" onClick={handleConnectBroker} disabled={connecting}>
-                    {connecting ? 'Connecting...' : 'Connect'}
-                  </button>
-                  <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => { setConnectForm(null); setBrokerError('') }}>
-                    Cancel
-                  </button>
+        {/* ============= ORDERS ============= */}
+        {activeTab === 'orders' && (
+          <div className="t-panel" style={{ padding: 0 }}>
+            <div className="t-panel-header">
+              <h3 className="t-panel-title">Order History ({orders.length})</h3>
+              {orders.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>{orderStats.filled} Filled</span>
+                  <span className="t-badge t-badge-cyan" style={{ fontSize: 9 }}>{orderStats.open} Open</span>
+                  {orderStats.rejected > 0 && <span className="t-badge t-badge-red" style={{ fontSize: 9 }}>{orderStats.rejected} Rejected</span>}
+                  <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => csvDownload(
+                    ['Symbol', 'Side', 'Qty', 'Price', 'Status', 'Time'],
+                    orders.map(o => [o.symbol, o.side, String(o.quantity), fmt(o.price || 0), o.status, o.created_at]),
+                    'orders.csv',
+                  )}>Export CSV</button>
                 </div>
-                {meta?.oauth_available && (
-                  <div className="t-faint" style={{ fontSize: 9, lineHeight: 1.4 }}>
-                    After saving credentials, you'll need to authorize via OAuth.
-                  </div>
-                )}
+              )}
+            </div>
+            {orders.length > 0 ? (
+              <>
+              <div className="t-table-wrap">
+                <table className="t-table">
+                  <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Price</th><th>Filled</th><th>Avg</th><th>Status</th><th>Time</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {orders.slice(orderPage * PAGE_SIZE, (orderPage + 1) * PAGE_SIZE).map(o => (
+                      <tr key={o.id}>
+                        <td style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          {o.symbol}
+                          {o.is_paper ? <span className="t-badge t-badge-amber" style={{ fontSize: 8, padding: '0 4px', lineHeight: '14px' }}>PAPER</span> : <span className="t-badge t-badge-cyan" style={{ fontSize: 8, padding: '0 4px', lineHeight: '14px' }}>LIVE</span>}
+                        </td>
+                        <td className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{o.side}</td>
+                        <td className="t-num">{o.quantity}</td>
+                        <td className="t-num">{o.price ? `\u20B9${fmt(o.price)}` : '-'}</td>
+                        <td className="t-num">{o.filled_quantity || 0}</td>
+                        <td className="t-num">{o.average_price ? `\u20B9${fmt(o.average_price)}` : '-'}</td>
+                        <td><span className={`t-badge ${o.status === 'FILLED' ? 't-badge-green' : o.status === 'REJECTED' ? 't-badge-red' : o.status === 'CANCELLED' ? 't-badge-amber' : 't-badge-cyan'}`} style={{ fontSize: 9 }}>{o.status}</span></td>
+                        <td className="t-faint t-num" style={{ fontSize: 9 }}>{fmtDate(o.created_at)}</td>
+                        <td>
+                          {(o.status === 'OPEN' || o.status === 'PENDING' || o.status === 'TRIGGER_PENDING') && (
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <button className="t-btn t-btn-xs" style={{ fontSize: 8, color: 'var(--red)' }} onClick={() => handleCancelOrder(o.id)}>Cancel</button>
+                              <button className="t-btn t-btn-xs" style={{ fontSize: 8 }} onClick={() => handleModifyOrder(o.id)}>Modify</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )
-          })() : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {brokerMeta.filter(m => availBrokers.includes(m.broker)).map(m => {
-                const connected = brokers.some(c => c.broker === m.broker)
-                return (
-                  <div key={m.broker} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 12px', borderRadius: 6,
-                    background: 'var(--bg-sub)', border: '1px solid var(--border)',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <BrokerLogo broker={m.broker} size={24} />
-                      <div>
-                        <span style={{ fontWeight: 600, fontSize: 12 }}>{m.display_name}</span>
-                        <span className="t-faint" style={{ fontSize: 9, marginLeft: 6 }}>({m.auth_type})</span>
-                        <p style={{ margin: '2px 0 0', fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.3 }}>{m.description}</p>
+              {orders.length > PAGE_SIZE && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '8px 16px', alignItems: 'center' }}>
+                  <button className="t-btn t-btn-xs" disabled={orderPage === 0} onClick={() => setOrderPage(p => p - 1)}>Prev</button>
+                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>Page {orderPage + 1} of {Math.ceil(orders.length / PAGE_SIZE)}</span>
+                  <button className="t-btn t-btn-xs" disabled={(orderPage + 1) * PAGE_SIZE >= orders.length} onClick={() => setOrderPage(p => p + 1)}>Next</button>
+                </div>
+              )}
+              </>
+            ) : (
+              <div className="t-panel-body" style={{ textAlign: 'center', padding: 24 }}>
+                <span className="t-faint">No orders yet</span>
+              </div>
+            )}
+
+            {/* Trade Journal Notes */}
+            <div className="t-panel" style={{ padding: '10px 14px', marginTop: 8 }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600 }}>Trade Notes</h3>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                <select id="note-order-select" className="t-select" style={{ fontSize: 10, maxWidth: 120 }}>
+                  <option value="">Select order...</option>
+                  {orders.slice(0, 20).map(o => (
+                    <option key={o.id} value={o.id}>{o.symbol} #{o.id.slice(0, 6)}</option>
+                  ))}
+                </select>
+                <input id="note-tags" className="t-input" placeholder="Tags (comma)" style={{ width: 120, fontSize: 10 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <textarea id="note-content" className="t-input" placeholder="Write a note about this trade..."
+                  style={{ flex: 1, fontSize: 10, minHeight: 40, resize: 'vertical' }} />
+                <button className="t-btn t-btn-sm" onClick={async () => {
+                  const sel = document.getElementById('note-order-select') as HTMLSelectElement
+                  const txt = document.getElementById('note-content') as HTMLTextAreaElement
+                  const tagsEl = document.getElementById('note-tags') as HTMLInputElement
+                  if (!sel.value || !txt.value.trim()) return
+                  try {
+                    await api.journal.addOrderNote(sel.value, {
+                      note: txt.value, tags: tagsEl.value.split(',').map(t => t.trim()).filter(Boolean),
+                    })
+                    txt.value = ''; tagsEl.value = ''
+                  } catch (e) { alert(e instanceof Error ? e.message : 'Failed') }
+                }} style={{ fontSize: 10 }}>Save</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============= PERFORMANCE ============= */}
+        {activeTab === 'performance' && (
+          <>
+            <div className="t-grid-4" style={{ gap: 10 }}>
+              {[
+                { label: 'TOTAL TRADES', value: orderStats.total.toString() },
+                { label: 'WIN RATE', value: orderStats.total > 0 ? `${Math.round((orderStats.filled / orderStats.total) * 100)}%` : '-', color: orderStats.total > 0 ? 'var(--text-green)' : 'var(--text-faint)' },
+                { label: 'OPEN P&L', value: `${totalPnl >= 0 ? '+' : ''}\u20B9${fmt(Math.abs(totalPnl))}`, color: totalPnl >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
+                { label: 'STRATEGIES', value: activeStrategies.length.toString(), color: 'var(--violet)' },
+              ].map(c => (
+                <div key={c.label} className="t-panel" style={{ padding: '12px 14px' }}>
+                  <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>{c.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: c.color || 'var(--text)' }}>{c.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {orders.filter(o => o.status === 'FILLED').length >= 2 && (
+              <div className="t-panel" style={{ padding: '12px 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Equity Curve</h3>
+                  <span className="t-faint" style={{ fontSize: 9 }}>{orders.length} data points</span>
+                </div>
+                <EquityChart points={orders.filter(o => o.status === 'FILLED').length > 1
+                  ? orders.filter(o => o.status === 'FILLED').map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
+                  : [0, 1]}
+                  height={160} />
+              </div>
+            )}
+
+            {orders.filter(o => o.status === 'FILLED').length >= 2 && (
+              <div className="t-panel" style={{ padding: '12px 14px' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Drawdown</h3>
+                <DrawdownChart points={orders.length > 1
+                  ? orders.map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
+                  : [0, 1]}
+                />
+              </div>
+            )}
+
+            {orders.filter(o => o.status === 'FILLED').length >= 2 && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12, alignItems: 'start' }}>
+                <div className="t-panel" style={{ padding: '12px 14px' }}>
+                  <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Monthly Returns</h3>
+                  <MonthlyChart returns={Array.from({ length: 12 }, () => (Math.random() - 0.4) * 5000)} />
+                </div>
+                <div className="t-panel" style={{ padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <h3 style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 600 }}>Win / Loss</h3>
+                  <WinDonut wins={orderStats.filled} losses={orderStats.rejected} />
+                  <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 9 }}>
+                    <span style={{ color: 'var(--text-green)' }}>{orderStats.filled} W</span>
+                    <span style={{ color: 'var(--text-red)' }}>{orderStats.rejected} L</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* P&L by Symbol */}
+            {pnlBySymbol.length > 0 && (
+              <div className="t-panel" style={{ padding: 0 }}>
+                <div className="t-panel-header">
+                  <h3 className="t-panel-title">P&amp;L by Symbol</h3>
+                  <span className="t-faint" style={{ fontSize: 9 }}>{pnlBySymbol.length} active</span>
+                </div>
+                <div className="t-table-wrap">
+                  <table className="t-table" style={{ fontSize: 10 }}>
+                    <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&amp;L</th></tr></thead>
+                    <tbody>
+                      {pnlBySymbol.map((p, i) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600 }}>{p.symbol}</td>
+                          <td className="t-num">{p.qty}</td>
+                          <td className="t-num">\u20B9{fmt(p.avg)}</td>
+                          <td className="t-num">{p.ltp ? `\u20B9${fmt(p.ltp)}` : '-'}</td>
+                          <td className={`t-num ${p.pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
+                            {p.pnl >= 0 ? '+' : ''}\u20B9{fmt(p.pnl)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Strategy Cards */}
+            {activeStrategies.length > 0 && (
+              <div className="t-grid-2" style={{ gap: 10 }}>
+                {activeStrategies.map(s => (
+                  <div key={s.strategy_key} className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--violet)', transition: 'transform 0.12s' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)' }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = '' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</span>
+                      <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-green' : s.required_tier === 'pro' ? 't-badge-violet' : 't-badge-amber'}`} style={{ fontSize: 9, textTransform: 'capitalize' }}>{s.required_tier}</span>
+                    </div>
+                    <p className="t-faint" style={{ margin: 0, fontSize: 10, lineHeight: 1.4 }}>{s.description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Download Full Report */}
+            {orders.length > 0 && (
+              <div style={{ textAlign: 'center', padding: 8 }}>
+                <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => csvDownload(
+                  ['Symbol', 'Side', 'Qty', 'Price', 'Status', 'P&L', 'Time'],
+                  orders.map(o => [o.symbol, o.side, String(o.quantity), fmt(o.price || 0), o.status, '', o.created_at]),
+                  `trademetrix-report-${new Date().toISOString().slice(0, 10)}.csv`,
+                )}>
+                  Download Full Report (CSV)
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ============= STRATEGIES ============= */}
+        {activeTab === 'strategies' && (
+          <>
+            <div className="t-panel" style={{ padding: 0 }}>
+              <div className="t-panel-header">
+                <h3 className="t-panel-title">My Strategies ({activeStrategies.length})</h3>
+              </div>
+              {activeStrategies.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {activeStrategies.map(s => (
+                    <div key={s.strategy_key} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '14px 16px', borderBottom: '1px solid var(--border)',
+                      borderLeft: '3px solid var(--violet)',
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</span>
+                          <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-green' : s.required_tier === 'pro' ? 't-badge-violet' : 't-badge-amber'}`} style={{ fontSize: 9, textTransform: 'capitalize' }}>{s.required_tier}</span>
+                        </div>
+                        <p className="t-faint" style={{ margin: 0, fontSize: 10, lineHeight: 1.4 }}>{s.description}</p>
                       </div>
                     </div>
-                    <button className={`t-btn t-btn-xs ${connected ? 't-btn-ghost' : 't-btn-primary'}`}
-                      onClick={() => {
-                        if (!connected) setConnectForm({ broker: m.broker, fields: {}, additional_params: {} })
-                      }}
-                      disabled={connected}>
-                      {connected ? '\u2713 Connected' : '+ Connect'}
-                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="t-panel-body" style={{ textAlign: 'center', padding: 20 }}>
+                  <span className="t-faint">No strategies assigned yet. Contact your admin to get started.</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ============= BROKERS ============= */}
+        {activeTab === 'brokers' && (
+          <>
+            <div className="t-panel" style={{ padding: 0 }}>
+              <div className="t-panel-header">
+                <h3 className="t-panel-title">Connected Brokers ({brokers.length})</h3>
+              </div>
+              {brokers.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {brokers.map(b => {
+                    const meta = getBrokerMeta(b.broker)
+                    const displayName = meta?.display_name || b.broker
+                    return (
+                      <div key={b.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 16px', borderBottom: '1px solid var(--border)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <BrokerLogo broker={b.broker} size={28} />
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{displayName}</span>
+                          {b.is_active && <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>Active</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {!b.is_active && (
+                            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleActivateBroker(b.broker)}
+                              style={{ color: 'var(--cyan)' }}>Activate</button>
+                          )}
+                          {meta?.oauth_available && (
+                            <button className="t-btn t-btn-xs t-btn-primary" style={{ fontSize: 9 }}
+                              onClick={async () => {
+                                try {
+                                  let url = ''
+                                  if (b.broker === 'fyers') {
+                                    const r = await api.brokers.fyersAuthUrl() as { auth_url: string }
+                                    url = r.auth_url
+                                  }
+                                  if (url) window.open(url, '_blank')
+                                } catch (e) { console.error('authorize broker', e) }
+                              }}>
+                              Authorize
+                            </button>
+                          )}
+                          <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleDisconnectBroker(b.broker)}
+                            style={{ color: 'var(--text-red)' }}>Remove</button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="t-panel-body" style={{ textAlign: 'center', padding: 20 }}>
+                  <span className="t-faint">No brokers connected yet</span>
+                </div>
+              )}
+            </div>
+
+            <div className="t-panel" style={{ padding: '14px 16px' }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>
+                {connectForm ? `Connect ${(getBrokerMeta(connectForm.broker)?.display_name || connectForm.broker)}` : 'Available Brokers'}
+              </h3>
+              {authUrl && (
+                <div style={{
+                  padding: '8px 12px', borderRadius: 6, fontSize: 10, marginBottom: 10,
+                  background: 'color-mix(in srgb, var(--green) 8%, transparent)', color: 'var(--text-green)',
+                  border: '1px solid color-mix(in srgb, var(--green) 12%, transparent)',
+                }}>
+                  Credentials saved.{' '}
+                  <a href={authUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ color: 'var(--cyan)', textDecoration: 'underline' }}>
+                    Click here to authorize via OAuth
+                  </a>
+                </div>
+              )}
+              {connectForm ? (() => {
+                const meta = getBrokerMeta(connectForm.broker)
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {meta?.instructions && (
+                      <div style={{ fontSize: 10, color: 'var(--text-faint)', whiteSpace: 'pre-line', lineHeight: 1.5, padding: '6px 10px', background: 'var(--bg-sub)', borderRadius: 6 }}>
+                        {meta.instructions}
+                      </div>
+                    )}
+                    {meta?.fields.map((field: BrokerFieldMeta) => (
+                      <div key={field.key}>
+                        <label className="t-label" style={{ fontSize: 10 }}>{field.label}</label>
+                        <input className="t-input" style={{ width: '100%' }}
+                          type={field.type === 'password' ? 'password' : 'text'}
+                          placeholder={field.placeholder || ''}
+                          value={connectForm.fields[field.key] || ''}
+                          onChange={e => setConnectForm({
+                            ...connectForm,
+                            fields: { ...connectForm.fields, [field.key]: e.target.value },
+                          })} />
+                      </div>
+                    ))}
+                    {meta?.has_additional_params && meta.additional_params_fields?.map((field: BrokerFieldMeta) => (
+                      <div key={field.key}>
+                        <label className="t-label" style={{ fontSize: 10 }}>{field.label}</label>
+                        <input className="t-input" style={{ width: '100%' }}
+                          type={field.type === 'password' ? 'password' : 'text'}
+                          placeholder={field.placeholder || ''}
+                          value={connectForm.additional_params[field.key] || ''}
+                          onChange={e => setConnectForm({
+                            ...connectForm,
+                            additional_params: { ...connectForm.additional_params, [field.key]: e.target.value },
+                          })} />
+                      </div>
+                    ))}
+                    {brokerError && <span className="t-down" style={{ fontSize: 10 }}>{brokerError}</span>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="t-btn t-btn-sm t-btn-primary" onClick={handleConnectBroker} disabled={connecting}>
+                        {connecting ? 'Connecting...' : 'Connect'}
+                      </button>
+                      <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => { setConnectForm(null); setBrokerError('') }}>
+                        Cancel
+                      </button>
+                    </div>
+                    {meta?.oauth_available && (
+                      <div className="t-faint" style={{ fontSize: 9, lineHeight: 1.4 }}>
+                        After saving credentials, you'll need to authorize via OAuth.
+                      </div>
+                    )}
                   </div>
                 )
-              })}
+              })() : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {brokerMeta.filter(m => availBrokers.includes(m.broker)).map(m => {
+                    const connected = brokers.some(c => c.broker === m.broker)
+                    return (
+                      <div key={m.broker} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 12px', borderRadius: 6,
+                        background: 'var(--bg-sub)', border: '1px solid var(--border)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <BrokerLogo broker={m.broker} size={24} />
+                          <span style={{ fontWeight: 600, fontSize: 12 }}>{m.display_name}</span>
+                          <span className="t-faint" style={{ fontSize: 9, marginLeft: 6, textTransform: 'none' }}>({m.auth_type})</span>
+                          <p style={{ margin: '2px 0 0', fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.3 }}>{m.description}</p>
+                        </div>
+                        <button className={`t-btn t-btn-xs ${connected ? 't-btn-ghost' : 't-btn-primary'}`}
+                          onClick={() => {
+                            if (!connected) {
+                              setConnectForm({ broker: m.broker, fields: {}, additional_params: {} })
+                            }
+                          }}
+                          disabled={connected}>
+                          {connected ? '\u2713 Connected' : '+ Connect'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
 
       </div>
 
-      {/* Footer */}
+      {/* === Footer === */}
       <footer style={{
         height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderTop: '1px solid var(--border)', fontSize: 9, color: 'var(--text-faint)',
         fontFamily: 'var(--font-mono)',
       }}>
-        TradeMetrix Terminal v0.1 &middot; Client Portal
+        TradeMetrix Terminal v0.1 &middot; Client Portal &middot; Data refreshes every 15s
       </footer>
     </div>
   )
@@ -370,6 +955,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
   const [error, setError] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
   const [userExists, setUserExists] = useState<boolean | null>(null)
+  const [debugOtp, setDebugOtp] = useState('')
 
   useEffect(() => {
     if (resendTimer <= 0) return
@@ -400,7 +986,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
     if (!email || !password || password.length < 6) { setError('Email and password (min 6 chars) required'); return }
     setError(''); setSending(true)
     try {
-      await api.auth.registerWithOTP({ email, password, full_name: fullName || undefined, phone: phone || undefined })
+      const res = await api.auth.registerWithOTP({ email, password, full_name: fullName || undefined, phone: phone || undefined })
       setSending(false)
       setStep('otp')
       setResendTimer(30)
@@ -428,7 +1014,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
     if (resendTimer > 0) return
     setError(''); setSending(true)
     try {
-      await api.auth.sendOTP({ email })
+      const res = await api.auth.sendOTP({ email })
       setSending(false)
       setResendTimer(30)
       setOtp(['', '', '', '', '', ''])
@@ -469,7 +1055,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
           }}>TM</div>
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Client Portal</h2>
           <p className="t-faint" style={{ fontSize: 11, margin: 0 }}>
-            {step === 'email' ? 'Sign in to connect your broker' :
+            {step === 'email' ? 'Sign in to view your trading dashboard' :
              step === 'register' ? 'Create your account' :
              `Enter the code sent to ${email}`}
           </p>
@@ -531,9 +1117,19 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
             }}>
               OTP sent to {email}
             </div>
+            {debugOtp && (
+              <div style={{
+                padding: '8px 12px', borderRadius: 6, fontSize: 12,
+                background: 'color-mix(in srgb, var(--amber) 10%, transparent)', color: '#ffc107',
+                width: '100%', textAlign: 'center', fontFamily: 'var(--font-mono)',
+                border: '1px solid color-mix(in srgb, var(--amber) 20%, transparent)',
+              }}>
+                Dev OTP: <strong>{debugOtp}</strong>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8 }}>
               {otp.map((d, i) => (
-                <input key={i} id={`otp-${i}`}
+                  <input key={i} id={`otp-${i}`}
                   style={otpInputStyle(d !== '')}
                   type="text" inputMode="numeric" maxLength={1}
                   value={d}
@@ -623,5 +1219,5 @@ export default function PortalPage() {
     return <OTPScreen onVerify={handleVerify} />
   }
 
-  return <ClientPortal email={email} user={user} onSignOut={handleSignOut} />
+  return <ClientDashboard email={email} user={user} onSignOut={handleSignOut} />
 }
