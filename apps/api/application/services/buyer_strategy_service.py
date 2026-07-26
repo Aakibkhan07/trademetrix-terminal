@@ -34,7 +34,7 @@ class BuyerStrategyService:
         caps = await resolve_capabilities_by_id(user_id)
         statuses = await buyer_strategy_runner.get_statuses()
         user_active = sum(
-            1 for s in statuses.values()
+            1 for s in (statuses if isinstance(statuses, list) else statuses.values())
             if s.get("user_id") == user_id and s.get("status") == "RUNNING"
         )
         if user_active >= caps.max_active_strategies:
