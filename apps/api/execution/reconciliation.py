@@ -3,6 +3,7 @@ import logging
 from datetime import UTC, datetime
 
 from core.db import async_supabase, get_supabase
+from core.notifications import send_telegram_alert
 from core.safe_query import async_safe_execute
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,18 @@ async def reconcile_user_positions(user_id: str, broker: str) -> dict:
         "mismatches": mismatches,
         "mismatch_count": len(mismatches),
     }
+    if mismatches:
+        msg = (
+            f"\U0001f534 <b>Position Mismatch</b>\n"
+            f"User: {user_id[:8]}...\n"
+            f"Broker: {broker.upper()}\n"
+            f"Mismatches: {len(mismatches)}\n"
+        )
+        for m in mismatches[:5]:
+            msg += f"{m['symbol']}: remote={m['remote_qty']} db={m['db_qty']} diff={m['diff']:+d}\n"
+        if len(mismatches) > 5:
+            msg += f"... and {len(mismatches) - 5} more"
+        await send_telegram_alert(msg)
 
 async def sync_all_positions():
     supabase = get_supabase()

@@ -50,7 +50,10 @@ class RedisCache:
         if not self._enabled or not self._redis:
             return False
         try:
-            await self._redis.setex(key, ttl, json.dumps(value))
+            if ttl is None:
+                await self._redis.set(key, json.dumps(value))
+            else:
+                await self._redis.setex(key, ttl, json.dumps(value))
             return True
         except Exception:
             return False
@@ -77,6 +80,23 @@ class RedisCache:
         if self._redis:
             await self._redis.close()
             self._redis = None
+
+    async def rpush(self, key: str, value: str) -> bool:
+        if not self._enabled or not self._redis:
+            return False
+        try:
+            await self._redis.rpush(key, value)
+            return True
+        except Exception:
+            return False
+
+    async def lpop(self, key: str) -> str | None:
+        if not self._enabled or not self._redis:
+            return None
+        try:
+            return await self._redis.lpop(key)
+        except Exception:
+            return None
 
 
 cache = RedisCache()

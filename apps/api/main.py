@@ -52,6 +52,7 @@ from routes.v1_squareoff import service as squareoff_service
 from routes.v1_multileg import router as multileg_router
 from application.services.cleanup_service import CleanupService
 from routes.v1_referrals import router as referrals_router
+from routes.v1_broker_webhook import router as broker_webhook_router
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,18 @@ async def _startup_recovery():
             logger.info("Startup recovery reconciled %d pending orders", result["reconciled"])
     except Exception as e:
         logger.warning("Startup recovery skipped: %s", e)
+
+
+async def _start_watchdog():
+    from execution.token_watchdog import token_watchdog_loop
+    asyncio.ensure_future(token_watchdog_loop())
+    logger.info("Token watchdog started")
+
+
+async def _start_webhook_retry():
+    from execution.webhook_retry import retry_webhook_worker
+    asyncio.ensure_future(retry_webhook_worker())
+    logger.info("Webhook retry worker started")
 
 
 @asynccontextmanager
@@ -92,6 +105,8 @@ async def lifespan(app: FastAPI):
     cleanup_service.start_scheduler()
     from execution.recovery import reconcile_pending_orders
     asyncio.ensure_future(_startup_recovery())
+    asyncio.ensure_future(_start_watchdog())
+    asyncio.ensure_future(_start_webhook_retry())
     yield
     cleanup_service.stop_scheduler()
     squareoff_service.stop_scheduler()
@@ -180,6 +195,7 @@ app.include_router(squareoff_router, prefix="/api/v1")
 app.include_router(multileg_router, prefix="/api/v1")
 app.include_router(subscriptions_router, prefix="/api/v1")
 app.include_router(referrals_router, prefix="/api/v1")
+app.include_router(broker_webhook_router, prefix="/api/v1")
 
 
 @app.exception_handler(AppException)

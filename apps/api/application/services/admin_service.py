@@ -448,6 +448,25 @@ class AdminService:
         await record_audit(admin_id, "broadcast_notify", "broadcast", {"type": notify_type, "recipients": len(users), "success": success_count})
         return {"results": results, "total": len(users), "success": success_count, "failed": len(users) - success_count}
 
+    async def get_kill_switch(self) -> dict:
+        from core.cache import cache
+        status = await cache.get("global:kill_switch")
+        return {"kill_switch": status == "1"}
+
+    async def enable_kill_switch(self) -> dict:
+        from core.cache import cache
+        from core.notifications import send_telegram_alert
+        await cache.set("global:kill_switch", "1", ex=None)
+        await send_telegram_alert("\U0001f6ab <b>GLOBAL KILL SWITCH ENABLED</b>\nAll trading halted by admin.")
+        return {"kill_switch": True, "message": "Global kill switch ENABLED"}
+
+    async def disable_kill_switch(self) -> dict:
+        from core.cache import cache
+        from core.notifications import send_telegram_alert
+        await cache.delete("global:kill_switch")
+        await send_telegram_alert("\u2705 <b>GLOBAL KILL SWITCH DISABLED</b>\nTrading resumed.")
+        return {"kill_switch": False, "message": "Global kill switch DISABLED"}
+
     async def list_brokers(self, limit: int = 100, offset: int = 0) -> dict:
         supabase = get_supabase()
         creds = await async_safe_execute(

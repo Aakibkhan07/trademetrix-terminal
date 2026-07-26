@@ -73,6 +73,10 @@ broadcast_recipients = Histogram(
     buckets=(1, 5, 10, 25, 50, 100),
 )
 
+rate_limit_breaches = Counter(
+    "rate_limit_breaches_total", "Rate limit breaches", ["broker"]
+)
+
 
 def record_broker_metrics(broker: str, operation: str, duration_s: float, success: bool):
     broker_request_duration_seconds.labels(broker=broker, operation=operation).observe(duration_s)
@@ -85,6 +89,10 @@ def record_broker_metrics(broker: str, operation: str, duration_s: float, succes
 def record_broadcast_metrics(strategy_key: str, total: int, success_count: int, paper: bool):
     broadcast_total.labels(strategy_key=strategy_key, paper=str(paper)).inc()
     broadcast_recipients.labels(strategy_key=strategy_key).observe(total)
+
+
+def record_rate_limit_breach(broker: str):
+    rate_limit_breaches.labels(broker=broker).inc()
 
 
 def record_metrics(method: str, path: str, status_code: int, duration_s: float):

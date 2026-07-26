@@ -1,8 +1,10 @@
+import json
 import logging
 
 from fastapi import APIRouter, HTTPException, Request
 
 from application.services.tradingview_service import TradingViewService
+from execution.webhook_retry import enqueue_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +19,20 @@ async def tradingview_webhook(request: Request):
 
     try:
         result = await service.handle_webhook(body, signature)
+        return result
     except ValueError as e:
-        if "signature" in str(e).lower() or "signature" in str(e):
+        if "signature" in str(e).lower():
             raise HTTPException(status_code=401, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
-
-    return result
+    except Exception as e:
+        logger.warning("Webhook execution failed, enqueuing for retry: %s", e)
+        try:
+            payload = json.loads(body)
+            payload["_signature"] = signature
+            await enqueue_webhook(payload)
+        except Exception:
+            pass
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.get("/webhook-info")

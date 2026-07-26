@@ -210,13 +210,16 @@ async def execute_order(
     order: NormalizedOrder,
     *,
     source: str = "manual",
+    idempotency_key: str | None = None,
 ) -> OrderResult:
     from execution import execution_manager
 
     order.user_id = user_id
     order.source = source
 
-    if not order.client_order_id:
+    if idempotency_key:
+        order.client_order_id = idempotency_key
+    elif not order.client_order_id:
         order.client_order_id = generate_client_order_id(
             user_id,
             order.symbol,

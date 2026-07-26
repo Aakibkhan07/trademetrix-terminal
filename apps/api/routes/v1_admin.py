@@ -169,6 +169,25 @@ async def admin_broadcast_recipients(
     return await _service.get_broadcast_recipients(strategy_key)
 
 
+@router.get("/kill-switch")
+async def admin_get_kill_switch(
+    admin: UserProfile = Depends(require_super_admin),
+):
+    return await _service.get_kill_switch()
+
+
+@router.post("/kill-switch")
+async def admin_toggle_kill_switch(
+    action: str = Query("toggle"),
+    admin: UserProfile = Depends(require_super_admin),
+):
+    if action == "enable":
+        return await _service.enable_kill_switch()
+    elif action == "disable":
+        return await _service.disable_kill_switch()
+    return await _service.get_kill_switch()
+
+
 @router.post("/broadcast")
 async def admin_broadcast(
     req: BroadcastRequest,
