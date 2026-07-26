@@ -59,24 +59,27 @@ class RiskGuard:
         data["strategy_id"] = settings.strategy_id
         data["updated_at"] = datetime.now(UTC).isoformat()
         try:
-            existing = await async_safe_execute(
-                supabase.table("risk_settings")
-                .select("id")
-                .eq("user_id", self.user_id)
-                .eq("strategy_id", settings.strategy_id)
-                .limit(1)
-            )
-            if existing:
-                await async_safe_execute(
+            existing = []
+            if settings.strategy_id is None:
+                existing = await async_safe_execute(
                     supabase.table("risk_settings")
-                    .update(data)
-                    .eq("id", existing[0]["id"])
+                    .select("id")
+                    .eq("user_id", self.user_id)
+                    .is_("strategy_id", "null")
+                    .limit(1)
                 )
             else:
-                await async_safe_execute(
+                existing = await async_safe_execute(
                     supabase.table("risk_settings")
-                    .insert(data)
+                    .select("id")
+                    .eq("user_id", self.user_id)
+                    .eq("strategy_id", settings.strategy_id)
+                    .limit(1)
                 )
+            if existing:
+                await async_supabase(lambda: supabase.table("risk_settings").update(data).eq("id", existing[0]["id"]).execute())
+            else:
+                await async_supabase(lambda: supabase.table("risk_settings").insert(data).execute())
         except Exception as e:
             logger.warning("Failed to update risk settings: %s", e)
 
