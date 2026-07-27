@@ -702,7 +702,7 @@ function BrokersTab() {
                             try {
                               const res = await api.get<{ auth_url: string }>('/brokers/fyers/auth-url')
                               window.open(res.auth_url, '_blank', 'width=600,height=700')
-                            } catch {}
+                            } catch (e) { console.error('Failed to get OAuth URL', e) }
                           }}>
                           OAuth
                         </button>
@@ -968,7 +968,7 @@ function StrategiesTab() {
     try {
       await api.admin.assignments.remove(id)
       triggerRefresh()
-    } catch {}
+        } catch (e) { console.error('Failed to search instruments', e) }
   }
 
   const handleAdd = async () => {
@@ -1438,7 +1438,7 @@ function TradesTab() {
           const expiry = d.expiry || d.expiries?.[0] || ''
           setChainCache(prev => ({ ...prev, [sym]: { expiry, chain: raw } }))
         }
-      } catch {}
+      } catch (e) { console.error('Failed to fetch chain', e) }
     })
   }, [])
 
@@ -1470,7 +1470,7 @@ function TradesTab() {
           const d = await r.json()
           setResults(d.instruments || [])
           setDropdownOpen(true)
-        } catch {}
+    } catch (e) { console.error('Failed to unassign', e) }
         setSearching(false)
       }
     }, 200)
@@ -1972,8 +1972,8 @@ function RiskTab() {
               </tr>
             </thead>
             <tbody>
-              {settings.map((s, i) => (
-                <tr key={s.user_id + '-' + i} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
+              {settings.map((s) => (
+                <tr key={s.user_id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                   <td style={{ padding: '6px 8px' }}>
                     <div style={{ fontWeight: 600, color: 'var(--text)' }}>{s.full_name || s.email?.split('@')[0] || '—'}</div>
                     <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{s.email}</div>

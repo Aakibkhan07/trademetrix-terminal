@@ -150,12 +150,13 @@ function BarChart({ data, height = 120 }: { data: { label: string; value: number
     <svg viewBox={`0 0 ${w} ${height}`} style={{ width: '100%', height: 'auto' }}>
       <line x1={40} y1={height - 20} x2={w - 10} y2={height - 20} stroke="color-mix(in srgb, var(--text-inverse) 6%, transparent)" />
       <line x1={40} y1={20} x2={40} y2={height - 20} stroke="color-mix(in srgb, var(--text-inverse) 6%, transparent)" />
-      {data.map((d, i) => {
+      {data.map((d) => {
+        const i = data.indexOf(d)
         const xPos = 44 + i * (barW + 4)
         const barH = (Math.abs(d.value) / maxVal) * (height - 40)
         const yPos = d.value >= 0 ? height - 20 - barH : height - 20
         return (
-          <g key={i}>
+          <g key={d.label}>
             <rect x={xPos} y={yPos} width={barW} height={Math.max(1, barH)} rx={2} fill={d.color || (d.value >= 0 ? 'var(--green)' : 'var(--red)')} opacity={0.7} />
             {height > 80 && (
               <text x={xPos + barW / 2} y={height - 6} textAnchor="middle" fill="var(--text-faint)" fontSize={7} fontFamily="var(--font-sans)">
@@ -376,9 +377,9 @@ function BacktestContent() {
                 <div className="t-panel" style={{ padding: 12 }}>
                   <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>Largest Drawdowns</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {drawdowns.slice(0, 3).map((dd, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-faint)', width: 16 }}>#{i + 1}</span>
+                    {drawdowns.slice(0, 3).map((dd, idx) => (
+                      <div key={`${dd.depth}-${dd.from}-${dd.to}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-faint)', width: 16 }}>#{idx + 1}</span>
                         <div style={{ flex: 1, height: 6, background: 'var(--panel-2)', borderRadius: 3, overflow: 'hidden' }}>
                           <div style={{ width: `${Math.min(dd.depth / (drawdowns[0]?.depth || 1) * 100, 100)}%`, height: '100%', background: 'var(--red)', borderRadius: 3, opacity: 0.6 }} />
                         </div>
@@ -560,9 +561,9 @@ function BacktestContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {r.trades.map((t, i) => (
-                      <tr key={i}>
-                        <td className="t-faint">{i + 1}</td>
+                    {r.trades.map((t, idx) => (
+                      <tr key={t.entry_time}>
+                        <td className="t-faint">{idx + 1}</td>
                         <td style={{ fontWeight: 600 }}>{t.symbol}</td>
                         <td><span className={t.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{t.side}</span></td>
                         <td className="t-num">{t.entry_price.toFixed(1)}</td>

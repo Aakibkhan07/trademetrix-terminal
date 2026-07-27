@@ -25,11 +25,12 @@ function BarChart({ data, height = 100 }: { data: { label: string; value: number
   const maxVal = Math.max(...data.map(d => Math.abs(d.value)), 1)
   return (
     <svg viewBox={`0 0 ${data.length * 28} ${height}`} style={{ width: '100%', height: 'auto' }}>
-      {data.map((d, i) => {
+      {data.map((d) => {
+        const i = data.indexOf(d)
         const barH = (Math.abs(d.value) / maxVal) * (height - 28)
         const yPos = d.value >= 0 ? height - 24 - barH : height - 24
         return (
-          <g key={i}>
+          <g key={d.label}>
             <rect x={i * 28 + 4} y={yPos} width={20} height={Math.max(2, barH)} rx={2} fill={d.color || (d.value >= 0 ? 'var(--green)' : 'var(--red)')} opacity={0.7} />
             <text x={i * 28 + 14} y={height - 8} textAnchor="middle" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-sans)">
               {d.label}

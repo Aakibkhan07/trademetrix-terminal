@@ -34,7 +34,7 @@ export function UserStrategiesTab() {
     try {
       await fetch(`/api/v1/user-strategies/${id}`, { method: 'DELETE' })
       setRefreshKey(k => k + 1)
-    } catch {}
+    } catch (e) { console.error('Failed to delete strategy', e) }
     setDeleting(null)
   }
 

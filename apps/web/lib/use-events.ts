@@ -46,10 +46,10 @@ export function useEvents() {
           if (wildcardListeners) {
             wildcardListeners.forEach(cb => cb(data))
           }
-        } catch {}
+        } catch (e) { console.error('useEvents parse', e) }
       }
       eventSourceRef.current = es
-    } catch {}
+    } catch (e) { console.error('useEvents connect', e) }
   }, [])
 
   useEffect(() => {

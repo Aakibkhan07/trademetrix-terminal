@@ -23,7 +23,7 @@ export function IPWhitelistTab() {
       const r = await fetch('/api/v1/admin/ip-whitelist')
       const d = await r.json()
       setIps(d.ips || [])
-    } catch {}
+    } catch (e) { console.error('Failed to load IP whitelist', e) }
     setLoading(false)
   }
 

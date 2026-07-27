@@ -41,7 +41,7 @@ export function TradeRouterTab() {
           const expiry = d.expiry || d.expiries?.[0] || ''
           setChainCache(prev => ({ ...prev, [sym]: { expiry, chain: raw } }))
         }
-      } catch {}
+        } catch (e) { console.error('Failed to search instruments', e) }
     })
   }, [])
 
@@ -74,7 +74,7 @@ export function TradeRouterTab() {
           const d = rawText ? JSON.parse(rawText) : {}
           setResults(d.instruments || [])
           setDropdownOpen(true)
-        } catch {}
+      } catch (e) { console.error('Failed to fetch chain cache', e) }
         setSearching(false)
       }
     }, 200)

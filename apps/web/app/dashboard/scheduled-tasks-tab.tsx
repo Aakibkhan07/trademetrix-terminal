@@ -31,7 +31,7 @@ export function ScheduledTasksTab() {
     try {
       const r = await fetch('/api/v1/admin/scheduled-tasks')
       if (r.ok) setData(await r.json())
-    } catch {}
+    } catch (e) { console.error('Failed to load scheduled tasks', e) }
     setLoading(false)
   }
 

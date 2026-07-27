@@ -272,12 +272,12 @@ export default function TerminalPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {positions.map((p, i) => {
+                    {positions.map((p) => {
                       const live = ticks[p.symbol]
                       const ltp = live?.last_price || p.average_buy_price || 0
                       const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : p.unrealised_pnl
                       return (
-                        <tr key={i}>
+                        <tr key={p.symbol}>
                           <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
                           <td className="t-num">{p.quantity}</td>
                           <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>

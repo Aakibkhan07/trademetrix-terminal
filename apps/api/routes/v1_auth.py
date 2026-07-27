@@ -249,6 +249,7 @@ async def get_csrf_token(response: Response):
         path="/",
         domain=settings.cookie_domain or None,
     )
+    response.headers["X-CSRF-Token"] = token
     return {"csrf_token": token}
 
 

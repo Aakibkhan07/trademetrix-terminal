@@ -72,15 +72,25 @@ async def _fetch_fyers_token() -> str | None:
         return None
 
     try:
-        client_id = fernet.decrypt(encrypted_api_key.encode()).decode() if encrypted_api_key else ""
-        access_token = fernet.decrypt(encrypted_token.encode()).decode()
+        access_token = None
+        if encrypted_token:
+            try:
+                access_token = fernet.decrypt(encrypted_token.encode()).decode()
+            except Exception as e:
+                logger.warning("Failed to decrypt access_token: %s", e)
+        client_id = ""
+        if encrypted_api_key:
+            try:
+                client_id = fernet.decrypt(encrypted_api_key.encode()).decode()
+            except Exception as e:
+                logger.warning("Failed to decrypt api_key (non-fatal): %s", e)
+        if not access_token:
+            logger.warning("Fyers credentials exist but no access_token could be decrypted")
+            return None
         logger.info("Fetched Fyers credentials from DB (client_id=%s)", client_id)
         return access_token
     except Exception as e:
-        logger.warning(
-            "Could not decrypt Fyers credentials (key may have been rotated). "
-            "Re-run OAuth flow via the web app to get a fresh token. %s", e
-        )
+        logger.warning("Failed to decrypt Fyers credentials: %s", e)
         return None
 
 
@@ -173,6 +183,18 @@ async def publish_ticks(redis_url: str, symbols: list[str]) -> None:
 
         try:
             await loop.run_in_executor(None, ws_connect)
+            ws_connected = asyncio.Event()
+            original_on_connect = on_connect
+
+            def wrapped_on_connect():
+                original_on_connect()
+                ws_connected.set()
+            fyers.on_connect = wrapped_on_connect
+            await loop.run_in_executor(None, ws_connect)
+            try:
+                await asyncio.wait_for(ws_connected.wait(), timeout=10)
+            except asyncio.TimeoutError:
+                logger.warning("Fyers WS connect callback timed out — subscribing anyway")
             logger.info("Fyers WS connected, subscribing to %s", symbols)
             fyers.subscribe(symbols=symbols, data_type="SymbolUpdate", channel=11)
         except Exception as e:

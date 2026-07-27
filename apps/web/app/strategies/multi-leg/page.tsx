@@ -101,7 +101,7 @@ export default function MultiLegPage() {
     try {
       const res = await api.multiLeg.list() as any
       setStrategies(res.strategies || [])
-    } catch {} finally { setLoading(false) }
+    } catch (e) { console.error('Failed to load multi-leg strategies', e) } finally { setLoading(false) }
   }
 
   const applyTemplate = (key: string) => {

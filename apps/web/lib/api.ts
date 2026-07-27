@@ -158,25 +158,31 @@ interface ApiOptions {
   signal?: AbortSignal
 }
 
+let _csrfToken = ''
+let _csrfFetching = false
+
 function getCSRFToken(): string {
-  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)
-  return match ? decodeURIComponent(match[1]) : ''
+  return _csrfToken
 }
 
-let _csrfBootstrapped = false
-
 async function _ensureCSRF(): Promise<void> {
-  if (getCSRFToken()) return
+  if (_csrfToken || _csrfFetching) return
+  _csrfFetching = true
   try {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 5000)
-    await fetch(`${API_BASE}/auth/csrf`, {
+    const res = await fetch(`${API_BASE}/auth/csrf`, {
       credentials: 'include',
       signal: ctrl.signal,
     })
     clearTimeout(t)
+    if (res.ok) {
+      const data = await res.json()
+      _csrfToken = data.csrf_token || ''
+    }
   } catch {
-    // CSRF bootstrap non-critical
+  } finally {
+    _csrfFetching = false
   }
 }
 
@@ -191,48 +197,61 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   if (method !== 'GET') {
-    if (!_csrfBootstrapped) {
-      _csrfBootstrapped = true
-      await _ensureCSRF()
-    }
+    await _ensureCSRF()
     const csrf = getCSRFToken()
-    if (!csrf) {
-      throw new ApiError(0, 'CSRF token not available — refresh or sign in again')
-    }
-    finalHeaders['X-CSRF-Token'] = csrf
+    if (csrf) finalHeaders['X-CSRF-Token'] = csrf
   }
 
-  const ctrl = new AbortController()
-  const t = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT)
-  const onAbort = () => { clearTimeout(t); ctrl.abort() }
-  if (signal) signal.addEventListener('abort', onAbort, { once: true })
+  const _doFetch = async (): Promise<T> => {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT)
+    const onAbort = () => { clearTimeout(t); ctrl.abort() }
+    if (signal) signal.addEventListener('abort', onAbort, { once: true })
+
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers: finalHeaders,
+        credentials: 'include',
+        body: body ? JSON.stringify(body) : undefined,
+        signal: ctrl.signal,
+      })
+
+      clearTimeout(t)
+      if (signal) signal.removeEventListener('abort', onAbort)
+
+      if (res.status === 204) return undefined as T
+
+      let data: any
+      const text = await res.text()
+      try { data = JSON.parse(text) } catch { data = { detail: text } }
+
+      const newCsrf = res.headers.get('X-CSRF-Token')
+      if (newCsrf) _csrfToken = newCsrf
+
+      if (!res.ok) {
+        throw new ApiError(res.status, data.detail || `Request failed: ${res.status}`)
+      }
+
+      return data as T
+    } catch (e) {
+      clearTimeout(t)
+      if (signal) signal.removeEventListener('abort', onAbort)
+      throw e
+    }
+  }
 
   try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers: finalHeaders,
-      credentials: 'include',
-      body: body ? JSON.stringify(body) : undefined,
-      signal: ctrl.signal,
-    })
-
-    clearTimeout(t)
-    if (signal) signal.removeEventListener('abort', onAbort)
-
-    if (res.status === 204) return undefined as T
-
-    let data: any
-    const text = await res.text()
-    try { data = JSON.parse(text) } catch { data = { detail: text } }
-
-    if (!res.ok) {
-      throw new ApiError(res.status, data.detail || `Request failed: ${res.status}`)
-    }
-
-    return data as T
+    return await _doFetch()
   } catch (e) {
-    clearTimeout(t)
-    if (signal) signal.removeEventListener('abort', onAbort)
+    if (e instanceof ApiError && e.status === 403 && method !== 'GET') {
+      _csrfToken = ''
+      await _ensureCSRF()
+      if (getCSRFToken()) {
+        finalHeaders['X-CSRF-Token'] = getCSRFToken()
+        return await _doFetch()
+      }
+    }
     throw e
   }
 }

@@ -62,5 +62,6 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
                 path="/",
                 domain=settings.cookie_domain or None,
             )
+            response.headers["X-CSRF-Token"] = token
 
         return response

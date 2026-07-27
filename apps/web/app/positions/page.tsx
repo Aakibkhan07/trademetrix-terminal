@@ -43,7 +43,7 @@ export default function PositionsPage() {
       setOrders((o as any).orders || [])
       setFunds((f as any).funds || null)
       setLastRefresh(new Date().toLocaleTimeString())
-    } catch {} finally { setLoading(false) }
+    } catch (e) { console.error('Failed to load positions', e) } finally { setLoading(false) }
   }, [])
 
   usePolling(loadData, 10000, !!token)
@@ -152,13 +152,14 @@ export default function PositionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {positions.map((p: any, i: number) => {
+                {positions.map((p: any) => {
                   const live = ticks[p.symbol]
                   const ltp = live?.last_price || p.last_price || 0
                   const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : p.unrealised_pnl
                   const pnlPct = p.average_buy_price ? (pnl / (Math.abs(p.quantity) * p.average_buy_price) * 100) : 0
+                  const posKey = p.id || `${p.symbol}|${p.quantity}|${p.average_buy_price}`
                   return (
-                    <tr key={i}>
+                    <tr key={posKey}>
                       <td style={{ fontWeight: 600 }}>{p.symbol?.split(':').pop()}</td>
                       <td>
                         <span className={`t-badge ${p.instrument_type === 'OPT' ? 't-badge-violet' : p.instrument_type === 'FUT' ? 't-badge-cyan' : 't-badge-green'}`}>
@@ -233,8 +234,10 @@ export default function PositionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o: any, i: number) => (
-                  <tr key={i}>
+                {orders.map((o: any) => {
+                  const ordKey = o.id || `${o.symbol}|${o.created_at}|${o.side}`
+                  return (
+                  <tr key={ordKey}>
                     <td style={{ fontWeight: 600 }}>{o.symbol?.split(':').pop()}</td>
                     <td>
                       <span className={`t-badge ${o.instrument_type === 'OPT' ? 't-badge-violet' : o.instrument_type === 'FUT' ? 't-badge-cyan' : 't-badge-green'}`}>
@@ -265,7 +268,8 @@ export default function PositionsPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

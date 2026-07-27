@@ -64,7 +64,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signout: async () => {
     try {
       await api.auth.signout()
-    } catch { }
+    } catch (e) { console.error('Failed to sign out', e) }
     set({ user: null, token: false, tier: 'free', isAdmin: false })
   },
 

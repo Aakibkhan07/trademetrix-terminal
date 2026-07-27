@@ -138,7 +138,7 @@ export default function MarketDataPage() {
       setApiStocks(data.stocks || [])
       const allSymbols = [...(data.indices || []), ...(data.stocks || []), ...customItems].map(i => i.symbol)
       subscribe(allSymbols)
-    } catch {}
+    } catch (e) { console.error('Failed to load watchlist', e) }
   }, [subscribe, customItems])
 
   useEffect(() => { loadWatchlist() }, [loadWatchlist])
@@ -227,7 +227,7 @@ export default function MarketDataPage() {
     const alert = alerts.find(a => a.id === id)
     setAlerts(prev => prev.filter(a => a.id !== id))
     if (alert?.backendId) {
-      try { await api.alerts.remove(alert.backendId) } catch {}
+      try { await api.alerts.remove(alert.backendId) } catch (e) { console.error('Failed to remove alert', e) }
     }
   }
 

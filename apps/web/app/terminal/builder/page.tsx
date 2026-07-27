@@ -689,8 +689,8 @@ function StrategyList({
                   <p style={{ fontSize: 10, color: 'var(--text-faint)' }}>Loading...</p>
                 ) : strategyActivity[s.id]?.length ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
-                    {strategyActivity[s.id].map((e, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-sub)', padding: '2px 0', borderBottom: '1px solid var(--border)' }}>
+                    {strategyActivity[s.id].map((e) => (
+                      <div key={e.created_at} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-sub)', padding: '2px 0', borderBottom: '1px solid var(--border)' }}>
                         <span>{e.event.replace(/_/g, ' ')}</span>
                         <span style={{ color: 'var(--text-faint)', fontSize: 9 }}>{new Date(e.created_at).toLocaleString()}</span>
                       </div>
@@ -956,7 +956,7 @@ export default function BuilderPage() {
     try {
       const res = await api.userStrategies.activity(strategyId) as { activity: { created_at: string; event: string; details: string }[] }
       setStrategyActivity(prev => ({ ...prev, [strategyId]: res.activity }))
-    } catch { }
+    } catch (e) { console.error('Failed to load activity', e) }
     setActivityLoading(false)
   }
 

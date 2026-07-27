@@ -485,12 +485,12 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 <table className="t-table">
                   <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&L</th><th>Product</th><th>Type</th></tr></thead>
                   <tbody>
-                    {positions.slice(positionPage * PAGE_SIZE, (positionPage + 1) * PAGE_SIZE).map((p, i) => {
+                    {positions.slice(positionPage * PAGE_SIZE, (positionPage + 1) * PAGE_SIZE).map((p) => {
                       const live = ticks[p.symbol]
                       const ltp = live?.last_price || 0
                       const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
                       return (
-                        <tr key={i}>
+                        <tr key={p.symbol}>
                           <td style={{ fontWeight: 600 }}>{p.symbol}</td>
                           <td className="t-num">{p.quantity}</td>
                           <td className="t-num">\u20B9{fmt(p.average_buy_price)}</td>
@@ -684,8 +684,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                   <table className="t-table" style={{ fontSize: 10 }}>
                     <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&amp;L</th></tr></thead>
                     <tbody>
-                      {pnlBySymbol.map((p, i) => (
-                        <tr key={i}>
+                      {pnlBySymbol.map((p) => (
+                        <tr key={p.symbol}>
                           <td style={{ fontWeight: 600 }}>{p.symbol}</td>
                           <td className="t-num">{p.qty}</td>
                           <td className="t-num">\u20B9{fmt(p.avg)}</td>
@@ -1177,7 +1177,7 @@ export default function PortalPage() {
     if (savedEmail) {
       setEmail(savedEmail)
       if (savedUser) {
-        try { setUser(JSON.parse(savedUser)) } catch {}
+        try { setUser(JSON.parse(savedUser)) } catch (e) { console.error('Failed to parse saved user', e) }
       }
       setAuthenticated(true)
     }
