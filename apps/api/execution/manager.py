@@ -78,6 +78,7 @@ class ExecutionManager:
 
         state = ExecutionState.NEW
         result = ExecutionResult(execution_request_id=request_id)
+        payload = {}
 
         try:
             state = ExecutionState.VALIDATED

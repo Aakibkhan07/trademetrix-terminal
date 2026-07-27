@@ -52,6 +52,7 @@ class TradingViewService:
                 price=price if price else 0.0,
                 strategy_id=strategy_id or None,
                 reason=reason,
+                is_paper=False,
             )
             result = await execute_order(user_id, order, source=source)
             return {

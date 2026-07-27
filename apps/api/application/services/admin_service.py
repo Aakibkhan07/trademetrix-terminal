@@ -368,6 +368,7 @@ class AdminService:
                     quantity=scaled,
                     price=price if price else 0.0,
                     reason=broadcast_reason,
+                    is_paper=paper,
                 )
                 result = await execute_order(uid, order, source=source)
                 res = {

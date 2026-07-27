@@ -38,7 +38,10 @@ async def test_kill_switch_rejects():
         patch("engine.gate.async_safe_single") as mock_single,
         patch("engine.gate.async_supabase") as mock_sb,
     ):
-        mock_single.return_value = None
+        mock_single.side_effect = [
+            None,
+            {"broker": "angelone"},
+        ]
         mock_risk = MagicMock()
         mock_risk.check_order = AsyncMock(return_value={"allowed": False, "reason": "Kill switch is active"})
         mock_risk._load_settings = AsyncMock()
@@ -58,7 +61,10 @@ async def test_daily_loss_cap_rejects():
         patch("engine.gate.async_safe_single") as mock_single,
         patch("engine.gate.async_supabase") as mock_sb,
     ):
-        mock_single.return_value = None
+        mock_single.side_effect = [
+            None,
+            {"broker": "angelone"},
+        ]
         mock_risk = MagicMock()
         mock_risk.check_order = AsyncMock(return_value={"allowed": False, "reason": "Daily loss limit exceeded"})
         mock_risk._load_settings = AsyncMock()

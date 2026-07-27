@@ -247,6 +247,15 @@ async def execute_order(
 
         order.signal_at = datetime.now(UTC)
 
+        broker = await _resolve_broker(user_id)
+        if not broker:
+            order.status = OrderStatus.REJECTED
+            order.message = "NO_ACTIVE_BROKER"
+            await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
+            return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
+        order.broker = broker
+        order.is_paper = order.is_paper or broker == "paper"
+
         riskguard = RiskGuard(user_id)
         risk_check = await riskguard.check_order(order)
         order.risk_checked_at = datetime.now(UTC)
@@ -258,19 +267,17 @@ async def execute_order(
             await _write_audit(user_id, "rejected", order, source=source, reason=reason_code)
             return OrderResult(success=False, message=reason_code, status="rejected")
 
-        broker = await _resolve_broker(user_id)
-        if not broker:
-            order.status = OrderStatus.REJECTED
-            order.message = "NO_ACTIVE_BROKER"
-            await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
-            return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
-        order.broker = broker
-        order.is_paper = broker == "paper"
         broker_symbol = await symbol_master.resolve_symbol(order.symbol, broker)
         order.symbol = broker_symbol or order.symbol
 
         req = _normalized_to_execution_request(user_id, order, order.broker, source)
-        exec_result = await execution_manager.place_order(req)
+        try:
+            exec_result = await execution_manager.place_order(req)
+        except Exception as e:
+            logger.error("place_order raised for user=%s broker=%s: %s", user_id, order.broker, e)
+            order.status = OrderStatus.REJECTED
+            order.message = f"EXECUTION_ERROR: {e}"
+            return OrderResult(success=False, message=str(e), status="error")
 
         if exec_result.success:
             order.broker_order_id = exec_result.broker_order_id
