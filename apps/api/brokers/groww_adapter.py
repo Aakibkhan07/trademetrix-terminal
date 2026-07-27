@@ -435,6 +435,16 @@ class GrowwAdapter(BaseBroker):
         return mapping.get(ot, "MARKET")
 
     @staticmethod
+    def _unmap_order_type(val: str) -> OrderType:
+        mapping = {
+            "MARKET": OrderType.MARKET,
+            "LIMIT": OrderType.LIMIT,
+            "STOPLOSS_LIMIT": OrderType.SL,
+            "STOPLOSS_MARKET": OrderType.SLM,
+        }
+        return mapping.get(val.upper(), OrderType.MARKET)
+
+    @staticmethod
     def _map_product(p: ProductType) -> str:
         mapping = {
             ProductType.INTRADAY: "INTRADAY",
@@ -490,7 +500,7 @@ class GrowwAdapter(BaseBroker):
             symbol=item.get("tradingSymbol", item.get("symbol", "")),
             exchange=Exchange(item.get("exchange", "NSE")),
             side=OrderSide.BUY if item.get("transactionType", "").upper() == "BUY" else OrderSide.SELL,
-            order_type=OrderType.MARKET,
+            order_type=self._unmap_order_type(str(item.get("orderType", item.get("order_type", "MARKET")))),
             product=ProductType.INTRADAY,
             quantity=int(_dict_val(item, "qty", "quantity", default=0)),
             price=float(item.get("price", 0)),

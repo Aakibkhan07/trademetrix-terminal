@@ -224,7 +224,7 @@ class RiskSettings(BaseModel):
     max_drawdown_pct: float = 0.0
     kill_switch_enabled: bool = False
     is_live: bool = False
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime | None = None
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -232,7 +232,11 @@ class RiskSettings(BaseModel):
 TIER_ORDER: dict[str, int] = {
     "free": 0,
     "starter": 1,
+    "monthly": 2,
+    "quarterly": 2,
     "pro": 2,
+    "halfyearly": 3,
+    "yearly": 3,
     "enterprise": 3,
 }
 

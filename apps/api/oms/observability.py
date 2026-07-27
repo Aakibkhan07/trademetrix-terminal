@@ -9,6 +9,7 @@ class OMSMetrics:
         self._orders_submitted: int = 0
         self._orders_filled: int = 0
         self._orders_cancelled: int = 0
+        self._orders_partial: int = 0
         self._orders_rejected: int = 0
         self._orders_expired: int = 0
         self._queue_depth: int = 0
@@ -32,6 +33,10 @@ class OMSMetrics:
     def record_cancelled(self):
         with self._lock:
             self._orders_cancelled += 1
+
+    def record_partial(self):
+        with self._lock:
+            self._orders_partial += 1
 
     def record_rejected(self):
         with self._lock:

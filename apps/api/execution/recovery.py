@@ -29,9 +29,8 @@ async def reconcile_pending_orders():
         broker = o.get("broker", "")
         bo_id = o.get("broker_order_id", "")
         if not bo_id or not broker:
-            status = "FAILED"
-            await _mark_order(uid, bo_id, status, "No broker_order_id")
-            results.append({"order_id": bo_id, "status": status})
+            logger.warning("Skipping order %s for user %s: missing broker_order_id or broker", o.get("client_order_id", ""), uid)
+            results.append({"order_id": bo_id, "status": "SKIPPED", "reason": "missing broker_order_id or broker"})
             continue
         try:
             adapter = BrokerExecutionAdapter(uid, broker)
@@ -78,5 +77,5 @@ async def _touch_order(user_id: str, broker_order_id: str):
         await async_supabase(lambda: supabase.table("orders").update({
             "updated_at": datetime.now(UTC).isoformat(),
         }).eq("user_id", user_id).eq("broker_order_id", broker_order_id).execute())
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to touch order %s: %s", broker_order_id, e)

@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
 from execution.manager import ExecutionManager
-from execution.models import ExecutionRequest
+from execution.models import ExecutionRequest, ExecutionState
 from oms.models import (
     BracketOrder,
     OCOOrder,
@@ -134,19 +134,7 @@ class OrderManager:
 
         if order.state == OMSOrderState.QUEUED:
             removed = await order_queue.remove(oms_order_id)
-            if not removed:
-                if order.state != OMSOrderState.QUEUED:
-                    logger.warning("Order %s was already dequeued by processor — falling through to broker cancel", oms_order_id)
-                else:
-                    order.state = OMSOrderState.CANCELLED
-                    order.cancelled_at = datetime.now(UTC)
-                    order.updated_at = datetime.now(UTC)
-                    oms_metrics.record_cancelled()
-                    await save_order(order)
-                    await remove_order(oms_order_id)
-                    self._publish_event("OrderCancelled", order)
-                    return order
-            else:
+            if removed:
                 order.state = OMSOrderState.CANCELLED
                 order.cancelled_at = datetime.now(UTC)
                 order.updated_at = datetime.now(UTC)
@@ -154,7 +142,19 @@ class OrderManager:
                 await save_order(order)
                 await remove_order(oms_order_id)
                 self._publish_event("OrderCancelled", order)
+                await self._cancel_oco_sibling(order)
                 return order
+
+        if not order.broker_order_id:
+            order.state = OMSOrderState.CANCELLED
+            order.cancelled_at = datetime.now(UTC)
+            order.updated_at = datetime.now(UTC)
+            oms_metrics.record_cancelled()
+            await save_order(order)
+            await remove_order(oms_order_id)
+            self._publish_event("OrderCancelled", order)
+            await self._cancel_oco_sibling(order)
+            return order
 
         req = ExecutionRequest(
             user_id=order.user_id, broker=order.broker,
@@ -162,7 +162,7 @@ class OrderManager:
             side=order.side, quantity=order.quantity,
             source="oms_cancel",
         )
-        exec_result = await self._exec_mgr.cancel_order(req, order.broker_order_id or "")
+        exec_result = await self._exec_mgr.cancel_order(req, order.broker_order_id)
         if exec_result.success:
             order.state = OMSOrderState.CANCELLED
             order.cancelled_at = datetime.now(UTC)
@@ -176,7 +176,32 @@ class OrderManager:
             order.message = exec_result.message or "Cancel failed"
             order.updated_at = datetime.now(UTC)
             await save_order(order)
+        await self._cancel_oco_sibling(order)
         return order
+
+    async def _cancel_oco_sibling(self, order: OmniOrder) -> None:
+        if order.relation_type != OrderRelationType.OCO:
+            return
+        for oco in list(self._oco_orders.values()):
+            if not oco.active:
+                continue
+            is_a = oco.order_a_id == order.oms_order_id
+            is_b = oco.order_b_id == order.oms_order_id
+            if not is_a and not is_b:
+                continue
+            oco.active = False
+            await save_oco_order(oco)
+            sibling_id = oco.order_b_id if is_a else oco.order_a_id
+            sibling = self._orders.get(sibling_id)
+            if sibling and state_machine.can_transition(sibling.state, OMSOrderState.CANCELLED):
+                sibling.state = OMSOrderState.CANCELLED
+                sibling.cancelled_at = datetime.now(UTC)
+                sibling.updated_at = datetime.now(UTC)
+                oms_metrics.record_cancelled()
+                await save_order(sibling)
+                await remove_order(sibling_id)
+                self._publish_event("OrderCancelled", sibling)
+            break
 
     async def get_order(self, oms_order_id: str) -> OmniOrder | None:
         return self._orders.get(oms_order_id)
@@ -331,16 +356,23 @@ class OrderManager:
                 oms_metrics.record_broker_latency(order.broker, latency_ms)
 
                 if exec_result.success:
-                    order.state = OMSOrderState.FILLED
+                    is_partial = exec_result.state == ExecutionState.PARTIALLY_FILLED
+                    order.state = OMSOrderState.PARTIAL if is_partial else OMSOrderState.FILLED
                     order.broker_order_id = exec_result.broker_order_id or ""
-                    order.filled_quantity = order.quantity
+                    order.filled_quantity = exec_result.filled_qty or order.quantity
                     order.filled_at = datetime.now(UTC)
                     order.message = exec_result.message
-                    oms_metrics.record_filled(latency_ms)
-                    await save_order(order)
-                    await remove_order(item.oms_order_id)
-                    self._publish_event("OrderCompleted", order)
-                    await self._handle_parent_completion(order)
+                    if is_partial:
+                        oms_metrics.record_partial()
+                        order.state = OMSOrderState.QUEUED
+                        await save_order(order)
+                        await order_queue.enqueue_retry(item, delay_seconds=5)
+                    else:
+                        oms_metrics.record_filled(latency_ms)
+                        await save_order(order)
+                        await remove_order(item.oms_order_id)
+                        self._publish_event("OrderCompleted", order)
+                        await self._handle_parent_completion(order)
                 else:
                     if order.retry_count < order.max_retries:
                         order.state = OMSOrderState.QUEUED
@@ -369,13 +401,73 @@ class OrderManager:
                 await asyncio.sleep(1)
 
     async def _handle_parent_completion(self, order: OmniOrder) -> None:
-        if order.relation_type != OrderRelationType.BRACKET:
-            return
+        if order.relation_type == OrderRelationType.BRACKET:
+            await self._handle_bracket_completion(order)
+        elif order.relation_type == OrderRelationType.OCO:
+            await self._handle_oco_completion(order)
+
+    async def _handle_oco_completion(self, order: OmniOrder) -> None:
+        for oco in list(self._oco_orders.values()):
+            if not oco.active:
+                continue
+            if oco.order_a_id == order.oms_order_id:
+                oco.order_a_filled = True
+                sibling_id = oco.order_b_id
+            elif oco.order_b_id == order.oms_order_id:
+                oco.order_b_filled = True
+                sibling_id = oco.order_a_id
+            else:
+                continue
+            oco.active = False
+            await save_oco_order(oco)
+
+            sibling = self._orders.get(sibling_id)
+            if sibling and state_machine.can_transition(sibling.state, OMSOrderState.CANCELLED):
+                sibling.state = OMSOrderState.CANCELLED
+                sibling.cancelled_at = datetime.now(UTC)
+                sibling.updated_at = datetime.now(UTC)
+                oms_metrics.record_cancelled()
+                await save_order(sibling)
+                await remove_order(sibling_id)
+                self._publish_event("OrderCancelled", sibling)
+            break
+
+    async def _handle_bracket_completion(self, order: OmniOrder) -> None:
         bracket = self._bracket_orders.get(order.oms_order_id)
         if not bracket:
             return
         bracket.entry_filled = True
         await save_bracket_order(bracket)
+
+        try:
+            sl_req = ExecutionRequest(
+                user_id=order.user_id, broker=order.broker,
+                symbol=order.symbol, exchange=order.exchange,
+                side="SELL" if order.side == "BUY" else "BUY",
+                order_type="SL", product=order.product,
+                quantity=order.filled_quantity or order.quantity,
+                price=bracket.stop_loss_price,
+                trigger_price=bracket.stop_loss_price,
+                source="bracket_sl",
+            )
+            sl_order = await self.place_order(sl_req)
+            bracket.sl_order_id = sl_order.oms_order_id
+
+            target_req = ExecutionRequest(
+                user_id=order.user_id, broker=order.broker,
+                symbol=order.symbol, exchange=order.exchange,
+                side="SELL" if order.side == "BUY" else "BUY",
+                order_type="LIMIT", product=order.product,
+                quantity=order.filled_quantity or order.quantity,
+                price=bracket.target_price,
+                source="bracket_target",
+            )
+            target_order = await self.place_order(target_req)
+            bracket.target_order_id = target_order.oms_order_id
+
+            await save_bracket_order(bracket)
+        except Exception as e:
+            logger.error("Failed to place bracket legs for parent %s: %s", order.oms_order_id, e)
 
     async def _recover_active_orders(self) -> None:
         rows = await load_active_orders()

@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import time
@@ -46,6 +47,10 @@ def _transition_allowed(current: ExecutionState, target: ExecutionState) -> bool
 
 class ExecutionManager:
     _instance = None
+    _adapter_locks: dict[str, asyncio.Lock] = {}
+    _adapter_locks_lock = asyncio.Lock()
+    _MAX_ADAPTER_LOCKS = 10_000
+    _MAX_ADAPTERS = 10_000
 
     def __new__(cls):
         if cls._instance is None:
@@ -142,16 +147,16 @@ class ExecutionManager:
                     error_code="INSERT_FAILED",
                 )
 
-            broker_result = await self._execute_with_retry(adapter, order, request_id, req)
+            broker_result = await self._execute_with_retry(adapter, order, request_id)
 
             elapsed_ms = round((time.monotonic() - exec_start) * 1000, 2)
 
             if broker_result.success:
-                is_partial = broker_result.status == "partially_filled"
+                is_partial = broker_result.status in ("partially_filled", "PARTIALLY_FILLED")
                 state = ExecutionState.PARTIALLY_FILLED if is_partial else ExecutionState.FILLED
                 order.broker_order_id = broker_result.broker_order_id
                 order.status = OrderStatus.PARTIALLY_FILLED if is_partial else OrderStatus.FILLED
-                if broker_result.filled_qty:
+                if broker_result.filled_qty is not None:
                     order.filled_quantity = broker_result.filled_qty
                 await self._update_order_in_db(order, req.user_id, broker_result.broker_order_id, is_partial=is_partial)
 
@@ -413,36 +418,35 @@ class ExecutionManager:
         return await adapter.get_orders()
 
     async def _get_adapter(self, user_id: str, broker: str) -> BrokerExecutionAdapter | None:
-        if broker == "paper":
-            from paper.paper_broker import PaperBroker
-            key = f"{user_id}:paper"
+        key = f"{user_id}:paper" if broker == "paper" else f"{user_id}:{broker}"
+        async with self._adapter_locks_lock:
+            if key not in self._adapter_locks:
+                if len(self._adapter_locks) >= self._MAX_ADAPTER_LOCKS:
+                    self._adapter_locks.pop(next(iter(self._adapter_locks)))
+                self._adapter_locks[key] = asyncio.Lock()
+            lock = self._adapter_locks[key]
+
+        async with lock:
             if key in self._adapters:
                 adapter = self._adapters[key]
                 health = await adapter.health()
                 if health.get("authenticated"):
                     return adapter
-            adapter = PaperBroker(user_id)
+
+            if broker == "paper":
+                from paper.paper_broker import PaperBroker
+                adapter = PaperBroker(user_id)
+            else:
+                adapter = BrokerExecutionAdapter(user_id, broker)
             connected = await adapter.connect()
             if connected:
+                if len(self._adapters) >= self._MAX_ADAPTERS:
+                    self._adapters.pop(next(iter(self._adapters)))
                 self._adapters[key] = adapter
                 return adapter
             return None
 
-        key = f"{user_id}:{broker}"
-        if key in self._adapters:
-            adapter = self._adapters[key]
-            health = await adapter.health()
-            if health.get("authenticated"):
-                return adapter
-
-        adapter = BrokerExecutionAdapter(user_id, broker)
-        connected = await adapter.connect()
-        if connected:
-            self._adapters[key] = adapter
-            return adapter
-        return None
-
-    async def _execute_with_retry(self, adapter: BrokerExecutionAdapter, order: NormalizedOrder, request_id: str, req: ExecutionRequest) -> OrderResult:
+    async def _execute_with_retry(self, adapter: BrokerExecutionAdapter, order: NormalizedOrder, request_id: str) -> OrderResult:
         try:
             result, attempts, elapsed = await retry_with_backoff(
                 "place_order", adapter.place_order, order,
@@ -497,10 +501,10 @@ class ExecutionManager:
             supabase = get_supabase()
             data = order.model_dump(mode="json")
             for field in ("id", "run_id", "signal_id", "validity", "disclosed_quantity"):
-                if field in data and not data[field]:
+                if field in data and data[field] is None:
                     del data[field]
             if not data.get("client_order_id"):
-                data["client_order_id"] = order.client_order_id or order.broker or ""
+                data["client_order_id"] = order.client_order_id or _generate_execution_request_id(order.user_id or "", order.broker or "", order.symbol, order.side.value if order.side else "", time.time())
             result = await async_supabase(
                 lambda: supabase.table("orders").insert(data).execute()
             )
@@ -516,7 +520,7 @@ class ExecutionManager:
             supabase = get_supabase()
             data = order.model_dump(mode="json")
             for field in ("id", "run_id", "signal_id", "validity", "disclosed_quantity"):
-                if field in data and not data[field]:
+                if field in data and data[field] is None:
                     del data[field]
             await async_supabase(lambda: supabase.table("orders").insert(data).execute())
         except Exception as e:
@@ -530,7 +534,7 @@ class ExecutionManager:
                 "status": "PARTIALLY_FILLED" if is_partial else "FILLED",
                 "filled_at": datetime.now(UTC).isoformat(),
             }
-            if order.filled_quantity:
+            if order.filled_quantity is not None:
                 update_data["filled_quantity"] = order.filled_quantity
             await async_supabase(lambda: supabase.table("orders").update(update_data).eq("user_id", user_id).eq("client_order_id", order.client_order_id).execute())
         except Exception as e:

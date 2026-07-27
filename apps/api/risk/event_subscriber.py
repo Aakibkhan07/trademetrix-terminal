@@ -20,13 +20,13 @@ class RiskEventSubscriber:
         logger.info("RiskEventSubscriber subscribed to execution events")
 
     async def _on_order_placed(self, event: ExecutionEvent):
-        risk_manager.invalidate_cache(event.user_id)
+        await risk_manager.invalidate_cache(event.user_id)
 
     async def _on_order_rejected(self, event: ExecutionEvent):
-        risk_manager.invalidate_cache(event.user_id)
+        await risk_manager.invalidate_cache(event.user_id)
 
     async def _on_settings_changed(self, event: ExecutionEvent):
-        risk_manager.invalidate_cache(event.user_id)
+        await risk_manager.invalidate_cache(event.user_id)
 
 
 risk_event_subscriber = RiskEventSubscriber()

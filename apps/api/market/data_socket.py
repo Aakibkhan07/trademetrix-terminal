@@ -151,7 +151,10 @@ class SharedDataSocket:
             except Exception as e:
                 logger.error(f"Tick callback error: {e}", exc_info=True)
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for i, r in enumerate(results):
+                if isinstance(r, Exception):
+                    logger.error("Tick callback %d raised: %s", i, r, exc_info=r)
 
     async def start_broker_feed(self, user_id: str, broker_type: str, symbols: list[str]) -> None:
         if broker_type in self._broker_feeds:
@@ -201,19 +204,19 @@ class SharedDataSocket:
         self._broker_feeds[broker_type] = task
         logger.info("Broker feed started for %s with %d symbols (token=%s, yahoo_fallback=%s)", broker_type, len(symbols), bool(raw_token), not raw_token)
 
-        await self._backfill_on_reconnect(broker_type, symbols)
+        await self._backfill_on_reconnect(user_id, broker_type, symbols)
 
-    async def _backfill_on_reconnect(self, broker_type: str, symbols: list[str]) -> None:
+    async def _backfill_on_reconnect(self, user_id: str, broker_type: str, symbols: list[str]) -> None:
         try:
             from brokers import get_broker
             from core.db import async_supabase, get_supabase
             from core.security import decrypt_broker_credentials
 
             supabase = get_supabase()
-            cred = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("broker", broker_type).limit(1).execute())
+            cred = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("user_id", user_id).eq("broker", broker_type).single().execute())
             if not cred.data:
                 return
-            row = cred.data[0]
+            row = cred.data
             raw_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
             client_id = decrypt_broker_credentials(row["encrypted_api_key"]) if row.get("encrypted_api_key") else ""
             if not raw_token or not client_id:

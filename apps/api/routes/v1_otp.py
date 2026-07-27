@@ -133,7 +133,7 @@ async def register_with_otp(req: RegisterWithOTPRequest):
         if resp.status_code == 409:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
         if resp.status_code != 200:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create user: {resp.text}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
         user_data = resp.json()
     except HTTPException:
         raise
@@ -196,82 +196,88 @@ async def register_with_otp(req: RegisterWithOTPRequest):
 
 @router.post("/verify-otp")
 async def verify_otp(req: VerifyOTPRequest, response: Response):
-    stored = await _get_stored_otp(req.email)
-    if not stored:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No OTP found. Request a new one.")
+    lock_key = f"otp_lock:{req.email}"
+    acquired = await cache.set_nx(lock_key, True, ttl=10)
+    if not acquired:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="OTP verification in progress. Try again.")
 
-    code_hash = hashlib.sha256(req.otp.encode()).hexdigest()
-    if stored.get("code_hash") != code_hash:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP. Please try again.")
+    try:
+        stored = await _get_stored_otp(req.email)
+        if not stored:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No OTP found. Request a new one.")
 
-    if stored.get("verified"):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP already used. Request a new one.")
+        code_hash = hashlib.sha256(req.otp.encode()).hexdigest()
+        if stored.get("code_hash") != code_hash:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP. Please try again.")
 
-    stored["verified"] = True
-    await _store_otp(req.email, req.otp, stored.get("phone", ""))
-    await _delete_otp(req.email)
+        if stored.get("verified"):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP already used. Request a new one.")
 
-    supabase = get_supabase()
-    is_new = False
+        await _delete_otp(req.email)
 
-    async def _lookup_auth_user(email: str) -> dict | None:
-        try:
-            client = await get_http_client()
-            resp = await client.get(
-                f"{settings.supabase_url}/auth/v1/admin/users",
-                headers={
-                    "apikey": settings.supabase_service_key,
-                    "Authorization": f"Bearer {settings.supabase_service_key}",
-                },
-            )
-            if resp.status_code == 200:
-                users_data = resp.json()
-                auth_users = users_data.get("users", []) if isinstance(users_data, dict) else users_data if isinstance(users_data, list) else []
-                for u in auth_users:
-                    if isinstance(u, dict) and u.get("email", "").lower() == email.lower():
-                        return u
-            return None
-        except Exception:
-            return None
+        supabase = get_supabase()
+        is_new = False
 
-    auth_user = await _lookup_auth_user(req.email)
-    uid = auth_user["id"] if auth_user else None
+        async def _lookup_auth_user(email: str) -> dict | None:
+            try:
+                client = await get_http_client()
+                resp = await client.get(
+                    f"{settings.supabase_url}/auth/v1/admin/users",
+                    headers={
+                        "apikey": settings.supabase_service_key,
+                        "Authorization": f"Bearer {settings.supabase_service_key}",
+                    },
+                )
+                if resp.status_code == 200:
+                    users_data = resp.json()
+                    auth_users = users_data.get("users", []) if isinstance(users_data, dict) else users_data if isinstance(users_data, list) else []
+                    for u in auth_users:
+                        if isinstance(u, dict) and u.get("email", "").lower() == email.lower():
+                            return u
+                return None
+            except Exception:
+                return None
 
-    profile_data = None
-    if uid:
-        profile_data = (await async_supabase(lambda: supabase.table("profiles").select("*").eq("id", uid).maybe_single().execute())).data
+        auth_user = await _lookup_auth_user(req.email)
+        uid = auth_user["id"] if auth_user else None
 
-    if not profile_data and uid:
-        try:
-            client = await get_http_client()
-            await client.post(
-                f"{settings.supabase_url}/rest/v1/profiles",
-                headers={
-                    "apikey": settings.supabase_service_key,
-                    "Authorization": f"Bearer {settings.supabase_service_key}",
-                    "Content-Type": "application/json",
-                    "Prefer": "resolution=merge-duplicates",
-                },
-                json={"id": uid, "email": req.email},
-            )
-            profile_data = {"id": uid, "email": req.email}
-        except Exception as e:
-            logger.warning("OTP profile creation failed: %s", e)
+        profile_data = None
+        if uid:
+            profile_data = (await async_supabase(lambda: supabase.table("profiles").select("*").eq("id", uid).maybe_single().execute())).data
 
-    if profile_data:
-        user = UserProfile(**{k: v for k, v in profile_data.items() if v is not None})
-    else:
-        is_new = True
-        user = UserProfile(id=uid or "", email=req.email)
+        if not profile_data and uid:
+            try:
+                client = await get_http_client()
+                await client.post(
+                    f"{settings.supabase_url}/rest/v1/profiles",
+                    headers={
+                        "apikey": settings.supabase_service_key,
+                        "Authorization": f"Bearer {settings.supabase_service_key}",
+                        "Content-Type": "application/json",
+                        "Prefer": "resolution=merge-duplicates",
+                    },
+                    json={"id": uid, "email": req.email},
+                )
+                profile_data = {"id": uid, "email": req.email}
+            except Exception as e:
+                logger.warning("OTP profile creation failed: %s", e)
 
-    access_token = create_access_token(subject=user.id)
-    _set_session_cookie(response, access_token)
+        if profile_data:
+            user = UserProfile(**{k: v for k, v in profile_data.items() if v is not None})
+        else:
+            is_new = True
+            user = UserProfile(id=uid or "", email=req.email)
 
-    record_audit(AuditLogEntry(
-        user_id=user.id,
-        action="otp_verify",
-        resource="auth",
-        details={"email": req.email, "is_new": is_new},
-    ))
+        access_token = create_access_token(subject=user.id)
+        _set_session_cookie(response, access_token)
 
-    return VerifyOTPResponse(access_token=access_token, user=user, is_new=is_new)
+        record_audit(AuditLogEntry(
+            user_id=user.id,
+            action="otp_verify",
+            resource="auth",
+            details={"email": req.email, "is_new": is_new},
+        ))
+
+        return VerifyOTPResponse(access_token=access_token, user=user, is_new=is_new)
+    finally:
+        await cache.delete(lock_key)

@@ -246,13 +246,19 @@ class PaperBroker:
 
     def _update_account(self, order: NormalizedOrder, fill: PaperFill) -> None:
         gross = fill.filled_quantity * fill.filled_price
-        self._account.used_margin += gross
+        if order.side == OrderSide.SELL:
+            self._account.available_margin += gross
+        else:
+            self._account.used_margin += gross
         self._account.available_margin = self._account.total_margin - self._account.used_margin
         self._account.m2m_unrealised = sum(p.unrealised_pnl for p in self._positions.values())
         self._account.current_value = self._account.total_margin + self._account.m2m_unrealised
 
     async def _check_margin(self, order: NormalizedOrder) -> bool:
-        required = order.quantity * (order.price or 0)
+        price = order.price if order.price and order.price > 0 else order.trigger_price or 0
+        if price <= 0:
+            price = 100.0
+        required = order.quantity * price
         if required > self._account.available_margin:
             logger.warning("Insufficient paper margin: need %.2f, have %.2f", required, self._account.available_margin)
             return False

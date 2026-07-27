@@ -98,5 +98,24 @@ class RedisCache:
         except Exception:
             return None
 
+    async def increment(self, key: str, ttl: int = 60) -> int:
+        if not self._enabled or not self._redis:
+            return 0
+        try:
+            count = await self._redis.incr(key)
+            if count == 1:
+                await self._redis.expire(key, ttl)
+            return count
+        except Exception:
+            return 0
+
+    async def ttl(self, key: str) -> int:
+        if not self._enabled or not self._redis:
+            return -1
+        try:
+            return await self._redis.ttl(key)
+        except Exception:
+            return -2
+
 
 cache = RedisCache()

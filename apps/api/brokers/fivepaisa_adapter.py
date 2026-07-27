@@ -405,16 +405,16 @@ class FivePaisaAdapter(BaseBroker):
                 for q in quotes:
                     tick = Tick(
                         symbol=q.symbol,
-                        price=q.last_price,
+                        exchange=Exchange.NSE,
+                        last_price=q.last_price,
                         change=q.change,
-                        change_percent=q.change_percent,
+                        change_pct=getattr(q, 'change_percent', 0),
                         volume=q.volume,
                         bid=q.bid,
                         ask=q.ask,
-                        high=q.high,
-                        low=q.low,
-                        open=q.open,
-                        close=q.close,
+                        oi=0,
+                        timestamp=datetime.now(UTC),
+                        broker=self.broker_name,
                     )
                     if inspect.iscoroutinefunction(on_tick):
                         await on_tick(tick)
@@ -454,6 +454,11 @@ class FivePaisaAdapter(BaseBroker):
         return "I" if p in (ProductType.INTRADAY, ProductType.MIS) else "D"
 
     @staticmethod
+    def _unmap_order_type(code: int) -> OrderType:
+        mapping = {1: OrderType.MARKET, 2: OrderType.LIMIT, 4: OrderType.SL, 5: OrderType.SLM}
+        return mapping.get(code, OrderType.MARKET)
+
+    @staticmethod
     def _map_exchange(exchange: Exchange) -> str:
         mapping = {Exchange.NSE: "N", Exchange.BSE: "B", Exchange.NFO: "N", Exchange.MCX: "M"}
         return mapping.get(exchange, "N")
@@ -491,7 +496,7 @@ class FivePaisaAdapter(BaseBroker):
             symbol=raw_symbol,
             exchange=Exchange.NSE,
             side=OrderSide.BUY if item.get("BuySell", "") == "B" else OrderSide.SELL,
-            order_type=OrderType.MARKET,
+            order_type=self._unmap_order_type(int(item.get("OrderType", 1))),
             product=ProductType.INTRADAY if item.get("Intraday", "") == "Y" else ProductType.DELIVERY,
             quantity=int(item.get("Qty", 0)),
             price=float(item.get("Rate", 0)),

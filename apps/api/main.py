@@ -4,9 +4,10 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from core.middleware.timeout import TimeoutMiddleware
 
 from core.cache import cache
@@ -89,9 +90,14 @@ async def lifespan(app: FastAPI):
     init_vault()
     await cache.init()
     from infrastructure.database import init_db, close_db
-    await init_db()
+    try:
+        await init_db()
+    except Exception as e:
+        logger.warning("Database init failed (will retry on first query): %s", e)
     from market.cache import market_cache
     await market_cache.start_sweeper()
+    from market.data_socket import shared_socket
+    await shared_socket.start()
     from engine.user_strategy_runner import user_strategy_runner
     from engine.buyer_strategy_runner import buyer_strategy_runner
     await user_strategy_runner.start()
@@ -104,15 +110,20 @@ async def lifespan(app: FastAPI):
     cleanup_service = CleanupService()
     cleanup_service.start_scheduler()
     from execution.recovery import reconcile_pending_orders
-    asyncio.ensure_future(_startup_recovery())
-    asyncio.ensure_future(_start_watchdog())
-    asyncio.ensure_future(_start_webhook_retry())
+    _background_tasks = []
+    _background_tasks.append(asyncio.ensure_future(_startup_recovery()))
+    _background_tasks.append(asyncio.ensure_future(_start_watchdog()))
+    _background_tasks.append(asyncio.ensure_future(_start_webhook_retry()))
     yield
+    for task in _background_tasks:
+        task.cancel()
     cleanup_service.stop_scheduler()
     squareoff_service.stop_scheduler()
     await stop_worker()
     await buyer_strategy_runner.stop()
     await user_strategy_runner.stop()
+    from market.data_socket import shared_socket
+    await shared_socket.stop()
     await cache.close()
     from core.db import close_supabase
     await close_supabase()
@@ -141,10 +152,21 @@ app = FastAPI(
 
 # ── Middleware (order matters: outermost first) ──
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+cors_origins = settings.cors_origin_list
+if "*" in cors_origins:
+    cors_origins = ["*"]
+    cors_creds = False
+elif not cors_origins:
+    cors_origins = ["*"]
+    cors_creds = False
+else:
+    cors_creds = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=cors_creds,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -205,6 +227,14 @@ async def app_exception_handler(request: Request, exc: AppException):
         code=exc.code,
         status=exc.status,
         details=exc.details,
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
     )
 
 

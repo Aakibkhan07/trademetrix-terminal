@@ -1,3 +1,4 @@
+import html
 import logging
 import smtplib
 from email.mime.text import MIMEText
@@ -203,16 +204,17 @@ async def send_otp_email_resend(email: str, otp: str) -> bool:
 
 
 async def send_welcome_email(to_email: str, user_name: str) -> bool:
+    safe_name = html.escape(user_name)
     subject = "Welcome to TradeMetrix!"
     text_body = (
-        f"Hi {user_name},\n\n"
+        f"Hi {safe_name},\n\n"
         f"Welcome to TradeMetrix! Your account has been created successfully.\n\n"
         f"Start exploring the platform and set up your trading strategies.\n\n"
         f"Best,\nThe TradeMetrix Team"
     )
     html_body = (
         f"<h2>Welcome to TradeMetrix!</h2>"
-        f"<p>Hi {user_name},</p>"
+        f"<p>Hi {safe_name},</p>"
         f"<p>Your account has been created successfully.</p>"
         f"<p>Start exploring the platform and set up your trading strategies.</p>"
         f"<br><p>Best,<br>The TradeMetrix Team</p>"
@@ -225,19 +227,21 @@ async def send_admin_notification_email(
     role: str,
     assigned_by: str | None = None,
 ) -> bool:
+    safe_role = html.escape(role)
+    safe_assigned_by = html.escape(assigned_by) if assigned_by else None
     subject = "You have been granted admin access on TradeMetrix"
     text_body = (
         f"Hi,\n\n"
-        f"You have been granted the '{role}' admin role on TradeMetrix."
-        + (f" This was assigned by {assigned_by}." if assigned_by else "")
+        f"You have been granted the '{safe_role}' admin role on TradeMetrix."
+        + (f" This was assigned by {safe_assigned_by}." if safe_assigned_by else "")
         + "\n\n"
         f"You now have access to the admin panel and administrative features.\n\n"
         f"Best,\nThe TradeMetrix Team"
     )
     html_body = (
         f"<h2>Admin Access Granted</h2>"
-        f"<p>You have been granted the <strong>{role}</strong> admin role on TradeMetrix."
-        + (f" This was assigned by {assigned_by}." if assigned_by else "")
+        f"<p>You have been granted the <strong>{safe_role}</strong> admin role on TradeMetrix."
+        + (f" This was assigned by {safe_assigned_by}." if safe_assigned_by else "")
         + "</p>"
         f"<p>You now have access to the admin panel and administrative features.</p>"
         f"<br><p>Best,<br>The TradeMetrix Team</p>"

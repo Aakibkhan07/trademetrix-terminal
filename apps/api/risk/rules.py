@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -100,7 +101,11 @@ class TradingWindowRule(RiskRule):
             close_h, close_m = map(int, config.trading_end.split(":"))
             open_dt = now.replace(hour=open_h, minute=open_m, second=0, microsecond=0)
             close_dt = now.replace(hour=close_h, minute=close_m, second=0, microsecond=0)
-            if not (open_dt <= now <= close_dt):
+            if open_dt <= close_dt:
+                inside = open_dt <= now <= close_dt
+            else:
+                inside = now >= open_dt or now <= close_dt
+            if not inside:
                 return RiskRuleResult(
                     rule=self.rule_type, decision=RiskDecision.REJECTED,
                     reason=f"Outside trading window ({config.trading_start}-{config.trading_end} IST).",
@@ -289,26 +294,36 @@ class MaxOrdersPerMinuteRule(RiskRule):
 
     def __init__(self):
         self._order_timestamps: dict[str, deque] = defaultdict(lambda: deque(maxlen=200))
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._locks_lock = asyncio.Lock()
+
+    async def _get_lock(self, key: str) -> asyncio.Lock:
+        async with self._locks_lock:
+            if key not in self._locks:
+                self._locks[key] = asyncio.Lock()
+            return self._locks[key]
 
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
         if config.max_orders_per_minute <= 0:
             return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
-        now = time.time()
-        user_orders = self._order_timestamps[req.user_id]
-        cutoff = now - 60
-        while user_orders and user_orders[0] < cutoff:
-            user_orders.popleft()
-        user_orders.append(now)
+        lock = await self._get_lock(req.user_id)
+        async with lock:
+            now = time.time()
+            user_orders = self._order_timestamps[req.user_id]
+            cutoff = now - 60
+            while user_orders and user_orders[0] < cutoff:
+                user_orders.popleft()
 
-        if len(user_orders) > config.max_orders_per_minute:
-            return RiskRuleResult(
-                rule=self.rule_type, decision=RiskDecision.REJECTED,
-                reason=f"Order rate {len(user_orders)}/min exceeds limit {config.max_orders_per_minute}.",
-                details={"orders_per_minute": len(user_orders), "limit": config.max_orders_per_minute},
-                latency_ms=(time.monotonic() - start) * 1000,
-            )
+            if len(user_orders) >= config.max_orders_per_minute:
+                return RiskRuleResult(
+                    rule=self.rule_type, decision=RiskDecision.REJECTED,
+                    reason=f"Order rate {len(user_orders)}/min exceeds limit {config.max_orders_per_minute}.",
+                    details={"orders_per_minute": len(user_orders), "limit": config.max_orders_per_minute},
+                    latency_ms=(time.monotonic() - start) * 1000,
+                )
+            user_orders.append(now)
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
 
@@ -317,20 +332,30 @@ class DuplicateOrderRule(RiskRule):
 
     def __init__(self):
         self._recent_orders: dict[str, set[str]] = defaultdict(set)
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._locks_lock = asyncio.Lock()
+
+    async def _get_lock(self, key: str) -> asyncio.Lock:
+        async with self._locks_lock:
+            if key not in self._locks:
+                self._locks[key] = asyncio.Lock()
+            return self._locks[key]
 
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
-        dedup_key = f"{req.user_id}:{req.broker}:{req.symbol}:{req.side}:{req.quantity}"
-        if dedup_key in self._recent_orders[req.user_id]:
-            return RiskRuleResult(
-                rule=self.rule_type, decision=RiskDecision.REJECTED,
-                reason="Duplicate order detected (same user/broker/symbol/side/quantity).",
-                details={"dedup_key": dedup_key},
-                latency_ms=(time.monotonic() - start) * 1000,
-            )
-        self._recent_orders[req.user_id].add(dedup_key)
-        if len(self._recent_orders[req.user_id]) > 100:
-            self._recent_orders[req.user_id] = set(list(self._recent_orders[req.user_id])[50:])
+        lock = await self._get_lock(req.user_id)
+        async with lock:
+            dedup_key = f"{req.user_id}:{req.broker}:{req.symbol}:{req.side}:{req.quantity}:{req.order_type}:{req.price}"
+            if dedup_key in self._recent_orders[req.user_id]:
+                return RiskRuleResult(
+                    rule=self.rule_type, decision=RiskDecision.REJECTED,
+                    reason="Duplicate order detected (same user/broker/symbol/side/quantity/type/price).",
+                    details={"dedup_key": dedup_key},
+                    latency_ms=(time.monotonic() - start) * 1000,
+                )
+            self._recent_orders[req.user_id].add(dedup_key)
+            if len(self._recent_orders[req.user_id]) > 100:
+                self._recent_orders[req.user_id] = set(list(self._recent_orders[req.user_id])[50:])
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
 
@@ -384,6 +409,14 @@ class TradeCooldownRule(RiskRule):
 
     def __init__(self):
         self._last_trade_time: dict[str, float] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._locks_lock = asyncio.Lock()
+
+    async def _get_lock(self, key: str) -> asyncio.Lock:
+        async with self._locks_lock:
+            if key not in self._locks:
+                self._locks[key] = asyncio.Lock()
+            return self._locks[key]
 
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
@@ -391,18 +424,20 @@ class TradeCooldownRule(RiskRule):
             return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
         key = f"{req.user_id}:{req.broker}:{req.symbol}"
-        last = self._last_trade_time.get(key, 0.0)
-        now = time.time()
-        elapsed = now - last
-        if elapsed < config.trade_cooldown_seconds:
-            remaining = round(config.trade_cooldown_seconds - elapsed, 1)
-            return RiskRuleResult(
-                rule=self.rule_type, decision=RiskDecision.REJECTED,
-                reason=f"Trade cooldown active for {req.symbol}. Wait {remaining}s.",
-                details={"symbol": req.symbol, "elapsed_s": round(elapsed, 1), "cooldown_s": config.trade_cooldown_seconds},
-                latency_ms=(time.monotonic() - start) * 1000,
-            )
-        self._last_trade_time[key] = now
+        lock = await self._get_lock(key)
+        async with lock:
+            last = self._last_trade_time.get(key, 0.0)
+            now = time.time()
+            elapsed = now - last
+            if elapsed < config.trade_cooldown_seconds:
+                remaining = round(config.trade_cooldown_seconds - elapsed, 1)
+                return RiskRuleResult(
+                    rule=self.rule_type, decision=RiskDecision.REJECTED,
+                    reason=f"Trade cooldown active for {req.symbol}. Wait {remaining}s.",
+                    details={"symbol": req.symbol, "elapsed_s": round(elapsed, 1), "cooldown_s": config.trade_cooldown_seconds},
+                    latency_ms=(time.monotonic() - start) * 1000,
+                )
+            self._last_trade_time[key] = now
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
 

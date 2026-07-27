@@ -59,20 +59,25 @@ async def _check_alerts_loop() -> None:
                 if (condition == "above" and price >= target) or (condition == "below" and price <= target):
                     triggered.append(alert)
             for alert in triggered:
-                await _fire_alert(alert)
+                sym = alert.get("symbol", "")
+                tick = all_ticks.get(sym) or all_ticks.get(f"NSE:{sym}")
+                if not tick:
+                    sym_key = next((k for k in all_ticks if k == sym or k.endswith(f":{sym}")), None)
+                    if sym_key:
+                        tick = all_ticks[sym_key]
+                await _fire_alert(alert, tick.last_price if tick else 0)
         except Exception as e:
             logger.error("Alert check loop error: %s", e)
 
 
-async def _fire_alert(alert: dict) -> None:
+async def _fire_alert(alert: dict, current_price: float) -> None:
     supabase = get_supabase()
     alert_id = alert["id"]
     symbol = alert.get("symbol", "")
     condition = alert.get("condition", "")
     target = alert.get("target_price", 0)
     user_id = alert.get("user_id", "")
-    price = market_cache.get_tick(symbol)
-    current = price.last_price if price else 0
+    current = current_price
 
     await async_supabase(lambda: supabase.table("user_alerts").update({
         "triggered_at": datetime.now(UTC).isoformat(),

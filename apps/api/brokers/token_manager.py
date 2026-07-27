@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 
 from cryptography.fernet import InvalidToken
@@ -14,17 +15,20 @@ TOKEN_REFRESH_TIMEOUT = 10.0
 TOKEN_REFRESH_MAX_RETRIES = 1
 TOKEN_REFRESH_BASE_DELAY = 1.0
 TOKEN_EXPIRY_BUFFER_MINUTES = 5
+MAX_SESSION_AGE_SECONDS = 86400  # 24h fallback when no expires_at
 
 
 class TokenManager:
     _locks: dict[str, asyncio.Lock] = {}
     _lock_lock = asyncio.Lock()
+    _MAX_LOCKS = 10_000
 
     def __init__(self, user_id: str, broker: str):
         self.user_id = user_id
         self.broker = broker
         self._lock_key = f"{user_id}:{broker}"
         self._session: dict | None = None
+        self._session_create_time: float = 0.0
         self._refresh_in_progress = False
 
     async def get_session(self) -> dict:
@@ -58,13 +62,20 @@ class TokenManager:
                 )
                 if session_obj is None:
                     raise ValueError(f"Broker {self.broker} authenticate returned None")
-                access_token = session_obj.access_token if hasattr(session_obj, "access_token") else session_obj.get("access_token", "")
-                expires_at = session_obj.expires_at if hasattr(session_obj, "expires_at") else session_obj.get("expires_at")
+                if hasattr(session_obj, "access_token"):
+                    access_token = session_obj.access_token
+                    expires_at = getattr(session_obj, "expires_at", None)
+                elif isinstance(session_obj, dict):
+                    access_token = session_obj.get("access_token", "")
+                    expires_at = session_obj.get("expires_at")
+                else:
+                    raise ValueError(f"Unexpected session type from broker {self.broker}: {type(session_obj).__name__}")
 
                 if not access_token:
                     raise ValueError("Empty access token returned by broker")
 
                 self._session = {"access_token": access_token, "expires_at": expires_at}
+                self._session_create_time = time.monotonic()
                 await self.save_access_token(access_token, expires_at)
                 logger.info("Token refreshed for %s (attempt %d)", self._lock_key, attempt + 1)
                 return
@@ -132,6 +143,8 @@ class TokenManager:
     def _is_valid(self) -> bool:
         if not self._session:
             return False
+        if self._session_create_time and time.monotonic() - self._session_create_time > MAX_SESSION_AGE_SECONDS:
+            return False
         expires = self._session.get("expires_at")
         if expires:
             try:
@@ -145,5 +158,7 @@ class TokenManager:
     async def _get_lock(self) -> asyncio.Lock:
         async with self._lock_lock:
             if self._lock_key not in self._locks:
+                if len(self._locks) >= self._MAX_LOCKS:
+                    self._locks.pop(next(iter(self._locks)))
                 self._locks[self._lock_key] = asyncio.Lock()
             return self._locks[self._lock_key]

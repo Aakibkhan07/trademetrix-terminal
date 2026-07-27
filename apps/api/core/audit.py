@@ -22,4 +22,7 @@ def record_audit(entry: AuditLogEntry) -> None:
         _do_insert(entry)
         return
 
-    loop.run_in_executor(None, _do_insert, entry)
+    try:
+        loop.run_in_executor(None, _do_insert, entry)
+    except RuntimeError:
+        _do_insert(entry)

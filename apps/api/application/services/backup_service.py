@@ -4,7 +4,7 @@ import os
 from datetime import UTC, datetime
 from typing import Any
 
-from core.db import get_supabase
+from core.db import async_supabase, get_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class BackupService:
         total_rows = 0
         for table in EXPORT_TABLES:
             try:
-                result = supabase.table(table).select("*").execute()
+                result = await async_supabase(lambda: supabase.table(table).select("*").execute())
                 rows = result.data or []
                 manifest["data"][table] = rows
                 manifest["meta"]["tables"][table] = len(rows)

@@ -50,7 +50,8 @@ class ExecutionEventBus:
     def subscribe(self, event_type: str, callback: Callable[[ExecutionEvent], Any]) -> None:
         if event_type not in self._subscribers:
             self._subscribers[event_type] = []
-        self._subscribers[event_type].append(callback)
+        if callback not in self._subscribers[event_type]:
+            self._subscribers[event_type].append(callback)
 
     def unsubscribe(self, event_type: str, callback: Callable) -> None:
         if event_type in self._subscribers:
@@ -62,10 +63,9 @@ class ExecutionEventBus:
         callbacks = self._subscribers.get(event.event_type, []) + self._subscribers.get("*", [])
         for cb in callbacks:
             try:
-                if hasattr(cb, "__call__"):
-                    result = cb(event)
-                    if hasattr(result, "__await__"):
-                        await result
+                result = cb(event)
+                if hasattr(result, "__await__"):
+                    await result
             except Exception as e:
                 logger.error("Event bus callback error for %s: %s", event.event_type, e)
 

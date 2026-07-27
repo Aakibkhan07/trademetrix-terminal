@@ -421,6 +421,16 @@ class UpstoxAdapter(BaseBroker):
         return mapping.get(ot, "MARKET")
 
     @staticmethod
+    def _unmap_order_type(val: str) -> OrderType:
+        mapping = {
+            "MARKET": OrderType.MARKET,
+            "LIMIT": OrderType.LIMIT,
+            "SL": OrderType.SL,
+            "SL-M": OrderType.SLM,
+        }
+        return mapping.get(val.upper(), OrderType.MARKET)
+
+    @staticmethod
     def _map_product(p: ProductType) -> str:
         mapping = {
             ProductType.INTRADAY: "I",
@@ -438,7 +448,7 @@ class UpstoxAdapter(BaseBroker):
             symbol=item.get("tradingsymbol", item.get("instrument_token", "")),
             exchange=Exchange(item.get("exchange", "NSE")),
             side=OrderSide.BUY if item.get("transaction_type") == "BUY" else OrderSide.SELL,
-            order_type=OrderType(item.get("order_type", "MARKET")),
+            order_type=self._unmap_order_type(item.get("order_type", "MARKET")),
             product=self._unmap_product(item.get("product", "I")),
             quantity=int(item.get("quantity", 0)),
             price=float(item.get("price", 0)),

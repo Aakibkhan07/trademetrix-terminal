@@ -52,7 +52,7 @@ class ORBPro(BaseStrategy):
 
         if not self._range_set:
             market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
-            range_end = market_open.replace(minute=market_open.minute + self.range_minutes)
+            range_end = market_open + timedelta(minutes=self.range_minutes)
 
             if market_open <= now <= range_end:
                 if self._range_high == 0 or candle.high > self._range_high:

@@ -359,6 +359,9 @@ async def import_strategy(
         existing = await builder_manager.get(dsl.id)
         if existing:
             dsl.id = __import__("uuid").uuid4().hex[:12]
+        else:
+            base = await builder_manager.create(name=dsl.name, author=current_user.email)
+            dsl.id = base.id
         await builder_manager.update(dsl.id, dsl.model_dump())
         return dsl.model_dump(mode="json", exclude_none=True)
     except Exception as e:

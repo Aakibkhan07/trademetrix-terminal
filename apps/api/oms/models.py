@@ -23,7 +23,7 @@ OMS_STATE_TRANSITIONS: dict[OMSOrderState, set[OMSOrderState]] = {
     OMSOrderState.QUEUED: {OMSOrderState.SENT, OMSOrderState.REJECTED, OMSOrderState.CANCELLED},
     OMSOrderState.SENT: {OMSOrderState.PENDING, OMSOrderState.PARTIAL, OMSOrderState.FILLED, OMSOrderState.REJECTED},
     OMSOrderState.PENDING: {OMSOrderState.PARTIAL, OMSOrderState.FILLED, OMSOrderState.CANCELLED, OMSOrderState.REJECTED, OMSOrderState.EXPIRED},
-    OMSOrderState.PARTIAL: {OMSOrderState.PENDING, OMSOrderState.FILLED, OMSOrderState.CANCELLED, OMSOrderState.REJECTED},
+    OMSOrderState.PARTIAL: {OMSOrderState.QUEUED, OMSOrderState.PENDING, OMSOrderState.FILLED, OMSOrderState.CANCELLED, OMSOrderState.REJECTED},
     OMSOrderState.FILLED: set(),
     OMSOrderState.CANCELLED: set(),
     OMSOrderState.REJECTED: set(),

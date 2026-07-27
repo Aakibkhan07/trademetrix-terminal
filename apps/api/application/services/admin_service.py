@@ -446,7 +446,7 @@ class AdminService:
             except Exception as e:
                 results.append({"user_id": u["id"], "email": email, "sent": False, "error": str(e)})
         success_count = sum(1 for r in results if r.get("sent"))
-        await record_audit(admin_id, "broadcast_notify", "broadcast", {"type": notify_type, "recipients": len(users), "success": success_count})
+        record_audit(AuditLogEntry(user_id=admin_id, action="broadcast_notify", resource="broadcast", details={"type": notify_type, "recipients": len(users), "success": success_count}))
         return {"results": results, "total": len(users), "success": success_count, "failed": len(users) - success_count}
 
     async def get_kill_switch(self) -> dict:
@@ -1302,11 +1302,11 @@ class AdminService:
 
     async def add_ip_whitelist(self, ip_address: str, label: str, admin_id: str) -> dict:
         supabase = get_supabase()
-        result = supabase.table("admin_ip_whitelist").insert({
+        result = await async_supabase(lambda: supabase.table("admin_ip_whitelist").insert({
             "ip_address": ip_address,
             "label": label,
             "created_by": admin_id,
-        }).execute()
+        }).execute())
         await cache.delete("admin_ip_whitelist")
         record_audit(AuditLogEntry(
             user_id=admin_id, action="whitelist_add", resource="admin",
@@ -1316,7 +1316,7 @@ class AdminService:
 
     async def remove_ip_whitelist(self, ip_id: str, admin_id: str) -> dict:
         supabase = get_supabase()
-        supabase.table("admin_ip_whitelist").delete().eq("id", ip_id).execute()
+        await async_supabase(lambda: supabase.table("admin_ip_whitelist").delete().eq("id", ip_id).execute())
         await cache.delete("admin_ip_whitelist")
         record_audit(AuditLogEntry(
             user_id=admin_id, action="whitelist_remove", resource="admin",

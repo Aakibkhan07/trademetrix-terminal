@@ -38,7 +38,7 @@ class BreakoutScanner(BaseStrategy):
         if atr_val <= 0:
             return None
 
-        recent = self._candles[-self.lookback:-1]
+        recent = self._candles[-(self.lookback + 1):-1]
         high_range = max(c.high for c in recent)
         low_range = min(c.low for c in recent)
         range_pct = (high_range - low_range) / low_range * 100
@@ -47,7 +47,7 @@ class BreakoutScanner(BaseStrategy):
         if range_pct > 5:
             return None
 
-        avg_vol = sma([c.volume for c in self._candles[-self.lookback:-1]], self.lookback)
+        avg_vol = sma([c.volume for c in recent], len(recent))
         vol_surge = avg_vol > 0 and candle.volume > avg_vol * 1.5
         range_width = high_range - low_range
 

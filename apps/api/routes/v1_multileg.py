@@ -80,7 +80,8 @@ async def place_strategy(strategy_id: str, req: PlaceMultiLegRequest, current_us
     try:
         result = await service.place_strategy(strategy_id, current_user.id)
     except ValueError as e:
-        if "defined" in str(e):
-            raise HTTPException(status_code=400, detail=str(e))
-        raise HTTPException(status_code=404, detail=str(e))
+        msg = str(e)
+        if msg == "No legs defined":
+            raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=404, detail=msg)
     return result

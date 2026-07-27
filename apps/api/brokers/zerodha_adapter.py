@@ -317,6 +317,16 @@ class ZerodhaAdapter(BaseBroker):
         mapping = {ProductType.INTRADAY: "MIS", ProductType.DELIVERY: "CNC", ProductType.MIS: "MIS", ProductType.NRML: "NRML"}
         return mapping.get(p, "MIS")
 
+    @staticmethod
+    def _unmap_order_type(ot: str) -> OrderType:
+        mapping = {"MARKET": OrderType.MARKET, "LIMIT": OrderType.LIMIT, "SL": OrderType.SL, "SLM": OrderType.SLM}
+        return mapping.get(ot.upper(), OrderType.MARKET)
+
+    @staticmethod
+    def _unmap_product(p: str) -> ProductType:
+        mapping = {"MIS": ProductType.INTRADAY, "CNC": ProductType.DELIVERY, "NRML": ProductType.NRML}
+        return mapping.get(p.upper(), ProductType.INTRADAY)
+
     def _normalize_order(self, item: dict) -> NormalizedOrder:
         inst = self._parse_instrument(item.get("tradingsymbol", ""))
         return NormalizedOrder(
@@ -325,8 +335,8 @@ class ZerodhaAdapter(BaseBroker):
             symbol=item.get("tradingsymbol", ""),
             exchange=Exchange(item.get("exchange", "NSE")),
             side=OrderSide.BUY if item.get("transaction_type") == "BUY" else OrderSide.SELL,
-            order_type=OrderType(item.get("order_type", "MARKET").upper()),
-            product=ProductType.INTRADAY,
+            order_type=self._unmap_order_type(item.get("order_type", "MARKET")),
+            product=self._unmap_product(item.get("product", "MIS")),
             quantity=int(item.get("quantity", 0)),
             price=float(item.get("price", 0)),
             trigger_price=float(item.get("trigger_price", 0)) if item.get("trigger_price") else None,
@@ -352,7 +362,7 @@ class ZerodhaAdapter(BaseBroker):
             unrealised_pnl=float(item.get("unrealised", 0)),
             realised_pnl=float(item.get("realised", 0)),
             m2m=float(item.get("m2m", 0)),
-            product=ProductType.INTRADAY,
+            product=self._unmap_product(item.get("product", "MIS")),
             broker=self.broker_name,
             instrument_type=inst["instrument_type"],
             strike_price=inst["strike_price"],

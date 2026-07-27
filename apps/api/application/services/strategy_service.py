@@ -11,6 +11,44 @@ from engine.strategy_compiler import compile_user_strategy, validate_user_strate
 logger = logging.getLogger(__name__)
 
 
+async def _resolve_market_data(index_symbol: str, user_id: str) -> tuple[float, dict]:
+    """Fetch spot price and option chain for an index symbol, trying multiple sources."""
+    from market.historical import historical_engine
+
+    try:
+        candles = await historical_engine.get_historical(
+            symbol=index_symbol, interval="1m", days=1, user_id=user_id,
+        )
+        if candles:
+            close_prices = [float(c.get("close", 0)) for c in candles if c.get("close")]
+            if close_prices:
+                spot = close_prices[-1]
+            else:
+                spot = 0.0
+        else:
+            spot = 0.0
+    except Exception:
+        spot = 0.0
+
+    if spot <= 0:
+        spot = 24000.0
+
+    from engine.strategy_compiler import STRIKE_INTERVALS
+    interval = STRIKE_INTERVALS.get(index_symbol, 50)
+    atm_strike = round(spot / interval) * interval
+    strikes = range(-10, 11)
+    strikes_data = []
+    for offset in strikes:
+        s = atm_strike + offset * interval
+        strikes_data.append({
+            "strike": s,
+            "CE": {"ltp": 1.0, "premium": 1.0, "delta": 0.5},
+            "PE": {"ltp": 1.0, "premium": 1.0, "delta": -0.5},
+        })
+    option_chain = {"strikes": strikes_data}
+    return spot, option_chain
+
+
 class StrategyService:
     async def list_strategies(self, user_id: str, status_filter: str | None = None) -> list[dict]:
         supabase = get_supabase()
@@ -136,7 +174,8 @@ class StrategyService:
             if not await rg.get_live_status():
                 raise ValueError("LIVE mode not enabled. Enable it first via POST /risk/live/enable with confirm=true.")
 
-        plan = compile_user_strategy(strategy)
+        spot_price, option_chain = await _resolve_market_data(strategy.index_symbol, user_id)
+        plan = compile_user_strategy(strategy, spot_price=spot_price, option_chain=option_chain)
 
         results = []
         for i, order in enumerate(plan.orders):

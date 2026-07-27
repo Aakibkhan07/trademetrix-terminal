@@ -81,10 +81,10 @@ async def signup(req: SignUpRequest, response: Response, background_tasks: Backg
             },
             json={"email": req.email, "password": req.password, "email_confirm": True},
         )
-        if resp.status_code == 409:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
         if resp.status_code != 200:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create user: {resp.text}")
+            if resp.status_code == 409:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
         user_data = resp.json()
     except HTTPException:
         raise

@@ -20,6 +20,8 @@ class RiskService:
 
     async def update_settings(self, user_id: str, req: Any, caps: Capabilities) -> dict:
         tier_floor = caps.daily_loss_floor
+        if req.max_daily_loss is None:
+            raise HTTPException(status_code=400, detail="max_daily_loss is required")
         if req.max_daily_loss == 0:
             raise HTTPException(
                 status_code=400,

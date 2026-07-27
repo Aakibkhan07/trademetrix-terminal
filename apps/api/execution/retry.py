@@ -17,6 +17,7 @@ TRANSIENT_EXCEPTIONS = (
     httpx.ConnectError,
     httpx.RemoteProtocolError,
     httpx.ReadTimeout,
+    httpx.HTTPStatusError,
 )
 
 TRANSIENT_ERRORS = {

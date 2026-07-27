@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -11,6 +12,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["feedback"])
 
 _feedback: list[dict] = []
+_feedback_lock = asyncio.Lock()
+_feedback_counter = 0
+MAX_FEEDBACK = 10000
 
 
 @router.post("/api/v1/feedback")
@@ -27,19 +31,24 @@ async def submit_feedback(request: Request, user: UserProfile = Depends(get_curr
     if category not in ("bug", "feature", "nps", "report"):
         category = "bug"
 
-    entry = {
-        "id": len(_feedback) + 1,
-        "user_id": user.id,
-        "user_email": user.email,
-        "full_name": user.full_name or "",
-        "category": category,
-        "title": title,
-        "description": description,
-        "metadata": metadata,
-        "status": "new",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    _feedback.append(entry)
+    async with _feedback_lock:
+        global _feedback_counter
+        _feedback_counter += 1
+        entry = {
+            "id": _feedback_counter,
+            "user_id": user.id,
+            "user_email": user.email,
+            "full_name": user.full_name or "",
+            "category": category,
+            "title": title,
+            "description": description,
+            "metadata": metadata,
+            "status": "new",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        _feedback.append(entry)
+        if len(_feedback) > MAX_FEEDBACK:
+            _feedback.pop(0)
 
     logger.info("Feedback submitted: id=%d user=%s category=%s title=%s", entry["id"], user.id, category, title)
     return {"ok": True, "id": entry["id"]}

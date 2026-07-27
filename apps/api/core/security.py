@@ -24,6 +24,8 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, hashed: str) -> bool:
+    if not hashed:
+        return False
     try:
         return _ph.verify(hashed, password)
     except Exception:

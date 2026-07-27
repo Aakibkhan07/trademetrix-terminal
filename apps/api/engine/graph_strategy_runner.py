@@ -59,11 +59,23 @@ async def _feed_loop(
             await tick_queue.put(tick)
 
     shared_socket.subscribe(symbol, tick_handler)
-    shared_socket.subscribe("*", tick_handler)
     logger.info("Graph runner subscribed to live tick feed for %s", strategy_id)
 
     seen_ids_key = f"graph_runner:{strategy_id}:seen_ids"
     seen_ids = set(await cache.get(seen_ids_key, []))
+    _persist_counter = 0
+
+    async def _persist_seen_ids():
+        nonlocal _persist_counter
+        _persist_counter += 1
+        if _persist_counter % 10 != 0:
+            return
+        seen_list = list(seen_ids)
+        if len(seen_list) > 10000:
+            seen_list = seen_list[-5000:]
+            seen_ids.clear()
+            seen_ids.update(seen_list)
+        await cache.set(seen_ids_key, seen_list, ttl=86400)
 
     async def process_candle(candle: Candle) -> None:
         nonlocal strategy
@@ -114,15 +126,9 @@ async def _feed_loop(
                             if isinstance(ts, str) and ts not in seen_ids:
                                 seen_ids.add(ts)
                                 await process_candle(_candle_from_dict(c))
-                        seen_list = list(seen_ids)
-                        if len(seen_list) > 10000:
-                            seen_list = seen_list[-5000:]
-                        await cache.set(seen_ids_key, seen_list, ttl=86400)
+                        await _persist_seen_ids()
 
-            seen_list = list(seen_ids)
-            if len(seen_list) > 10000:
-                seen_list = seen_list[-5000:]
-            await cache.set(seen_ids_key, seen_list, ttl=86400)
+            await _persist_seen_ids()
 
     except asyncio.CancelledError:
         pass
@@ -130,7 +136,6 @@ async def _feed_loop(
         logger.exception("Graph runner error for %s: %s", strategy_id, e)
     finally:
         shared_socket.unsubscribe(symbol, tick_handler)
-        shared_socket.unsubscribe("*", tick_handler)
         await strategy.on_stop()
 
 

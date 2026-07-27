@@ -269,7 +269,17 @@ class FyersAdapter(BaseBroker):
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
         client = await self._get_client()
-        payload = {"id": order_id, **changes}
+        payload = {"id": order_id}
+        if "quantity" in changes:
+            payload["qty"] = changes["quantity"]
+        if "price" in changes:
+            payload["limitPrice"] = changes["price"]
+        if "trigger_price" in changes:
+            payload["stopPrice"] = changes["trigger_price"]
+        if "order_type" in changes:
+            payload["type"] = self._map_order_type(OrderType(changes["order_type"]))
+        if "product" in changes:
+            payload["productType"] = self._map_product(ProductType(changes["product"]))
         resp = await client.put(
             f"{self._base_url}/orders",
             json=payload,

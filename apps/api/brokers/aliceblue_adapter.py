@@ -353,6 +353,16 @@ class AliceBlueAdapter(BaseBroker):
         return mapping.get(ot, "MARKET")
 
     @staticmethod
+    def _unmap_order_type(ot: str) -> OrderType:
+        mapping = {"MARKET": OrderType.MARKET, "LIMIT": OrderType.LIMIT, "STOPLOSS": OrderType.SL, "SL-M": OrderType.SLM}
+        return mapping.get(ot.upper(), OrderType.MARKET)
+
+    @staticmethod
+    def _unmap_product(p: str) -> ProductType:
+        mapping = {"INTRADAY": ProductType.INTRADAY, "DELIVERY": ProductType.DELIVERY, "MIS": ProductType.MIS, "NRML": ProductType.NRML, "BO": ProductType.MIS, "CO": ProductType.MIS}
+        return mapping.get(p.upper(), ProductType.INTRADAY)
+
+    @staticmethod
     def _map_product(p: ProductType) -> str:
         mapping = {ProductType.INTRADAY: "INTRADAY", ProductType.DELIVERY: "DELIVERY", ProductType.MIS: "INTRADAY", ProductType.NRML: "DELIVERY"}
         return mapping.get(p, "INTRADAY")
@@ -388,8 +398,8 @@ class AliceBlueAdapter(BaseBroker):
             symbol=item.get("tradingSymbol", item.get("symbol", "")),
             exchange=Exchange(item.get("exchange", "NSE")),
             side=OrderSide.BUY if item.get("transactionType", "").upper() == "BUY" else OrderSide.SELL,
-            order_type=OrderType(item.get("orderType", "MARKET").upper()),
-            product=ProductType.INTRADAY,
+            order_type=self._unmap_order_type(item.get("orderType", "MARKET")),
+            product=self._unmap_product(item.get("productType", item.get("product", "INTRADAY"))),
             quantity=int(item.get("quantity", item.get("qty", 0))),
             price=float(item.get("price", 0)),
             trigger_price=float(item.get("triggerPrice", 0)) if item.get("triggerPrice") else None,

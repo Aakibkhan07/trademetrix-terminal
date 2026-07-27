@@ -37,7 +37,20 @@ class OrderQueue:
     async def dequeue(self) -> OrderQueueItem | None:
         async with self._lock:
             now = datetime.now(UTC)
+
+            if self._priority or self._retry:
+                next_retry = self._retry[0][0] if self._retry else None
+                next_prio = -self._priority[0][0] if self._priority else None
+
             while self._retry and self._retry[0][0] <= now:
+                if self._priority and next_prio is not None and next_prio > 1:
+                    _, _, item = heapq.heappop(self._priority)
+                    if item.oms_order_id not in self._processing:
+                        self._processing.add(item.oms_order_id)
+                        self._fifo = [i for i in self._fifo if i.oms_order_id != item.oms_order_id]
+                        oms_metrics.record_queue_depth(len(self._fifo) + len(self._retry))
+                        return item
+
                 _, item = heapq.heappop(self._retry)
                 if item.oms_order_id not in self._processing:
                     self._processing.add(item.oms_order_id)

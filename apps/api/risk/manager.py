@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 
@@ -30,6 +31,13 @@ from risk.rules import (
 
 logger = logging.getLogger(__name__)
 
+def _to_bool(val: bool | str | int | None) -> bool:
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() in ("true", "1", "yes")
+    return bool(val)
+
 RISK_RULES: list[RiskRule] = [
     KillSwitchRule(),
     LiveModeRule(),
@@ -56,6 +64,8 @@ class RiskManager:
     def __init__(self):
         self._initialized = False
         self._config_cache: dict[str, RiskConfig] = {}
+        self._config_cache_lock = asyncio.Lock()
+        self._config_locks: dict[str, asyncio.Lock] = {}
 
     async def initialize(self):
         if self._initialized:
@@ -107,46 +117,64 @@ class RiskManager:
         cached = self._config_cache.get(user_id)
         if cached:
             return cached
-        try:
-            supabase = get_supabase()
-            row = await async_safe_single(
-                supabase.table("risk_settings")
-                .select("*")
-                .eq("user_id", user_id)
-                .limit(1)
-            )
-        except Exception as e:
-            logger.error("Failed to load risk config for %s — applying fail-closed defaults: %s", user_id, e)
-            return RiskConfig(
-                user_id=user_id,
-                kill_switch_enabled=True,
-                max_open_positions=0,
-                max_trades_per_day=0,
-                daily_loss_limit=0,
-                allow_warning=False,
-            )
 
-        if not row:
-            return RiskConfig(user_id=user_id)
-        return RiskConfig(
-            user_id=user_id,
-            daily_loss_limit=float(row.get("max_daily_loss", 0)),
-            max_open_positions=int(row.get("max_open_positions", 10)),
-            max_exposure=float(row.get("max_exposure", 0)),
-            max_capital=float(row.get("max_capital", 0)),
-            max_drawdown_pct=float(row.get("max_drawdown_pct", 0)),
-            daily_profit_target=float(row.get("daily_profit_target", 0)),
-            max_trades_per_day=int(row.get("max_trades_per_day", 0)),
-            max_quantity=int(row.get("max_position_size", 0)),
-            max_symbol_exposure=float(row.get("max_symbol_exposure", 0)),
-            max_account_exposure=float(row.get("max_account_exposure", 0)),
-            trading_start=str(row.get("trading_start", "09:15")),
-            trading_end=str(row.get("trading_end", "15:30")),
-            allow_warning=bool(row.get("allow_warning", True)),
-            kill_switch_enabled=bool(row.get("kill_switch_enabled", False)),
-            is_live=bool(row.get("is_live", False)),
-            emergency_stop=bool(row.get("emergency_stop", False)),
-        )
+        if not hasattr(self, "_config_locks"):
+            self._config_locks: dict[str, asyncio.Lock] = {}
+        if user_id not in self._config_locks:
+            self._config_locks[user_id] = asyncio.Lock()
+        async with self._config_locks[user_id]:
+            async with self._config_cache_lock:
+                cached = self._config_cache.get(user_id)
+                if cached:
+                    return cached
+            try:
+                supabase = get_supabase()
+                row = await async_safe_single(
+                    supabase.table("risk_settings")
+                    .select("*")
+                    .eq("user_id", user_id)
+                    .is_("strategy_id", "null")
+                    .limit(1)
+                )
+            except Exception as e:
+                logger.error("Failed to load risk config for %s — applying fail-closed defaults: %s", user_id, e)
+                config = RiskConfig(
+                    user_id=user_id,
+                    kill_switch_enabled=True,
+                    max_open_positions=0,
+                    max_trades_per_day=0,
+                    daily_loss_limit=0,
+                    allow_warning=False,
+                )
+                async with self._config_cache_lock:
+                    self._config_cache[user_id] = config
+                return config
+
+            if not row:
+                config = RiskConfig(user_id=user_id)
+            else:
+                config = RiskConfig(
+                    user_id=user_id,
+                    daily_loss_limit=float(row.get("max_daily_loss", 0)),
+                    max_open_positions=int(row.get("max_open_positions", 10)),
+                    max_exposure=float(row.get("max_exposure", 0)),
+                    max_capital=float(row.get("max_capital", 0)),
+                    max_drawdown_pct=float(row.get("max_drawdown_pct", 0)),
+                    daily_profit_target=float(row.get("daily_profit_target", 0)),
+                    max_trades_per_day=int(row.get("max_trades_per_day", 0)),
+                    max_quantity=int(row.get("max_position_size", 0)),
+                    max_symbol_exposure=float(row.get("max_symbol_exposure", 0)),
+                    max_account_exposure=float(row.get("max_account_exposure", 0)),
+                    trading_start=str(row.get("trading_start", "09:15")),
+                    trading_end=str(row.get("trading_end", "15:30")),
+                    allow_warning=_to_bool(row.get("allow_warning", True)),
+                    kill_switch_enabled=_to_bool(row.get("kill_switch_enabled", False)),
+                    is_live=_to_bool(row.get("is_live", False)),
+                    emergency_stop=_to_bool(row.get("emergency_stop", False)),
+                )
+            async with self._config_cache_lock:
+                self._config_cache[user_id] = config
+            return config
 
     async def _publish_decision(self, req: ExecutionRequest, decision: RiskDecision, results: list[RiskRuleResult], latency_ms: float):
         try:
@@ -195,8 +223,9 @@ class RiskManager:
     def get_config(self, user_id: str) -> RiskConfig | None:
         return self._config_cache.get(user_id)
 
-    def invalidate_cache(self, user_id: str):
-        self._config_cache.pop(user_id, None)
+    async def invalidate_cache(self, user_id: str):
+        async with self._config_cache_lock:
+            self._config_cache.pop(user_id, None)
 
 
 risk_manager = RiskManager()

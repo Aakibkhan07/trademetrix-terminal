@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/marketdata", tags=["marketdata"])
 
 
+_ws_connections: set[asyncio.Task] = set()
+_ws_connections_lock = asyncio.Lock()
+_MAX_WS_CONNECTIONS = 100
+
+
 @router.websocket("/ws")
 async def marketdata_ws(websocket: WebSocket):
     session_cookie = websocket.cookies.get("tm_session")
@@ -22,7 +27,16 @@ async def marketdata_ws(websocket: WebSocket):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
         return
 
+    async with _ws_connections_lock:
+        if len(_ws_connections) >= _MAX_WS_CONNECTIONS:
+            logger.warning("WS rejected — max connections reached")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Too many connections")
+            return
+
     logger.info("WS client authenticated via tm_session cookie")
+    current_task = asyncio.current_task()
+    async with _ws_connections_lock:
+        _ws_connections.add(current_task)
     await websocket.accept()
     shared_socket.increment_connections()
     subscribed_symbols: set[str] = set()
@@ -106,6 +120,8 @@ async def marketdata_ws(websocket: WebSocket):
         drain_task.cancel()
         shared_socket.unsubscribe("*", tick_handler)
         shared_socket.decrement_connections()
+        async with _ws_connections_lock:
+            _ws_connections.discard(current_task)
 
 
 async def _drain_queue(websocket: WebSocket, queue: asyncio.Queue, cancel: asyncio.Event):

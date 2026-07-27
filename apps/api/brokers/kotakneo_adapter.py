@@ -357,6 +357,11 @@ class KotakNeoAdapter(BaseBroker):
         return mapping.get(ot, "MARKET")
 
     @staticmethod
+    def _unmap_order_type(val: str) -> OrderType:
+        mapping = {"MARKET": OrderType.MARKET, "LIMIT": OrderType.LIMIT, "STOP_LOSS": OrderType.SL, "STOP_LOSS_MARKET": OrderType.SLM}
+        return mapping.get(val.upper(), OrderType.MARKET)
+
+    @staticmethod
     def _map_order_type_str(ot: str) -> str:
         mapping = {"MARKET": "MARKET", "LIMIT": "LIMIT", "SL": "STOP_LOSS", "SLM": "STOP_LOSS_MARKET"}
         return mapping.get(ot, "MARKET")
@@ -374,7 +379,7 @@ class KotakNeoAdapter(BaseBroker):
             symbol=item.get("tradingsymbol", item.get("symbol", item.get("instrument_token", ""))),
             exchange=Exchange(item.get("exchange", "NSE")),
             side=OrderSide.BUY if item.get("transaction_type", "").upper() == "BUY" else OrderSide.SELL,
-            order_type=OrderType(item.get("order_type", "MARKET").upper()),
+            order_type=self._unmap_order_type(item.get("order_type", "MARKET")),
             product=self._unmap_product(item.get("product", "INTRADAY")),
             quantity=int(item.get("quantity", item.get("qty", 0))),
             price=float(item.get("price", item.get("prc", 0))),

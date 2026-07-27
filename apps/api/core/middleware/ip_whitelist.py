@@ -18,7 +18,7 @@ class AdminIPWhitelistMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp):
         super().__init__(app)
 
-    async def _get_whitelist(self) -> set[str]:
+    async def _get_whitelist(self) -> set[str] | None:
         cached = await cache.get("admin_ip_whitelist")
         if cached:
             return set(cached)
@@ -30,16 +30,16 @@ class AdminIPWhitelistMiddleware(BaseHTTPMiddleware):
             return ips
         except Exception as e:
             logger.warning("Failed to load IP whitelist: %s", e)
-            return set()
+            return None
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path
         if path.startswith(ADMIN_PATHS):
             whitelist = await self._get_whitelist()
-            if whitelist and "*" not in whitelist:
+            if whitelist is not None and "*" not in whitelist:
                 client_ip = request.client.host if request.client else ""
                 forwarded = request.headers.get("X-Forwarded-For", "")
-                if forwarded:
+                if forwarded and forwarded.split(",")[0].strip() == client_ip:
                     client_ip = forwarded.split(",")[0].strip()
                 if client_ip not in whitelist:
                     logger.warning("Blocked admin access from IP: %s", client_ip)

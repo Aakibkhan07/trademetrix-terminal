@@ -32,10 +32,10 @@ async def event_stream(request: Request, current_user: UserProfile = Depends(get
             execution_event_bus.unsubscribe("*", event_handler)
 
     async def generate():
+        execution_event_bus.subscribe("*", event_handler)
         try:
             while True:
                 if await request.is_disconnected():
-                    await unsubscribe()
                     break
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=15)
@@ -55,6 +55,6 @@ async def event_stream(request: Request, current_user: UserProfile = Depends(get
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
         finally:
-            await unsubscribe()
+            execution_event_bus.unsubscribe("*", event_handler)
 
     return StreamingResponse(generate(), media_type="text/event-stream")

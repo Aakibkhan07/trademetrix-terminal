@@ -65,7 +65,10 @@ class RuntimeScheduler:
                 except Exception as e:
                     logger.error("Tick callback error for %s: %s", sid, e)
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for i, r in enumerate(results):
+                if isinstance(r, Exception):
+                    logger.error("Tick callback raised: %s", r, exc_info=r)
 
     async def on_candle(self, candle: Candle) -> None:
         tasks = []
@@ -80,7 +83,10 @@ class RuntimeScheduler:
                     except Exception as e:
                         logger.error("Candle callback error for %s: %s", sid, e)
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for i, r in enumerate(results):
+                if isinstance(r, Exception):
+                    logger.error("Candle callback raised: %s", r, exc_info=r)
 
     def _track_task(self, coro) -> None:
         task = asyncio.create_task(self._run_callback_safe(coro))
@@ -164,9 +170,35 @@ class RuntimeScheduler:
             return False
         minute_pattern = parts[0]
         hour_pattern = parts[1]
-        if (minute_pattern == "*" or int(minute_pattern) == dt.minute) and \
-           (hour_pattern == "*" or int(hour_pattern) == dt.hour):
-            return True
+        if not _cron_field_matches(minute_pattern, dt.minute):
+            return False
+        if not _cron_field_matches(hour_pattern, dt.hour):
+            return False
+        return True
+
+
+def _cron_field_matches(pattern: str, value: int) -> bool:
+    if pattern == "*":
+        return True
+    if "/" in pattern:
+        parts = pattern.split("/")
+        base = parts[0]
+        step = int(parts[1])
+        if base == "*":
+            return value % step == 0
+        try:
+            return value >= int(base) and (value - int(base)) % step == 0
+        except ValueError:
+            return False
+    if "-" in pattern:
+        try:
+            low, high = pattern.split("-")
+            return int(low) <= value <= int(high)
+        except ValueError:
+            return False
+    try:
+        return int(pattern) == value
+    except ValueError:
         return False
 
 

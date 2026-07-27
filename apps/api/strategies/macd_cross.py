@@ -18,9 +18,11 @@ class MACDCross(BaseStrategy):
         self.slow = config.get("slow", 26)
         self.signal = config.get("signal", 9)
         self._prices: list[float] = []
+        self._macd_history: list[float] = []
 
     async def on_start(self) -> None:
         self._prices.clear()
+        self._macd_history.clear()
 
     async def on_stop(self) -> None:
         pass
@@ -30,24 +32,28 @@ class MACDCross(BaseStrategy):
 
     async def on_candle(self, candle: Candle) -> SignalResult | None:
         self._prices.append(candle.close)
-        if len(self._prices) < self.slow + self.signal + 1:
+        if len(self._prices) < self.slow + 1:
             return None
 
-        macd_line = self._ema(self._prices, self.fast) - self._ema(self._prices, self.slow)
-        signal_line = self._ema(self._prices, self.signal)
+        macd_value = self._ema(self._prices, self.fast) - self._ema(self._prices, self.slow)
+        self._macd_history.append(macd_value)
 
-        prev_macd = self._ema(self._prices[:-1], self.fast) - self._ema(self._prices[:-1], self.slow)
-        prev_signal = self._ema(self._prices[:-1], self.signal)
+        if len(self._macd_history) < self.signal + 1:
+            return None
+
+        signal_line = self._ema(self._macd_history, self.signal)
+        prev_signal = self._ema(self._macd_history[:-1], self.signal)
+        prev_macd = self._macd_history[-2]
 
         side = None
         reason = ""
 
-        if prev_macd <= prev_signal and macd_line > signal_line:
+        if prev_macd <= prev_signal and macd_value > signal_line:
             side = OrderSide.BUY
-            reason = f"MACD bullish crossover: {macd_line:.1f} > {signal_line:.1f}"
-        elif prev_macd >= prev_signal and macd_line < signal_line:
+            reason = f"MACD bullish crossover: {macd_value:.1f} > {signal_line:.1f}"
+        elif prev_macd >= prev_signal and macd_value < signal_line:
             side = OrderSide.SELL
-            reason = f"MACD bearish crossover: {macd_line:.1f} < {signal_line:.1f}"
+            reason = f"MACD bearish crossover: {macd_value:.1f} < {signal_line:.1f}"
 
         if side:
             order = NormalizedOrder(

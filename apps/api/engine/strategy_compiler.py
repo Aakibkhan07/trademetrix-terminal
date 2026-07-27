@@ -258,7 +258,7 @@ def compile_user_strategy(
         expiry_str = resolve_expiry(leg, symbol)
 
         order = NormalizedOrder(
-            symbol=f"{symbol}{expiry_str}{strike_price}{'CE' if is_ce else 'PE'}" if leg.segment == LegSegment.options else symbol,
+            symbol=f"{symbol}{expiry_str}{strike_price}{'CE' if is_ce else 'PE'}" if leg.segment == LegSegment.options else f"{symbol}{expiry_str}FUT" if leg.segment == LegSegment.futures else symbol,
             exchange=Exchange.NFO if leg.segment == LegSegment.options else Exchange.NSE,
             side=OrderSide.BUY if leg.position == LegPosition.buy else OrderSide.SELL,
             order_type=OrderType.MARKET,

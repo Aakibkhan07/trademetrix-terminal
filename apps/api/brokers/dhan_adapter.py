@@ -162,11 +162,13 @@ class DhanAdapter(BaseBroker):
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
         client = await self._get_client()
+        order_type_str = changes.get("order_type", "LIMIT")
+        product_str = changes.get("product", "INTRADAY")
         payload = {
             "dhanClientId": self._client_id,
             "orderId": order_id,
-            "orderType": changes.get("order_type", "LIMIT"),
-            "productType": changes.get("product", "INTRADAY"),
+            "orderType": self._map_order_type_str(order_type_str),
+            "productType": self._map_product_str(product_str),
             "validity": "DAY",
             "quantity": changes.get("quantity", 0),
             "price": changes.get("price", 0),
@@ -369,9 +371,29 @@ class DhanAdapter(BaseBroker):
         return mapping.get(ot, "MARKET")
 
     @staticmethod
+    def _map_order_type_str(ot: str) -> str:
+        mapping = {"MARKET": "MARKET", "LIMIT": "LIMIT", "SL": "STOP_LOSS", "SLM": "STOP_LOSS_MARKET"}
+        return mapping.get(ot.upper(), "MARKET")
+
+    @staticmethod
+    def _unmap_order_type(val: str) -> OrderType:
+        mapping = {"MARKET": OrderType.MARKET, "LIMIT": OrderType.LIMIT, "STOP_LOSS": OrderType.SL, "STOP_LOSS_MARKET": OrderType.SLM}
+        return mapping.get(val.upper(), OrderType.MARKET)
+
+    @staticmethod
     def _map_product(p: ProductType) -> str:
         mapping = {ProductType.INTRADAY: "INTRADAY", ProductType.DELIVERY: "DELIVERY", ProductType.MIS: "INTRADAY", ProductType.NRML: "DELIVERY"}
         return mapping.get(p, "INTRADAY")
+
+    @staticmethod
+    def _map_product_str(p: str) -> str:
+        mapping = {"INTRADAY": "INTRADAY", "DELIVERY": "DELIVERY", "MIS": "INTRADAY", "NRML": "DELIVERY"}
+        return mapping.get(p.upper(), "INTRADAY")
+
+    @staticmethod
+    def _unmap_product(val: str) -> ProductType:
+        mapping = {"INTRADAY": ProductType.INTRADAY, "DELIVERY": ProductType.DELIVERY, "MIS": ProductType.INTRADAY, "NRML": ProductType.NRML}
+        return mapping.get(val.upper(), ProductType.INTRADAY)
 
     def _normalize_order(self, item: dict) -> NormalizedOrder:
         inst = self._parse_instrument(item.get("securityId", ""))
@@ -381,8 +403,8 @@ class DhanAdapter(BaseBroker):
             symbol=item.get("securityId", ""),
             exchange=Exchange(item.get("exchange", "NSE")),
             side=OrderSide.BUY if item.get("transactionType") == "BUY" else OrderSide.SELL,
-            order_type=OrderType.MARKET,
-            product=ProductType.INTRADAY,
+            order_type=self._unmap_order_type(str(item.get("orderType", "MARKET"))),
+            product=self._unmap_product(str(item.get("productType", "INTRADAY"))),
             quantity=int(item.get("quantity", 0)),
             price=float(item.get("price", 0)),
             trigger_price=float(item.get("triggerPrice", 0)) if item.get("triggerPrice") else None,

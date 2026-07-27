@@ -29,7 +29,9 @@ def _state_key(user_id: str, broker: str) -> str:
 
 
 class PortfolioManager:
-    _instance = None
+    _instance: "PortfolioManager | None" = None
+    _MAX_ADAPTERS = 10_000
+    _MAX_STATES = 10_000
 
     def __new__(cls):
         if cls._instance is None:
@@ -217,6 +219,8 @@ class PortfolioManager:
     async def _ensure_state(self, user_id: str, broker: str) -> PortfolioState:
         key = _state_key(user_id, broker)
         if key not in self._states:
+            if len(self._states) >= self._MAX_STATES:
+                self._states.pop(next(iter(self._states)))
             state = PortfolioState(user_id=user_id, broker=broker)
             self._states[key] = state
             try:
@@ -432,6 +436,8 @@ class PortfolioManager:
         adapter = BrokerExecutionAdapter(user_id, broker)
         connected = await adapter.connect()
         if connected:
+            if len(self._broker_adapters) >= self._MAX_ADAPTERS:
+                self._broker_adapters.pop(next(iter(self._broker_adapters)))
             self._broker_adapters[key] = adapter
             return adapter
         return None

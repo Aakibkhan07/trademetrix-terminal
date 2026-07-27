@@ -273,7 +273,6 @@ class BuyerStrategyRunner:
                     dropped_ticks += 1
 
         shared_socket.subscribe(index_symbol, tick_handler)
-        shared_socket.subscribe("*", tick_handler)
         logger.info("Buyer runner subscribed to %s for %s", index_symbol, strategy_id)
 
         try:
@@ -298,7 +297,6 @@ class BuyerStrategyRunner:
             logger.exception("Buyer feed loop error for %s: %s", strategy_id, e)
         finally:
             shared_socket.unsubscribe(index_symbol, tick_handler)
-            shared_socket.unsubscribe("*", tick_handler)
             try:
                 await instance.on_stop()
             except Exception as e:

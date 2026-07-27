@@ -81,8 +81,8 @@ async def test_kill_switch_recover():
     ]
     with (
         patch.object(ks, "_emergency_stops", {}),
-        patch("risk.kill_switch.safe_execute", return_value=mock_rows),
-        patch("risk.kill_switch.safe_single", return_value=None),
+        patch("risk.kill_switch.async_safe_execute", return_value=mock_rows),
+        patch("risk.kill_switch.async_safe_single", return_value=None),
     ):
         await ks.recover()
         assert ks._emergency_stops.get("user1") is True
@@ -96,8 +96,8 @@ async def test_kill_switch_recover_with_release():
     ]
     with (
         patch.object(ks, "_emergency_stops", {}),
-        patch("risk.kill_switch.safe_execute", return_value=mock_rows),
-        patch("risk.kill_switch.safe_single", return_value={"id": "123"}),
+        patch("risk.kill_switch.async_safe_execute", return_value=mock_rows),
+        patch("risk.kill_switch.async_safe_single", return_value={"id": "123"}),
     ):
         await ks.recover()
         assert ks._emergency_stops.get("user1") is None
@@ -106,6 +106,6 @@ async def test_kill_switch_recover_with_release():
 @pytest.mark.asyncio
 async def test_kill_switch_recover_handles_error():
     ks = KillSwitch()
-    with patch("risk.kill_switch.safe_execute", side_effect=Exception("DB error")):
+    with patch("risk.kill_switch.async_safe_execute", side_effect=Exception("DB error")):
         await ks.recover()
         assert not ks._emergency_stops

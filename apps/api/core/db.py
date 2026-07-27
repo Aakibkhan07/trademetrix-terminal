@@ -56,7 +56,7 @@ def get_supabase_anon() -> Client:
 
 
 async def close_supabase() -> None:
-    global _supabase, _supabase_anon
+    global _supabase, _supabase_anon, _db_executor
     _supabase_available.clear()
     if _supabase:
         try:
@@ -72,6 +72,7 @@ async def close_supabase() -> None:
         except Exception as e:
             logger.warning("Error closing supabase anon client: %s", e)
         _supabase_anon = None
+    _db_executor.shutdown(wait=False)
 
 
 async def async_supabase(call: Callable[..., T], *args, **kwargs) -> T:

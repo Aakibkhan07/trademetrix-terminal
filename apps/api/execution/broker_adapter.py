@@ -260,7 +260,7 @@ class BrokerExecutionAdapter:
             errors.append({"field": "symbol", "message": "Symbol is required"})
         if order.quantity <= 0:
             errors.append({"field": "quantity", "message": "Quantity must be positive"})
-        if order.order_type in ("LIMIT", "SL", "SLM") and order.price <= 0:
+        if order.order_type in ("LIMIT", "SL") and order.price <= 0:
             errors.append({"field": "price", "message": "Price is required for LIMIT/SL orders"})
         if order.product not in ("INTRADAY", "DELIVERY", "MIS", "NRML"):
             errors.append({"field": "product", "message": f"Invalid product: {order.product}"})

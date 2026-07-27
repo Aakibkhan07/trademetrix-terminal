@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from core.db import async_supabase, get_supabase
 from core.models import NormalizedOrder, OrderResult, OrderStatus
 from core.safe_query import async_safe_execute, async_safe_single
-from execution.models import ExecutionRequest
+from execution.models import ExecutionRequest, ExecutionState
 from market.symbol_master import symbol_master
 from risk.riskguard import RiskGuard
 
@@ -115,7 +115,7 @@ async def _resolve_broker(user_id: str) -> str | None:
         .eq("user_id", user_id)
         .eq("is_active", True)
     )
-    return creds["broker"] if creds else None
+    return creds.get("broker") if creds else None
 
 
 def _normalized_to_execution_request(user_id: str, order: NormalizedOrder, broker: str, source: str) -> ExecutionRequest:
@@ -185,6 +185,7 @@ async def scaled_qty(
         get_supabase().table("risk_settings")
         .select("max_capital, max_position_size")
         .eq("user_id", user_id)
+        .is_("strategy_id", "null")
     )
     if not settings:
         return base_qty
@@ -230,72 +231,83 @@ async def execute_order(
 
     lock = await _get_order_lock(order.client_order_id)
     async with lock:
-        existing = await async_safe_single(
-            get_supabase().table("orders")
-            .select("*")
-            .eq("user_id", user_id)
-            .eq("client_order_id", order.client_order_id)
-        )
-        if existing:
-            await _write_audit(user_id, "duplicate", order, source=source, reason="DUPLICATE_ORDER")
-            return OrderResult(
-                success=True,
-                broker_order_id=existing.get("broker_order_id", ""),
-                message="DUPLICATE_ORDER",
-                status="duplicate",
-            )
-
-        order.signal_at = datetime.now(UTC)
-
-        broker = await _resolve_broker(user_id)
-        if not broker:
-            order.status = OrderStatus.REJECTED
-            order.message = "NO_ACTIVE_BROKER"
-            await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
-            return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
-        order.broker = broker
-        order.is_paper = order.is_paper or broker == "paper"
-
-        riskguard = RiskGuard(user_id)
-        risk_check = await riskguard.check_order(order)
-        order.risk_checked_at = datetime.now(UTC)
-
-        if not risk_check["allowed"]:
-            reason_code = _classify_rejection(risk_check.get("reason", ""))
-            order.status = OrderStatus.REJECTED
-            order.message = reason_code
-            await _write_audit(user_id, "rejected", order, source=source, reason=reason_code)
-            return OrderResult(success=False, message=reason_code, status="rejected")
-
-        broker_symbol = await symbol_master.resolve_symbol(order.symbol, broker)
-        order.symbol = broker_symbol or order.symbol
-
-        req = _normalized_to_execution_request(user_id, order, order.broker, source)
         try:
-            exec_result = await execution_manager.place_order(req)
-        except Exception as e:
-            logger.error("place_order raised for user=%s broker=%s: %s", user_id, order.broker, e)
-            order.status = OrderStatus.REJECTED
-            order.message = f"EXECUTION_ERROR: {e}"
-            return OrderResult(success=False, message=str(e), status="error")
+            existing = await async_safe_single(
+                get_supabase().table("orders")
+                .select("*")
+                .eq("user_id", user_id)
+                .eq("client_order_id", order.client_order_id)
+            )
+            if existing:
+                await _write_audit(user_id, "duplicate", order, source=source, reason="DUPLICATE_ORDER")
+                return OrderResult(
+                    success=True,
+                    broker_order_id=existing.get("broker_order_id", ""),
+                    message="DUPLICATE_ORDER",
+                    status="duplicate",
+                )
 
-        if exec_result.success:
-            order.broker_order_id = exec_result.broker_order_id
-            order.status = OrderStatus.FILLED
-            order.filled_at = datetime.now(UTC)
-            order.message = exec_result.message or "Order placed successfully"
-        else:
-            order.status = OrderStatus.REJECTED
-            order.message = exec_result.message or "PLACEMENT_FAILED"
+            order.signal_at = datetime.now(UTC)
 
-        order.latency_ms = exec_result.latency_ms
-        await _write_audit(
-            user_id,
-            "placed" if exec_result.success else "failed",
-            order,
-            source=source,
-            reason="" if exec_result.success else (exec_result.message or "PLACEMENT_FAILED"),
-            broker=order.broker,
-        )
-        _order_locks.pop(order.client_order_id, None)
+            broker = await _resolve_broker(user_id)
+            if not broker:
+                order.status = OrderStatus.REJECTED
+                order.message = "NO_ACTIVE_BROKER"
+                await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
+                return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
+            order.broker = broker
+            order.is_paper = order.is_paper or broker == "paper"
+
+            riskguard = RiskGuard(user_id)
+            risk_check = await riskguard.check_order(order)
+            order.risk_checked_at = datetime.now(UTC)
+
+            if not risk_check:
+                reason_code = "RISK_CHECK_FAILED"
+                order.status = OrderStatus.REJECTED
+                order.message = reason_code
+                await _write_audit(user_id, "rejected", order, source=source, reason=reason_code)
+                return OrderResult(success=False, message=reason_code, status="rejected")
+
+            if not risk_check.get("allowed"):
+                reason_code = _classify_rejection(risk_check.get("reason", ""))
+                order.status = OrderStatus.REJECTED
+                order.message = reason_code
+                await _write_audit(user_id, "rejected", order, source=source, reason=reason_code)
+                return OrderResult(success=False, message=reason_code, status="rejected")
+
+            broker_symbol = await symbol_master.resolve_symbol(order.symbol, broker)
+            order.symbol = broker_symbol or order.symbol
+
+            req = _normalized_to_execution_request(user_id, order, order.broker, source)
+            try:
+                exec_result = await execution_manager.place_order(req)
+            except Exception as e:
+                logger.error("place_order raised for user=%s broker=%s: %s", user_id, order.broker, e)
+                order.status = OrderStatus.REJECTED
+                order.message = f"EXECUTION_ERROR: {e}"
+                return OrderResult(success=False, message=str(e), status="error")
+
+            if exec_result.success:
+                order.broker_order_id = exec_result.broker_order_id
+                is_partial = exec_result.state == ExecutionState.PARTIALLY_FILLED
+                order.status = OrderStatus.PARTIALLY_FILLED if is_partial else OrderStatus.FILLED
+                order.filled_at = datetime.now(UTC)
+                order.filled_quantity = exec_result.filled_qty or 0
+                order.message = exec_result.message or "Order placed successfully"
+            else:
+                order.status = OrderStatus.REJECTED
+                order.message = exec_result.message or "PLACEMENT_FAILED"
+
+            order.latency_ms = exec_result.latency_ms
+            await _write_audit(
+                user_id,
+                "placed" if exec_result.success else "failed",
+                order,
+                source=source,
+                reason="" if exec_result.success else (exec_result.message or "PLACEMENT_FAILED"),
+                broker=order.broker,
+            )
+        finally:
+            _order_locks.pop(order.client_order_id, None)
     return _execution_result_to_order_result(exec_result, order)

@@ -272,8 +272,8 @@ class AngelOneAdapter(BaseBroker):
         payload = {
             "variety": "NORMAL",
             "orderid": order_id,
-            "ordertype": changes.get("order_type", "MARKET"),
-            "producttype": changes.get("product", "INTRADAY"),
+            "ordertype": self._map_order_type_str(changes.get("order_type", "MARKET")),
+            "producttype": self._map_product_str(changes.get("product", "INTRADAY")),
             "quantity": str(changes.get("quantity", 0)),
             "price": str(changes.get("price", 0)),
             "tradingsymbol": changes.get("symbol", ""),
@@ -610,9 +610,19 @@ class AngelOneAdapter(BaseBroker):
         return mapping.get(ot, "MARKET")
 
     @staticmethod
+    def _map_order_type_str(ot: str) -> str:
+        mapping = {"MARKET": "MARKET", "LIMIT": "LIMIT", "SL": "STOPLOSS_LIMIT", "SLM": "STOPLOSS_MARKET"}
+        return mapping.get(ot.upper(), "MARKET")
+
+    @staticmethod
     def _map_product(p: ProductType) -> str:
         mapping = {ProductType.INTRADAY: "INTRADAY", ProductType.DELIVERY: "DELIVERY", ProductType.MIS: "INTRADAY", ProductType.NRML: "DELIVERY"}
         return mapping.get(p, "INTRADAY")
+
+    @staticmethod
+    def _map_product_str(p: str) -> str:
+        mapping = {"INTRADAY": "INTRADAY", "DELIVERY": "DELIVERY", "MIS": "INTRADAY", "NRML": "DELIVERY"}
+        return mapping.get(p.upper(), "INTRADAY")
 
     @staticmethod
     def _map_status(status: str) -> OrderStatus:

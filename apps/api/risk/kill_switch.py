@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 
 from core.db import async_supabase, get_supabase
-from core.safe_query import safe_execute, safe_single
+from core.safe_query import async_safe_execute, async_safe_single
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class KillSwitch:
     async def recover(self) -> None:
         try:
             supabase = get_supabase()
-            rows = safe_execute(
+            rows = await async_safe_execute(
                 supabase.table("risk_audit_log")
                 .select("user_id, event, created_at")
                 .eq("event", "EMERGENCY_STOP")
@@ -24,7 +24,7 @@ class KillSwitch:
             for row in rows or []:
                 uid = row.get("user_id", "")
                 if uid:
-                    released = safe_single(
+                    released = await async_safe_single(
                         supabase.table("risk_audit_log")
                         .select("id")
                         .eq("user_id", uid)
@@ -76,14 +76,13 @@ class KillSwitch:
 
     async def global_kill_switch_active(self) -> bool:
         try:
-            row = safe_single(
+            row = await async_safe_single(
                 get_supabase().table("risk_settings")
                 .select("kill_switch_enabled")
                 .eq("user_id", "system")
                 .limit(1)
-                .execute()
             )
-            return bool(row and row.get("kill_switch_enabled", False))
+            return bool(row and (isinstance(row.get("kill_switch_enabled"), bool) and row["kill_switch_enabled"] or str(row.get("kill_switch_enabled", "false")).lower() in ("true", "1")))
         except Exception:
             return False
 

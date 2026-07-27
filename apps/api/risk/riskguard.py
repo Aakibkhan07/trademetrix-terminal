@@ -52,7 +52,7 @@ class RiskGuard:
             data = await async_safe_single(query)
             if data:
                 return RiskSettings(**data)
-        query = supabase.table("risk_settings").select("*").eq("user_id", self.user_id)
+        query = supabase.table("risk_settings").select("*").eq("user_id", self.user_id).is_("strategy_id", "null")
         data = await async_safe_single(query)
         if data:
             return RiskSettings(**data)
@@ -89,42 +89,75 @@ class RiskGuard:
         except Exception as e:
             logger.warning("Failed to update risk settings: %s", e)
 
+    async def _find_settings_id(self, strategy_id: str | None = None) -> str | None:
+        supabase = get_supabase()
+        if strategy_id:
+            data = await async_safe_single(
+                supabase.table("risk_settings").select("id").eq("user_id", self.user_id).eq("strategy_id", strategy_id)
+            )
+            if data:
+                return data.get("id")
+        data = await async_safe_single(
+            supabase.table("risk_settings").select("id").eq("user_id", self.user_id).is_("strategy_id", "null")
+        )
+        if data:
+            return data.get("id")
+        return None
+
     async def enable_kill_switch(self, strategy_id: str | None = None) -> None:
-        data = await async_safe_single(get_supabase().table("risk_settings").select("id").eq("user_id", self.user_id))
-        if not data:
-            await async_safe_insert("risk_settings", {"user_id": self.user_id, "strategy_id": strategy_id, "kill_switch_enabled": True})
+        existing_id = await self._find_settings_id(strategy_id)
+        if existing_id:
+            await async_safe_update("risk_settings", {"kill_switch_enabled": True}, "id", existing_id)
         else:
-            await async_safe_update("risk_settings", {"kill_switch_enabled": True}, "user_id", self.user_id)
+            await async_safe_insert("risk_settings", {"user_id": self.user_id, "strategy_id": strategy_id, "kill_switch_enabled": True})
         logger.warning(f"Kill switch enabled for user={self.user_id}")
 
     async def disable_kill_switch(self, strategy_id: str | None = None) -> None:
-        await async_safe_update("risk_settings", {"kill_switch_enabled": False}, "user_id", self.user_id)
+        existing_id = await self._find_settings_id(strategy_id)
+        if existing_id:
+            await async_safe_update("risk_settings", {"kill_switch_enabled": False}, "id", existing_id)
+        else:
+            await async_safe_insert("risk_settings", {"user_id": self.user_id, "strategy_id": strategy_id, "kill_switch_enabled": False})
         logger.info(f"Kill switch disabled for user={self.user_id}")
 
     async def enable_live(self, multi_step_confirm: bool = False) -> bool:
         if not multi_step_confirm:
             return False
-        data = await async_safe_single(get_supabase().table("risk_settings").select("id").eq("user_id", self.user_id))
-        if not data:
-            await async_safe_insert("risk_settings", {"user_id": self.user_id, "is_live": True})
+        supabase = get_supabase()
+        data = await async_safe_single(
+            supabase.table("risk_settings").select("id").eq("user_id", self.user_id).is_("strategy_id", "null")
+        )
+        if data:
+            await async_safe_update("risk_settings", {"is_live": True}, "id", data["id"])
         else:
-            await async_safe_update("risk_settings", {"is_live": True}, "user_id", self.user_id)
+            await async_safe_insert("risk_settings", {"user_id": self.user_id, "is_live": True})
         record_audit_entry(self.user_id, "enable_live", "risk_settings")
         logger.warning(f"LIVE trading enabled for user={self.user_id}")
         return True
 
     async def disable_live(self) -> None:
-        await async_safe_update("risk_settings", {"is_live": False}, "user_id", self.user_id)
+        supabase = get_supabase()
+        data = await async_safe_single(
+            supabase.table("risk_settings").select("id").eq("user_id", self.user_id).is_("strategy_id", "null")
+        )
+        if data:
+            await async_safe_update("risk_settings", {"is_live": False}, "id", data["id"])
+        else:
+            await async_safe_insert("risk_settings", {"user_id": self.user_id, "is_live": False})
         logger.info(f"LIVE trading disabled for user={self.user_id}")
 
     async def get_kill_switch_status(self) -> bool:
-        data = await async_safe_single(get_supabase().table("risk_settings").select("kill_switch_enabled").eq("user_id", self.user_id))
+        data = await async_safe_single(
+            get_supabase().table("risk_settings").select("kill_switch_enabled").eq("user_id", self.user_id).is_("strategy_id", "null")
+        )
         if data:
             return data.get("kill_switch_enabled", False)
         return False
 
     async def get_live_status(self) -> bool:
-        data = await async_safe_single(get_supabase().table("risk_settings").select("is_live").eq("user_id", self.user_id))
+        data = await async_safe_single(
+            get_supabase().table("risk_settings").select("is_live").eq("user_id", self.user_id).is_("strategy_id", "null")
+        )
         if data:
             return data.get("is_live", False)
         return False

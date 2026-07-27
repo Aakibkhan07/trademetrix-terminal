@@ -24,11 +24,17 @@ class InputValidationMiddleware(BaseHTTPMiddleware):
                 return JSONResponse(status_code=415, content={"detail": f"Unsupported content type: {content_type}"})
 
             content_length = request.headers.get("content-length")
-            if content_length and int(content_length) > self.max_size:
-                from fastapi.responses import JSONResponse
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": f"Request too large. Max {self.max_size} bytes"},
-                )
+            if content_length:
+                try:
+                    length = int(content_length)
+                except (ValueError, TypeError):
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header"})
+                if length > self.max_size:
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": f"Request too large. Max {self.max_size} bytes"},
+                    )
 
         return await call_next(request)
