@@ -124,12 +124,22 @@ class ExecutionManager:
             if order_inserted is None:
                 execution_observability.record_duplicate_prevented()
                 existing = await self._check_existing_order(request_id)
+                if existing:
+                    return ExecutionResult(
+                        success=True,
+                        execution_request_id=request_id,
+                        broker_order_id=existing.get("broker_order_id", ""),
+                        state=ExecutionState.FILLED if existing.get("status") == "FILLED" else ExecutionState.PENDING,
+                        message="DUPLICATE_REQUEST",
+                    )
+                logger.error("Order insert returned None and no existing order found for %s", request_id)
                 return ExecutionResult(
-                    success=True,
+                    success=False,
                     execution_request_id=request_id,
-                    broker_order_id=existing.get("broker_order_id", ""),
-                    state=ExecutionState.FILLED if existing and existing.get("status") == "FILLED" else ExecutionState.PENDING,
-                    message="DUPLICATE_REQUEST",
+                    broker_order_id="",
+                    state=ExecutionState.FAILED,
+                    message="Order insert failed — unknown error",
+                    error_code="INSERT_FAILED",
                 )
 
             broker_result = await self._execute_with_retry(adapter, order, request_id, req)
@@ -492,9 +502,7 @@ class ExecutionManager:
             if not data.get("client_order_id"):
                 data["client_order_id"] = order.client_order_id or order.broker or ""
             result = await async_supabase(
-                lambda: supabase.table("orders")
-                .upsert(data, on_conflict=["client_order_id"], ignore_duplicates=True)
-                .execute()
+                lambda: supabase.table("orders").insert(data).execute()
             )
             if result.data:
                 return result.data[0]

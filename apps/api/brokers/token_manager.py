@@ -56,6 +56,8 @@ class TokenManager:
                     adapter.authenticate(creds),
                     timeout=TOKEN_REFRESH_TIMEOUT,
                 )
+                if session_obj is None:
+                    raise ValueError(f"Broker {self.broker} authenticate returned None")
                 access_token = session_obj.access_token if hasattr(session_obj, "access_token") else session_obj.get("access_token", "")
                 expires_at = session_obj.expires_at if hasattr(session_obj, "expires_at") else session_obj.get("expires_at")
 

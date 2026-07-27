@@ -35,6 +35,8 @@ def encrypt_broker_credentials(plaintext: str) -> str:
 
 
 def decrypt_broker_credentials(ciphertext: str) -> str:
+    if not ciphertext:
+        return ""
     try:
         return _fernet.decrypt(ciphertext.encode()).decode()
     except Exception as e:

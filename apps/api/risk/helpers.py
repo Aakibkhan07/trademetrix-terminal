@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from core.db import get_supabase
-from core.safe_query import async_safe_execute
+from core.safe_query import async_safe_execute, async_safe_single
 
 logger = logging.getLogger(__name__)
 
