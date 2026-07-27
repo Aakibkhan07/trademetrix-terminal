@@ -5,6 +5,7 @@ Entry: EMA9>EMA21 + price>VWAP + ADX>20 (bullish), mirror for bearish.
 Exit: Supertrend flip on underlying, or theta time-stop when trend weakens.
 """
 import logging
+from datetime import time
 from typing import Optional
 
 from core.models import Candle
@@ -35,7 +36,7 @@ class TrendRiderBuyer(BuyerBase):
         self.bc.sl_pct = float(self.config.get("sl_pct", 35.0))
         self.bc.time_stop_min = int(self.config.get("time_stop_min", 40))
         self.bc.time_stop_min_R = float(self.config.get("time_stop_min_R", 0.0))
-        self.bc.last_entry = self.config.get("last_entry", __import__("datetime").time(14, 0))
+        self.bc.last_entry = self.config.get("last_entry", time(14, 0))
 
     async def on_candle(self, candle: Candle) -> Optional[SignalResult]:
         t = candle.timestamp.time()

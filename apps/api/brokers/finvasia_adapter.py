@@ -65,7 +65,9 @@ class FinvasiaAdapter(BaseBroker):
             imei = "1234567890"
             client = await self._get_client()
             pwd_encoded = hashlib.sha256(pwd.encode()).hexdigest()
-            if factor2 and len(factor2) <= 8:
+            if factor2 and factor2.isdigit() and len(factor2) == 6:
+                pass
+            elif factor2:
                 import pyotp
                 try:
                     factor2 = pyotp.TOTP(factor2).now()
@@ -177,9 +179,9 @@ class FinvasiaAdapter(BaseBroker):
     async def get_funds(self) -> Funds:
         data = await self._noren_post("Limits", {})
         return Funds(
-            total_margin=float(data.get("cash", data.get("total", 0))),
-            used_margin=float(data.get("used", 0)),
-            available_margin=float(data.get("cash", 0)),
+            total_margin=float(data.get("cash") or data.get("total") or 0),
+            used_margin=float(data.get("used") or 0),
+            available_margin=float(data.get("cash") or 0),
             broker=self.broker_name,
         )
 

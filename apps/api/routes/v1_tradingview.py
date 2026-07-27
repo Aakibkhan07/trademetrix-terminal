@@ -30,8 +30,8 @@ async def tradingview_webhook(request: Request):
             payload = json.loads(body)
             payload["_signature"] = signature
             await enqueue_webhook(payload)
-        except Exception:
-            pass
+        except Exception as enq_err:
+            logger.exception("Failed to enqueue webhook for retry: %s", enq_err)
         raise HTTPException(status_code=502, detail=str(e))
 
 

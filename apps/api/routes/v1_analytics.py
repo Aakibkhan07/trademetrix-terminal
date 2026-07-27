@@ -18,7 +18,7 @@ _analytics_service = AnalyticsService()
 async def track_event(request: Request):
     body = await request.json()
     try:
-        return _analytics_service.track_event(
+        return await _analytics_service.track_event(
             event_name=body.get("event", ""),
             properties=body.get("properties", {}),
             session_id=body.get("session_id", ""),
@@ -35,7 +35,7 @@ async def list_events(
     limit: int = 100,
     user: UserProfile = Depends(require_admin),
 ):
-    return _analytics_service.list_events(event_filter=event or None, limit=limit)
+    return await _analytics_service.list_events(event_filter=event or None, limit=limit)
 
 
 @router.get("/api/v1/admin/analytics/overview")

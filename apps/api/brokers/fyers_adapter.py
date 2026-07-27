@@ -106,7 +106,8 @@ class FyersAdapter(BaseBroker):
         try:
             parts = token.split(".")
             if len(parts) == 3:
-                import base64, json
+                import base64
+                import json
                 padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
                 payload = json.loads(base64.urlsafe_b64decode(padded))
                 exp = payload.get("exp", 0)

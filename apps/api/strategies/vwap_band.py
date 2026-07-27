@@ -45,7 +45,7 @@ class VWAPBand(BaseStrategy):
 
         if side:
             order = NormalizedOrder(
-                symbol=tick.symbol.split(":")[-1] if ":" in tick.symbol else tick.symbol,
+                symbol=tick.symbol.split(":")[-1] if tick.symbol and ":" in tick.symbol else (tick.symbol or ""),
                 exchange=Exchange.NSE,
                 side=side,
                 order_type=OrderType.MARKET,

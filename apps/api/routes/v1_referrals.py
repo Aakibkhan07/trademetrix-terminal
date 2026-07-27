@@ -1,6 +1,5 @@
 import logging
 import secrets
-from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -40,9 +39,13 @@ async def get_referral_code(user: UserProfile = Depends(get_current_user)):
 @router.post("/generate-code", response_model=ReferralCodeResponse)
 async def generate_referral_code(user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
-    code = secrets.token_hex(4).upper()
-    await async_supabase(lambda: supabase.table("profiles").update({"referral_code": code}).eq("id", user.id).execute())
-    return ReferralCodeResponse(referral_code=code)
+    for _ in range(3):
+        code = secrets.token_hex(4).upper()
+        existing = await async_supabase(lambda: supabase.table("profiles").select("id").eq("referral_code", code).limit(1).execute())
+        if not existing.data:
+            await async_supabase(lambda: supabase.table("profiles").update({"referral_code": code}).eq("id", user.id).execute())
+            return ReferralCodeResponse(referral_code=code)
+    raise HTTPException(status_code=500, detail="Failed to generate unique referral code")
 
 
 @router.get("/stats", response_model=ReferralStatsResponse)

@@ -48,7 +48,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY || 'test-key' }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'test-key' }}
           SECRET_KEY: ${{ secrets.SECRET_KEY || 'test-secret-key-for-testing-only' }}
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY || 'MWVizZu2ZaJoSu6BoPII1xFR-gpEmktStXfpzDLh7_I=' }}
 
   lint-web:
     name: Lint Web
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose -f infra/docker-compose.yml build api web
+      - run: REDIS_PASSWORD=testpass GRAFANA_PASSWORD=testpass docker compose -f infra/docker-compose.yml build api web
 
   backup-verify:
     name: Verify Backup Scripts
@@ -117,7 +117,7 @@ jobs:
           SUPABASE_SERVICE_KEY=test-key \
           SUPABASE_ANON_KEY=test-key \
           SECRET_KEY=${{ secrets.SECRET_KEY || 'test-secret-key' }} \
-          ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }} \
+          ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY || 'MWVizZu2ZaJoSu6BoPII1xFR-gpEmktStXfpzDLh7_I=' }} \
           uvicorn main:app --host 0.0.0.0 --port 8000 &
           sleep 5
       - name: Run API load tests

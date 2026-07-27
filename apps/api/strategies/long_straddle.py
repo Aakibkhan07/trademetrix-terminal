@@ -8,6 +8,7 @@ trail winner) or combined premium drops -40%. IV gate required.
 Small size, event-day selective only.
 """
 import logging
+from datetime import datetime
 from typing import Optional
 
 from core.models import Candle
@@ -223,8 +224,8 @@ class LongStraddle(BuyerBase):
         self.pos_ce = s.get("pos_ce")
         self.pos_pe = s.get("pos_pe")
         et = s.get("_entry_ts")
-        self._entry_ts = __import__("datetime").datetime.fromisoformat(et) if et else None
+        self._entry_ts = datetime.fromisoformat(et) if et else None
         if self.pos_ce and self.pos_ce.get("entry_ts"):
-            self.pos_ce["entry_ts"] = __import__("datetime").datetime.fromisoformat(self.pos_ce["entry_ts"])
+            self.pos_ce["entry_ts"] = datetime.fromisoformat(self.pos_ce["entry_ts"])
         if self.pos_pe and self.pos_pe.get("entry_ts"):
-            self.pos_pe["entry_ts"] = __import__("datetime").datetime.fromisoformat(self.pos_pe["entry_ts"])
+            self.pos_pe["entry_ts"] = datetime.fromisoformat(self.pos_pe["entry_ts"])

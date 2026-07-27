@@ -42,8 +42,6 @@ async def broker_order_update(request: Request, x_webhook_secret: str = Header(d
     if order_type and order_type.upper() not in BROKER_ORDER_TYPES:
         logger.warning("Webhook: unexpected order_type=%s from broker=%s", order_type, broker)
 
-    from datetime import UTC, datetime
-
     update = {"status": status, "updated_at": datetime.now(UTC).isoformat()}
     if filled_qty is not None:
         update["filled_quantity"] = filled_qty

@@ -161,6 +161,8 @@ class BuyerBase(BaseStrategy):
     async def _resolve_strike(self, spot: float, cepe: str) -> float:
         if self.bc.target_delta > 0:
             return await self._resolve_strike_by_delta(spot, cepe)
+        if self.step <= 0:
+            raise ValueError(f"Invalid strike step ({self.step}) for index {self.bc.index}")
         atm = round(spot / self.step) * self.step
         offset = self.bc.itm_offset_steps * self.step
         return (atm - offset) if cepe == "CE" else (atm + offset)

@@ -71,7 +71,10 @@ async def delete_user_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    await _strategy_service.delete_strategy(current_user.id, strategy_id)
+    try:
+        await _strategy_service.delete_strategy(current_user.id, strategy_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/{strategy_id}/deploy")

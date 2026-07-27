@@ -32,14 +32,16 @@ async def version():
 
 @router.get("/health/metrics")
 async def metrics():
-    return get_metrics()
+    import asyncio
+    return await asyncio.to_thread(get_metrics)
 
 
-def _db_ok() -> bool:
+async def _db_ok() -> bool:
     try:
         from core.db import get_supabase
-        sb = get_supabase()
-        sb.table("orders").select("id").limit(1).execute()
+        import asyncio
+        sb = await asyncio.to_thread(get_supabase)
+        await asyncio.to_thread(lambda: sb.table("orders").select("id").limit(1).execute())
         return True
     except Exception:
         return False
@@ -57,7 +59,7 @@ async def _cache_ok() -> bool:
 
 @router.get("/health/ready")
 async def readiness():
-    db = _db_ok()
+    db = await _db_ok()
     cache_ok = await _cache_ok()
     status = "ok" if db else "degraded"
     return {

@@ -199,7 +199,7 @@ class ReplayEngine:
         if isinstance(ts, str):
             ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         elif isinstance(ts, (int, float)):
-            ts = datetime.utcfromtimestamp(ts)
+            ts = datetime.fromtimestamp(ts, tz=UTC)
         return Candle(
             symbol=d.get("symbol", ""),
             exchange=exchange,

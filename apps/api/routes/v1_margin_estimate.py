@@ -62,6 +62,8 @@ async def margin_estimate(
     try:
         token_mgr = TokenManager(current_user.id, broker)
         session = await token_mgr.get_session()
+        if session is None:
+            raise ValueError("Session retrieval returned None")
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

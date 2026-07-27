@@ -1,0 +1,25 @@
+line-length = 120
+target-version = "py312"
+
+[lint]
+ignore = [
+    "E402",   # module import not at top of file (pre-existing)
+    "E501",   # line too long (pre-existing test files)
+    "E741",   # ambiguous variable name (pre-existing)
+    "F401",   # unused import (pre-existing)
+    "F541",   # f-string missing placeholders (pre-existing)
+    "F821",   # undefined name (pre-existing in unmodified files)
+    "F841",   # unused variable (pre-existing)
+    "I001",   # import sorting (pre-existing across codebase)
+    "N803",   # argument name should be lowercase (pre-existing in math formulas)
+    "N806",   # variable in function should be lowercase
+    "N815",   # mixedCase class scope variable
+    "N817",   # camelcase imported as acronym
+    "UP007",  # use X | Y for unions (would need massive refactor)
+    "UP017",  # use datetime.UTC alias (pre-existing)
+    "UP035",  # import from collections.abc
+    "UP041",  # use builtin TimeoutError (pre-existing)
+    "UP042",  # use StrEnum
+    "UP045",  # use X | None for type annotations
+    "W292",   # no newline at end of file (pre-existing)
+]

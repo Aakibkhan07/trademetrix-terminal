@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from core.db import get_supabase
 from core.models import (
     Exchange, Funds, NormalizedOrder,
-    OrderResult, OrderStatus, OrderType, Position, ProductType,
+    OrderResult, OrderSide, OrderStatus, OrderType, Position, ProductType,
 )
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
 from execution.models import BrokerCapabilities

@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import httpx
 
@@ -90,9 +90,8 @@ class MarketStatusService:
     def _next_holiday_date(self, ist: datetime) -> str:
         for h in self._holidays:
             try:
-                h_date = datetime.strptime(h, "%Y-%m-%d").replace(tzinfo=UTC)
-                h_date_ist = h_date + timedelta(hours=5, minutes=30)
-                if h_date_ist > ist:
+                h_date = datetime.strptime(h, "%Y-%m-%d").replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
+                if h_date > ist:
                     return h
             except Exception:
                 continue

@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from core.deps import get_current_user
 from core.models import UserProfile
@@ -42,6 +42,8 @@ async def get_option_chain(
     current_user: UserProfile = Depends(get_current_user),
 ):
     data = await option_chain_engine.get_option_chain(symbol, expiry)
+    if data is None:
+        raise HTTPException(status_code=503, detail="Option chain data unavailable")
     expiries = await option_chain_engine.get_expiries(symbol)
     pcr = option_chain_engine.calculate_pcr(data)
     max_pain = option_chain_engine.calculate_max_pain(data)
