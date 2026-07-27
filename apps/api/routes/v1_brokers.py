@@ -134,5 +134,5 @@ async def broker_callback(broker: str, code: str = Query(None, alias="auth_code"
         query_code = state
     success, msg = await _broker_service.handle_callback(broker, query_code, state)
     if success:
-        return RedirectResponse(url=f"{_frontend_url()}/brokers?auth_success=1")
-    return RedirectResponse(url=f"{_frontend_url()}/brokers?auth_error={quote(msg)}")
+        return RedirectResponse(url=f"{_frontend_url()}?auth_success=1")
+    return RedirectResponse(url=f"{_frontend_url()}?auth_error={quote(msg)}")
