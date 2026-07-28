@@ -395,3 +395,25 @@ class TestAdminRoutes:
     def test_users_route_registered(self):
         paths = [r.path for r in admin_router.routes if hasattr(r, "path")]
         assert "/admin/users" in paths
+
+    def test_all_admin_routes_registered(self):
+        paths = [r.path for r in admin_router.routes if hasattr(r, "path")]
+        expected = {
+            "/admin/backups", "/admin/backups/run", "/admin/backups/restore/{filename}", "/admin/backups/{filename}",
+            "/admin/kill-switch", "/admin/resume-trading",
+            "/admin/stats",
+            "/admin/users", "/admin/users/{user_id}",
+            "/admin/assignments", "/admin/assignments/{assignment_id}",
+            "/admin/assignments/batch", "/admin/assignments/export", "/admin/assignments/import",
+            "/admin/brokers", "/admin/brokers/fyers/validate", "/admin/brokers/fyers/re-auth/{credential_id}",
+            "/admin/orders", "/admin/positions", "/admin/audit-log",
+            "/admin/risk", "/admin/active-brokers",
+            "/admin/admins", "/admin/admins/{user_id}",
+            "/admin/broadcast/recipients", "/admin/broadcast", "/admin/broadcast/notify",
+            "/admin/strategies", "/admin/strategies/{key}",
+            "/admin/execute-trade",
+        }
+        missing = expected - set(paths)
+        extra = set(paths) - expected
+        assert not missing, f"Missing routes: {missing}"
+        assert not extra, f"Unexpected routes: {extra}"
