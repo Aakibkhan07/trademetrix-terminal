@@ -55,23 +55,26 @@ def get_supabase_anon() -> Client:
     return _supabase_anon
 
 
+async def _close_client(client: Client | None, name: str = "client") -> None:
+    if client is None:
+        return
+    try:
+        pg = getattr(client, 'postgrest', None)
+        if pg is not None:
+            coro = pg.aclose()
+            if coro is not None:
+                await coro
+    except Exception as e:
+        logger.warning("Error closing supabase %s: %s", name, e)
+
+
 async def close_supabase() -> None:
     global _supabase, _supabase_anon, _db_executor
     _supabase_available.clear()
-    if _supabase:
-        try:
-            _supabase.auth.sign_out()
-            await _supabase.postgrest.aclose()
-        except Exception as e:
-            logger.warning("Error closing supabase client: %s", e)
-        _supabase = None
-    if _supabase_anon and _supabase_anon.postgrest:
-        try:
-            _supabase_anon.auth.sign_out()
-            await _supabase_anon.postgrest.aclose()
-        except Exception as e:
-            logger.warning("Error closing supabase anon client: %s", e)
-        _supabase_anon = None
+    await _close_client(_supabase, "client")
+    _supabase = None
+    await _close_client(_supabase_anon, "anon client")
+    _supabase_anon = None
     _db_executor.shutdown(wait=False)
 
 

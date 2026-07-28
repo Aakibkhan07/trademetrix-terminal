@@ -4,11 +4,10 @@ import time
 
 import httpx
 
-from brokers import get_broker
+from brokers import create_broker
 from brokers.token_manager import TokenManager
 from core.models import NormalizedOrder, OrderResult
 from core.prometheus import record_broker_metrics
-from core.resilience import _get_breaker
 from execution.models import BrokerCapabilities
 from execution.rate_limiter import acquire_broker_token
 
@@ -87,10 +86,14 @@ class BrokerExecutionAdapter:
 
     async def connect(self) -> bool:
         try:
-            session = await self._token_manager.get_session()
-            adapter_cls = get_broker(self.broker)
-            self._adapter = adapter_cls()
-            await self._adapter.authenticate(session)
+            if self.broker == "paper":
+                from paper.paper_broker import get_paper_broker
+                self._adapter = get_paper_broker(self.user_id)
+                await self._adapter.connect()
+            else:
+                session = await self._token_manager.get_session()
+                self._adapter = create_broker(self.broker)
+                await self._adapter.authenticate(session)
             self._authenticated = True
             return True
         except Exception as e:
@@ -133,12 +136,11 @@ class BrokerExecutionAdapter:
         if not self._adapter or not self._authenticated:
             return OrderResult(success=False, message="Broker not connected")
         await acquire_broker_token(self.broker)
-        breaker = _get_breaker(f"broker_{self.broker}")
         start = time.monotonic()
         result = None
         try:
             result = await self._handle_token_expiry_and_retry(
-                lambda: breaker.call(self._adapter.place_order, order)
+                lambda: self._adapter.place_order(order)
             )
             return result
         except (asyncio.TimeoutError, httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadTimeout) as e:
@@ -158,12 +160,11 @@ class BrokerExecutionAdapter:
         if not self._adapter or not self._authenticated:
             return OrderResult(success=False, message="Broker not connected")
         await acquire_broker_token(self.broker)
-        breaker = _get_breaker(f"broker_{self.broker}")
         start = time.monotonic()
         result = None
         try:
             result = await self._handle_token_expiry_and_retry(
-                lambda: breaker.call(self._adapter.modify_order, order_id, changes)
+                lambda: self._adapter.modify_order(order_id, changes)
             )
             return result
         except (asyncio.TimeoutError, httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadTimeout) as e:
@@ -183,12 +184,11 @@ class BrokerExecutionAdapter:
         if not self._adapter or not self._authenticated:
             return OrderResult(success=False, message="Broker not connected")
         await acquire_broker_token(self.broker)
-        breaker = _get_breaker(f"broker_{self.broker}")
         start = time.monotonic()
         result = None
         try:
             result = await self._handle_token_expiry_and_retry(
-                lambda: breaker.call(self._adapter.cancel_order, order_id)
+                lambda: self._adapter.cancel_order(order_id)
             )
             return result
         except (asyncio.TimeoutError, httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadTimeout) as e:

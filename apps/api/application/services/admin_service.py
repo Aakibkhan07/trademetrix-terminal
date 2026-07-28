@@ -457,15 +457,21 @@ class AdminService:
     async def enable_kill_switch(self) -> dict:
         from core.cache import cache
         from core.notifications import send_telegram_alert
-        await cache.set("global:kill_switch", "1", ex=None)
-        await send_telegram_alert("\U0001f6ab <b>GLOBAL KILL SWITCH ENABLED</b>\nAll trading halted by admin.")
+        await cache.set("global:kill_switch", "1", ttl=None)
+        try:
+            await send_telegram_alert("\U0001f6ab <b>GLOBAL KILL SWITCH ENABLED</b>\nAll trading halted by admin.")
+        except Exception:
+            pass
         return {"kill_switch": True, "message": "Global kill switch ENABLED"}
 
     async def disable_kill_switch(self) -> dict:
         from core.cache import cache
         from core.notifications import send_telegram_alert
         await cache.delete("global:kill_switch")
-        await send_telegram_alert("\u2705 <b>GLOBAL KILL SWITCH DISABLED</b>\nTrading resumed.")
+        try:
+            await send_telegram_alert("\u2705 <b>GLOBAL KILL SWITCH DISABLED</b>\nTrading resumed.")
+        except Exception:
+            pass
         return {"kill_switch": False, "message": "Global kill switch DISABLED"}
 
     async def list_brokers(self, limit: int = 100, offset: int = 0) -> dict:

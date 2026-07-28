@@ -139,6 +139,7 @@ def _normalized_to_execution_request(user_id: str, order: NormalizedOrder, broke
         strategy_id=order.strategy_id,
         source=source,
         execution_request_id=order.client_order_id or "",
+        is_paper=order.is_paper,
     )
 
 
@@ -249,12 +250,15 @@ async def execute_order(
 
             order.signal_at = datetime.now(UTC)
 
-            broker = await _resolve_broker(user_id)
-            if not broker:
-                order.status = OrderStatus.REJECTED
-                order.message = "NO_ACTIVE_BROKER"
-                await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
-                return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
+            if order.is_paper:
+                broker = "paper"
+            else:
+                broker = await _resolve_broker(user_id)
+                if not broker:
+                    order.status = OrderStatus.REJECTED
+                    order.message = "NO_ACTIVE_BROKER"
+                    await _write_audit(user_id, "rejected", order, source=source, reason="NO_ACTIVE_BROKER")
+                    return OrderResult(success=False, message="No active broker configured. Connect a broker first.", status="rejected")
             order.broker = broker
             order.is_paper = order.is_paper or broker == "paper"
 

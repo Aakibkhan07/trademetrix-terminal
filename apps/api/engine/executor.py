@@ -1,6 +1,6 @@
 import logging
 
-from brokers import get_broker
+from brokers import create_broker
 from brokers.token_manager import TokenManager
 from core.audit import record_audit
 from core.db import async_supabase, get_supabase
@@ -27,8 +27,7 @@ class ExecutionEngine:
     async def start(self):
         self._running = True
         session = await self._token_manager.get_session()
-        adapter_cls = get_broker(self.broker)
-        self._adapter = adapter_cls()
+        self._adapter = create_broker(self.broker)
         await self._adapter.authenticate(session)
         logger.info(f"Engine started for user={self.user_id} broker={self.broker}")
 

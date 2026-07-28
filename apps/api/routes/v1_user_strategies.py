@@ -53,6 +53,7 @@ async def get_strategy_activity(
     return await _strategy_service.get_strategy_activity(current_user.id, strategy_id)
 
 
+@router.put("/{strategy_id}")
 @router.patch("/{strategy_id}")
 async def update_user_strategy(
     strategy_id: str,

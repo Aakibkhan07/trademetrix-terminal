@@ -88,13 +88,11 @@ class TestTokenManager:
 
     @pytest.mark.asyncio
     async def test_token_refresh_retry_on_failure(self):
-        mock_adapter_cls = MagicMock()
         mock_adapter = AsyncMock()
         mock_adapter.authenticate.side_effect = [
             Exception("Network error"),
             MagicMock(access_token="new_token", expires_at=None),
         ]
-        mock_adapter_cls.return_value = mock_adapter
 
         mock_cred_data = MagicMock()
         mock_cred_data.data = {
@@ -107,7 +105,7 @@ class TestTokenManager:
         tm = TokenManager("user1", "test_broker")
 
         with (
-            patch("brokers.token_manager.get_broker", return_value=mock_adapter_cls),
+            patch("brokers.token_manager.create_broker", return_value=mock_adapter),
             patch.object(tm, "_load_credentials", AsyncMock(return_value={"client_id": "c", "secret_key": "s", "access_token": ""})),
             patch.object(tm, "save_access_token", AsyncMock()),
         ):
@@ -117,16 +115,14 @@ class TestTokenManager:
 
     @pytest.mark.asyncio
     async def test_token_refresh_timeout_raises(self):
-        mock_adapter_cls = MagicMock()
         mock_adapter = AsyncMock()
         mock_adapter.authenticate.side_effect = asyncio.TimeoutError("timeout")
-        mock_adapter_cls.return_value = mock_adapter
 
         from brokers.token_manager import TokenManager, TOKEN_REFRESH_MAX_RETRIES
         tm = TokenManager("user1", "test_timeout")
 
         with (
-            patch("brokers.token_manager.get_broker", return_value=mock_adapter_cls),
+            patch("brokers.token_manager.create_broker", return_value=mock_adapter),
             patch.object(tm, "_load_credentials", AsyncMock(return_value={"client_id": "c", "secret_key": "s", "access_token": ""})),
             patch.object(tm, "save_access_token", AsyncMock()),
         ):
@@ -136,17 +132,15 @@ class TestTokenManager:
 
     @pytest.mark.asyncio
     async def test_token_persists_to_db(self):
-        mock_adapter_cls = MagicMock()
         mock_adapter = AsyncMock()
         mock_adapter.authenticate.return_value = MagicMock(access_token="persisted_token", expires_at=None)
-        mock_adapter_cls.return_value = mock_adapter
 
         from brokers.token_manager import TokenManager
         tm = TokenManager("user1", "test_persist")
 
         save_mock = AsyncMock()
         with (
-            patch("brokers.token_manager.get_broker", return_value=mock_adapter_cls),
+            patch("brokers.token_manager.create_broker", return_value=mock_adapter),
             patch.object(tm, "_load_credentials", AsyncMock(return_value={"client_id": "c", "secret_key": "s", "access_token": ""})),
             patch.object(tm, "save_access_token", save_mock),
         ):
@@ -168,10 +162,9 @@ class TestTokenManager:
 
         mock_adapter = AsyncMock()
         mock_adapter.authenticate = slow_authenticate
-        mock_adapter_cls = MagicMock(return_value=mock_adapter)
 
         with (
-            patch("brokers.token_manager.get_broker", return_value=mock_adapter_cls),
+            patch("brokers.token_manager.create_broker", return_value=mock_adapter),
             patch.object(tm, "_load_credentials", AsyncMock(return_value={"client_id": "c", "secret_key": "s", "access_token": ""})),
             patch.object(tm, "save_access_token", AsyncMock()),
         ):
@@ -233,7 +226,7 @@ class TestOMSMemoryCap:
         assert len(mgr._orders) == 3
 
     @pytest.mark.asyncio
-    async def test_evicts_oldest_when_no_terminal_orders(self):
+    async def test_does_not_evict_non_terminal_orders(self):
         from oms.manager import OrderManager
         from oms.models import OmniOrder, OMSOrderState
 
@@ -244,11 +237,11 @@ class TestOMSMemoryCap:
         mgr._add_order(o2)
         o3 = OmniOrder(oms_order_id="o3", user_id="u1", state=OMSOrderState.NEW)
         mgr._add_order(o3)
-        assert "o1" not in mgr._orders
-        assert len(mgr._orders) == 2
+        assert "o1" in mgr._orders
+        assert len(mgr._orders) == 3
 
     @pytest.mark.asyncio
-    async def test_eviction_logs_warning_for_active_eviction(self, caplog):
+    async def test_eviction_skips_when_no_terminal_orders(self, caplog):
         import logging
         caplog.set_level(logging.WARNING)
 
@@ -260,4 +253,5 @@ class TestOMSMemoryCap:
         o2 = OmniOrder(oms_order_id="o2", user_id="u1", state=OMSOrderState.SENT)
         mgr._add_order(o1)
         mgr._add_order(o2)
-        assert any("evicting oldest active order" in msg for msg in caplog.messages)
+        assert any("skipping eviction" in msg for msg in caplog.messages)
+        assert len(mgr._orders) == 2

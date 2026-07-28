@@ -18,7 +18,7 @@ from core.middleware.request_id import RequestIDMiddleware
 from core.middleware.request_logging import RequestLoggingMiddleware
 from core.middleware.ip_whitelist import AdminIPWhitelistMiddleware
 from core.middleware.security import SecurityHeadersMiddleware
-from core.prometheus import record_metrics
+from core.prometheus import on_breaker_state_change as _on_breaker_state_change, record_metrics
 from core.prometheus import router as prometheus_router
 from core.ratelimit import RateLimitMiddleware
 from core.response import error_response
@@ -54,6 +54,8 @@ from routes.v1_multileg import router as multileg_router
 from application.services.cleanup_service import CleanupService
 from routes.v1_referrals import router as referrals_router
 from routes.v1_broker_webhook import router as broker_webhook_router
+from routes.v1_orders import router as orders_router
+from routes.v1_portfolio import router as portfolio_router
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +90,8 @@ async def lifespan(app: FastAPI):
     setup_logging()
     init_sentry()
     init_vault()
+    from core.resilience import set_breaker_state_callback
+    set_breaker_state_callback(_on_breaker_state_change)
     await cache.init()
     from infrastructure.database import init_db, close_db
     try:
@@ -114,6 +118,8 @@ async def lifespan(app: FastAPI):
     _background_tasks.append(asyncio.ensure_future(_startup_recovery()))
     _background_tasks.append(asyncio.ensure_future(_start_watchdog()))
     _background_tasks.append(asyncio.ensure_future(_start_webhook_retry()))
+    from oms.manager import order_manager
+    await order_manager.start()
     yield
     for task in _background_tasks:
         task.cancel()
@@ -173,7 +179,7 @@ app.add_middleware(
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=600)
 app.add_middleware(InputValidationMiddleware)
 app.add_middleware(CSRFProtectMiddleware)
 app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)
@@ -215,6 +221,8 @@ app.include_router(margin_estimate_router, prefix="/api/v1")
 app.include_router(buyer_strategies_router, prefix="/api/v1")
 app.include_router(squareoff_router, prefix="/api/v1")
 app.include_router(multileg_router, prefix="/api/v1")
+app.include_router(orders_router, prefix="/api/v1")
+app.include_router(portfolio_router)
 app.include_router(subscriptions_router, prefix="/api/v1")
 app.include_router(referrals_router, prefix="/api/v1")
 app.include_router(broker_webhook_router, prefix="/api/v1")

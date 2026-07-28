@@ -77,8 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signout = useCallback(async () => {
     try {
       await api.auth.signout()
-    } catch {
-      // ignore — we clear local state regardless
+    } catch (e) {
+      console.warn('Signout API call failed, clearing local state anyway:', e)
     }
     setUser(null)
     router.push('/auth')

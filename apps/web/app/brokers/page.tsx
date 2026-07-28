@@ -58,8 +58,8 @@ export default function BrokersPage() {
       const mm: MetadataMap = {}
       metaArr.forEach(m => { mm[m.broker] = m })
       setMetadataMap(mm)
-    } catch {
-      // keep current state on error
+    } catch (e) {
+      console.error('Failed to load brokers:', e)
     } finally {
       setLoading(false)
     }

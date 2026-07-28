@@ -56,7 +56,7 @@ async def validate_order(order: NormalizedOrder, user_id: str, adapter: BrokerEx
         if order.product in ("MIS",) and not caps.supports_bracket:
             warnings.append(f"Broker {adapter.broker} may not support MIS products")
 
-    session_valid = await _validate_trading_session(source=order.source)
+    session_valid = order.is_paper or await _validate_trading_session(source=order.source)
     if not session_valid:
         errors.append({"field": "session", "message": "Market is closed"})
 

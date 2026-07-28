@@ -24,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 PAPER_BROKER = "paper"
 
+_paper_broker_instances: dict[str, "PaperBroker"] = {}
+
+
+def get_paper_broker(user_id: str) -> "PaperBroker":
+    if user_id not in _paper_broker_instances:
+        _paper_broker_instances[user_id] = PaperBroker(user_id)
+    return _paper_broker_instances[user_id]
+
 
 class PaperBroker:
     def __init__(self, user_id: str):
@@ -45,8 +53,67 @@ class PaperBroker:
         self._account.total_margin = self._config.initial_capital
         self._account.available_margin = self._config.initial_capital
         self._account.current_value = self._config.initial_capital
+        await self._restore_positions()
         logger.info("PaperBroker connected for user %s (capital: %.2f)", self.user_id, self._config.initial_capital)
         return True
+
+    async def _restore_positions(self) -> None:
+        try:
+            from core.db import get_supabase
+            from core.safe_query import async_safe_execute
+            supabase = get_supabase()
+            rows = await async_safe_execute(
+                supabase.table("orders")
+                .select("*")
+                .eq("user_id", self.user_id)
+                .eq("broker", PAPER_BROKER)
+                .eq("status", "FILLED")
+                .order("created_at")
+            )
+            if not rows:
+                return
+
+            self._positions = {}
+            self._orders = {}
+
+            for row in rows:
+                order = NormalizedOrder(
+                    symbol=row.get("symbol", ""),
+                    exchange=Exchange(row.get("exchange", "NSE")),
+                    side=OrderSide(row.get("side", "BUY")),
+                    order_type=OrderType(row.get("order_type", "MARKET")),
+                    product=ProductType(row.get("product", "INTRADAY")),
+                    quantity=row.get("quantity", 0),
+                    price=row.get("price", 0.0),
+                    trigger_price=row.get("trigger_price"),
+                    broker=PAPER_BROKER,
+                    broker_order_id=row.get("broker_order_id", ""),
+                    filled_quantity=row.get("filled_quantity", 0),
+                    average_price=row.get("average_price", 0.0),
+                    user_id=self.user_id,
+                    is_paper=True,
+                    status=OrderStatus.FILLED,
+                )
+                fill = PaperFill(
+                    filled_quantity=order.filled_quantity or order.quantity,
+                    filled_price=order.average_price or order.price or 0,
+                    order_id=order.broker_order_id or "",
+                )
+                self._update_position(order, fill)
+                self._update_account(order, fill)
+                order_id = order.broker_order_id or order.client_order_id or str(int(time.time()))
+                self._orders[order_id] = {
+                    "order": order,
+                    "status": PaperOrderStatus.FILLED,
+                    "fills": [fill],
+                    "created_at": datetime.now(UTC),
+                }
+            logger.info(
+                "Restored %d filled orders, %d positions for paper user %s",
+                len(self._orders), len(self._positions), self.user_id,
+            )
+        except Exception as e:
+            logger.error("Failed to restore paper positions for user %s: %s", self.user_id, e)
 
     async def disconnect(self):
         self._authenticated = False
@@ -166,6 +233,9 @@ class PaperBroker:
 
     async def get_orders(self) -> list[NormalizedOrder]:
         return [o["order"] for o in self._orders.values()]
+
+    async def get_orderbook(self) -> list[NormalizedOrder]:
+        return await self.get_orders()
 
     async def get_positions(self) -> list:
         positions = []

@@ -11,33 +11,80 @@ T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 
+class CircuitBreakerError(Exception):
+    pass
+
+
 class CircuitBreakerState:
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
 
 
+_STATE_GAUGE_CALLBACK: Callable | None = None
+
+
+def _set_breaker_state_gauge(name: str, state: str) -> None:
+    if _STATE_GAUGE_CALLBACK:
+        try:
+            _STATE_GAUGE_CALLBACK(name, state)
+        except Exception:
+            pass
+
+
+def set_breaker_state_callback(cb: Callable) -> None:
+    global _STATE_GAUGE_CALLBACK
+    _STATE_GAUGE_CALLBACK = cb
+
+
 class CircuitBreaker:
-    def __init__(self, name: str, failure_threshold: int = 5, recovery_timeout: float = 30.0):
+    def __init__(self, name: str, failure_threshold: int = 5,
+                 recovery_timeout: float = 30.0,
+                 max_recovery_timeout: float = 300.0,
+                 backoff_factor: float = 2.0):
         self.name = name
         self.failure_threshold = failure_threshold
-        self.recovery_timeout = recovery_timeout
+        self.base_recovery_timeout = recovery_timeout
+        self.max_recovery_timeout = max_recovery_timeout
+        self.backoff_factor = backoff_factor
         self.state = CircuitBreakerState.CLOSED
         self.failure_count = 0
         self.last_failure_time = 0.0
         self._lock = asyncio.Lock()
+        self._consecutive_open_count = 0
+        self._last_state = CircuitBreakerState.CLOSED
+
+    def _calculate_recovery_timeout(self) -> float:
+        if self._consecutive_open_count == 0:
+            return self.base_recovery_timeout
+        timeout = self.base_recovery_timeout * (self.backoff_factor ** self._consecutive_open_count)
+        return min(timeout, self.max_recovery_timeout)
+
+    def _transition(self, new_state: str) -> None:
+        old_state = self.state
+        self.state = new_state
+        if old_state != new_state:
+            if new_state == CircuitBreakerState.OPEN and old_state != CircuitBreakerState.OPEN:
+                self._consecutive_open_count += 1
+            elif new_state == CircuitBreakerState.CLOSED:
+                self._consecutive_open_count = 0
+            _set_breaker_state_gauge(self.name, new_state)
 
     async def call(self, fn: Callable[..., T], *args: Any, fallback: T = None, **kwargs: Any) -> T:
         async with self._lock:
             if self.state == CircuitBreakerState.OPEN:
-                if time.monotonic() - self.last_failure_time >= self.recovery_timeout:
-                    self.state = CircuitBreakerState.HALF_OPEN
-                    logger.info("CircuitBreaker[%s] half-open, allowing trial", self.name)
+                recovery_timeout = self._calculate_recovery_timeout()
+                elapsed = time.monotonic() - self.last_failure_time
+                if elapsed >= recovery_timeout:
+                    self._transition(CircuitBreakerState.HALF_OPEN)
+                    logger.info("CircuitBreaker[%s] half-open (backoff=%.1fs elapsed=%.1fs), allowing trial",
+                                self.name, recovery_timeout, elapsed)
                 else:
-                    logger.warning("CircuitBreaker[%s] open, using fallback", self.name)
+                    logger.warning("CircuitBreaker[%s] open (backoff=%.1fs elapsed=%.1fs)",
+                                   self.name, recovery_timeout, elapsed)
                     if fallback is not None:
                         return fallback
-                    raise Exception(f"CircuitBreaker[{self.name}] is open")
+                    raise CircuitBreakerError(f"CircuitBreaker[{self.name}] is open")
 
         try:
             if inspect.iscoroutinefunction(fn):
@@ -47,11 +94,9 @@ class CircuitBreaker:
 
             async with self._lock:
                 if self.state == CircuitBreakerState.HALF_OPEN:
-                    self.state = CircuitBreakerState.CLOSED
-                    self.failure_count = 0
+                    self._transition(CircuitBreakerState.CLOSED)
                     logger.info("CircuitBreaker[%s] closed (trial succeeded)", self.name)
-                else:
-                    self.failure_count = 0
+                self.failure_count = 0
             return result
 
         except Exception:
@@ -59,8 +104,9 @@ class CircuitBreaker:
                 self.failure_count += 1
                 self.last_failure_time = time.monotonic()
                 if self.failure_count >= self.failure_threshold:
-                    self.state = CircuitBreakerState.OPEN
-                    logger.error("CircuitBreaker[%s] opened (failures=%d)", self.name, self.failure_count)
+                    self._transition(CircuitBreakerState.OPEN)
+                    logger.error("CircuitBreaker[%s] opened (failures=%d, consecutive_opens=%d)",
+                                 self.name, self.failure_count, self._consecutive_open_count)
             if fallback is not None:
                 return fallback
             raise
@@ -103,6 +149,7 @@ async def safe_external_call[T](fn: Callable[..., T], *args: Any,
 
 _breakers: dict[str, CircuitBreaker] = {}
 
+
 def _get_breaker(name: str) -> CircuitBreaker:
     if name not in _breakers:
         _breakers[name] = CircuitBreaker(name=name)
@@ -111,6 +158,19 @@ def _get_breaker(name: str) -> CircuitBreaker:
 
 def get_circuit_breaker_stats() -> dict:
     return {
-        name: {"state": cb.state, "failures": cb.failure_count}
+        name: {
+            "state": cb.state,
+            "failures": cb.failure_count,
+            "consecutive_opens": cb._consecutive_open_count,
+            "recovery_timeout": cb._calculate_recovery_timeout(),
+        }
         for name, cb in _breakers.items()
     }
+
+
+def reset_all_breakers() -> None:
+    for cb in _breakers.values():
+        cb.state = CircuitBreakerState.CLOSED
+        cb.failure_count = 0
+        cb._consecutive_open_count = 0
+        _set_breaker_state_gauge(cb.name, CircuitBreakerState.CLOSED)

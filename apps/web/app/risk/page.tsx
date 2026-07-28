@@ -22,7 +22,7 @@ export default function RiskPage() {
       if (s?.max_daily_loss != null) setLimits(prev => ({ ...prev, max_daily_loss: s.max_daily_loss }))
       if (s?.max_drawdown != null) setLimits(prev => ({ ...prev, max_drawdown: s.max_drawdown }))
       if (s?.max_open_positions != null) setLimits(prev => ({ ...prev, max_open_positions: s.max_open_positions }))
-    } catch { /* ignore */ }
+    } catch (e) { console.error('Failed to load risk settings:', e) }
     finally { setLoading(false) }
   }
 

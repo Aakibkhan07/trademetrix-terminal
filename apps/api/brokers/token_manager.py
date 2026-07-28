@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from cryptography.fernet import InvalidToken
 
-from brokers import get_broker
+from brokers import create_broker
 from core.db import async_supabase, get_supabase
 from core.security import decrypt_broker_credentials, encrypt_broker_credentials
 
@@ -51,8 +51,7 @@ class TokenManager:
 
     async def _refresh(self) -> None:
         creds = await self._load_credentials()
-        adapter_cls = get_broker(self.broker)
-        adapter = adapter_cls()
+        adapter = create_broker(self.broker)
 
         for attempt in range(TOKEN_REFRESH_MAX_RETRIES + 1):
             try:

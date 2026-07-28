@@ -91,6 +91,7 @@ class ExecutionRequest(BaseModel):
     option_type: str | None = None
     strategy_id: str | None = None
     source: str = "manual"
+    is_paper: bool = False
     execution_request_id: str = ""
 
 
@@ -101,6 +102,8 @@ class ExecutionResult(BaseModel):
     state: ExecutionState = ExecutionState.NEW
     message: str = ""
     error_code: str = ""
+    filled_qty: int = 0
+    avg_price: float = 0.0
     latency_ms: float = 0.0
     lifecycle: OrderLifecycle | None = None
 

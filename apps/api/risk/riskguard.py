@@ -110,7 +110,7 @@ class RiskGuard:
             await async_safe_update("risk_settings", {"kill_switch_enabled": True}, "id", existing_id)
         else:
             await async_safe_insert("risk_settings", {"user_id": self.user_id, "strategy_id": strategy_id, "kill_switch_enabled": True})
-        logger.warning(f"Kill switch enabled for user={self.user_id}")
+        logger.warning("Kill switch enabled for user=%s", self.user_id)
 
     async def disable_kill_switch(self, strategy_id: str | None = None) -> None:
         existing_id = await self._find_settings_id(strategy_id)
@@ -118,7 +118,7 @@ class RiskGuard:
             await async_safe_update("risk_settings", {"kill_switch_enabled": False}, "id", existing_id)
         else:
             await async_safe_insert("risk_settings", {"user_id": self.user_id, "strategy_id": strategy_id, "kill_switch_enabled": False})
-        logger.info(f"Kill switch disabled for user={self.user_id}")
+        logger.info("Kill switch disabled for user=%s", self.user_id)
 
     async def enable_live(self, multi_step_confirm: bool = False) -> bool:
         if not multi_step_confirm:
@@ -132,7 +132,7 @@ class RiskGuard:
         else:
             await async_safe_insert("risk_settings", {"user_id": self.user_id, "is_live": True})
         record_audit_entry(self.user_id, "enable_live", "risk_settings")
-        logger.warning(f"LIVE trading enabled for user={self.user_id}")
+        logger.warning("LIVE trading enabled for user=%s", self.user_id)
         return True
 
     async def disable_live(self) -> None:
@@ -144,7 +144,7 @@ class RiskGuard:
             await async_safe_update("risk_settings", {"is_live": False}, "id", data["id"])
         else:
             await async_safe_insert("risk_settings", {"user_id": self.user_id, "is_live": False})
-        logger.info(f"LIVE trading disabled for user={self.user_id}")
+        logger.info("LIVE trading disabled for user=%s", self.user_id)
 
     async def get_kill_switch_status(self) -> bool:
         data = await async_safe_single(

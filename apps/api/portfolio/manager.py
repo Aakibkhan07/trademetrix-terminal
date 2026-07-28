@@ -234,28 +234,28 @@ class PortfolioManager:
         new_symbols = set()
 
         for bp in broker_positions:
-            symbol = bp.symbol if hasattr(bp, "symbol") else bp.get("symbol", "")
+            symbol = bp.get("symbol", "") if isinstance(bp, dict) else bp.symbol
             new_symbols.add(symbol)
             existing = state.positions.get(symbol)
-            qty = bp.quantity if hasattr(bp, "quantity") else bp.get("quantity", 0)
+            qty = bp.get("quantity", 0) if isinstance(bp, dict) else bp.quantity
             prev_qty = existing.quantity if existing else 0
 
             pos = PortfolioPosition(
                 user_id=user_id,
                 broker=broker,
                 symbol=symbol,
-                exchange=bp.exchange.value if hasattr(bp.exchange, "value") else bp.get("exchange", "NSE"),
+                exchange=bp.get("exchange", "NSE") if isinstance(bp, dict) else (bp.exchange.value if hasattr(bp.exchange, "value") else str(bp.exchange)),
                 quantity=qty,
-                buy_quantity=bp.buy_quantity if hasattr(bp, "buy_quantity") else bp.get("buy_quantity", 0),
-                sell_quantity=bp.sell_quantity if hasattr(bp, "sell_quantity") else bp.get("sell_quantity", 0),
-                average_buy_price=float(bp.average_buy_price if hasattr(bp, "average_buy_price") else bp.get("average_buy_price", 0)),
-                average_sell_price=float(bp.average_sell_price if hasattr(bp, "average_sell_price") else bp.get("average_sell_price", 0)),
-                unrealised_pnl=float(bp.unrealised_pnl if hasattr(bp, "unrealised_pnl") else bp.get("unrealised_pnl", 0)),
-                realised_pnl=float(bp.realised_pnl if hasattr(bp, "realised_pnl") else bp.get("realised_pnl", 0)),
-                m2m=float(bp.m2m if hasattr(bp, "m2m") else bp.get("m2m", 0)),
-                product=bp.product.value if hasattr(bp.product, "value") else bp.get("product", "INTRADAY"),
-                last_price=float(bp.last_price if hasattr(bp, "last_price") else bp.get("last_price", 0)),
-                multiplier=float(bp.multiplier if hasattr(bp, "multiplier") else bp.get("multiplier", 1)),
+                buy_quantity=bp.get("buy_quantity", 0) if isinstance(bp, dict) else bp.buy_quantity,
+                sell_quantity=bp.get("sell_quantity", 0) if isinstance(bp, dict) else bp.sell_quantity,
+                average_buy_price=float(bp.get("average_buy_price", 0) if isinstance(bp, dict) else bp.average_buy_price),
+                average_sell_price=float(bp.get("average_sell_price", 0) if isinstance(bp, dict) else bp.average_sell_price),
+                unrealised_pnl=float(bp.get("unrealised_pnl", 0) if isinstance(bp, dict) else bp.unrealised_pnl),
+                realised_pnl=float(bp.get("realised_pnl", 0) if isinstance(bp, dict) else bp.realised_pnl),
+                m2m=float(bp.get("m2m", 0) if isinstance(bp, dict) else bp.m2m),
+                product=bp.get("product", "INTRADAY") if isinstance(bp, dict) else (bp.product.value if hasattr(bp.product, "value") else str(bp.product)),
+                last_price=float(bp.get("last_price", 0) if isinstance(bp, dict) else getattr(bp, "last_price", 0)),
+                multiplier=float(bp.get("multiplier", 1) if isinstance(bp, dict) else bp.multiplier),
                 updated_at=datetime.now(UTC),
             )
             state.positions[symbol] = pos

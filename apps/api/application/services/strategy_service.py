@@ -101,13 +101,27 @@ class StrategyService:
         return {"id": strategy_id, "message": "Strategy created"}
 
     async def get_strategy(self, user_id: str, strategy_id: str) -> UserStrategy:
-        row = await async_safe_single(
-            get_supabase().table("user_strategies").select("*, legs:user_strategy_legs(*)")
-            .eq("id", strategy_id).eq("user_id", user_id)
-        )
-        if not row:
+        supabase = get_supabase()
+        try:
+            row = await async_safe_single(
+                supabase.table("user_strategies").select("*, legs:user_strategy_legs(*)")
+                .eq("id", strategy_id).eq("user_id", user_id)
+            )
+            if not row:
+                rows = await async_safe_execute(
+                    supabase.table("user_strategies").select("*, legs:user_strategy_legs(*)")
+                    .eq("id", strategy_id).eq("user_id", user_id).limit(1)
+                )
+                if rows and len(rows) > 0:
+                    row = rows[0]
+            if not row:
+                raise ValueError("Strategy not found")
+            return self._row_to_strategy(row)
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.warning("get_strategy query failed: %s", e)
             raise ValueError("Strategy not found")
-        return self._row_to_strategy(row)
 
     async def update_strategy(self, user_id: str, strategy_id: str, req: UpdateUserStrategyRequest) -> None:
         supabase = get_supabase()
@@ -210,6 +224,30 @@ class StrategyService:
 
     def _row_to_strategy(self, row: dict) -> UserStrategy:
         legs_data = row.pop("legs", []) or []
-        strategy = UserStrategy(**{k: v for k, v in row.items() if v is not None})
-        strategy.legs = [UserStrategyLeg(**leg) for leg in sorted(legs_data, key=lambda x: x.get("leg_order", 0))]
+        data = {k: v for k, v in row.items() if v is not None}
+        if isinstance(data.get("days_of_week"), str):
+            data["days_of_week"] = [
+                int(d.strip()) for d in data["days_of_week"].strip("{}").split(",") if d.strip()
+            ]
+        strategy = UserStrategy(**data)
+        parsed_legs = []
+        for leg in sorted(legs_data, key=lambda x: x.get("leg_order", 0)):
+            leg_data = {k: v for k, v in leg.items() if v is not None}
+            if not leg_data.get("option_type"):
+                leg_data["option_type"] = None
+            if not leg_data.get("leg_sl_type"):
+                leg_data.pop("leg_sl_type", None)
+                leg_data.pop("leg_sl_value", None)
+            if not leg_data.get("leg_target_type"):
+                leg_data.pop("leg_target_type", None)
+                leg_data.pop("leg_target_value", None)
+            if not leg_data.get("trailing_sl_type"):
+                leg_data.pop("trailing_sl_type", None)
+                leg_data.pop("trailing_sl_value", None)
+            if not leg_data.get("trailing_activation"):
+                leg_data.pop("trailing_activation", None)
+            if not leg_data.get("reentry_mode"):
+                leg_data.pop("reentry_mode", None)
+            parsed_legs.append(UserStrategyLeg(**leg_data))
+        strategy.legs = parsed_legs
         return strategy

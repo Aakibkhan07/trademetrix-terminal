@@ -54,46 +54,55 @@ class SharedDataSocket:
         logger.info("SharedDataSocket started with Redis pub/sub subscriber")
 
     async def _redis_subscriber(self):
-        try:
-            from core.cache import cache
-            import redis.asyncio as aioredis
-            r = aioredis.from_url(
-                settings.redis_url,
-                decode_responses=True,
-                socket_connect_timeout=2,
-                socket_timeout=2,
-            )
-            await r.ping()
-            pubsub = r.pubsub()
-            await pubsub.psubscribe("market:ticks:*")
-            logger.info("Redis pub/sub subscriber listening on market:ticks:*")
+        retry_delay = 1.0
+        while self._running:
+            try:
+                from core.cache import cache
+                import redis.asyncio as aioredis
+                r = aioredis.from_url(
+                    settings.redis_url,
+                    decode_responses=True,
+                    socket_connect_timeout=2,
+                    socket_timeout=2,
+                )
+                await r.ping()
+                pubsub = r.pubsub()
+                await pubsub.psubscribe("market:ticks:*")
+                logger.info("Redis pub/sub subscriber listening on market:ticks:*")
+                retry_delay = 1.0
 
-            async for msg in pubsub.listen():
-                if self._running and msg["type"] == "pmessage":
-                    try:
-                        tick_data = json.loads(msg["data"])
-                        symbol = tick_data.get("symbol", "")
-                        tick = Tick(
-                            symbol=symbol,
-                            ltp=tick_data.get("ltp", 0.0),
-                            volume=tick_data.get("vol_traded_today", 0),
-                            bid=tick_data.get("bid", 0.0) or tick_data.get("ltp", 0.0),
-                            ask=tick_data.get("ask", 0.0) or tick_data.get("ltp", 0.0),
-                            open=tick_data.get("open_price", 0.0),
-                            high=tick_data.get("high_price", 0.0),
-                            low=tick_data.get("low_price", 0.0),
-                            close=tick_data.get("prev_close_price", 0.0),
-                            change=tick_data.get("ch", 0.0),
-                            broker="fyers",
-                            timestamp=datetime.now(timezone.utc),
-                        )
-                        await self.broadcast_tick(tick)
-                    except (json.JSONDecodeError, KeyError, TypeError) as e:
-                        logger.debug("Redis pub/sub parse error: %s", e)
-        except ImportError:
-            logger.info("redis.asyncio not available -- Redis pub/sub disabled")
-        except Exception as e:
-            logger.warning("Redis pub/sub subscriber error: %s", e)
+                async for msg in pubsub.listen():
+                    if self._running and msg["type"] == "pmessage":
+                        try:
+                            tick_data = json.loads(msg["data"])
+                            symbol = tick_data.get("symbol", "")
+                            tick = Tick(
+                                symbol=symbol,
+                                ltp=tick_data.get("ltp", 0.0),
+                                volume=tick_data.get("vol_traded_today", 0),
+                                bid=tick_data.get("bid", 0.0) or tick_data.get("ltp", 0.0),
+                                ask=tick_data.get("ask", 0.0) or tick_data.get("ltp", 0.0),
+                                open=tick_data.get("open_price", 0.0),
+                                high=tick_data.get("high_price", 0.0),
+                                low=tick_data.get("low_price", 0.0),
+                                close=tick_data.get("prev_close_price", 0.0),
+                                change=tick_data.get("ch", 0.0),
+                                broker="fyers",
+                                timestamp=datetime.now(timezone.utc),
+                            )
+                            await self.broadcast_tick(tick)
+                        except (json.JSONDecodeError, KeyError, TypeError) as e:
+                            logger.debug("Redis pub/sub parse error: %s", e)
+                await r.aclose()
+            except ImportError:
+                logger.info("redis.asyncio not available -- Redis pub/sub disabled")
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning("Redis pub/sub disconnected, reconnecting in %.1fs: %s", retry_delay, e)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30.0)
 
     async def stop(self):
         self._running = False
@@ -149,7 +158,7 @@ class SharedDataSocket:
                 else:
                     cb(tick)
             except Exception as e:
-                logger.error(f"Tick callback error: {e}", exc_info=True)
+                logger.error("Tick callback error: %s", e, exc_info=True)
         if tasks:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, r in enumerate(results):
@@ -158,15 +167,14 @@ class SharedDataSocket:
 
     async def start_broker_feed(self, user_id: str, broker_type: str, symbols: list[str]) -> None:
         if broker_type in self._broker_feeds:
-            logger.warning(f"Broker feed already running for {broker_type}")
-            raise RuntimeError(f"Broker feed already running for {broker_type}")
+            logger.warning("Broker feed already running for %s", broker_type)
+            raise RuntimeError("Broker feed already running for %s" % broker_type)
 
-        from brokers import get_broker
+        from brokers import create_broker
         from core.db import async_supabase, get_supabase
         from core.security import decrypt_broker_credentials
 
-        adapter_cls = get_broker(broker_type)
-        adapter = adapter_cls()
+        adapter = create_broker(broker_type)
         raw_token = ""
         client_id = ""
 
@@ -193,9 +201,9 @@ class SharedDataSocket:
             try:
                 await adapter.stream(symbols, self.broadcast_tick)
             except asyncio.CancelledError:
-                logger.info(f"Broker feed {broker_type} cancelled")
+                logger.info("Broker feed %s cancelled", broker_type)
             except Exception as e:
-                logger.error(f"Broker feed {broker_type} failed: {e}")
+                logger.error("Broker feed %s failed: %s", broker_type, e)
             finally:
                 await adapter.disconnect()
 
@@ -208,7 +216,7 @@ class SharedDataSocket:
 
     async def _backfill_on_reconnect(self, user_id: str, broker_type: str, symbols: list[str]) -> None:
         try:
-            from brokers import get_broker
+            from brokers import create_broker
             from core.db import async_supabase, get_supabase
             from core.security import decrypt_broker_credentials
 
@@ -222,27 +230,29 @@ class SharedDataSocket:
             if not raw_token or not client_id:
                 return
 
-            adapter_cls = get_broker(broker_type)
-            adapter = adapter_cls()
-            await adapter.authenticate({"client_id": client_id, "access_token": raw_token})
+            adapter = create_broker(broker_type)
+            try:
+                await adapter.authenticate({"client_id": client_id, "access_token": raw_token})
 
-            missed = [s for s in symbols if time.time() - self._last_tick_time.get(s, 0) > 5]
-            if missed:
-                logger.info("Backfilling %d missed symbols for %s", len(missed), broker_type)
-                quotes = await adapter.get_quotes(missed)
-                for q in quotes:
-                    tick = Tick(
-                        symbol=q.symbol,
-                        exchange=q.exchange,
-                        last_price=q.last_price,
-                        bid=q.bid,
-                        ask=q.ask,
-                        volume=q.volume,
-                        oi=q.oi if hasattr(q, 'oi') else 0,
-                        timestamp=datetime.now(timezone.utc),
-                        broker=broker_type,
-                    )
-                    await self.broadcast_tick(tick)
+                missed = [s for s in symbols if time.time() - self._last_tick_time.get(s, 0) > 5]
+                if missed:
+                    logger.info("Backfilling %d missed symbols for %s", len(missed), broker_type)
+                    quotes = await adapter.get_quotes(missed)
+                    for q in quotes:
+                        tick = Tick(
+                            symbol=q.symbol,
+                            exchange=q.exchange,
+                            last_price=q.last_price,
+                            bid=q.bid,
+                            ask=q.ask,
+                            volume=q.volume,
+                            oi=q.oi if hasattr(q, 'oi') else 0,
+                            timestamp=datetime.now(timezone.utc),
+                            broker=broker_type,
+                        )
+                        await self.broadcast_tick(tick)
+            finally:
+                await adapter.disconnect()
         except Exception as e:
             logger.debug("Backfill skipped for %s: %s", broker_type, e)
 
@@ -250,7 +260,7 @@ class SharedDataSocket:
         task = self._broker_feeds.pop(broker_type, None)
         if task:
             task.cancel()
-            logger.info(f"Broker feed stopped for {broker_type}")
+            logger.info("Broker feed stopped for %s", broker_type)
 
     async def stop_all_feeds(self) -> None:
         for broker_type in list(self._broker_feeds.keys()):

@@ -49,6 +49,7 @@ class BrokerService:
         cred = await self._repo.get_by_user_and_broker(user_id, broker)
         if not cred:
             raise ValueError(f"No {broker.title()} credentials found")
+        get_oauth_provider(broker)
         await self._repo.clear_access_token(cred.id)
         return await self.get_auth_url(user_id, broker)
 

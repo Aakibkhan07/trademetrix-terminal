@@ -1,6 +1,7 @@
 from brokers.aliceblue_adapter import AliceBlueAdapter
 from brokers.angelone_adapter import AngelOneAdapter
 from brokers.base import BaseBroker
+from brokers.circuit_breaker_broker import CircuitBreakerBroker
 from brokers.dhan_adapter import DhanAdapter
 from brokers.finvasia_adapter import FinvasiaAdapter
 from brokers.fivepaisa_adapter import FivePaisaAdapter
@@ -24,6 +25,12 @@ def get_broker(name: str) -> type[BaseBroker]:
     return _broker_registry[name]
 
 
+def create_broker(name: str) -> CircuitBreakerBroker:
+    cls = get_broker(name)
+    inner = cls()
+    return CircuitBreakerBroker(inner, breaker_name=f"broker_{name}")
+
+
 def list_brokers() -> list[str]:
     return list(_broker_registry.keys())
 
@@ -45,6 +52,7 @@ __all__ = [
     "BaseBroker",
     "AliceBlueAdapter",
     "AngelOneAdapter",
+    "CircuitBreakerBroker",
     "DhanAdapter",
     "FinvasiaAdapter",
     "FivePaisaAdapter",
@@ -56,5 +64,6 @@ __all__ = [
     "ZerodhaAdapter",
     "register_broker",
     "get_broker",
+    "create_broker",
     "list_brokers",
 ]

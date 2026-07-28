@@ -35,7 +35,7 @@ class SubscriptionResponse(BaseModel):
     id: str
     tier: str
     status: str
-    razorpay_subscription_id: str
+    razorpay_subscription_id: str | None = None
     current_period_start: str | None = None
     current_period_end: str | None = None
     trial_end: str | None = None

@@ -74,7 +74,13 @@ class UserStrategyRunner:
             strategy_id = row["id"]
             user_id = row["user_id"]
             exit_time = row.get("exit_time", "")
-            days_of_week = row.get("days_of_week", [1, 2, 3, 4, 5])
+            raw_days = row.get("days_of_week", [1, 2, 3, 4, 5])
+            if isinstance(raw_days, str):
+                days_of_week = [int(d.strip()) for d in raw_days.replace("[", "").replace("]", "").split(",") if d.strip().isdigit()]
+            elif isinstance(raw_days, list):
+                days_of_week = [int(d) for d in raw_days]
+            else:
+                days_of_week = [1, 2, 3, 4, 5]
 
             if not exit_time or current_dow not in days_of_week:
                 continue

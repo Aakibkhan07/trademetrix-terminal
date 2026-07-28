@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from brokers import get_broker
+from brokers import create_broker
 from brokers.token_manager import TokenManager
 from core.deps import get_current_user
 from core.models import (
@@ -71,8 +71,7 @@ async def margin_estimate(
         )
 
     try:
-        adapter_cls = get_broker(broker)
-        adapter = adapter_cls()
+        adapter = create_broker(broker)
         await adapter.authenticate(session)
     except Exception as e:
         raise HTTPException(

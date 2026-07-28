@@ -115,7 +115,8 @@ class ExecutionManager:
                 )
 
             state = ExecutionState.SENT
-            adapter = await self._get_adapter(req.user_id, req.broker)
+            adapter_broker = "paper" if req.is_paper else req.broker
+            adapter = await self._get_adapter(req.user_id, adapter_broker)
             if not adapter:
                 state = ExecutionState.FAILED
                 self._publish_event("OrderFailed", request_id, req, state, message="Broker not available")
@@ -182,7 +183,9 @@ class ExecutionManager:
                     success=True, execution_request_id=request_id,
                     broker_order_id=broker_result.broker_order_id,
                     state=state, message="Order placed successfully",
-                    latency_ms=elapsed_ms,
+latency_ms=elapsed_ms,
+                    filled_qty=broker_result.filled_qty or 0,
+                    avg_price=broker_result.avg_price or 0.0,
                 )
             else:
                 state = ExecutionState.REJECTED
@@ -434,8 +437,8 @@ class ExecutionManager:
                     return adapter
 
             if broker == "paper":
-                from paper.paper_broker import PaperBroker
-                adapter = PaperBroker(user_id)
+                from paper.paper_broker import get_paper_broker
+                adapter = get_paper_broker(user_id)
             else:
                 adapter = BrokerExecutionAdapter(user_id, broker)
             connected = await adapter.connect()
@@ -480,6 +483,7 @@ class ExecutionManager:
                 user_id=req.user_id,
                 broker=req.broker,
                 client_order_id=req.execution_request_id or "",
+                is_paper=req.is_paper,
             )
         except Exception as e:
             logger.error("Failed to build order: %s", e)
@@ -501,8 +505,9 @@ class ExecutionManager:
             supabase = get_supabase()
             data = order.model_dump(mode="json")
             for field in ("id", "run_id", "signal_id", "validity", "disclosed_quantity"):
-                if field in data and data[field] is None:
-                    del data[field]
+                val = data.get(field)
+                if val is None or val == "" or val == 0:
+                    data.pop(field, None)
             if not data.get("client_order_id"):
                 data["client_order_id"] = order.client_order_id or _generate_execution_request_id(order.user_id or "", order.broker or "", order.symbol, order.side.value if order.side else "", time.time())
             result = await async_supabase(
@@ -520,7 +525,8 @@ class ExecutionManager:
             supabase = get_supabase()
             data = order.model_dump(mode="json")
             for field in ("id", "run_id", "signal_id", "validity", "disclosed_quantity"):
-                if field in data and data[field] is None:
+                val = data.get(field)
+                if val is None or val == "" or val == 0:
                     del data[field]
             await async_supabase(lambda: supabase.table("orders").insert(data).execute())
         except Exception as e:

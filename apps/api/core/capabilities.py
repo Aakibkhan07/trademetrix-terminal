@@ -87,6 +87,9 @@ CAP_MAP: dict[str, Capabilities] = {
     "quarterly": QUARTERLY,
     "halfyearly": HALFYEARLY,
     "yearly": YEARLY,
+    "starter": FREE,
+    "pro": HALFYEARLY,
+    "enterprise": SUPER_ADMIN,
 }
 
 
@@ -139,10 +142,10 @@ async def _resolve_subscription_tier(user_id: str) -> str | None:
             pass
 
     if status == "active":
-        return row.get("tier")
+        return row.get("plan") or row.get("tier")
 
     if status == "cancelled":
-        return row.get("tier")
+        return row.get("plan") or row.get("tier")
 
     return None
 

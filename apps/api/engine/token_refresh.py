@@ -16,7 +16,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
-from brokers import get_broker
+from brokers import create_broker
 from core.db import get_supabase
 from core.safe_query import async_safe_execute, async_safe_update
 from core.security import decrypt_broker_credentials, encrypt_broker_credentials
@@ -29,8 +29,7 @@ IST_OFFSET = timedelta(hours=5, minutes=30)
 async def refresh_user_token(user_id: str, broker: str, creds: dict) -> dict:
     """Attempt to refresh a single user's broker token. Returns status dict."""
     try:
-        adapter_cls = get_broker(broker)
-        adapter = adapter_cls()
+        adapter = create_broker(broker)
         session = await adapter.authenticate(creds)
 
         now = datetime.now(UTC)

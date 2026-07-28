@@ -101,7 +101,7 @@ class OrderManager:
             trigger_price=req.trigger_price,
             strategy_id=req.strategy_id or "",
             source=req.source,
-            is_paper=(req.broker == PAPER_BROKER),
+            is_paper=req.is_paper or (req.broker == PAPER_BROKER),
             state=OMSOrderState.NEW,
         )
 
@@ -130,6 +130,7 @@ class OrderManager:
 
         if not state_machine.can_transition(order.state, OMSOrderState.CANCELLED):
             logger.warning("Cannot cancel order %s in state %s", oms_order_id, order.state)
+            order.message = f"Cannot cancel order in state {order.state.value}"
             return order
 
         if order.state == OMSOrderState.QUEUED:
@@ -202,6 +203,37 @@ class OrderManager:
                 await remove_order(sibling_id)
                 self._publish_event("OrderCancelled", sibling)
             break
+
+    async def modify_order(self, oms_order_id: str, changes: dict) -> OmniOrder | None:
+        order = self._orders.get(oms_order_id)
+        if not order:
+            return None
+        if not state_machine.is_active(order.state):
+            order.message = f"Cannot modify order in state {order.state.value}"
+            return order
+        if order.broker_order_id:
+            req = ExecutionRequest(
+                user_id=order.user_id, broker=order.broker,
+                symbol=order.symbol, exchange=order.exchange,
+                side=order.side, quantity=order.quantity,
+                source="oms_modify",
+            )
+            exec_result = await self._exec_mgr.modify_order(req, order.broker_order_id, changes)
+            if not exec_result.success:
+                order.message = exec_result.message or "Modify failed"
+                order.updated_at = datetime.now(UTC)
+                await save_order(order)
+                return order
+        if "quantity" in changes:
+            order.quantity = int(changes["quantity"])
+        if "price" in changes:
+            order.price = float(changes["price"])
+        if "trigger_price" in changes:
+            order.trigger_price = float(changes["trigger_price"])
+        order.updated_at = datetime.now(UTC)
+        order.message = "Order modified"
+        await save_order(order)
+        return order
 
     async def get_order(self, oms_order_id: str) -> OmniOrder | None:
         return self._orders.get(oms_order_id)
@@ -345,6 +377,7 @@ class OrderManager:
                     trigger_price=order.trigger_price,
                     strategy_id=order.strategy_id or None,
                     source=order.source,
+                    is_paper=order.is_paper,
                     execution_request_id=order.execution_request_id,
                 )
 
@@ -359,14 +392,22 @@ class OrderManager:
                     is_partial = exec_result.state == ExecutionState.PARTIALLY_FILLED
                     order.state = OMSOrderState.PARTIAL if is_partial else OMSOrderState.FILLED
                     order.broker_order_id = exec_result.broker_order_id or ""
-                    order.filled_quantity = exec_result.filled_qty or order.quantity
+                    order.filled_quantity = (order.filled_quantity or 0) + (exec_result.filled_qty or 0)
                     order.filled_at = datetime.now(UTC)
                     order.message = exec_result.message
                     if is_partial:
                         oms_metrics.record_partial()
-                        order.state = OMSOrderState.QUEUED
-                        await save_order(order)
-                        await order_queue.enqueue_retry(item, delay_seconds=5)
+                        remaining = order.quantity - (exec_result.filled_qty or 0)
+                        if remaining > 0:
+                            order.quantity = remaining
+                            order.state = OMSOrderState.QUEUED
+                            await save_order(order)
+                            await order_queue.enqueue_retry(item, delay_seconds=5)
+                        else:
+                            order.state = OMSOrderState.FILLED
+                            await save_order(order)
+                            await remove_order(item.oms_order_id)
+                            self._publish_event("OrderCompleted", order)
                     else:
                         oms_metrics.record_filled(latency_ms)
                         await save_order(order)
@@ -451,6 +492,9 @@ class OrderManager:
                 source="bracket_sl",
             )
             sl_order = await self.place_order(sl_req)
+            if sl_order.state in (OMSOrderState.REJECTED, OMSOrderState.CANCELLED):
+                logger.error("Bracket SL leg rejected for parent %s: %s", order.oms_order_id, sl_order.message)
+                return
             bracket.sl_order_id = sl_order.oms_order_id
 
             target_req = ExecutionRequest(
@@ -463,6 +507,9 @@ class OrderManager:
                 source="bracket_target",
             )
             target_order = await self.place_order(target_req)
+            if target_order.state in (OMSOrderState.REJECTED, OMSOrderState.CANCELLED):
+                logger.error("Bracket target leg rejected for parent %s: %s", order.oms_order_id, target_order.message)
+                return
             bracket.target_order_id = target_order.oms_order_id
 
             await save_bracket_order(bracket)
@@ -520,9 +567,7 @@ class OrderManager:
                 del self._orders[oid]
                 logger.debug("Evicted terminal order %s from memory", oid)
                 return
-        oldest = next(iter(self._orders))
-        logger.warning("No terminal order to evict — evicting oldest active order %s", oldest)
-        del self._orders[oldest]
+        logger.warning("No terminal orders to evict (total=%d) — skipping eviction", len(self._orders))
 
     @classmethod
     def _reset_instance(cls):

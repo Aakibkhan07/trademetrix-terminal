@@ -9,6 +9,7 @@ from core.db import get_supabase
 from core.safe_query import async_safe_execute
 from execution.models import ExecutionRequest
 from market.status import market_status_service
+from core.cache import cache
 from risk.helpers import compute_daily_pnl_fifo, get_current_capital_usage, get_current_exposure, get_drawdown, get_open_position_count
 from risk.models import RiskConfig, RiskDecision, RiskRuleResult, RiskRuleType
 
@@ -28,7 +29,8 @@ class KillSwitchRule(RiskRule):
 
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
-        if config.kill_switch_enabled:
+        global_kill = await cache.get("global:kill_switch")
+        if global_kill == "1" or config.kill_switch_enabled:
             return RiskRuleResult(
                 rule=self.rule_type, decision=RiskDecision.REJECTED,
                 reason="Kill switch is active. All trading halted.",
@@ -70,6 +72,8 @@ class MarketClosedRule(RiskRule):
 
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
+        if req.is_paper:
+            return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
         try:
             if not market_status_service.is_market_open():
                 return RiskRuleResult(
@@ -92,6 +96,8 @@ class TradingWindowRule(RiskRule):
 
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
+        if req.is_paper:
+            return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
         if not config.trading_start or not config.trading_end:
             return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
@@ -126,8 +132,7 @@ class LiveModeRule(RiskRule):
 
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
-        is_paper = req.broker == "paper"
-        if not config.is_live and not is_paper:
+        if not config.is_live and not req.is_paper:
             return RiskRuleResult(
                 rule=self.rule_type, decision=RiskDecision.REJECTED,
                 reason="Live trading is not enabled. Enable it in risk settings.",
@@ -343,6 +348,8 @@ class DuplicateOrderRule(RiskRule):
 
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
+        if req.is_paper:
+            return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
         lock = await self._get_lock(req.user_id)
         async with lock:
             dedup_key = f"{req.user_id}:{req.broker}:{req.symbol}:{req.side}:{req.quantity}:{req.order_type}:{req.price}"
@@ -420,7 +427,7 @@ class TradeCooldownRule(RiskRule):
 
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
-        if config.trade_cooldown_seconds <= 0:
+        if config.trade_cooldown_seconds <= 0 or req.is_paper:
             return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
         key = f"{req.user_id}:{req.broker}:{req.symbol}"

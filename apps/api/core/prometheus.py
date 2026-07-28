@@ -123,6 +123,11 @@ def record_market_metrics():
         market_ticks_reconnects_total.labels(broker=broker).inc(count)
 
 
+def on_breaker_state_change(name: str, state: str) -> None:
+    state_val = {"closed": 0, "half_open": 1, "open": 2}.get(state, 0)
+    circuit_breaker_state.labels(breaker=name).set(state_val)
+
+
 @router.get("/metrics")
 async def prometheus_metrics():
     update_process_metrics()

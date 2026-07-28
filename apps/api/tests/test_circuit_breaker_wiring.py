@@ -1,140 +1,231 @@
 import asyncio
-from unittest.mock import patch
+import time
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
-from core.models import Exchange, NormalizedOrder, OrderResult, OrderSide, OrderType, ProductType
-from core.resilience import CircuitBreaker
-from execution.broker_adapter import BrokerExecutionAdapter
+from brokers.circuit_breaker_broker import CircuitBreakerBroker
+from core.models import Exchange, Funds, NormalizedOrder, OrderResult, OrderSide, OrderType, ProductType
+from core.resilience import CircuitBreaker, CircuitBreakerError, CircuitBreakerState, reset_all_breakers
+
+
+@pytest.fixture(autouse=True)
+def _reset():
+    reset_all_breakers()
+    yield
 
 
 @pytest.mark.asyncio
-async def test_circuit_breaker_called_for_place_order():
-    class MockAdapter:
-        async def place_order(self, order):
-            return OrderResult(success=True)
+async def test_circuit_breaker_closed_to_open():
+    breaker = CircuitBreaker(name="test", failure_threshold=2, recovery_timeout=300.0)
+    assert breaker.state == CircuitBreakerState.CLOSED
 
-    adapter = BrokerExecutionAdapter("user1", "test_broker")
-    adapter._adapter = MockAdapter()
-    adapter._authenticated = True
+    fn = AsyncMock(side_effect=ValueError("API error"))
+    with pytest.raises(ValueError):
+        await breaker.call(fn)
+    assert breaker.failure_count == 1
+    assert breaker.state == CircuitBreakerState.CLOSED
 
-    breaker = CircuitBreaker(name="broker_test_broker", failure_threshold=5, recovery_timeout=30.0)
+    with pytest.raises(ValueError):
+        await breaker.call(fn)
+    assert breaker.failure_count == 2
+    assert breaker.state == CircuitBreakerState.OPEN
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_open_rejects():
+    breaker = CircuitBreaker(name="test", failure_threshold=1, recovery_timeout=300.0)
+    fn = AsyncMock(side_effect=ValueError("error"))
+    with pytest.raises(ValueError):
+        await breaker.call(fn)
+    assert breaker.state == CircuitBreakerState.OPEN
+
+    with pytest.raises(CircuitBreakerError):
+        await breaker.call(fn)
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_open_uses_fallback():
+    breaker = CircuitBreaker(name="test", failure_threshold=1, recovery_timeout=300.0)
+    fn = AsyncMock(side_effect=ValueError("error"))
+    with pytest.raises(ValueError):
+        await breaker.call(fn)
+
+    result = await breaker.call(fn, fallback="cached")
+    assert result == "cached"
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_half_open_success():
+    breaker = CircuitBreaker(name="test", failure_threshold=1, recovery_timeout=0.05)
+    fn = AsyncMock(side_effect=ValueError("error"))
+    with pytest.raises(ValueError):
+        await breaker.call(fn)
+    assert breaker.state == CircuitBreakerState.OPEN
+
+    recovery = breaker._calculate_recovery_timeout()
+    await asyncio.sleep(recovery + 0.05)
+    fn.side_effect = None
+    fn.return_value = "success"
+    result = await breaker.call(fn)
+    assert result == "success"
+    assert breaker.state == CircuitBreakerState.CLOSED
+    assert breaker.failure_count == 0
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_half_open_failure_backoff():
+    breaker = CircuitBreaker(
+        name="test", failure_threshold=1,
+        recovery_timeout=0.03, max_recovery_timeout=10.0, backoff_factor=2.0,
+    )
+    fn = AsyncMock(side_effect=ValueError("error"))
+    with pytest.raises(ValueError):
+        await breaker.call(fn)
+    assert breaker.state == CircuitBreakerState.OPEN
+    assert breaker._consecutive_open_count == 1
+
+    timeout_1 = breaker._calculate_recovery_timeout()
+    assert timeout_1 == pytest.approx(0.06, rel=0.1)
+
+    await asyncio.sleep(timeout_1 + 0.05)
+    with pytest.raises(ValueError):
+        await breaker.call(fn)
+    # transitions to HALF_OPEN, then fn fails → back to OPEN
+    assert breaker.state == CircuitBreakerState.OPEN
+    assert breaker._consecutive_open_count == 2
+
+    timeout_2 = breaker._calculate_recovery_timeout()
+    expected = min(0.03 * (2.0 ** 2), 10.0)
+    assert timeout_2 == pytest.approx(expected, rel=0.1)
+    assert timeout_2 > timeout_1
+
+    await asyncio.sleep(timeout_2 + 0.05)
+    fn.side_effect = None
+    fn.return_value = "ok"
+    result = await breaker.call(fn)
+    assert result == "ok"
+    assert breaker.state == CircuitBreakerState.CLOSED
+    assert breaker._consecutive_open_count == 0
+
+
+@pytest.mark.asyncio
+async def test_exponential_backoff_capped():
+    breaker = CircuitBreaker(name="test", failure_threshold=1, recovery_timeout=1.0, max_recovery_timeout=10.0, backoff_factor=3.0)
+    breaker.state = CircuitBreakerState.OPEN
+    breaker._consecutive_open_count = 5
+
+    timeout = breaker._calculate_recovery_timeout()
+    expected = min(1.0 * (3.0 ** 5), 10.0)
+    assert timeout == expected
+    assert timeout <= breaker.max_recovery_timeout
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_reset():
+    from core.resilience import _get_breaker
+    breaker = _get_breaker("test_reset")
+    breaker.failure_threshold = 1
+    fn = AsyncMock(side_effect=ValueError("error"))
+    with pytest.raises(ValueError):
+        await breaker.call(fn)
+    assert breaker.state == CircuitBreakerState.OPEN
+
+    reset_all_breakers()
+    assert breaker.state == CircuitBreakerState.CLOSED
+    assert breaker.failure_count == 0
+    assert breaker._consecutive_open_count == 0
+
+
+@pytest.mark.asyncio
+async def test_broker_wrapper_place_order():
+    inner = MagicMock()
+    inner.broker_name = "test_broker"
+    inner.place_order = AsyncMock(return_value=OrderResult(success=True))
+    wrapper = CircuitBreakerBroker(inner)
 
     order = NormalizedOrder(
         symbol="RELIANCE", exchange=Exchange.NSE, side=OrderSide.BUY,
         order_type=OrderType.MARKET, product=ProductType.INTRADAY, quantity=1,
     )
-
-    with patch("execution.broker_adapter._get_breaker", return_value=breaker):
-        result = await adapter.place_order(order)
-        assert result.success is True
-        assert breaker.failure_count == 0
+    result = await wrapper.place_order(order)
+    assert result.success is True
+    inner.place_order.assert_called_once_with(order)
 
 
 @pytest.mark.asyncio
-async def test_circuit_breaker_opens_after_failures():
-    class MockAdapter:
-        async def place_order(self, order):
-            raise ValueError("API error")
-
-    adapter = BrokerExecutionAdapter("user1", "test_broker")
-    adapter._adapter = MockAdapter()
-    adapter._authenticated = True
-
-    breaker = CircuitBreaker(name="broker_test_broker", failure_threshold=2, recovery_timeout=300.0)
+async def test_broker_wrapper_opens_on_failures():
+    inner = MagicMock()
+    inner.broker_name = "test_broker"
+    inner.place_order = AsyncMock(side_effect=ValueError("API error"))
+    wrapper = CircuitBreakerBroker(inner, breaker_name="broker_test_broker")
 
     order = NormalizedOrder(
         symbol="RELIANCE", exchange=Exchange.NSE, side=OrderSide.BUY,
         order_type=OrderType.MARKET, product=ProductType.INTRADAY, quantity=1,
     )
+    breaker = wrapper._breaker
+    breaker.failure_threshold = 2
 
-    with patch("execution.broker_adapter._get_breaker", return_value=breaker):
-        r1 = await adapter.place_order(order)
-        assert r1.success is False
-        assert breaker.state == "closed"
-        assert breaker.failure_count == 1
+    with pytest.raises(ValueError):
+        await wrapper.place_order(order)
+    assert breaker.state == CircuitBreakerState.CLOSED
+    assert breaker.failure_count == 1
 
-        r2 = await adapter.place_order(order)
-        assert r2.success is False
-        assert breaker.failure_count == 2
-        assert breaker.state == "open"
+    with pytest.raises(ValueError):
+        await wrapper.place_order(order)
+    assert breaker.state == CircuitBreakerState.OPEN
 
-        r3 = await adapter.place_order(order)
-        assert r3.success is False
-        assert "CircuitBreaker" in r3.message
-
-
-@pytest.mark.asyncio
-async def test_circuit_breaker_recovery_after_timeout():
-    class MockAdapter:
-        def __init__(self):
-            self.count = 0
-
-        async def place_order(self, order):
-            self.count += 1
-            if self.count <= 2:
-                raise ValueError("API error")
-            return OrderResult(success=True)
-
-    adapter = BrokerExecutionAdapter("user1", "test_broker")
-    adapter._adapter = MockAdapter()
-    adapter._authenticated = True
-
-    breaker = CircuitBreaker(name="broker_test_broker", failure_threshold=2, recovery_timeout=0.05)
-
-    order = NormalizedOrder(
-        symbol="RELIANCE", exchange=Exchange.NSE, side=OrderSide.BUY,
-        order_type=OrderType.MARKET, product=ProductType.INTRADAY, quantity=1,
-    )
-
-    with patch("execution.broker_adapter._get_breaker", return_value=breaker):
-        await adapter.place_order(order)
-        await adapter.place_order(order)
-        assert breaker.state == "open"
-
-        await asyncio.sleep(0.06)
-
-        result = await adapter.place_order(order)
-        assert result.success is True
-        assert breaker.state == "closed"
-        assert breaker.failure_count == 0
+    with pytest.raises(CircuitBreakerError):
+        await wrapper.place_order(order)
 
 
 @pytest.mark.asyncio
-async def test_circuit_breaker_per_broker_isolation():
-    breaker_map = {}
+async def test_broker_wrapper_get_funds_fallback():
+    inner = MagicMock()
+    inner.broker_name = "test_broker"
+    inner.get_funds = AsyncMock(side_effect=ValueError("API error"))
+    wrapper = CircuitBreakerBroker(inner, breaker_name="broker_test_broker")
+    wrapper._breaker.failure_threshold = 1
 
-    class FailingAdapter:
-        async def place_order(self, order):
-            raise ValueError("API error")
+    funds = await wrapper.get_funds()
+    assert isinstance(funds, Funds)
+    assert funds.broker == "test_broker"
 
-    class SucceedingAdapter:
-        async def place_order(self, order):
-            return OrderResult(success=True)
 
-    adapter_a = BrokerExecutionAdapter("user1", "broker_a")
-    adapter_a._adapter = FailingAdapter()
-    adapter_a._authenticated = True
+@pytest.mark.asyncio
+async def test_broker_wrapper_get_orderbook_fallback():
+    inner = MagicMock()
+    inner.broker_name = "test_broker"
+    inner.get_orderbook = AsyncMock(side_effect=ValueError("error"))
+    wrapper = CircuitBreakerBroker(inner, breaker_name="broker_test_broker")
+    wrapper._breaker.failure_threshold = 1
 
-    adapter_b = BrokerExecutionAdapter("user1", "broker_b")
-    adapter_b._adapter = SucceedingAdapter()
-    adapter_b._authenticated = True
+    result = await wrapper.get_orderbook()
+    assert result == []
 
-    order = NormalizedOrder(
-        symbol="RELIANCE", exchange=Exchange.NSE, side=OrderSide.BUY,
-        order_type=OrderType.MARKET, product=ProductType.INTRADAY, quantity=1,
-    )
 
-    def side_effect(name):
-        if name not in breaker_map:
-            breaker_map[name] = CircuitBreaker(name=name, failure_threshold=1, recovery_timeout=300.0)
-        return breaker_map[name]
+@pytest.mark.asyncio
+async def test_broker_wrapper_broker_name():
+    inner = MagicMock()
+    inner.broker_name = "fyers"
+    wrapper = CircuitBreakerBroker(inner)
+    assert wrapper.broker_name == "fyers"
 
-    with patch("execution.broker_adapter._get_breaker", side_effect=side_effect):
-        r1 = await adapter_a.place_order(order)
-        assert r1.success is False
-        assert breaker_map["broker_broker_a"].state == "open"
 
-        r2 = await adapter_b.place_order(order)
-        assert r2.success is True
-        assert breaker_map["broker_broker_b"].state == "closed"
+@pytest.mark.asyncio
+async def test_state_gauge_callback():
+    calls = []
+    from core.resilience import set_breaker_state_callback
+
+    def callback(name, state):
+        calls.append((name, state))
+
+    set_breaker_state_callback(callback)
+    breaker = CircuitBreaker(name="test_gauge", failure_threshold=1, recovery_timeout=300.0)
+    fn = AsyncMock(side_effect=ValueError("error"))
+    with pytest.raises(ValueError):
+        await breaker.call(fn)
+
+    assert ("test_gauge", "open") in calls
+    set_breaker_state_callback(None)

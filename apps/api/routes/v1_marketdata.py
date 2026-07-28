@@ -35,54 +35,59 @@ async def marketdata_ws(websocket: WebSocket):
 
     logger.info("WS client authenticated via tm_session cookie")
     current_task = asyncio.current_task()
-    async with _ws_connections_lock:
-        _ws_connections.add(current_task)
-    await websocket.accept()
-    shared_socket.increment_connections()
-    subscribed_symbols: set[str] = set()
-    queue: asyncio.Queue[Tick] = asyncio.Queue(maxsize=256)
-    stop_event = asyncio.Event()
-
-    async def tick_handler(tick: Tick):
-        if tick.symbol in subscribed_symbols:
-            try:
-                queue.put_nowait(tick)
-            except asyncio.QueueFull:
-                try:
-                    queue.get_nowait()
-                    queue.put_nowait(tick)
-                except asyncio.QueueEmpty:
-                    pass
-
-    shared_socket.subscribe("*", tick_handler)
-
-    async def drain_loop():
-        while not stop_event.is_set():
-            try:
-                tick = await asyncio.wait_for(queue.get(), timeout=0.5)
-                await websocket.send_json({
-                    "type": "tick",
-                    "symbol": tick.symbol,
-                    "exchange": tick.exchange.value,
-                    "last_price": tick.last_price,
-                    "bid": tick.bid,
-                    "ask": tick.ask,
-                    "bid_qty": tick.bid_qty,
-                    "ask_qty": tick.ask_qty,
-                    "volume": tick.volume,
-                    "oi": tick.oi,
-                    "timestamp": tick.timestamp.isoformat(),
-                    "change": tick.change,
-                    "change_pct": tick.change_pct,
-                })
-            except asyncio.TimeoutError:
-                continue
-            except Exception:
-                break
-
-    drain_task = asyncio.create_task(drain_loop())
-
+    accepted = False
+    drain_task = None
+    tick_handler = None
     try:
+        async with _ws_connections_lock:
+            _ws_connections.add(current_task)
+        await websocket.accept()
+        accepted = True
+        shared_socket.increment_connections()
+        subscribed_symbols: set[str] = set()
+        queue: asyncio.Queue[Tick] = asyncio.Queue(maxsize=256)
+        stop_event = asyncio.Event()
+
+        async def tick_handler(tick: Tick):
+            if tick.symbol in subscribed_symbols:
+                try:
+                    queue.put_nowait(tick)
+                except asyncio.QueueFull:
+                    try:
+                        queue.get_nowait()
+                        queue.put_nowait(tick)
+                    except asyncio.QueueEmpty:
+                        pass
+
+        shared_socket.subscribe("*", tick_handler)
+
+        async def drain_loop():
+            while not stop_event.is_set():
+                try:
+                    tick = await asyncio.wait_for(queue.get(), timeout=0.5)
+                    await websocket.send_json({
+                        "type": "tick",
+                        "symbol": tick.symbol,
+                        "exchange": tick.exchange.value,
+                        "last_price": tick.last_price,
+                        "bid": tick.bid,
+                        "ask": tick.ask,
+                        "bid_qty": tick.bid_qty,
+                        "ask_qty": tick.ask_qty,
+                        "volume": tick.volume,
+                        "oi": tick.oi,
+                        "timestamp": tick.timestamp.isoformat(),
+                        "change": tick.change,
+                        "change_pct": tick.change_pct,
+                    })
+                except asyncio.TimeoutError:
+                    continue
+                except Exception as e:
+                    logger.warning("WS drain loop send error: %s", e)
+                    break
+
+        drain_task = asyncio.create_task(drain_loop())
+
         while True:
             data = await websocket.receive_text()
             msg = json.loads(data)
@@ -116,10 +121,14 @@ async def marketdata_ws(websocket: WebSocket):
     except Exception as e:
         logger.error("WebSocket error: %s", e)
     finally:
-        stop_event.set()
-        drain_task.cancel()
-        shared_socket.unsubscribe("*", tick_handler)
-        shared_socket.decrement_connections()
+        if drain_task:
+            drain_task.cancel()
+        if tick_handler:
+            shared_socket.unsubscribe("*", tick_handler)
+        if accepted:
+            shared_socket.decrement_connections()
+        async with _ws_connections_lock:
+            _ws_connections.discard(current_task)
         async with _ws_connections_lock:
             _ws_connections.discard(current_task)
 
@@ -250,6 +259,27 @@ MAJOR_STOCKS = [
 ]
 
 
+@router.get("/quote")
+async def get_quote(
+    symbol: str | None = Query(None),
+    symbols: str | None = Query(None),
+    current_user: UserProfile = Depends(get_current_user),
+):
+    from providers.yahoo import fetch_quotes
+
+    syms: list[str] = []
+    if symbol:
+        syms = [symbol]
+    elif symbols:
+        syms = [s.strip() for s in symbols.split(",")]
+    if not syms:
+        raise HTTPException(status_code=422, detail="Provide symbol or symbols parameter")
+    quotes = await fetch_quotes(syms)
+    if not quotes:
+        raise HTTPException(status_code=503, detail="Quote unavailable")
+    return quotes if len(quotes) > 1 else quotes[0]
+
+
 @router.get("/symbols")
 async def get_symbols():
     symbols = set(shared_socket.subscribed_symbols)
@@ -347,6 +377,52 @@ async def _fetch_nse_option_chain(symbol: str) -> dict | None:
     return None
 
 
+def _generate_mock_option_chain(symbol: str) -> dict | None:
+    if symbol.upper() not in NSE_INDICES:
+        return None
+    base_prices = {"NIFTY": 24000, "BANKNIFTY": 51000, "FINNIFTY": 21000}
+    base = base_prices.get(symbol.upper(), 24000)
+    strike_interval = 100 if symbol.upper() == "NIFTY" else 300 if symbol.upper() == "BANKNIFTY" else 100
+    atm_round = round(base / strike_interval) * strike_interval
+    strikes = list(range(atm_round - 9 * strike_interval, atm_round + 10 * strike_interval, strike_interval))
+    today = datetime.datetime.now(datetime.timezone.utc)
+    expiry = today + datetime.timedelta(days=(3 - today.weekday()) % 7 + 28)
+    expiries = [expiry.strftime("%d%b").upper()]
+    option_chain = []
+    for strike in strikes:
+        dist = abs(strike - atm_round) / strike_interval
+        ce_iv = 14.0 + dist * 1.5
+        pe_iv = 14.0 + dist * 1.5
+        ce_ltp = round(max(50 - dist * 25, 0.5), 2)
+        pe_ltp = round(max(50 - dist * 25, 0.5), 2)
+        if strike >= atm_round:
+            ce_ltp = round(max(100 - dist * 15, 1), 2)
+            pe_ltp = round(max(5 - dist * 2, 0.1), 2)
+        if strike <= atm_round:
+            pe_ltp = round(max(100 - dist * 15, 1), 2)
+            ce_ltp = round(max(5 - dist * 2, 0.1), 2)
+        days_to_expiry = max((expiry - today).days, 1)
+    sqrt_t = (days_to_expiry / 365) ** 0.5
+    def _approx_greeks(is_call: bool, strike: float) -> dict:
+        moneyness = (base - strike) / strike
+        d1 = moneyness / max(sqrt_t, 0.01)
+        d2 = d1 - 0.2 * sqrt_t
+        from math import erf
+        nd1 = 0.5 * (1 + erf(d1 / 2 ** 0.5))
+        nd2 = 0.5 * (1 + erf(d2 / 2 ** 0.5))
+        delta = nd1 if is_call else nd1 - 1
+        gamma = 0.4 / max(base * 0.01, 1)
+        theta = -0.1
+        vega = base * 0.001
+        return {"delta": round(delta, 4), "gamma": round(gamma, 6), "theta": round(theta, 4), "vega": round(vega, 4)}
+    option_chain.append({
+            "strike": strike,
+            "call": {"ltp": ce_ltp, "change": round(ce_ltp * 0.02, 2), "change_pct": 2.0, "bid": round(ce_ltp * 0.98, 2), "ask": round(ce_ltp * 1.02, 2), "volume": int(10000 * (1 - dist * 0.08)), "oi": int(500000 * (1 - dist * 0.05)), "iv": round(ce_iv, 2), **_approx_greeks(True, strike)},
+            "put": {"ltp": pe_ltp, "change": round(pe_ltp * 0.02, 2), "change_pct": 2.0, "bid": round(pe_ltp * 0.98, 2), "ask": round(pe_ltp * 1.02, 2), "volume": int(10000 * (1 - dist * 0.08)), "oi": int(500000 * (1 - dist * 0.05)), "iv": round(pe_iv, 2), **_approx_greeks(False, strike)},
+        })
+    return {"optionChain": option_chain, "expiries": expiries, "mock": True}
+
+
 @router.get("/option-chain")
 async def get_option_chain(
     symbol: str = Query("NIFTY"),
@@ -433,6 +509,11 @@ async def get_option_chain(
     nse_data = await _fetch_nse_option_chain(symbol)
     if nse_data:
         return nse_data
+
+    mock_data = _generate_mock_option_chain(symbol)
+    if mock_data:
+        logger.info("Using generated option chain for %s (dev fallback)", symbol)
+        return mock_data
 
     raise HTTPException(status_code=503, detail=f"Option chain unavailable for {symbol}")
 

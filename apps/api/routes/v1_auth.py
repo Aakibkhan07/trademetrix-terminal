@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 import secrets
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
 from core.audit import record_audit
@@ -67,8 +67,26 @@ def _clear_session_cookie(response: Response):
     response.delete_cookie(key=COOKIE_NAME, path="/", domain=settings.cookie_domain or None)
 
 
+def _validate_password(password: str) -> str | None:
+    if len(password) < 8:
+        return "Password must be at least 8 characters long"
+    if not any(c.isupper() for c in password):
+        return "Password must contain at least one uppercase letter"
+    if not any(c.islower() for c in password):
+        return "Password must contain at least one lowercase letter"
+    if not any(c.isdigit() for c in password):
+        return "Password must contain at least one digit"
+    if not any(c in "!@#$%^&*()_+-=[]{}|;':\",./<>?`~" for c in password):
+        return "Password must contain at least one special character"
+    return None
+
+
 @router.post("/signup", status_code=201)
 async def signup(req: SignUpRequest, response: Response, background_tasks: BackgroundTasks):
+
+    pw_error = _validate_password(req.password)
+    if pw_error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=pw_error)
 
     try:
         client = await get_http_client()
@@ -82,8 +100,13 @@ async def signup(req: SignUpRequest, response: Response, background_tasks: Backg
             json={"email": req.email, "password": req.password, "email_confirm": True},
         )
         if resp.status_code != 200:
-            if resp.status_code == 409:
+            body = resp.json()
+            error_code = body.get("error_code", "")
+            if resp.status_code == 409 or error_code == "email_exists":
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+            if resp.status_code == 422:
+                msg = body.get("msg", "Validation error")
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
         user_data = resp.json()
     except HTTPException:
@@ -237,19 +260,11 @@ async def change_password(req: ChangePasswordRequest, current_user: UserProfile 
 
 
 @router.get("/csrf")
-async def get_csrf_token(response: Response):
-    """Set csrf_token cookie for clients that don't have one yet (CSRF bootstrap)."""
+async def get_csrf_token(request: Request):
+    """Return CSRF token for clients that don't have one yet (CSRF bootstrap).
+    Middleware sets the cookie + X-CSRF-Token header on every response."""
     token = secrets.token_hex(32)
-    response.set_cookie(
-        key="csrf_token",
-        value=token,
-        httponly=False,
-        secure=settings.env == "production",
-        samesite="none",
-        path="/",
-        domain=settings.cookie_domain or None,
-    )
-    response.headers["X-CSRF-Token"] = token
+    request.state.csrf_token = token
     return {"csrf_token": token}
 
 

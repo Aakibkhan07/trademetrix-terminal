@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from application.services.admin_service import AdminService
+from routes.v1_admin import router as admin_router
 
 
 @pytest.fixture
@@ -384,3 +385,9 @@ class TestBroadcast:
         from fastapi import HTTPException
         with pytest.raises(HTTPException, match="Unknown strategy_key"):
             await svc.broadcast("unknown", "RELIANCE", "BUY", 10, 0, "NSE", "MARKET", "INTRADAY", "", True)
+
+
+class TestAdminRoutes:
+    def test_stats_route_registered(self):
+        paths = [r.path for r in admin_router.routes if hasattr(r, "path")]
+        assert "/admin/stats" in paths

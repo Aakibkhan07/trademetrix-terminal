@@ -49,3 +49,42 @@ async def admin_delete_backup(
 ):
     _validate_backup_filename(filename)
     return await _backup.delete_backup(filename)
+
+
+class KillSwitchRequest(BaseModel):
+    enabled: bool = True
+
+
+@router.post("/kill-switch")
+async def admin_kill_switch(
+    req: KillSwitchRequest,
+    admin: UserProfile = Depends(require_super_admin),
+):
+    import logging
+    log = logging.getLogger(__name__)
+    try:
+        if req.enabled:
+            return await _service.enable_kill_switch()
+        return await _service.disable_kill_switch()
+    except Exception as e:
+        log.error("Kill switch operation failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"Kill switch operation failed: {e}")
+
+
+@router.post("/resume-trading")
+async def admin_resume_trading(
+    admin: UserProfile = Depends(require_super_admin),
+):
+    return await _service.disable_kill_switch()
+
+
+@router.get("/kill-switch")
+async def admin_get_kill_switch(
+    admin: UserProfile = Depends(require_super_admin),
+):
+    return await _service.get_kill_switch()
+
+
+@router.get("/stats")
+async def admin_stats(admin: UserProfile = Depends(require_admin)):
+    return await _service.get_stats()

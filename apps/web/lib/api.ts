@@ -160,6 +160,7 @@ interface ApiOptions {
 
 let _csrfToken = ''
 let _csrfFetching = false
+let _csrfPromise: Promise<void> | null = null
 
 function getCSRFToken(): string {
   return _csrfToken
@@ -167,23 +168,33 @@ function getCSRFToken(): string {
 
 async function _ensureCSRF(): Promise<void> {
   if (_csrfToken || _csrfFetching) return
+  if (_csrfPromise) return _csrfPromise
   _csrfFetching = true
-  try {
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), 5000)
-    const res = await fetch(`${API_BASE}/auth/csrf`, {
-      credentials: 'include',
-      signal: ctrl.signal,
-    })
-    clearTimeout(t)
-    if (res.ok) {
-      const data = await res.json()
-      _csrfToken = data.csrf_token || ''
+  _csrfPromise = (async () => {
+    try {
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 5000)
+      const res = await fetch(`${API_BASE}/auth/csrf`, {
+        credentials: 'include',
+        signal: ctrl.signal,
+      })
+      clearTimeout(t)
+      if (res.ok) {
+        const data = await res.json()
+        _csrfToken = data.csrf_token || ''
+      }
+    } catch {
+    } finally {
+      _csrfFetching = false
+      _csrfPromise = null
     }
-  } catch {
-  } finally {
-    _csrfFetching = false
-  }
+  })()
+  return _csrfPromise
+}
+
+// Eager CSRF bootstrap — start fetching the token immediately on module load
+if (typeof window !== 'undefined') {
+  _ensureCSRF()
 }
 
 const REQUEST_TIMEOUT = 30_000

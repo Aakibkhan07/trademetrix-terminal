@@ -266,9 +266,9 @@ class SubscriptionService:
         return {
             "subscription": {
                 "id": row["id"],
-                "tier": row["tier"],
+                "tier": row.get("plan", row.get("tier", "")),
                 "status": row["status"],
-                "razorpay_subscription_id": row["razorpay_subscription_id"],
+                "razorpay_subscription_id": row.get("razorpay_subscription_id", ""),
                 "current_period_start": row.get("current_period_start"),
                 "current_period_end": row.get("current_period_end"),
                 "trial_end": row.get("trial_end"),

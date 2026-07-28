@@ -41,6 +41,18 @@ class EngineService:
     async def execute_trade(self, user_id: str, req: dict) -> dict:
         from core.models import Exchange, InstrumentType, OptionType, OrderSide, OrderType, ProductType
 
+        is_paper = req.get("is_paper", False)
+        if not is_paper:
+            active_run = await async_safe_single(
+                get_supabase().table("strategy_runs")
+                .select("mode")
+                .eq("user_id", user_id)
+                .eq("status", "running")
+                .limit(1)
+            )
+            if active_run and active_run.get("mode", "").upper() == "PAPER":
+                is_paper = True
+
         order = NormalizedOrder(
             symbol=req["symbol"],
             exchange=Exchange(req.get("exchange", "NSE")),
@@ -56,6 +68,7 @@ class EngineService:
             expiry_date=req.get("expiry_date"),
             option_type=OptionType(req["option_type"]) if req.get("option_type") else None,
             source=req.get("source", "manual"),
+            is_paper=is_paper,
         )
         result = await execute_order(user_id, order, source=req.get("source", "manual"))
         return {"result": result.model_dump()}
@@ -126,6 +139,24 @@ class EngineService:
         return creds["broker"] if creds else None
 
     async def get_positions(self, user_id: str) -> list[dict]:
+        paper_run = await async_safe_single(
+            get_supabase().table("strategy_runs")
+            .select("mode, broker")
+            .eq("user_id", user_id)
+            .eq("status", "running")
+            .eq("mode", "PAPER")
+            .limit(1)
+        )
+        if paper_run:
+            from portfolio.manager import portfolio_manager
+            broker = paper_run.get("broker", "paper")
+            try:
+                await portfolio_manager.refresh(user_id, broker)
+                positions = await portfolio_manager.get_positions(user_id, broker)
+                return [p.model_dump() for p in positions]
+            except Exception:
+                return []
+
         broker = await self.get_active_broker(user_id)
         if not broker:
             return []
@@ -137,6 +168,24 @@ class EngineService:
             return []
 
     async def get_funds(self, user_id: str) -> dict:
+        paper_run = await async_safe_single(
+            get_supabase().table("strategy_runs")
+            .select("mode, broker")
+            .eq("user_id", user_id)
+            .eq("status", "running")
+            .eq("mode", "PAPER")
+            .limit(1)
+        )
+        if paper_run:
+            from portfolio.manager import portfolio_manager
+            broker = paper_run.get("broker", "paper")
+            try:
+                await portfolio_manager.refresh(user_id, broker)
+                funds = await portfolio_manager.get_margin(user_id, broker)
+                return funds.model_dump()
+            except Exception:
+                return {"total_margin": 0, "used_margin": 0, "available_margin": 0}
+
         broker = await self.get_active_broker(user_id)
         if not broker:
             return {"total_margin": 0, "used_margin": 0, "available_margin": 0}
