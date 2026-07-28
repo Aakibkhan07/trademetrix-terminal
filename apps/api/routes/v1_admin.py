@@ -88,3 +88,12 @@ async def admin_get_kill_switch(
 @router.get("/stats")
 async def admin_stats(admin: UserProfile = Depends(require_admin)):
     return await _service.get_stats()
+
+
+@router.get("/users")
+async def admin_list_users(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.list_users(limit=limit, offset=offset)

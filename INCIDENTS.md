@@ -52,11 +52,11 @@
 **Files Changed:** `apps/api/engine/user_strategy_runner.py`  
 **Verification:** No TypeError in logs. 98/98 PAT pass.
 
-## INC-006: GET /api/v1/admin/stats Returns 404 (2026-07-28)
+## INC-006: Missing Admin API Routes — /admin/stats and /admin/users (2026-07-28)
 
 **Severity:** Medium  
 **Status:** Resolved  
-**Root Cause:** `AdminService.get_stats()` was implemented but the HTTP route `@router.get("/stats")` was never registered in `v1_admin.py`. Frontend API lib called `api.admin.stats()` → `GET /api/v1/admin/stats` → 404.  
-**Fix:** Registered `GET /admin/stats` route in `v1_admin.py` calling `AdminService.get_stats()`.  
+**Root Cause:** `AdminService` has fully implemented methods (`get_stats()`, `list_users()`, and many others), but the corresponding HTTP routes were never registered in `v1_admin.py`. The frontend admin UI calls these endpoints → 404.  
+**Fix:** Registered `GET /admin/stats` and `GET /admin/users` routes.  
 **Files Changed:** `apps/api/routes/v1_admin.py`, `apps/api/tests/test_admin_service.py`  
-**Verification:** Route confirmed registered via test. `GET /api/v1/admin/stats` now returns stats payload.
+**Verification:** 404 replaced with proper 401 (unauthenticated) or data response. 40+ tests pass.

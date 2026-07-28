@@ -391,3 +391,7 @@ class TestAdminRoutes:
     def test_stats_route_registered(self):
         paths = [r.path for r in admin_router.routes if hasattr(r, "path")]
         assert "/admin/stats" in paths
+
+    def test_users_route_registered(self):
+        paths = [r.path for r in admin_router.routes if hasattr(r, "path")]
+        assert "/admin/users" in paths
