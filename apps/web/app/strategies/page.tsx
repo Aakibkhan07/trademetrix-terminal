@@ -121,9 +121,13 @@ export default function StrategiesPage() {
             Create, deploy, and manage your trading strategies
           </p>
         </div>
-        <button className="t-btn-primary" onClick={() => setShowCreate(true)}>
-          + New Strategy
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <a href="/strategies/catalog" className="t-btn t-btn-sm">Catalog</a>
+          <a href="/strategies/multi-leg" className="t-btn t-btn-sm">Multi-Leg</a>
+          <button className="t-btn-primary" onClick={() => setShowCreate(true)}>
+            + New Strategy
+          </button>
+        </div>
       </div>
 
       {strategies.length === 0 && !loading && (

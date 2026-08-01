@@ -3,6 +3,19 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-02 — P0 Product Discoverability Fix (v1.0.1: user navigation redesign)
+
+### What was done
+1. **P0 incident root-caused** — `components/app-layout.tsx` hard-redirected every non-admin to `/portfolio` (only admins saw the sidebar shell); normal users reached only 3 pages and 4 of 5 shipped features were invisible. Audit report: `docs/DiscoverabilityAudit.md`.
+2. **Navigation fix (UI only, zero backend)** — gate now only bounces non-admins from admin routes (`ADMIN_ROUTE_RE = /^\/admin(\/|$)|\/dashboard(\/|$)/`); sidebar renders for all users (`USER_SECTIONS` 22 items = required Home/Watchlist/Portfolio, Workspace, Market Analyzer, Strategy Builder, Backtest, Orders, Positions, Funds, Journal, Alerts, Settings, Help + Analytics, Risk Control, Terminal, Option Chain, Terminal Builder, Strategies, Marketplace, AI; `ADMIN_SECTIONS` only for admins, incl. new Beta section → `/admin/beta`, `/admin/broadcast`). `/portfolio` removed from `STANDALONE_PAGES` (sidebar shows on Home). Logo link role-aware. Profile popover: +Account/Feedback/Changelog/Transparency/Status. `/strategies` header: +Catalog/Multi-Leg buttons. `isActive_` tightened to exact-or-child (was `startsWith` → false highlights).
+3. **Validation** — 44/44 nav hrefs resolve; 37 routes all 200 on prod build; SSR HTML contains full user nav; `tsc` clean; prod build clean (46 pages). Post-deploy E2E + screenshots on prod (puppeteer, `docs/DiscoverabilityAudit.md`).
+4. **Release** — CHANGELOG v1.0.1 (nav entry) + retitled beta-ops entry to v1.0.1-beta; tagged `v1.0.1`; deployed via `deploy.sh`.
+
+### Reference
+- Non-admin gate: `ADMIN_ROUTE_RE` matches `/admin*` + `/dashboard` only — everything else open to users; `/dashboard?tab=*` items render only for admins (`sections = isAdmin ? [...USER_SECTIONS, ...ADMIN_SECTIONS] : USER_SECTIONS`).
+- Standalone pages (no sidebar, no auth gate): `/`, `/auth`, `/onboarding`, `/status`, `/portal*`.
+- Release numbering: v1.0.1 stable = nav fix (2026-08-02); v1.0.1-beta = beta ops (2026-08-01); GA = v1.0.0.
+
 ## Session: 2026-08-01 — Beta Operations Mode (v1.0.1: evidence collection, GA)
 
 ### What was done

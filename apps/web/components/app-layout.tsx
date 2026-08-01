@@ -11,7 +11,57 @@ import Logo from '@/components/logo'
 import StatusBar from '@/components/status-bar'
 import MarketTicker from '@/components/market-ticker'
 
-const NAV_SECTIONS = [
+const USER_SECTIONS = [
+  {
+    label: 'Home',
+    items: [
+      { href: '/portfolio', label: 'Home', icon: '🏠' },
+      { href: '/portfolio', label: 'Watchlist', icon: '⭐' },
+      { href: '/portfolio', label: 'Portfolio', icon: '📊' },
+    ],
+  },
+  {
+    label: 'Trade',
+    items: [
+      { href: '/workspace', label: 'Trading Workspace', icon: '📈' },
+      { href: '/trade', label: 'Orders', icon: '📋' },
+      { href: '/positions', label: 'Positions', icon: '📍' },
+      { href: '/brokers', label: 'Funds', icon: '💰' },
+    ],
+  },
+  {
+    label: 'Build & Analyze',
+    items: [
+      { href: '/marketdata', label: 'Market Analyzer', icon: '🔍' },
+      { href: '/strategies/builder', label: 'Strategy Builder', icon: '🤖' },
+      { href: '/backtest', label: 'Backtest', icon: '🧪' },
+      { href: '/analytics', label: 'Analytics', icon: '📉' },
+      { href: '/journal', label: 'Trade Journal', icon: '📖' },
+    ],
+  },
+  {
+    label: 'Manage',
+    items: [
+      { href: '/alerts', label: 'Alerts', icon: '🔔' },
+      { href: '/risk', label: 'Risk Control', icon: '🛡️' },
+      { href: '/settings', label: 'Settings', icon: '⚙️' },
+      { href: '/help', label: 'Help', icon: '❓' },
+    ],
+  },
+  {
+    label: 'Platform',
+    items: [
+      { href: '/terminal', label: 'Terminal', icon: '⚡' },
+      { href: '/terminal/option-chain', label: 'Option Chain', icon: '🔗' },
+      { href: '/terminal/builder', label: 'Terminal Builder', icon: '🛠️' },
+      { href: '/strategies', label: 'Strategies', icon: '🗂️' },
+      { href: '/marketplace', label: 'Marketplace', icon: '🛍️' },
+      { href: '/ai', label: 'AI Assistant', icon: '✦' },
+    ],
+  },
+]
+
+const ADMIN_SECTIONS = [
   {
     label: 'Trading',
     items: [
@@ -23,7 +73,6 @@ const NAV_SECTIONS = [
   {
     label: 'Control Center',
     items: [
-      { href: '/ai', label: 'AI Assistant', icon: '✦' },
       { href: '/dashboard', label: 'Dashboard', icon: '◉' },
       { href: '/dashboard?tab=users', label: 'Users', icon: 'U' },
       { href: '/dashboard?tab=brokers', label: 'Brokers', icon: 'B' },
@@ -45,6 +94,13 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'Beta',
+    items: [
+      { href: '/admin/beta', label: 'Beta Dashboard', icon: 'β' },
+      { href: '/admin/broadcast', label: 'Broadcast', icon: '📢' },
+    ],
+  },
+  {
     label: 'Security',
     items: [
       { href: '/dashboard?tab=risk', label: 'Risk', icon: 'R' },
@@ -56,8 +112,9 @@ const NAV_SECTIONS = [
   },
 ]
 
-const STANDALONE_PAGES = ['/', '/auth', '/onboarding', '/status', '/portfolio']
+const STANDALONE_PAGES = ['/', '/auth', '/onboarding', '/status']
 const STANDALONE_PREFIXES = ['/portal']
+const ADMIN_ROUTE_RE = /^\/admin(\/|$)|\/dashboard(\/|$)/
 
 function isStandalone(pathname: string) {
   if (STANDALONE_PAGES.includes(pathname)) return true
@@ -88,10 +145,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (loading || standalone) return
     if (!isAuthenticated) {
       router.replace('/auth')
-    } else if (!isAdmin) {
+    } else if (!isAdmin && ADMIN_ROUTE_RE.test(pathname)) {
       router.replace('/portfolio')
     }
-  }, [loading, isAuthenticated, isAdmin, standalone, router])
+  }, [loading, isAuthenticated, isAdmin, standalone, router, pathname])
 
   useEffect(() => {
     const stored = localStorage.getItem('sidebar-collapsed')
@@ -169,9 +226,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (standalone) return <>{children}</>
 
+  const sections = isAdmin ? [...USER_SECTIONS, ...ADMIN_SECTIONS] : USER_SECTIONS
+
   const isActive_ = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
-    return pathname.startsWith(href)
+    if (href.includes('?')) return false
+    return pathname === href || pathname.startsWith(href + '/')
   }
 
   return (
@@ -207,7 +267,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           gap: 8, height: 48, boxSizing: 'border-box',
         }}>
           {!collapsed && (
-            <Link href="/dashboard" style={{
+            <Link href={isAdmin ? '/dashboard' : '/portfolio'} style={{
               display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flex: 1, minWidth: 0,
             }}>
               <Logo size={24} />
@@ -259,7 +319,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Navigation */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-          {NAV_SECTIONS.map((section) => (
+          {sections.map((section) => (
             <div key={section.label}>
               {!collapsed && (
                 <div style={{ padding: '8px 12px 2px' }}>
@@ -496,6 +556,46 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
                 >Settings</Link>
+                <Link href="/account" style={{
+                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
+                  fontSize: 12, textDecoration: 'none',
+                  transition: 'all 100ms ease',
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
+                >Account</Link>
+                <Link href="/feedback" style={{
+                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
+                  fontSize: 12, textDecoration: 'none',
+                  transition: 'all 100ms ease',
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
+                >Feedback</Link>
+                <Link href="/changelog" style={{
+                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
+                  fontSize: 12, textDecoration: 'none',
+                  transition: 'all 100ms ease',
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
+                >Changelog</Link>
+                <Link href="/transparency" style={{
+                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
+                  fontSize: 12, textDecoration: 'none',
+                  transition: 'all 100ms ease',
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
+                >Transparency</Link>
+                <Link href="/status" style={{
+                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
+                  fontSize: 12, textDecoration: 'none',
+                  transition: 'all 100ms ease',
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
+                >Status</Link>
                 <button onClick={signout} style={{
                   display: 'block', width: '100%', textAlign: 'left',
                   padding: '8px 12px', color: 'var(--red)',

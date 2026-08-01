@@ -1,4 +1,23 @@
-## v1.0.1 (2026-08-01) — BETA OPERATIONS MODE
+## v1.0.1 (2026-08-02) — USER NAVIGATION REDESIGN (P0 INCIDENT FIX)
+
+### Product discoverability — navigation only (zero backend/API/logic changes)
+
+### Fixed
+- **P0: normal users were trapped on `/portfolio`** — the app shell hard-redirected every non-admin away from all non-standalone pages, so the sidebar (the only navigation surface) never rendered for them and 4 of 5 shipped features were invisible. The redirect gate now only bounces non-admins from admin routes (`/admin*`, `/dashboard`).
+- **Sidebar now renders for every authenticated user** with the full platform: Home (Home/Watchlist/Portfolio shell), Trade (Trading Workspace, Orders, Positions, Funds), Build & Analyze (Market Analyzer, Strategy Builder, Backtest, Analytics, Trade Journal), Manage (Alerts, Risk Control, Settings, Help), Platform (Terminal, Option Chain, Terminal Builder, Strategies, Marketplace, AI Assistant) — all 14 required nav items present.
+- **Admin routes fully isolated** — `/admin/*` + `/dashboard` unreachable by users (client gate + existing server-side `require_admin` RBAC untouched); admin sidebar gained a Beta section (Beta Dashboard, Broadcast).
+- **Orphaned pages wired in** — Catalog + Multi-Leg buttons on the Strategies page; Account/Feedback/Changelog/Transparency/Status added to the profile popover; logo link is role-aware.
+- **Dead ends removed** — `/trade`, `/marketdata`, `/brokers` links from the portfolio header now work for users; sidebar active-state matching tightened (exact-or-child).
+
+### Changed
+- `components/app-layout.tsx` (user nav sections, role-aware gate + sections, profile popover, `isActive_`), `app/strategies/page.tsx` (header links), `docs/DiscoverabilityAudit.md` (audit + fix report with navigation map).
+
+### Verification
+- Every nav href resolves to a real route (44/44); all 37 user+admin routes return 200 on the prod build; SSR HTML contains the full user nav.
+- `tsc --noEmit` clean; prod build clean (46 static pages).
+- Post-deploy E2E on prod: login → Home → all menu items, logout, admin-route isolation, console/hydration checks (see `docs/DiscoverabilityAudit.md`).
+
+## v1.0.1-beta (2026-08-01) — BETA OPERATIONS MODE
 
 ### GA evidence collection (no product features — telemetry, dashboards, reports)
 
