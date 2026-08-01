@@ -1,3 +1,31 @@
+## v1.0.0 (2026-08-01) — GENERAL AVAILABILITY
+
+### GA Preparation (production readiness — no new features)
+
+### Added
+- **Single-command production deploy** (`infra/production/deploy.sh`) — non-interactive: installs Docker/Compose if missing, `git reset --hard origin/main` (repo = sole source of truth), env-file guard, OpenRouter key injection only when explicitly provided, DNS advisory, `build --parallel api web`, `up -d`, health gates on API `/health` + web (18×10s), clear failure tips, `Deployment Complete — v1.0 GA` banner. Validated E2E on prod from a fresh `origin/main` checkout.
+- **Verified backup pipeline** (`infra/scripts/backup.sh`) — Redis RDB via `redis-cli SAVE`; Prometheus consistent TSDB snapshot (admin API, zero downtime); Grafana/n8n/Caddy via brief stop + tar of their `production_*` volumes; env-file copy; 14-day retention; every archive `tar tzf`-verified (exit 1 on any failure). E2E: all components `[OK]`, 49M verified.
+- **Prometheus admin API enabled** — `--web.enable-lifecycle` + `--web.enable-admin-api` in the production compose (Prometheus 3.x split the flags; required for snapshot-based backups). Force-recreated container; snapshot verified (`20260801T082220Z-…`).
+- **Remote Supabase fully migrated** — `20250731_01100_builder_persistence.sql` + `20250801_01200_backtest_persistence.sql` applied to `db.nwutlfuowiulfpbsrldn.supabase.co` (PostgreSQL 17.6): `builder_strategies`, `builder_strategy_versions`, `builder_strategy_logs`, `backtest_runs`, `candles`, `corporate_actions` all created (RLS on, service-role bypass). Verified post-restart: 7 strategies / 2 runs / 533 candles persisted.
+- **Restart persistence verified (prod)** — builder strategy (status `ready`), COMPLETED backtest run, lifecycle logs and version history all survive an API restart; OMS recovery confirmed ("Recovered 1 active orders…").
+- **GA docs** — `DEPLOYMENT.md` (rewritten, single-command), `DISASTER_RECOVERY.md` (rewritten, RPO/RTO + scenarios), `BACKUP_RESTORE.md` (new), `RUNBOOK.md` (refreshed), `RELEASE_NOTES.md` (rewritten for GA), `KNOWN_ISSUES.md` (new), `UPGRADE_GUIDE.md` (new).
+
+### Changed
+- **Backtest data reliability** (`backtest/manager.py`, `backtest/data_loader.py`, `market/historical.py`) — run-v3 now propagates `user_id` to the data loader at both call sites (previously loaded zero candles); the auto source routes through the durable candle store (`backtest_historical.load`: Supabase-first, gap-fill, write-back) instead of broker-only; Yahoo fallback (`^NSEI` etc.) engages when creds are absent/expired/fetch fails/`not user_id`. Backtests complete without any broker credentials.
+- **Repo made authoritative** — 112-file backlog (Phases 4.3–6) committed (`f88d300`) and pushed to public GitHub `main`; verified zero tracked secrets (`.env*` gitignored); VPS repo now `git reset --hard origin/main` (env files survive as untracked).
+- **Deployment UX** — old interactive `read -rp "Enter your OpenRouter API key"` paths removed (they aborted non-TTY deploys); backup archives no longer truncated (`tar -C /v .` only, stopped-container tar for sqlite-backed volumes).
+- **reportlab baked** — 5.0.0 and all runtime deps verified in a clean `--no-cache` image build; fresh containers need zero manual post-install.
+
+### Verification
+- Full API regression: **551 passed, 1 xfailed**.
+- Web: `tsc --noEmit` clean + prod build clean.
+- Deploy E2E from `git reset --hard origin/main`: images built, api+web healthy (200), GA banner, exit 0.
+- Backup E2E: all components verified (`[DONE] Backup complete and verified`), exit 0.
+- Persistence smoke post-deploy-restart: `strategies=7, runs=2, candles=533` in remote Supabase.
+
+### Known gaps
+- See `KNOWN_ISSUES.md` (Fyers token re-auth, TRADINGVIEW_WEBHOOK_SECRET unset, Telegram stubs, service-role keys, single-host footprint, on-VPS-only backups).
+
 ## v0.2.0-rc.7 (2026-08-01)
 
 ### Phase 6 — Product Polish (Accessibility, Consistency, Performance Audit)

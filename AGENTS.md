@@ -3,6 +3,26 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-01 — v1.0 GA Preparation (P1–P4 complete, RC → GA declared)
+
+### What was done
+1. **P1 remote Supabase unblocked + migrated (COMPLETE)** — user provided the real DB password. All 6 GA tables created on `db.nwutlfuowiulfpbsrldn.supabase.co` (PostgreSQL 17.6) via psycopg2: `builder_strategies`, `builder_strategy_versions`, `builder_strategy_logs`, `backtest_runs`, `candles`, `corporate_actions` (RLS on; app uses service key = BYPASSRLS; anon blocked — correct). Persistence verified AFTER API restart: 4/4 PASS (strategy `ready`, COMPLETED run, lifecycle logs, version history) + OMS recovery ("Recovered 1 active orders…").
+2. **Backtest reliability fixes** (`adcec54`, needed by P1 validation) — `backtest/manager.py` passes `user_id=config.user_id` to the loader at BOTH call sites (run-v3 previously skipped user_id → "No candle data loaded"); `backtest/data_loader.py` auto source now routes through durable `backtest_historical.load` (Supabase-first, gap-fill, write-back) instead of broker-only; `market/historical.py` Yahoo fallback (`^NSEI` map) also when `not user_id` or fetch fails. New `tests/test_market_historical.py` (patch `core.db.*` — source module for function-local imports). Regression 551 passed / 1 xfailed. NOTE: yahoo `_to_yahoo` must not be called twice; durable store caches candles (533) so later runs skip Yahoo.
+3. **P2 deps baked (COMPLETE)** — reportlab >=4.0 already in requirements.txt; fresh `--no-cache` build verified (reportlab 5.0.0, uvicorn, non-root `app`); VPS fresh rebuild → no manual post-install steps (old prod image was stale).
+4. **P3 single-command deploy (COMPLETE)** — `infra/production/deploy.sh` rewritten: non-interactive (installs Docker, `git reset --hard origin/main`, env guard, OpenRouter key injection ONLY if env var set AND missing, DNS advisory, `build --parallel api web`, `up -d`, health gates API+web 18×10s, GA banner, exit 1 with `docker compose logs api web` tips). Validated E2E on prod. Old interactive `read -rp` prompts removed (killed non-TTY deploys).
+5. **P3 backup script (COMPLETE)** — `infra/scripts/backup.sh`: redis SAVE + volume copy, prometheus TSDB snapshot via admin API, grafana/n8n/caddy via stop+tar of `production_*` volumes, env files, 14-day retention, `tar tzf` verification on EVERY archive (exit 1 if any fails). BUGS FIXED en route: (a) `tar czf ... -C / v .` tars the container ROOT incl. /proc → short read — must be `-C /v .`; (b) prometheus 3.x needs `--web.enable-lifecycle` AND `--web.enable-admin-api` (snapshot API; compose updated, container force-recreated, verified `20260801T082220Z-…`). E2E: all `[OK]`, 49M verified.
+6. **Repo authoritative (user-approved)** — 112-file backlog committed `f88d300` + pushed to PUBLIC GitHub `main`; verified no tracked secrets; VPS synced via `git fetch origin && git reset --hard origin/main` (env files untracked → survive).
+7. **P4 docs (COMPLETE)** — rewrote `DEPLOYMENT.md`, `DISASTER_RECOVERY.md`, `RELEASE_NOTES.md` (v1.0.0 GA); refreshed `RUNBOOK.md`; created `BACKUP_RESTORE.md`, `KNOWN_ISSUES.md`, `UPGRADE_GUIDE.md`.
+8. **Final validation gate — ALL PASS, RC → GA declared** — API regression 551 passed/1 xfailed; web tsc + prod build clean; `deploy.sh` E2E from `origin/main` (d2a465b) → "Deployment Complete — v1.0 GA", API health ok, web 200; post-deploy persistence: `strategies=7, runs=2, candles=533`. CHANGELOG v1.0.0 entry; this AGENTS.md entry.
+
+### Reference
+- Deploy: `ssh root@187.127.185.56` → `cd /root/trademetrix-terminal && bash infra/production/deploy.sh` (single command, idempotent). SSH password + Supabase DB password = password manager (`Aakibkhan1@23`, rotate in dashboard).
+- Backup: `bash infra/scripts/backup.sh` → `/root/trademetrix-backups/<ts>/`; restore patterns in `BACKUP_RESTORE.md`.
+- Remote Supabase access: `PGPASSWORD='<db-pw>' psql "postgresql://postgres@db.nwutlfuowiulfpbsrldn.supabase.co:5432/postgres?sslmode=require"` (or psycopg2 from `apps/api/.venv`). Migrations idempotent, filename-ordered, apply via psql.
+- scp to VPS is rate-limited sometimes — use `tar czf - -C <dir> <f> | ssh ... tar xzf - -C /tmp/x && docker cp ...`.
+- GitHub repo is PUBLIC: never commit `.env*` (all gitignored); only untracked files exist on VPS.
+- GA end-state (2026-08-01): origin/main `d2a465b`; VPS synced; prod containers healthy; backup verified; strategies=7 runs=2 candles=533 persisted remotely.
+
 ## Session: 2026-08-01 — Phase 6: Product Polish (audit → a11y/consistency → ship)
 
 ### What was done
