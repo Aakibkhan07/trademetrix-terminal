@@ -5,8 +5,17 @@
 
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name TEXT DEFAULT '';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('free', 'starter', 'pro', 'enterprise'));
--- Copy name -> full_name for existing rows
-UPDATE public.profiles SET full_name = name WHERE full_name = '' AND name IS NOT NULL;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';
+-- Copy name -> full_name for existing rows (guard: `name` only exists in older schemas)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'name'
+    ) THEN
+        EXECUTE 'UPDATE public.profiles SET full_name = name WHERE full_name = '''' AND name IS NOT NULL';
+    END IF;
+END $$;
 
 ALTER TABLE public.strategies ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE;
 ALTER TABLE public.strategies ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'builtin' CHECK (type IN ('builtin', 'custom_python', 'visual'));

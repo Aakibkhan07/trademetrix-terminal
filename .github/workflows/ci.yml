@@ -126,7 +126,9 @@ jobs:
           supabase status -o env | sed 's/^export //' > /tmp/supabase.env
           source /tmp/supabase.env
           set +a
-          export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          export SUPABASE_URL="${SUPABASE_API_URL:-${API_URL:-http://localhost:54321}}"
+          export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY:-}}"
+          export SUPABASE_SERVICE_KEY="${SUPABASE_SERVICE_KEY:-${SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_ROLE_KEY:-}}}"
           export SECRET_KEY="${{ secrets.SECRET_KEY || 'test-secret-key' }}"
           export ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY || 'MWVizZu2ZaJoSu6BoPII1xFR-gpEmktStXfpzDLh7_I=' }}"
           cd ../apps/api
