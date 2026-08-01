@@ -1,0 +1,64 @@
+{
+  "email": "navtest1785613508024@example.com",
+  "results": [
+    [
+      "signup",
+      "OK",
+      "navtest1785613508024@example.com"
+    ],
+    [
+      "sidebar labels",
+      "OK",
+      "all present"
+    ],
+    [
+      "menu walk",
+      "OK",
+      "all 22 items"
+    ],
+    [
+      "admin isolation",
+      "OK",
+      "/admin/beta->/portfolio, /dashboard->/portfolio"
+    ],
+    [
+      "logout",
+      "OK",
+      "https://ai.trademetrix.tech/auth"
+    ]
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/auth/profile' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: the server responded with a status of 503 ()",
+    "PAGEERROR: Failed to parse color: color-mix(in srgb, var(--red) 30%, transparent)",
+    "PAGEERROR: Failed to parse color: color-mix(in srgb, var(--red) 30%, transparent)",
+    "PAGEERROR: Failed to parse color: color-mix(in srgb, var(--red) 30%, transparent)",
+    "PAGEERROR: Failed to parse color: color-mix(in srgb, var(--red) 30%, transparent)",
+    "Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/ai/journal?lookback_days=30' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED"
+  ],
+  "hydrationWarnings": [],
+  "failedRequests": [
+    "HTTP 401: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 401: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 401: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "REQFAIL: https://api.ai.trademetrix.tech/api/v1/auth/profile net::ERR_FAILED",
+    "HTTP 503: https://api.ai.trademetrix.tech/api/v1/marketdata/option-chain?symbol=NIFTY50-INDEX",
+    "REQFAIL: https://api.ai.trademetrix.tech/api/v1/ai/journal?lookback_days=30 net::ERR_FAILED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/trend_rider?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/rsi_mean_reversion?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/orb_pro?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/expiry_hunter?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/smc_sniper?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/bollinger_bandit?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/vwap_band?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/momentum_breakout_buyer?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/trend_rider_buyer?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/long_straddle?_rsc=1e7av net::ERR_ABORTED",
+    "REQFAIL: https://ai.trademetrix.tech/strategies/gap_up_express?_rsc=1e7av net::ERR_ABORTED"
+  ]
+}

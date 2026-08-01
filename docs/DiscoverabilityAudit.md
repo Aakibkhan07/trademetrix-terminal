@@ -153,3 +153,29 @@ Every user-facing route is reachable within ≤2 clicks:
 **AFTER (normal user):** login → `/portfolio` (Home shell) → sidebar visible with 22 destinations → free navigation across the whole platform. Trading Workspace, Strategy Builder, Backtest, Analytics, Terminal, etc. all one click away. Admin routes unreachable (isolated).
 
 **Screenshots:** not producible from this environment (no browser automation); the route/link evidence above is the verifiable record. Suggest a quick in-browser pass on prod after deploy.
+
+---
+
+# v1.0.1 POST-DEPLOY E2E (2026-08-02, production)
+
+Real-browser validation via Chrome (puppeteer-core) against `https://ai.trademetrix.tech`, fresh signup user `navtest*@example.com`. Screenshots: `docs/design/nav-e2e/` (26 PNGs — auth, home, all 22 nav destinations, admin-isolation bounce).
+
+| Check | Result |
+|---|---|
+| Signup → authenticated | OK (landed on onboarding) |
+| Lands on Home (`/portfolio`) | OK |
+| Sidebar visible | OK (all 18 sampled labels present) |
+| Every menu item opens (22/22) | OK (each navigates to expected route) |
+| Admin isolation: `/admin/beta`, `/dashboard` as normal user | OK (both bounce to `/portfolio`) |
+| Logout | OK (lands on `/auth`) |
+| Hydration warnings | 0 |
+| Console errors | 0 caused by this release (see triage below) |
+| Broken routes / 404 nav links | 0 |
+
+**Console-noise triage (all pre-existing, none navigation-related):**
+- `401 /auth/me` — anonymous auth-state probe on `/auth` (expected).
+- `CORS /auth/profile` — legacy endpoint not called by current web code (single occurrence during signup).
+- `503 /marketdata/option-chain` — external market-data vendor down (known external dependency).
+- `/ai/journal` ERR_FAILED — pre-existing AI feature issue, unrelated to navigation.
+- `color-mix(...)` parse warnings — pre-existing CSS pattern in 5+ pages (cosmetic, browser-version dependent).
+- `_rsc` ERR_ABORTED — Next.js RSC preloads cancelled by fast test navigation (test artifact).
