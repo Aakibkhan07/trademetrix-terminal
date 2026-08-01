@@ -2,151 +2,174 @@
 set -euo pipefail
 
 # ============================================================
-# TradeMetrix Terminal — VPS Deployment Script
-# Run this on your VPS at 187.127.185.56
+# TradeMetrix Terminal — Production Deploy (single command)
 #
-# Before running:
-#   1. Create apps/api/.env and apps/web/.env on the VPS
-#      (SCP them from your local machine, or create manually)
-#   2. Set the OPENROUTER_API_KEY env var or enter it when prompted
+#   bash infra/production/deploy.sh
+#
+# Recreates the production stack from the repo on origin/main:
+#   - installs Docker if missing
+#   - clones/updates the repo
+#   - rebuilds api + web images (all runtime deps baked in —
+#     NO manual pip install / post-build steps required)
+#   - starts the full stack, waits for health
+#
+# Requirements before first run:
+#   - DNS for ai./api./monitor. + n8n. trademetrix.tech → this host
+#   - apps/api/.env and apps/web/.env present (see infra/.env.production.example)
+#   - .env files are gitignored and survive redeploys
+#
+# Optional: OPENROUTER_API_KEY env var is read ONLY if the key is
+# not already present in apps/api/.env. The script never prompts
+# when run non-interactively (CI / cron).
 # ============================================================
 
 REPO_URL="https://github.com/Aakibkhan07/trademetrix-terminal.git"
 BRANCH="main"
+COMPOSE="docker compose -f infra/production/docker-compose.yml"
 DOMAIN="ai.trademetrix.tech"
 API_DOMAIN="api.ai.trademetrix.tech"
-MONITOR_DOMAIN="monitor.ai.trademetrix.tech"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; NC='\033[0m'
 info() { echo -e "${CYAN}[INFO]${NC} $1"; }
-ok()  { echo -e "${GREEN}[OK]${NC} $1"; }
-err() { echo -e "${RED}[ERR]${NC} $1"; }
+ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
+err()  { echo -e "${RED}[ERR]${NC} $1"; }
+
+INTERACTIVE=0
+if [ -t 0 ] && [ -t 1 ]; then
+  INTERACTIVE=1
+fi
 
 echo -e "${CYAN}"
 echo "╔══════════════════════════════════════════════╗"
-echo "║      TradeMetrix Terminal — VPS Deploy       ║"
+echo "║      TradeMetrix Terminal — Production       ║"
+echo "║              Deploy / Recreate               ║"
 echo "╚══════════════════════════════════════════════╝"
 echo -e "${NC}"
 
-if [ -z "${OPENROUTER_API_KEY:-}" ]; then
-  read -rp "Enter your OpenRouter API key (or press Enter to skip AI): " OPENROUTER_KEY
-  OPENROUTER_API_KEY="${OPENROUTER_KEY:-}"
-fi
-export OPENROUTER_API_KEY
-
+# ------------------------------------------------------------
+# 1. Prerequisites
+# ------------------------------------------------------------
 info "Checking prerequisites..."
 if ! command -v docker &>/dev/null; then
   info "Installing Docker..."
   curl -fsSL https://get.docker.com | sh
-  sudo usermod -aG docker "$USER"
-  ok "Docker installed"
+  usermod -aG docker "$USER" || true
+  ok "Docker installed (re-login may be required for non-root users)"
 else
   ok "Docker $(docker --version | cut -d' ' -f3 | tr -d ',')"
 fi
-if ! command -v docker-compose &>/dev/null && ! docker compose version &>/dev/null 2>&1; then
-  sudo apt-get install -y docker-compose-plugin
+if ! docker compose version &>/dev/null 2>&1; then
+  apt-get install -y docker-compose-plugin
 fi
 ok "Docker Compose ready"
 
+# ------------------------------------------------------------
+# 2. Repo (source of truth)
+# ------------------------------------------------------------
 INSTALL_DIR="$HOME/trademetrix-terminal"
 if [ -d "$INSTALL_DIR" ]; then
   info "Updating existing installation..."
   cd "$INSTALL_DIR"
   git fetch origin
   git reset --hard "origin/$BRANCH"
-  ok "Repo updated"
+  ok "Repo updated to $(git log --oneline -1)"
 else
   info "Cloning repository..."
   git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
   cd "$INSTALL_DIR"
-  ok "Repo cloned"
+  ok "Repo cloned to $(git log --oneline -1)"
 fi
 
-# Check .env files exist
+# ------------------------------------------------------------
+# 3. Env files (untracked, survive redeploys)
+# ------------------------------------------------------------
 if [ ! -f apps/api/.env ]; then
   err "apps/api/.env not found!"
-  err "SCP it from your local machine:"
-  echo "  scp apps/api/.env root@187.127.185.56:~/trademetrix-terminal/apps/api/.env"
-  echo ""
-  echo "Or run this on your Mac:"
-  echo "  scp /path/to/trademetrix-terminal/apps/api/.env root@187.127.185.56:~/trademetrix-terminal/apps/api/.env"
+  err "Create it from apps/api/.env.example (supabase keys, secrets, broker creds)."
   exit 1
 fi
 if [ ! -f apps/web/.env ]; then
   err "apps/web/.env not found!"
-  err "SCP it from your local machine:"
-  echo "  scp apps/web/.env root@187.127.185.56:~/trademetrix-terminal/apps/web/.env"
-  echo ""
-  echo "Or run this on your Mac:"
-  echo "  scp /path/to/trademetrix-terminal/apps/web/.env root@187.127.185.56:~/trademetrix-terminal/apps/web/.env"
+  err "Create it from apps/web/.env.example (public keys, URLs)."
   exit 1
 fi
+ok "Environment files present"
 
-# Inject OpenRouter key into API .env
-if [ -n "$OPENROUTER_API_KEY" ]; then
-  if grep -q "OPENROUTER_API_KEY=" apps/api/.env; then
-    sed -i "s/^OPENROUTER_API_KEY=.*/OPENROUTER_API_KEY=$OPENROUTER_API_KEY/" apps/api/.env
-  else
-    echo "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" >> apps/api/.env
-  fi
+# OpenRouter key: only inject when env var set AND key missing from .env
+if [ -n "${OPENROUTER_API_KEY:-}" ] && ! grep -q "^OPENROUTER_API_KEY=.\+" apps/api/.env; then
+  echo "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" >> apps/api/.env
   ok "OpenRouter API key configured"
 fi
 
-ok "Environment files ready"
+# ------------------------------------------------------------
+# 4. DNS check (advisory)
+# ------------------------------------------------------------
+VPS_IP=$(curl -s --max-time 10 ifconfig.me || echo "")
+if [ -n "$VPS_IP" ] && command -v getent &>/dev/null; then
+  for sub in "$DOMAIN" "$API_DOMAIN"; do
+    RESOLVED=$(getent hosts "$sub" | awk '{print $1}' | head -1 || echo "")
+    if [ "$RESOLVED" = "$VPS_IP" ]; then
+      ok "$sub -> $RESOLVED"
+    else
+      err "$sub does not point to $VPS_IP (got: ${RESOLVED:-not resolved}) — TLS may fail"
+    fi
+  done
+else
+  info "DNS check skipped (no public IP or getent)"
+fi
 
-info "Checking DNS..."
-VPS_IP=$(curl -s ifconfig.me || echo "187.127.185.56")
-for sub in "$DOMAIN" "$API_DOMAIN" "$MONITOR_DOMAIN"; do
-  RESOLVED=$(dig +short "$sub" 2>/dev/null || host "$sub" 2>/dev/null | grep "has address" | awk '{print $NF}' || echo "")
-  if [ "$RESOLVED" = "$VPS_IP" ]; then
-    ok "$sub → $RESOLVED"
-  else
-    err "$sub does not point to $VPS_IP (got: ${RESOLVED:-not resolved})"
-    err "Update DNS before Caddy can issue TLS certs"
+# ------------------------------------------------------------
+# 5. Build + start
+# ------------------------------------------------------------
+info "Building images (deps baked in: reportlab, pandas, curl_cffi, ...)..."
+$COMPOSE build --parallel api web
+info "Starting stack..."
+$COMPOSE up -d
+ok "Stack started"
+
+# ------------------------------------------------------------
+# 6. Health checks
+# ------------------------------------------------------------
+API_OK=0
+for i in {1..18}; do
+  STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 https://$API_DOMAIN/health || echo "000")
+  if [ "$STATUS" = "200" ]; then
+    ok "API healthy (HTTP $STATUS)"
+    API_OK=1
+    break
   fi
+  sleep 10
 done
+if [ "$API_OK" -ne 1 ]; then
+  err "API healthcheck failed after 3 minutes"
+  err "Inspect: $COMPOSE logs api"
+  exit 1
+fi
 
-info "Building and starting services..."
-cd "$INSTALL_DIR"
-docker compose -f infra/production/docker-compose.yml pull redis
-docker compose -f infra/production/docker-compose.yml build --parallel api web
-docker compose -f infra/production/docker-compose.yml up -d
+WEB_OK=0
+for i in {1..18}; do
+  STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 https://$DOMAIN/ || echo "000")
+  if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
+    ok "Web healthy (HTTP $STATUS)"
+    WEB_OK=1
+    break
+  fi
+  sleep 10
+done
+if [ "$WEB_OK" -ne 1 ]; then
+  err "Web healthcheck failed after 3 minutes"
+  err "Inspect: $COMPOSE logs web"
+  exit 1
+fi
 
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║           Deployment Complete!              ║${NC}"
+echo -e "${GREEN}║        Deployment Complete — v1.0 GA        ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════╝${NC}"
 echo ""
 echo "  Frontend:  https://$DOMAIN"
 echo "  API:       https://$API_DOMAIN/docs"
-echo "  Monitor:   https://$MONITOR_DOMAIN (admin/admin)"
 echo ""
-echo "  Logs:      docker compose -f infra/production/docker-compose.yml logs -f"
-echo "  Restart:   docker compose -f infra/production/docker-compose.yml restart"
-echo "  Stop:      docker compose -f infra/production/docker-compose.yml down"
-echo ""
-echo "  SSL:       watch docker compose -f infra/production/docker-compose.yml logs caddy"
-
-# Healthcheck
-echo ""
-info "Waiting for services to be healthy..."
-sleep 10
-for i in {1..12}; do
-  STATUS=$(curl -so /dev/null -w "%{http_code}" https://$API_DOMAIN/health 2>/dev/null || echo "000")
-  if [ "$STATUS" = "200" ]; then
-    ok "API is healthy (HTTP $STATUS)"
-    break
-  fi
-  if [ "$i" -eq 12 ]; then
-    err "API healthcheck failed after 2 minutes"
-    err "Check: docker compose -f infra/production/docker-compose.yml logs api"
-  fi
-  sleep 10
-done
-
-FRONTEND_CODE=$(curl -so /dev/null -w "%{http_code}" https://$DOMAIN 2>/dev/null || echo "000")
-if [ "$FRONTEND_CODE" = "200" ] || [ "$FRONTEND_CODE" = "301" ] || [ "$FRONTEND_CODE" = "302" ]; then
-  ok "Frontend is up (HTTP $FRONTEND_CODE)"
-else
-  err "Frontend returned HTTP $FRONTEND_CODE (may still be starting)"
-fi
+echo "  Logs:      $COMPOSE logs -f"
+echo "  Restart:   $COMPOSE restart"
+echo "  Backup:    bash infra/scripts/backup.sh"
