@@ -198,5 +198,50 @@ cat > "$OUT/05-customer-feedback.md" <<EOF
 (Author — improvements from feedback only; no invented features)
 EOF
 
+# ---------- report 12: top 10 issues ----------
+cat > "$OUT/12-top-10-issues.md" <<EOF
+# Weekly Top 10 Issues — Week ${WEEK} (${week_start} → ${week_end})
+
+| # | Issue | Priority | User impact (evidence) | Status |
+|---|-------|----------|------------------------|--------|
+| 1 | (from GitHub, ranked by priority × user impact) | P? | (cite analytics/feedback/metrics) | Open/In progress/Resolved |
+| 2 |  |  |  |  |
+| 3 |  |  |  |  |
+| 4 |  |  |  |  |
+| 5 |  |  |  |  |
+| 6 |  |  |  |  |
+| 7 |  |  |  |  |
+| 8 |  |  |  |  |
+| 9 |  |  |  |  |
+| 10 |  |  |  |  |
+
+## Closed this week
+(Author — issues resolved, with verification evidence)
+
+## Analysis
+(Author — what the top 10 say about reliability and user pain)
+EOF
+
+# ---------- report 13: next week priorities ----------
+cat > "$OUT/13-next-week-priorities.md" <<EOF
+# Next Week Priorities — Week ${WEEK} (${week_start} → ${week_end})
+
+## Priority actions for next week
+| Action | Evidence source (gate: analytics / feedback / ticket / metrics / security) | Priority |
+|--------|-----------------------------------------------------------------------------|----------|
+| (action) | (cite the report/issue/metric that justifies it — opinion alone is not sufficient) | P0–P3 |
+|  |  |  |
+|  |  |  |
+
+## Mission alignment
+- Paying customers: (current count → goal: first 10)
+- Beta user support: (open issues under SLA)
+- Production bugs: (open P0/P1)
+- UX improvements: (evidence-backed changes shipped)
+
+## Explicitly NOT doing
+- (anything without evidence backing — recorded here so scope creep is visible)
+EOF
+
 echo "Week ${WEEK} report skeletons written to ${OUT}"
 echo "Next: author the Analysis sections from the real data, then file/triage GitHub issues."
