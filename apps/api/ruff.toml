@@ -2,6 +2,7 @@ line-length = 120
 target-version = "py312"
 
 [lint]
+select = ["E", "F", "I", "N", "W", "UP"]
 ignore = [
     "E402",   # module import not at top of file (pre-existing)
     "E501",   # line too long (pre-existing test files)

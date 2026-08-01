@@ -10,11 +10,6 @@ import uuid as _uuid
 import urllib.error
 import urllib.request
 from typing import Any
-import sys
-import time
-import urllib.error
-import urllib.request
-from typing import Any
 
 API_BASE = "http://localhost:8000/api/v1"
 SECRET_KEY = "test-secret-key-not-for-production-use-only-super-secure"
@@ -28,10 +23,10 @@ def make_jwt(subject: str) -> str:
     api_dir = os.path.dirname(os.path.abspath(__file__))
     venv_python = os.path.join(api_dir, ".venv", "bin", "python3")
     script = (
-        "import sys; sys.path.insert(0, %r); "
-        "from core.security import create_access_token; "
-        "print(create_access_token(%r))"
-    ) % (api_dir, subject)
+        f"import sys; sys.path.insert(0, {api_dir!r}); "
+        f"from core.security import create_access_token; "
+        f"print(create_access_token({subject!r}))"
+    )
     result = subprocess.run([venv_python, "-c", script],
                             capture_output=True, text=True, timeout=10)
     return result.stdout.strip()

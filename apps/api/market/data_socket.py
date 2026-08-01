@@ -168,7 +168,7 @@ class SharedDataSocket:
     async def start_broker_feed(self, user_id: str, broker_type: str, symbols: list[str]) -> None:
         if broker_type in self._broker_feeds:
             logger.warning("Broker feed already running for %s", broker_type)
-            raise RuntimeError("Broker feed already running for %s" % broker_type)
+            raise RuntimeError(f"Broker feed already running for {broker_type}")
 
         from brokers import create_broker
         from core.db import async_supabase, get_supabase

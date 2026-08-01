@@ -78,6 +78,6 @@ async def close_supabase() -> None:
     _db_executor.shutdown(wait=False)
 
 
-async def async_supabase(call: Callable[..., T], *args, **kwargs) -> T:
+async def async_supabase[T](call: Callable[..., T], *args, **kwargs) -> T:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(_db_executor, lambda: call(*args, **kwargs))

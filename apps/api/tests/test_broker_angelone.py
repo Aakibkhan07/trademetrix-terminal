@@ -25,13 +25,16 @@ async def test_authenticate_no_creds(adapter: AngelOneAdapter):
 
 
 @pytest.mark.asyncio
-async def test_place_order(adapter: AngelOneAdapter):
+async def test_place_order(adapter: AngelOneAdapter, monkeypatch):
     client = AsyncMock()
     resp = MagicMock(status_code=200)
     resp.json.return_value = {"status": True, "data": {"orderid": "an123"}}
     client.post = AsyncMock(return_value=resp)
     adapter._auth_token = "test"
     adapter._api_key = "key1"
+    from brokers.angelone_adapter import _TOKEN_MAP
+
+    monkeypatch.setitem(_TOKEN_MAP, "NSE:RELIANCE-EQ", "2885")
 
     with patch("brokers.angelone_adapter.get_http_client", return_value=client):
         order = NormalizedOrder(symbol="RELIANCE", exchange=Exchange.NSE, side=OrderSide.BUY, order_type=OrderType.MARKET, product=ProductType.INTRADAY, quantity=10)

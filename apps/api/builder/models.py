@@ -99,7 +99,7 @@ class GraphNode(BaseModel):
     block_type: str
     position: Position = Field(default_factory=Position)
     params: dict[str, Any] = Field(default_factory=dict)
-    nested_graph: "StrategyDSL | None" = None
+    nested_graph: StrategyDSL | None = None
 
 
 class GraphEdge(BaseModel):

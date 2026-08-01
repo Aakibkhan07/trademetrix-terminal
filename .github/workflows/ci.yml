@@ -109,17 +109,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: grafana/setup-k6-action@v1
+      - uses: supabase/setup-cli-action@v1
+        with:
+          version: latest
+      - name: Start Redis
+        run: docker run -d --name redis -p 6379:6379 redis:7-alpine
+      - name: Start Supabase
+        run: |
+          cd supabase
+          supabase start --exclude vector
+          supabase db reset
       - name: Start API server
         run: |
-          cd apps/api
+          cd supabase
+          set -a
+          supabase status -o env | sed 's/^export //' > /tmp/supabase.env
+          source /tmp/supabase.env
+          set +a
+          export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          export SECRET_KEY="${{ secrets.SECRET_KEY || 'test-secret-key' }}"
+          export ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY || 'MWVizZu2ZaJoSu6BoPII1xFR-gpEmktStXfpzDLh7_I=' }}"
+          cd ../apps/api
           pip install -r requirements.txt
-          SUPABASE_URL=http://localhost:54321 \
-          SUPABASE_SERVICE_KEY=test-key \
-          SUPABASE_ANON_KEY=test-key \
-          SECRET_KEY=${{ secrets.SECRET_KEY || 'test-secret-key' }} \
-          ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY || 'MWVizZu2ZaJoSu6BoPII1xFR-gpEmktStXfpzDLh7_I=' }} \
-          uvicorn main:app --host 0.0.0.0 --port 8000 &
-          sleep 5
+          nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8000/health >/dev/null; then
+              echo "API healthy (waited $((i * 2))s)"
+              break
+            fi
+            sleep 2
+          done
+          curl -sf http://localhost:8000/health >/dev/null || { echo "API failed to start"; tail -40 /tmp/api.log; exit 1; }
       - name: Run API load tests
         run: |
           API_URL=http://localhost:8000 k6 run load-tests/api.js \

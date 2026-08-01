@@ -12,7 +12,7 @@ from core.middleware.timeout import TimeoutMiddleware
 
 from core.cache import cache
 from core.config import settings
-from core.exceptions import AppException
+from core.exceptions import AppError
 from core.logging import record_request_duration, setup_logging
 from core.middleware.request_id import RequestIDMiddleware
 from core.middleware.request_logging import RequestLoggingMiddleware
@@ -232,8 +232,8 @@ app.include_router(referrals_router, prefix="/api/v1")
 app.include_router(broker_webhook_router, prefix="/api/v1")
 
 
-@app.exception_handler(AppException)
-async def app_exception_handler(request: Request, exc: AppException):
+@app.exception_handler(AppError)
+async def app_exception_handler(request: Request, exc: AppError):
     return error_response(
         message=exc.message,
         code=exc.code,

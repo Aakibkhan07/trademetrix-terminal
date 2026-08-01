@@ -298,11 +298,14 @@ async def test_candles_endpoint(monkeypatch, client, auth_headers):
 
 @pytest.mark.asyncio
 async def test_corporate_actions_ingest_and_list(monkeypatch, client, auth_headers):
-    from core.db import async_supabase, get_supabase
+    import core.db
 
     class FakeQueryBuilder:
         def __init__(self):
             self.row = None
+
+        def table(self, name):
+            return self
 
         def insert(self, row):
             self.row = row
@@ -332,8 +335,8 @@ async def test_corporate_actions_ingest_and_list(monkeypatch, client, auth_heade
     async def fake_async(call):
         return call()
 
-    monkeypatch.setattr(get_supabase, "__call__", lambda *a, **k: fake_sb)
-    monkeypatch.setattr(async_supabase, "__call__", fake_async)
+    monkeypatch.setattr(core.db, "get_supabase", lambda: fake_sb)
+    monkeypatch.setattr(core.db, "async_supabase", fake_async)
 
     ingest = await client.post(
         "/api/v1/backtests/corporate-actions",

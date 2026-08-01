@@ -5,7 +5,7 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from core.exceptions import ServiceUnavailableException
+from core.exceptions import ServiceUnavailableError
 
 
 class TimeoutMiddleware(BaseHTTPMiddleware):
@@ -17,7 +17,7 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
         try:
             return await asyncio.wait_for(call_next(request), timeout=self.timeout)
         except asyncio.TimeoutError:
-            raise ServiceUnavailableException(
+            raise ServiceUnavailableError(
                 message=f"Request timed out after {self.timeout}s",
                 details={"path": str(request.url), "timeout_seconds": self.timeout},
             )
