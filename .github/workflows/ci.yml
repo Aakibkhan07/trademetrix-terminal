@@ -109,7 +109,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: grafana/setup-k6-action@v1
-      - uses: supabase/setup-cli-action@v1
+      - uses: supabase/setup-cli@v1
         with:
           version: latest
       - name: Start Redis
