@@ -36,7 +36,7 @@ function getAppVersion(): string {
 
 export default function FeedbackButton() {
   const [open, setOpen] = useState(false)
-  const [category, setCategory] = useState<'bug' | 'feature'>('bug')
+  const [category, setCategory] = useState<'bug' | 'feature' | 'nps' | 'report'>('bug')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -82,7 +82,7 @@ export default function FeedbackButton() {
         screen: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : '',
       }
       await api.post('/feedback', { category, title, description, metadata })
-      toast('success', category === 'bug' ? 'Bug report submitted' : 'Feature request submitted')
+      toast('success', category === 'bug' ? 'Bug report submitted' : category === 'feature' ? 'Feature request submitted' : category === 'nps' ? 'Rating submitted' : 'Report submitted')
       setTitle('')
       setDescription('')
       setOpen(false)
@@ -128,18 +128,18 @@ export default function FeedbackButton() {
             padding: '10px 14px', borderBottom: '1px solid var(--border)',
             fontSize: 12, fontWeight: 600,
           }}>
-            <span>Report a Bug</span>
+            <span>Feedback</span>
             <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', fontSize: 16, padding: 0, lineHeight: 1 }}>✕</button>
           </div>
 
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
-            {(['bug', 'feature'] as const).map(c => (
+            {(['bug', 'feature', 'nps', 'report'] as const).map(c => (
               <button key={c} onClick={() => setCategory(c)} style={{
                 flex: 1, padding: '8px', fontSize: 11, fontWeight: category === c ? 600 : 400,
                 background: 'none', border: 'none', borderBottom: category === c ? '2px solid var(--violet)' : '2px solid transparent',
                 color: category === c ? 'var(--violet)' : 'var(--text-faint)', cursor: 'pointer',
                 fontFamily: 'inherit',
-              }}>{c === 'bug' ? 'Bug' : 'Feature'}</button>
+              }}>{c === 'nps' ? 'NPS' : c === 'report' ? 'Report' : c === 'bug' ? 'Bug' : 'Feature'}</button>
             ))}
           </div>
 

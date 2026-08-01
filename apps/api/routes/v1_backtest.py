@@ -434,6 +434,15 @@ async def run_backtest_v3(
     from builder.compiler import compile_dsl
 
     try:
+        from application.services.analytics_service import AnalyticsService
+        await AnalyticsService().record_server_event(
+            current_user.id, "backtest.run",
+            {"strategy_id": req.strategy_id, "symbol": req.symbol, "interval": req.interval, "days": req.days},
+        )
+    except Exception:
+        pass
+
+    try:
         dsl = await builder_manager.get(req.strategy_id)
         if not dsl:
             raise HTTPException(status_code=404, detail="Strategy not found")

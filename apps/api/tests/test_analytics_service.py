@@ -1,120 +1,180 @@
-from typing import Any
-from unittest.mock import MagicMock, patch
-
 import pytest
 
 from application.services.analytics_service import AnalyticsService
 
 
+class FakeRes:
+    def __init__(self, data=None):
+        self.data = data
+
+
+class FakeTable:
+    def __init__(self, name, store):
+        self._name = name
+        self._store = store
+        self._pending_update = None
+        self._filters: list[tuple] = []
+        self._limit = 1000
+        self._sorted = False
+
+    def insert(self, row):
+        row = dict(row)
+        row.setdefault("id", len(self._store) + 1)
+        self._store.append(row)
+        return self
+
+    def select(self, *cols):
+        return self
+
+    def update(self, patch):
+        self._pending_update = dict(patch)
+        return self
+
+    def order(self, col, desc=False):
+        self._sorted = True
+        return self
+
+    def limit(self, n):
+        self._limit = n
+        return self
+
+    def eq(self, col, val):
+        self._filters.append(("eq", col, val))
+        return self
+
+    def gte(self, col, val):
+        self._filters.append(("gte", col, val))
+        return self
+
+    async def execute(self):
+        rows = list(self._store)
+        if self._pending_update is not None:
+            for r in rows:
+                r.update(self._pending_update)
+        for op, col, val in self._filters:
+            if op == "eq":
+                rows = [r for r in rows if r.get(col) == val]
+            else:
+                rows = [r for r in rows if str(r.get(col, "")) >= str(val)]
+        return FakeRes(rows[: self._limit])
+
+
+def _install_fake_supabase(monkeypatch, events, feedback):
+    def table(name):
+        store = events if name == "analytics_events" else feedback
+        return FakeTable(name, store)
+
+    client = type("S", (), {"table": staticmethod(table)})()
+    monkeypatch.setattr("application.services.analytics_service.get_supabase", lambda: client)
+    monkeypatch.setattr("application.services.analytics_service.async_supabase", lambda fn: fn())
+
+
 @pytest.fixture
-def svc() -> AnalyticsService:
+def svc(monkeypatch) -> AnalyticsService:
+    events: list[dict] = []
+    feedback: list[dict] = []
+    _install_fake_supabase(monkeypatch, events, feedback)
     return AnalyticsService()
 
 
 class TestTrackEvent:
-    def test_tracks_event(self, svc) -> None:
-        result = svc.track_event("page_view", {"page": "/home"}, session_id="s1", user_id="u1")
+    @pytest.mark.asyncio
+    async def test_tracks_event(self, svc) -> None:
+        result = await svc.track_event("page_view", {"page": "/home"}, session_id="s1", user_id="u1")
         assert result["ok"] is True
         assert result["event"] == "page_view"
-        assert len(svc._events) == 1
-        assert svc._events[0]["user_id"] == "u1"
 
-    def test_tracks_event_with_defaults(self, svc) -> None:
-        result = svc.track_event("click")
-        assert result["ok"] is True
-        assert svc._events[0]["properties"] == {}
-        assert svc._events[0]["session_id"] == ""
-
-    def test_raises_on_empty_event_name(self, svc) -> None:
+    @pytest.mark.asyncio
+    async def test_raises_on_empty_event_name(self, svc) -> None:
         with pytest.raises(ValueError, match="event is required"):
-            svc.track_event("")
+            await svc.track_event("")
 
-    def test_groups_events_by_session(self, svc) -> None:
-        svc.track_event("e1", session_id="s1")
-        svc.track_event("e2", session_id="s1")
-        assert len(svc._sessions["s1"]) == 2
+    @pytest.mark.asyncio
+    async def test_server_event_requires_no_session(self, svc) -> None:
+        await svc.record_server_event("u1", "strategy.created", {"template": "ema"})
+        listed = await svc.list_events()
+        assert listed["total"] == 1
+        assert listed["events"][0]["event"] == "strategy.created"
 
 
 class TestListEvents:
-    def test_lists_all_events(self, svc) -> None:
-        svc.track_event("a")
-        svc.track_event("b")
-        result = svc.list_events()
+    @pytest.mark.asyncio
+    async def test_lists_all_events(self, svc) -> None:
+        await svc.track_event("a")
+        await svc.track_event("b")
+        result = await svc.list_events()
         assert result["total"] == 2
 
-    def test_filters_by_event_name(self, svc) -> None:
-        svc.track_event("click")
-        svc.track_event("page_view")
-        svc.track_event("click")
-        result = svc.list_events(event_filter="click")
+    @pytest.mark.asyncio
+    async def test_filters_by_event_name(self, svc) -> None:
+        await svc.track_event("click")
+        await svc.track_event("page_view")
+        await svc.track_event("click")
+        result = await svc.list_events(event_filter="click")
         assert result["total"] == 2
         assert all(e["event"] == "click" for e in result["events"])
 
-    def test_respects_limit(self, svc) -> None:
-        for i in range(10):
-            svc.track_event(f"e{i}")
-        result = svc.list_events(limit=3)
-        assert len(result["events"]) == 3
-        assert result["total"] == 10
 
+class TestQueries:
+    @pytest.mark.asyncio
+    async def test_funnel_orders_steps(self, svc) -> None:
+        for i, name in enumerate(("signup", "signup", "broker.connected", "strategy.created")):
+            await svc.track_event(name, {}, f"s{i}", "", None)
+        funnel = await svc.get_funnel(["signup", "broker.connected", "strategy.created"], 30)
+        counts = {s["step"]: s["users"] for s in funnel["steps"]}
+        assert counts["signup"] == 2
+        assert counts["broker.connected"] == 1
+        assert funnel["steps"][0]["step"] == "signup"
 
-@pytest.mark.asyncio
-class TestGetAdminOverview:
-    @patch("application.services.analytics_service.get_supabase")
-    @patch("application.services.analytics_service.async_supabase")
-    async def test_returns_overview_with_counts(self, mock_async, mock_get, svc) -> None:
-        mock_table = MagicMock()
-        mock_get.return_value.table.return_value = mock_table
+    @pytest.mark.asyncio
+    async def test_feature_usage_ranking(self, svc) -> None:
+        for name in ("page.view", "page.view", "page.view", "backtest.run"):
+            await svc.track_event(name, {}, "s1", "", None)
+        usage = await svc.get_feature_usage(30)
+        assert usage["features"][0]["event"] == "page.view"
+        assert usage["features"][0]["count"] == 3
 
-        mock_query = MagicMock()
-        mock_query.execute.side_effect = [
-            MagicMock(data=[{"id": "u1", "created_at": "2025-01-01T00:00:00"}, {"id": "u2", "created_at": "2025-01-02T00:00:00"}]),
-            MagicMock(data=[{"user_id": "u1"}]),
-            MagicMock(data=[{"user_id": "u1", "is_paper": False}]),
-            MagicMock(data=[{"user_id": "u1"}]),
-            MagicMock(data=[{"user_id": "u1", "created_at": "2025-01-01T00:00:00"}]),
-        ]
-        mock_table.select.return_value = mock_query
+    @pytest.mark.asyncio
+    async def test_crashes_grouped_by_key(self, svc) -> None:
+        for i in range(3):
+            await svc.track_event("client_error", {"key": "hash-abc", "message": "boom"}, f"s{i}", "", None)
+        await svc.track_event("client_error", {"key": "hash-xyz"}, "s9", "", None)
+        crashes = await svc.get_crashes(30)
+        assert crashes["total"] == 4
+        assert crashes["crashes"][0]["key"] == "hash-abc"
+        assert crashes["crashes"][0]["count"] == 3
 
-        def side_effect(fn) -> Any:
-            return fn()
+    @pytest.mark.asyncio
+    async def test_session_replay(self, svc) -> None:
+        for name in ("session.start", "page.view", "click"):
+            await svc.track_event(name, {}, "sess-replay", "", None)
+        replay = await svc.get_session_events("sess-replay")
+        assert replay["count"] == 3
 
-        mock_async.side_effect = side_effect
+    @pytest.mark.asyncio
+    async def test_feedback_submit_and_filter(self, svc) -> None:
+        class U:
+            id = "user-1"
+            email = "u@test.dev"
+            full_name = "Tester"
 
-        result = await svc.get_admin_overview()
-        assert result["total_users"] == 2
-        assert "dau" in result
-        assert "wau" in result
-        assert "mau" in result
-        assert "funnel" in result
-        assert "daily_active_users" in result
-        assert "event_counts" in result
+        await svc.submit_feedback(U(), "bug", "Order issue", "Describe", {"url": "/trade"})
+        await svc.submit_feedback(U(), "feature", "", "Add X", {})
+        listed = await svc.list_feedback(category="feature")
+        assert listed["count"] == 1
+        with pytest.raises(ValueError):
+            await svc.submit_feedback(U(), "bug", "", "", {})
 
-    @patch("application.services.analytics_service.get_supabase")
-    @patch("application.services.analytics_service.async_supabase")
-    async def test_handles_empty_data(self, mock_async, mock_get, svc) -> None:
-        mock_table = MagicMock()
-        mock_get.return_value.table.return_value = mock_table
+    @pytest.mark.asyncio
+    async def test_feedback_update(self, svc) -> None:
+        class U:
+            id = "user-1"
+            email = "u@test.dev"
+            full_name = "Tester"
 
-        mock_query = MagicMock()
-        mock_query.execute.side_effect = [
-            MagicMock(data=[]),
-            MagicMock(data=[]),
-            MagicMock(data=[]),
-            MagicMock(data=[]),
-            MagicMock(data=[]),
-        ]
-        mock_table.select.return_value = mock_query
-
-        def side_effect(fn) -> Any:
-            return fn()
-
-        mock_async.side_effect = side_effect
-
-        result = await svc.get_admin_overview()
-        assert result["total_users"] == 0
-        assert result["dau"] == 0
-        assert result["broker_users"] == 0
-        assert result["traded_users"] == 0
-        assert result["total_tracked_events"] == 0
-        assert result["total_tracked_users"] == 0
+        res = await svc.submit_feedback(U(), "bug", "T", "D", {})
+        feedback = await svc.list_feedback()
+        fid = feedback["feedback"][0]["id"]
+        await svc.update_feedback(fid, status="triaged", notes="watching")
+        listed = await svc.list_feedback(status="triaged")
+        assert listed["count"] == 1

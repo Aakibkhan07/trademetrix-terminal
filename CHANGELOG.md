@@ -1,3 +1,25 @@
+## v1.0.1 (2026-08-01) — BETA OPERATIONS MODE
+
+### GA evidence collection (no product features — telemetry, dashboards, reports)
+
+### Added
+- **Persistent product analytics** — new Supabase tables `analytics_events` (event/properties jsonb/session_id/user_id/created_at + 4 indexes) and `feedback_items` (category/title/description/metadata/status/notes + indexes), migration `20250801_01300_analytics_persistence.sql` applied to remote. Replaces the lossy in-memory tracker: everything now survives restarts.
+- **Client tracker** (`apps/web/lib/analytics.ts` + `components/analytics-tracker.tsx`) — privacy-first: no PII (`user_id` resolved server-side from auth), payload redaction (secrets stripped, strings capped), sampling + excluded paths + Do-Not-Track respect, 5s batching + keepalive/beacon flush, CSRF-aware, `NEXT_PUBLIC_ANALYTICS_ENABLED`/`NEXT_PUBLIC_ANALYTICS_SAMPLE` config. Tracks session.start, page.view (SPA-aware), click, scroll.depth, client_error.
+- **Server-side value events** — authoritative `strategy.created`, `backtest.run`, `order.placed`, `broker.connected` recorded from auth context (never client-supplied); `api_error` recorded by the timing middleware on 5xx.
+- **Feedback Center** — in-app dialog (bug/feature/nps/report) now persists to Supabase; admin list + status triage (new/triaged/resolved/wontfix) via `GET/PATCH /api/v1/admin/feedback`.
+- **Beta Dashboard** (`/admin/beta`) — admin-guarded: activation overview (DAU/WAU/MAU, activation/retention/crash-free rates, 14d activity), activation funnel, custom step-funnel with drop-off %, weekly retention cohort matrix, most-used features ranking, session list + per-session event replay timeline, crash signatures grouped by key, feedback triage table.
+- **Admin analytics API** — `/api/v1/admin/analytics/{overview,funnel,retention,features,sessions,crashes}` + `/sessions/{id}/events`, all `require_admin`; anonymous ingest `POST /api/v1/analytics/track-batch` (fail-open, CSRF-protected).
+- **Weekly analytics reports** (`infra/scripts/analytics_report.sh`) — generates `docs/weekly/<W>/06-funnel, 07-activation, 08-retention, 09-most-used-features, 10-drop-off, 11-most-requested-features` from remote Supabase; W31 baseline authored with real data.
+
+### Changed
+- `AnalyticsService` rewritten DB-first (in-memory fallback keeps ingest fail-open); `v1_feedback.py` DB-backed; `core/deps.py` adds `get_optional_user`; test mocks use the service module's imported `get_supabase`/`async_supabase` references.
+
+### Verification
+- API regression: **562 passed, 1 xfailed** (11 new analytics tests).
+- Web: `tsc --noEmit` clean; prod build clean.
+- Deployed hot to prod; in-container smoke (auth + CSRF): track-batch 200/accepted, all 6 admin endpoints 200, feedback submit + triage, session replay, admin event filter — **ALL PASSED**; smoke rows cleaned.
+- New web BUILD_ID served on prod.
+
 ## v1.0.0 (2026-08-01) — GENERAL AVAILABILITY
 
 ### GA Preparation (production readiness — no new features)

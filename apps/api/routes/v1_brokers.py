@@ -89,6 +89,13 @@ async def save_credentials(req: BrokerCredentialInput, current_user: UserProfile
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    try:
+        from application.services.analytics_service import AnalyticsService
+        await AnalyticsService().record_server_event(
+            current_user.id, "broker.connected", {"broker": req.broker}
+        )
+    except Exception:
+        pass
     return BrokerCredentialResponse(id=cred.id, broker=cred.broker, is_active=cred.is_active)
 
 

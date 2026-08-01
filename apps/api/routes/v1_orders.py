@@ -153,6 +153,14 @@ async def place_order(
     try:
         order = await order_manager.place_order(exec_req)
         logger.info("Order placed: %s for user=%s symbol=%s qty=%s", order.oms_order_id, current_user.id, req.symbol, req.quantity)
+        try:
+            from application.services.analytics_service import AnalyticsService
+            await AnalyticsService().record_server_event(
+                current_user.id, "order.placed",
+                {"symbol": req.symbol, "side": req.side, "qty": req.quantity, "is_paper": req.is_paper},
+            )
+        except Exception:
+            pass
         return _oms_to_dict(order)
     except Exception as e:
         logger.error("Order placement failed: %s", e)

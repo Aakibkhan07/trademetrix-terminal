@@ -88,6 +88,14 @@ async def create_strategy(
         author=current_user.id,
         template=req.template,
     )
+    try:
+        from application.services.analytics_service import AnalyticsService
+        await AnalyticsService().record_server_event(
+            current_user.id, "strategy.created",
+            {"strategy_id": dsl.id, "template": req.template or "", "name": req.name or ""},
+        )
+    except Exception:
+        pass
     return dsl.model_dump(mode="json", exclude_none=True)
 
 

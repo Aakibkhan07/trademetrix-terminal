@@ -198,6 +198,19 @@ async def timing_middleware(request: Request, call_next):
     duration_s = duration_ms / 1000
     record_request_duration(request.url.path, duration_ms)
     record_metrics(request.method, request.url.path, response.status_code, duration_s)
+    if response.status_code >= 500:
+        try:
+            from application.services.analytics_service import AnalyticsService
+            path = request.url.path
+            if path not in ("/health", "/health/live", "/health/ready", "/metrics"):
+                user_id = getattr(request.state, "user_id", "") or ""
+                await AnalyticsService().record_server_event(
+                    user_id,
+                    "api_error",
+                    {"path": path, "status": response.status_code, "method": request.method},
+                )
+        except Exception:
+            pass
     return response
 
 

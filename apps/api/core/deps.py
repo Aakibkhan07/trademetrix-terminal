@@ -92,6 +92,18 @@ async def get_current_user(
         )
 
 
+async def get_optional_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> UserProfile | None:
+    """Like get_current_user but returns None instead of 401 (used by the
+    anonymous analytics ingest to resolve user_id server-side)."""
+    try:
+        return await get_current_user(request, credentials)
+    except HTTPException:
+        return None
+
+
 async def require_admin(user: UserProfile = Depends(get_current_user)) -> UserProfile:
     if not user.is_admin and not role_satisfies(user.role, "admin"):
         raise HTTPException(

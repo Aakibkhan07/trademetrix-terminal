@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
+import { track } from '@/lib/analytics'
 import Logo from '@/components/logo'
 
 export default function AuthPage() {
@@ -73,9 +74,11 @@ export default function AuthPage() {
       if (mode === 'signup') {
         if (!fullName.trim()) { setError('Full name is required'); setLoading(false); return }
         await signup(email, password, fullName)
+        track('signup')
         router.push('/onboarding')
       } else {
         await signin(email, password)
+        track('login')
         const me = await api.auth.me().catch(() => null) as { is_admin?: boolean } | null
         if (me?.is_admin) {
           router.push('/dashboard')
@@ -134,8 +137,10 @@ export default function AuthPage() {
     try {
       const res = await api.auth.verifyOTP({ email: otpEmail, otp: entered })
       if (res.is_new) {
+        track('signup')
         router.push('/onboarding')
       } else {
+        track('login')
         router.push('/dashboard')
       }
     } catch (e: unknown) {
