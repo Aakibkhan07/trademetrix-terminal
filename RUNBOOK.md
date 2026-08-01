@@ -1,5 +1,7 @@
 # TradeMetrix Production Runbook
 
+> v1.0.0 GA — 2026-08-01. Host `187.127.185.56`, repo `Aakibkhan07/trademetrix-terminal` (main).
+
 ## Architecture
 
 ```
@@ -144,25 +146,39 @@
 
 ### 5. Disk Space Full
 
-1. Check usage: `df -h`
-2. Clean Docker logs: `docker system prune -af --volumes`
-3. Clean old Prometheus data: `docker exec trademetrix_prometheus rm -rf /prometheus/*`
-4. Or increase volume size in docker-compose
+1. Check usage: `df -h` and biggest dirs: `du -sh /root/trademetrix-backups /var/lib/docker 2>/dev/null`
+2. Clean unused images/build cache (keeps volumes): `docker system prune -af`  (never `--volumes`)
+3. Prune old backups (retention is 14 days, runs are manual): `bash /root/trademetrix-terminal/infra/scripts/backup.sh` prunes automatically; manually delete `/root/trademetrix-backups/<old>` if urgent
+4. Docker logs are rotated by daemon config (json-file, 10 MB × 3); do NOT `rm -rf /prometheus/*` while running — use the TSDB retention (30d) or `docker compose up -d --force-recreate prometheus`
 
-### 6. Deploy New API Code
+### 6. Deploy New Code (STANDARD — one command)
 
 ```bash
-cd /root/trademetrix/apps/api
-tar czf - . | ssh root@187.127.185.56 "docker exec -i trademetrix_api tar xzf - -C /app && docker restart trademetrix_api"
+cd /root/trademetrix-terminal
+bash infra/production/deploy.sh
 ```
 
-### 7. Deploy Docker Compose Changes
+Rebuilds images from `origin/main`, recreates containers, health-gates API + web, prints `Deployment Complete — v1.0 GA` or exits 1 with log tips. See `DEPLOYMENT.md`.
+
+### 6b. Emergency hot-patch (bypasses image rebuild — single file fix)
 
 ```bash
-cd /root/trademetrix/infra/production
-docker compose pull
-docker compose up -d --remove-orphans
-docker compose restart prometheus grafana  # if configs changed
+# from a local working copy
+tar czf - -C apps/api <path> | ssh root@187.127.185.56 \
+  "mkdir -p /tmp/hot && tar xzf - -C /tmp/hot && docker cp /tmp/hot/<path> trademetrix_api:/app/<path> \
+   && docker restart trademetrix_api && sleep 12 && \
+   curl -s -o /dev/null -w 'health: %{http_code}\n' https://api.ai.trademetrix.tech/health"
+```
+
+Always commit the change to git afterwards so `deploy.sh` stays authoritative.
+
+### 7. Deploy Infra / Compose Changes
+
+```bash
+cd /root/trademetrix-terminal
+git pull origin main                          # pick up infra/production changes
+docker compose -f infra/production/docker-compose.yml up -d --remove-orphans
+docker compose -f infra/production/docker-compose.yml restart prometheus grafana  # if configs changed
 ```
 
 ### 8. Force Prometheus Config Reload
@@ -174,23 +190,27 @@ docker exec trademetrix_prometheus kill -HUP 1
 ## Logs
 
 - API logs: `docker logs trademetrix_api --tail 100`
-- All containers: `docker compose -f /root/trademetrix/infra/production/docker-compose.yml logs --tail=50 -f`
+- All containers: `docker compose -f /root/trademetrix-terminal/infra/production/docker-compose.yml logs --tail=50 -f`
 - Log rotation: json-file driver, max 10MB per file, 3 files max
 
 ## Deployment
 
-- API code hot-deployed via `tar | docker exec tar xz` + `docker restart`
-- Infra changes via `docker compose up -d`
+- **Standard deploy**: `cd /root/trademetrix-terminal && bash infra/production/deploy.sh` (build → up → health gates)
+- API hot-patch (emergency only): `tar | docker cp` + `docker restart trademetrix_api` (see §6b) — commit to git afterwards
+- Infra changes via `docker compose -f infra/production/docker-compose.yml up -d`
 - Caddy reload: `docker exec trademetrix_caddy caddy reload --config /etc/caddy/Caddyfile`
+- Backup: `bash /root/trademetrix-terminal/infra/scripts/backup.sh` → `/root/trademetrix-backups/` (14-day retention)
 
 ## Credentials
 
 | Service | URL | Auth |
 |---------|-----|------|
-| Grafana | https://monitor.ai.trademetrix.tech | `GRAFANA_PASSWORD` env var |
+| Grafana | https://monitor.ai.trademetrix.tech | `GRAFANA_PASSWORD` in `infra/production/.env.production` |
 | Prometheus | internal only (127.0.0.1:9090) | None (localhost bind) |
-| Sentry | N/A | Set `SENTRY_DSN` in `.env` to enable |
-| Supabase | https://nwutlfuowiulfpbsrldn.supabase.co | Service role key in `.env` |
+| Caddy | on host (127.0.0.1:2019) | Localhost bind |
+| SSH (host) | root@187.127.185.56 | password in password manager |
+| Supabase | https://nwutlfuowiulfpbsrldn.supabase.co | Service-role key + DB password in `apps/api/.env` (untracked) + password manager |
+| Sentry | N/A | Set `SENTRY_DSN` in `apps/api/.env` to enable |
 
 ## Container Resource Limits
 
