@@ -52,7 +52,7 @@ class HistoricalDataEngine:
         self, symbol: str, exchange: str, interval: str, days: int, user_id: str | None
     ) -> list[dict]:
         if not user_id:
-            return []
+            return await self._fetch_from_yahoo(symbol, exchange, interval, days)
         from core.db import async_supabase, get_supabase
         from core.security import decrypt_broker_credentials
 
@@ -62,13 +62,13 @@ class HistoricalDataEngine:
             supabase = get_supabase()
             cred = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("user_id", user_id).eq("broker", "fyers").single().execute())
             if not cred.data:
-                return []
+                return await self._fetch_from_yahoo(symbol, exchange, interval, days)
 
             row = cred.data
             client_id = decrypt_broker_credentials(row["encrypted_api_key"])
             raw_token = decrypt_broker_credentials(row["encrypted_access_token"])
             if not raw_token:
-                return []
+                return await self._fetch_from_yahoo(symbol, exchange, interval, days)
 
             fyers_symbol = self._map_symbol(symbol, exchange)
             fyers_interval = self._map_interval(interval)
@@ -86,6 +86,23 @@ class HistoricalDataEngine:
                 return [self._candle_to_dict(c) for c in candles]
         except Exception as e:
             logger.warning("Broker historical fetch failed: %s", e)
+        return await self._fetch_from_yahoo(symbol, exchange, interval, days)
+
+    async def _fetch_from_yahoo(
+        self, symbol: str, exchange: str, interval: str, days: int
+    ) -> list[dict]:
+        if symbol.upper() not in ("NIFTY", "BANKNIFTY", "FINNIFTY", "SENSEX") and ":" not in symbol:
+            return []
+        try:
+            from providers.yahoo import fetch_historical
+
+            period = f"{max(1, int(days))}d"
+            candles = await fetch_historical(self._map_symbol(symbol, exchange), interval=interval, period=period)
+            if candles:
+                logger.info("Fetched %d candles from Yahoo fallback for %s", len(candles), symbol)
+                return [self._candle_to_dict(c) for c in candles]
+        except Exception as e:
+            logger.warning("Yahoo fallback fetch failed for %s: %s", symbol, e)
         return []
 
     def _interval_ttl(self, interval: str) -> int:

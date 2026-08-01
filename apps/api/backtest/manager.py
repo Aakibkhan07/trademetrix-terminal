@@ -80,6 +80,7 @@ class BacktestManager:
                 days=config.days,
                 source=config.data_source,
                 file_path=config.file_path,
+                user_id=config.user_id,
             )
             if not candles:
                 raise ValueError("No candle data loaded")
@@ -443,6 +444,7 @@ class BacktestManager:
                 days=config.days,
                 source=config.data_source,
                 file_path=config.file_path,
+                user_id=config.user_id,
             )
             if not candles:
                 raise ValueError("No candle data loaded")

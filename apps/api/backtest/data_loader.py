@@ -5,7 +5,6 @@ import os
 from datetime import datetime
 
 from core.models import Candle, Exchange
-from market.historical import historical_engine
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,9 @@ class BacktestDataLoader:
         elif source == "parquet" and file_path:
             candles = self._load_parquet(file_path, symbol, exchange, interval)
         else:
-            candles = await historical_engine.get_historical(
+            from backtest.historical import backtest_historical
+
+            candles = await backtest_historical.load(
                 symbol=symbol,
                 exchange=exchange,
                 interval=interval,
