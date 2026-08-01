@@ -22,7 +22,7 @@ export default function LandingPage() {
           TradeMetrix
         </Link>
         <nav style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <Link href="/portal" style={{
+          <Link href="/portfolio" style={{
             fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.03em', transition: 'color 0.15s',
           }}>Client Portal</Link>
@@ -30,7 +30,7 @@ export default function LandingPage() {
             fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.03em', transition: 'color 0.15s',
           }}>Sign In</Link>
-          <Link href="/portal" style={{
+          <Link href="/portfolio" style={{
             fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
             padding: '8px 18px', borderRadius: 6, textDecoration: 'none',
             background: 'var(--gradient-primary)',
@@ -65,7 +65,7 @@ export default function LandingPage() {
           </p>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/portal" style={{
+            <Link href="/portfolio" style={{
               padding: '12px 28px', borderRadius: 8, fontSize: 13, fontWeight: 700,
               letterSpacing: '0.03em', textDecoration: 'none',
               background: 'var(--gradient-primary)',
@@ -118,7 +118,7 @@ export default function LandingPage() {
             Create your account, connect your broker, and start trading with automated strategies.
             No credit card required.
           </p>
-          <Link href="/portal" style={{
+          <Link href="/portfolio" style={{
             display: 'inline-block', padding: '10px 24px', borderRadius: 6, fontSize: 12,
             fontWeight: 700, letterSpacing: '0.03em', textDecoration: 'none',
             background: 'var(--gradient-primary)',

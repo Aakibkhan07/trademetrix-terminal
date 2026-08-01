@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useMarketData } from '@/lib/use-market-data'
 import { useToast } from '@/lib/use-toast'
 import { api } from '@/lib/api'
+import { useUIStore } from '@/lib/stores/ui-store'
 import Chart from '@/components/chart'
 
 type WatchItem = { symbol: string; name: string; type: string }
@@ -66,6 +67,7 @@ export default function MarketDataPage() {
   const ticksRef = useRef(ticks)
   ticksRef.current = ticks
   const { toast } = useToast()
+  const openQuickOrder = useUIStore(s => s.openQuickOrder)
   const [feedOn, setFeedOn] = useState(false)
   const [apiIndices, setApiIndices] = useState<WatchItem[]>([])
   const [apiStocks, setApiStocks] = useState<WatchItem[]>([])
@@ -403,6 +405,16 @@ export default function MarketDataPage() {
                       <td><span className="t-num t-faint">{t?.oi ? t.oi.toLocaleString() : '-'}</span></td>
                       <td>
                         <div style={{ display: 'flex', gap: 2 }}>
+                          <button className="t-btn t-btn-xs" title="Quick Buy"
+                            onClick={(e) => { e.stopPropagation(); openQuickOrder(item.symbol, item.name, 'BUY') }}
+                            style={{ color: 'var(--green)' }}>
+                            Buy
+                          </button>
+                          <button className="t-btn t-btn-xs" title="Quick Sell"
+                            onClick={(e) => { e.stopPropagation(); openQuickOrder(item.symbol, item.name, 'SELL') }}
+                            style={{ color: 'var(--red)' }}>
+                            Sell
+                          </button>
                           <button className="t-btn t-btn-xs t-btn-ghost" title="Set Alert"
                             onClick={(e) => { e.stopPropagation(); openAlert(item.symbol, item.name) }}>
                             Bell

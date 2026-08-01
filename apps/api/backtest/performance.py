@@ -17,15 +17,20 @@ class PerformanceAnalytics:
         initial_capital: float,
         trades: list[TradeRecord],
         candles_analyzed: int,
+        benchmark_candles: list[dict] | None = None,
     ) -> BacktestResult:
         result.start_equity = initial_capital
         result.candles_analyzed = candles_analyzed
 
         self._compute_trade_stats(result, trades)
+        self._compute_expectancy(result)
+        self._compute_distributions(result)
         self._compute_equity_curve(result, snapshots, initial_capital)
         self._compute_drawdown(result)
         self._compute_ratios(result)
         self._compute_returns(result)
+        if benchmark_candles:
+            self._compute_benchmark(result, benchmark_candles)
 
         if trades:
             avg_duration = sum(t.duration_minutes for t in trades) / len(trades)
@@ -114,6 +119,80 @@ class PerformanceAnalytics:
 
         result.max_consecutive_wins = max_win_streak
         result.max_consecutive_losses = max_loss_streak
+
+    def _compute_expectancy(self, result: BacktestResult) -> None:
+        """Expectancy per trade and reward:risk ratios (R = average loss)."""
+        if result.total_trades == 0:
+            return
+        result.expectancy = round(result.net_pnl / result.total_trades, 2)
+        if result.avg_loss > 0:
+            result.expectancy_per_r = round(result.expectancy / result.avg_loss, 2)
+            result.avg_risk_reward_ratio = round(result.avg_win / result.avg_loss, 2) if result.avg_win > 0 else 0.0
+            abs_pnls = sorted(abs(t.pnl) for t in result.trades)
+            n = len(abs_pnls)
+            median = abs_pnls[n // 2] if n % 2 else (abs_pnls[n // 2 - 1] + abs_pnls[n // 2]) / 2
+            result.median_risk_reward_ratio = round(median / result.avg_loss, 2)
+
+    def _compute_distributions(self, result: BacktestResult) -> None:
+        """Net PnL distribution by entry weekday, entry hour (IST), and month."""
+        weekday: dict[str, float] = defaultdict(float)
+        hour: dict[str, float] = defaultdict(float)
+        month: dict[str, float] = defaultdict(float)
+        days = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+
+        for t in result.trades:
+            try:
+                ts = datetime.fromisoformat(str(t.entry_time).replace("Z", "+00:00"))
+                weekday[days[ts.weekday()]] += t.pnl
+                hour[ts.strftime("%H")] += t.pnl
+                month[ts.strftime("%Y-%m")] += t.pnl
+            except (ValueError, AttributeError, KeyError):
+                continue
+
+        result.weekday_distribution = {k: round(v, 2) for k, v in sorted(weekday.items())}
+        result.hour_distribution = {k: round(v, 2) for k, v in sorted(hour.items())}
+        result.month_distribution = {k: round(v, 2) for k, v in sorted(month.items())}
+
+    def _compute_benchmark(self, result: BacktestResult, benchmark_candles: list[dict]) -> None:
+        """Buy-and-hold benchmark from the candle series: return, max DD, beta, alpha."""
+        closes = [float(c.get("close", 0)) for c in benchmark_candles if float(c.get("close", 0)) > 0]
+        if len(closes) < 2:
+            return
+
+        bench_return_pct = (closes[-1] - closes[0]) / closes[0] * 100
+        result.benchmark_return_pct = round(bench_return_pct, 2)
+        result.excess_return_pct = round(result.return_pct - bench_return_pct, 2)
+
+        peak = closes[0]
+        max_dd = 0.0
+        for c in closes:
+            peak = max(peak, c)
+            dd = (peak - c) / peak * 100 if peak > 0 else 0.0
+            max_dd = max(max_dd, dd)
+        result.benchmark_max_drawdown_pct = round(max_dd, 2)
+
+        strategy_returns = self._get_period_returns(result.equity_curve)
+        if len(strategy_returns) < 2:
+            return
+        bench_returns = [
+            (closes[i] - closes[i - 1]) / closes[i - 1]
+            for i in range(1, len(closes)) if closes[i - 1] > 0
+        ]
+        n = min(len(strategy_returns), len(bench_returns))
+        if n < 2:
+            return
+        sr = strategy_returns[-n:]
+        br = bench_returns[-n:]
+
+        mean_s = sum(sr) / n
+        mean_b = sum(br) / n
+        var_b = sum((r - mean_b) ** 2 for r in br) / (n - 1) if n > 1 else 0.0
+        cov = sum((a - mean_s) * (b - mean_b) for a, b in zip(sr, br)) / (n - 1) if n > 1 else 0.0
+        if var_b > 0:
+            result.beta = round(cov / var_b, 2)
+        annualized_s = mean_s * 252 * 100
+        annualized_b = mean_b * 252 * 100
+        result.alpha = round(annualized_s - result.beta * annualized_b, 2) if result.beta else 0.0
 
     def _compute_equity_curve(
         self,

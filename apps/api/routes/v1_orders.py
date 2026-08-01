@@ -145,7 +145,7 @@ async def place_order(
     )
 
     risk_mgr = RiskManager()
-    risk_result = await risk_mgr.evaluate(exec_req)
+    risk_result = await risk_mgr.evaluate(exec_req, dry_run=True)
     if risk_result.decision.value == "REJECTED":
         reasons = [r.reason for r in risk_result.results if r.reason]
         raise HTTPException(status_code=400, detail=f"Risk check failed: {'; '.join(reasons)}")

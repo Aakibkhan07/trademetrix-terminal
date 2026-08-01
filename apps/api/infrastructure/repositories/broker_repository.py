@@ -75,7 +75,7 @@ class SupabaseBrokerRepository(BrokerRepository):
     async def list_credentials(self, user_id: str) -> list[dict]:
         rows = await async_safe_execute(
             get_supabase().table("broker_credentials")
-            .select("id, broker, is_active, created_at")
+            .select("id, broker, is_active, token_status, token_expires_at, created_at")
             .eq("user_id", user_id)
         )
         return rows or []
@@ -102,11 +102,34 @@ class SupabaseBrokerRepository(BrokerRepository):
         payload: dict = {
             "encrypted_access_token": encrypt_broker_credentials(access_token),
             "is_active": True,
+            "token_status": "valid",
+            "last_token_refresh_at": datetime.now(UTC).isoformat(),
             "updated_at": datetime.now(UTC).isoformat(),
         }
+        expires_at = self._decode_jwt_expiry(access_token)
+        if expires_at:
+            payload["token_expires_at"] = expires_at
         if refresh_token:
             payload["encrypted_refresh_token"] = encrypt_broker_credentials(refresh_token)
         await async_supabase(lambda: get_supabase().table("broker_credentials").update(payload).eq("id", credential_id).execute())
+
+    @staticmethod
+    def _decode_jwt_expiry(access_token: str) -> str | None:
+        try:
+            import base64
+            import json
+            parts = access_token.split(".")
+            if len(parts) != 3:
+                return None
+            padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+            payload = json.loads(base64.urlsafe_b64decode(padded))
+            exp = payload.get("exp")
+            if not exp:
+                return None
+            from datetime import timezone
+            return datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()
+        except Exception:
+            return None
 
     async def clear_access_token(self, credential_id: str) -> None:
         await async_supabase(lambda: get_supabase().table("broker_credentials").update(

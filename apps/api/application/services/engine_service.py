@@ -81,6 +81,14 @@ class EngineService:
         return data or []
 
     async def cancel_order(self, user_id: str, order_id: str) -> dict:
+        from oms.manager import order_manager
+
+        oms_order = order_manager.find_order(user_id, order_id)
+        if oms_order:
+            result = await order_manager.cancel_order(oms_order.oms_order_id)
+            if result:
+                return {"result": result.model_dump()}
+
         from execution import execution_manager
         from execution.models import ExecutionRequest
 

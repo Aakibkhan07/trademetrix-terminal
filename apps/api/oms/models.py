@@ -93,6 +93,8 @@ class BracketOrder(BaseModel):
     sl_order_id: str = ""
     target_order_id: str = ""
     active: bool = True
+    side: str = "BUY"
+    broker: str = "fyers"
 
 
 class OCOOrder(BaseModel):

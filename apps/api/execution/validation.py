@@ -104,7 +104,9 @@ async def _check_duplicate(user_id: str, order: NormalizedOrder) -> str | None:
 
 
 async def _check_price_band(order: NormalizedOrder) -> dict:
-    if order.order_type in (OrderType.MARKET, OrderType.SLM):
+    if order.order_type in (OrderType.MARKET, OrderType.SLM, OrderType.SL):
+        return {"valid": True, "message": ""}
+    if order.source in ("exit_sl", "exit_target", "bracket_sl", "bracket_target"):
         return {"valid": True, "message": ""}
     if order.price is None or order.price <= 0:
         return {"valid": True, "message": ""}

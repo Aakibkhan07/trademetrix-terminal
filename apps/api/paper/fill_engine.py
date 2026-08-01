@@ -32,11 +32,8 @@ class FillEngine:
 
     async def _next_tick_fill(self, order: NormalizedOrder) -> PaperFill:
         quote = market_cache.get_quote(order.symbol)
-        if quote:
-            if hasattr(quote, "last_price") and quote.last_price > 0:
-                fill_price = quote.last_price
-            else:
-                fill_price = self._get_fill_price(order)
+        if quote and self._quote_last_price(quote) > 0:
+            fill_price = self._quote_last_price(quote)
         else:
             fill_price = self._get_fill_price(order)
 
@@ -46,25 +43,26 @@ class FillEngine:
 
     async def _price_based_fill(self, order: NormalizedOrder) -> PaperFill:
         quote = market_cache.get_quote(order.symbol)
-        if not quote:
+        last_price = self._quote_last_price(quote)
+        if last_price <= 0:
             return await self._instant_fill(order)
 
         if order.order_type.value == "LIMIT":
-            if order.side.value == "BUY" and quote.last_price <= order.price:
-                fill_price = min(quote.last_price, order.price)
-            elif order.side.value == "SELL" and quote.last_price >= order.price:
-                fill_price = max(quote.last_price, order.price)
+            if order.side.value == "BUY" and last_price <= order.price:
+                fill_price = min(last_price, order.price)
+            elif order.side.value == "SELL" and last_price >= order.price:
+                fill_price = max(last_price, order.price)
             else:
                 return self._build_fill(order, 0, 0.0, PaperOrderStatus.PENDING)
         elif order.order_type.value in ("SL", "SLM") and order.trigger_price:
-            if order.side.value == "BUY" and quote.last_price >= order.trigger_price:
-                fill_price = max(quote.last_price, order.price or quote.last_price)
-            elif order.side.value == "SELL" and quote.last_price <= order.trigger_price:
-                fill_price = min(quote.last_price, order.price or quote.last_price)
+            if order.side.value == "BUY" and last_price >= order.trigger_price:
+                fill_price = max(last_price, order.price or last_price)
+            elif order.side.value == "SELL" and last_price <= order.trigger_price:
+                fill_price = min(last_price, order.price or last_price)
             else:
                 return self._build_fill(order, 0, 0.0, PaperOrderStatus.PENDING)
         else:
-            fill_price = quote.last_price
+            fill_price = last_price
 
         fill_price = self._apply_slippage(order, fill_price)
         qty = self._apply_partial_fill(order.quantity)
@@ -73,10 +71,17 @@ class FillEngine:
     async def _volume_based_fill(self, order: NormalizedOrder) -> PaperFill:
         return await self._instant_fill(order)
 
+    def _quote_last_price(self, quote) -> float:
+        if quote is None:
+            return 0.0
+        if isinstance(quote, dict):
+            return float(quote.get("last_price") or quote.get("ltp") or 0.0)
+        return float(getattr(quote, "last_price", 0.0) or 0.0)
+
     def _get_fill_price(self, order: NormalizedOrder) -> float:
         quote = market_cache.get_quote(order.symbol)
-        if quote and hasattr(quote, "last_price") and quote.last_price > 0:
-            return quote.last_price
+        if self._quote_last_price(quote) > 0:
+            return self._quote_last_price(quote)
         return order.price or 0.0
 
     def _apply_slippage(self, order: NormalizedOrder, price: float) -> float:

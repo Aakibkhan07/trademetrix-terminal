@@ -154,12 +154,22 @@ class ExecutionManager:
 
             if broker_result.success:
                 is_partial = broker_result.status in ("partially_filled", "PARTIALLY_FILLED")
-                state = ExecutionState.PARTIALLY_FILLED if is_partial else ExecutionState.FILLED
+                is_filled = broker_result.status in ("filled", "traded", "complete", "completed", "FILLED", "TRADED", "COMPLETE", "COMPLETED")
+                if is_partial:
+                    state = ExecutionState.PARTIALLY_FILLED
+                    order.status = OrderStatus.PARTIALLY_FILLED
+                elif is_filled:
+                    state = ExecutionState.FILLED
+                    order.status = OrderStatus.FILLED
+                else:
+                    state = ExecutionState.PENDING
+                    order.status = OrderStatus.PENDING
                 order.broker_order_id = broker_result.broker_order_id
-                order.status = OrderStatus.PARTIALLY_FILLED if is_partial else OrderStatus.FILLED
                 if broker_result.filled_qty is not None:
                     order.filled_quantity = broker_result.filled_qty
-                await self._update_order_in_db(order, req.user_id, broker_result.broker_order_id, is_partial=is_partial)
+                if broker_result.avg_price:
+                    order.average_price = broker_result.avg_price
+                await self._update_order_in_db(order, req.user_id, broker_result.broker_order_id, status=order.status)
 
                 execution_observability.record_order_placed()
                 execution_observability.record_latency(elapsed_ms, req.broker)
@@ -175,7 +185,7 @@ class ExecutionManager:
                     user_id=req.user_id, broker=req.broker, action="placed",
                     execution_request_id=request_id, broker_order_id=broker_result.broker_order_id,
                     symbol=req.symbol, side=req.side, quantity=req.quantity, price=req.price,
-                    latency_ms=elapsed_ms, status="filled", message="Order placed successfully",
+                    latency_ms=elapsed_ms, status=order.status.value, message="Order placed successfully",
                     payload=payload, result={"broker_order_id": broker_result.broker_order_id},
                 )
 
@@ -532,16 +542,18 @@ latency_ms=elapsed_ms,
         except Exception as e:
             logger.error("Failed to log order: %s", e)
 
-    async def _update_order_in_db(self, order: NormalizedOrder, user_id: str, broker_order_id: str, is_partial: bool = False) -> None:
+    async def _update_order_in_db(self, order: NormalizedOrder, user_id: str, broker_order_id: str, status: OrderStatus = OrderStatus.PENDING) -> None:
         try:
             supabase = get_supabase()
             update_data = {
                 "broker_order_id": broker_order_id,
-                "status": "PARTIALLY_FILLED" if is_partial else "FILLED",
-                "filled_at": datetime.now(UTC).isoformat(),
+                "status": status.value,
+                "filled_at": datetime.now(UTC).isoformat() if status in (OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED) else None,
             }
             if order.filled_quantity is not None:
                 update_data["filled_quantity"] = order.filled_quantity
+            if order.average_price:
+                update_data["average_price"] = order.average_price
             await async_supabase(lambda: supabase.table("orders").update(update_data).eq("user_id", user_id).eq("client_order_id", order.client_order_id).execute())
         except Exception as e:
             logger.error("Failed to update order in DB: %s", e)

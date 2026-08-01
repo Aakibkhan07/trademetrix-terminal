@@ -1,0 +1,253 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "title": "TradeMetrix — Production Monitoring",
+  "uid": "trademetrix-production",
+  "schemaVersion": 38,
+  "version": 1,
+  "timezone": "browser",
+  "editable": false,
+  "panels": [
+    {
+      "title": "API Health",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 0, "y": 0 },
+      "targets": [{ "expr": "api_health_status", "legendFormat": "health", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] },
+          "mappings": [{ "type": "value", "value": "1", "text": "Healthy" }, { "type": "value", "value": "0", "text": "Unhealthy" }]
+        }
+      }
+    },
+    {
+      "title": "Request Rate",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 2, "y": 0 },
+      "targets": [{ "expr": "sum(rate(http_requests_total[1m]))", "legendFormat": "req/s", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "title": "Active Strategies",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 4, "y": 0 },
+      "targets": [{ "expr": "active_strategies", "legendFormat": "strategies", "refId": "A" }]
+    },
+    {
+      "title": "Active Broker Sessions",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 6, "y": 0 },
+      "targets": [{ "expr": "active_broker_sessions", "legendFormat": "sessions", "refId": "A" }]
+    },
+    {
+      "title": "WebSocket Connections",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 8, "y": 0 },
+      "targets": [{ "expr": "active_connections", "legendFormat": "ws", "refId": "A" }]
+    },
+    {
+      "title": "Failed Orders (total)",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 10, "y": 0 },
+      "targets": [{ "expr": "sum(orders_failed_total)", "legendFormat": "failed", "refId": "A" }]
+    },
+    {
+      "title": "Exception Rate",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 12, "y": 0 },
+      "targets": [{ "expr": "rate(exceptions_total[5m])", "legendFormat": "exc/s", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "CPU Usage",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 14, "y": 0 },
+      "targets": [{ "expr": "process_cpu_percent", "legendFormat": "cpu%", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "title": "Memory Usage",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 16, "y": 0 },
+      "targets": [{ "expr": "process_memory_bytes{type=\"rss\"}", "legendFormat": "rss", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "title": "Uptime",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 2, "x": 18, "y": 0 },
+      "targets": [{ "expr": "time() - process_start_time_seconds", "legendFormat": "uptime", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "API Latency (P50 / P95 / P99)",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 3 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))", "legendFormat": "p99", "refId": "C" }
+      ]
+    },
+    {
+      "title": "Request Rate by Status",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 3 },
+      "targets": [
+        { "expr": "sum(rate(http_requests_total{status=~\"2..\"}[5m]))", "legendFormat": "2xx", "refId": "A" },
+        { "expr": "sum(rate(http_requests_total{status=~\"4..\"}[5m]))", "legendFormat": "4xx", "refId": "B" },
+        { "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))", "legendFormat": "5xx", "refId": "C" }
+      ]
+    },
+    {
+      "title": "DB Query Duration (P50 / P95)",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 3 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(db_query_duration_seconds_bucket[5m]))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[5m]))", "legendFormat": "p95", "refId": "B" }
+      ]
+    },
+    {
+      "title": "Redis Memory Usage",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 11 },
+      "targets": [
+        { "expr": "redis_memory_used_bytes", "legendFormat": "used", "refId": "A" },
+        { "expr": "redis_memory_max_bytes", "legendFormat": "max", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "title": "Redis Hit Rate",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 11 },
+      "targets": [
+        { "expr": "rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100", "legendFormat": "hit %", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "title": "Redis Connected Clients",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 11 },
+      "targets": [
+        { "expr": "redis_connected_clients", "legendFormat": "clients", "refId": "A" }
+      ]
+    },
+    {
+      "title": "CPU Usage",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 19 },
+      "targets": [
+        { "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "legendFormat": "cpu %", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "title": "Memory Usage",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 19 },
+      "targets": [
+        { "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes", "legendFormat": "used", "refId": "A" },
+        { "expr": "node_memory_MemTotal_bytes", "legendFormat": "total", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "title": "Disk Usage",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 19 },
+      "targets": [
+        { "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100)", "legendFormat": "disk %", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "title": "Broker Request Duration (P95)",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 27 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(broker_request_duration_seconds_bucket[5m]))", "legendFormat": "p95 {{broker}} {{operation}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "Broker Success / Failure Rate",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 27 },
+      "targets": [
+        { "expr": "rate(broker_requests_success_total[5m])", "legendFormat": "success {{broker}}", "refId": "A" },
+        { "expr": "rate(broker_requests_failure_total[5m])", "legendFormat": "failure {{broker}}", "refId": "B" }
+      ]
+    },
+    {
+      "title": "Circuit Breaker State",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 27 },
+      "targets": [
+        { "expr": "circuit_breaker_state", "legendFormat": "{{breaker}}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }, { "color": "orange", "value": 1 }, { "color": "red", "value": 2 }] }
+        }
+      }
+    },
+    {
+      "title": "Market Ticks (rate)",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 35 },
+      "targets": [
+        { "expr": "rate(market_ticks_total[1m])", "legendFormat": "ticks/s {{broker}}", "refId": "A" },
+        { "expr": "rate(market_ticks_errors_total[1m])", "legendFormat": "errors/s", "refId": "B" },
+        { "expr": "rate(market_ticks_reconnects_total[1m])", "legendFormat": "reconnects/s", "refId": "C" }
+      ]
+    },
+    {
+      "title": "Failed Orders by Status",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 35 },
+      "targets": [
+        { "expr": "orders_failed_total{status=\"rejected\"}", "legendFormat": "rejected", "refId": "A" },
+        { "expr": "orders_failed_total{status=\"cancelled\"}", "legendFormat": "cancelled", "refId": "B" },
+        { "expr": "orders_failed_total{status=\"expired\"}", "legendFormat": "expired", "refId": "C" },
+        { "expr": "orders_failed_total{status=\"error\"}", "legendFormat": "error", "refId": "D" }
+      ]
+    },
+    {
+      "title": "Exception Rate by Type",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 35 },
+      "targets": [
+        { "expr": "rate(exceptions_total[5m])", "legendFormat": "{{type}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "Rate Limit Breaches",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 43 },
+      "targets": [
+        { "expr": "rate(rate_limit_breaches_total[5m])", "legendFormat": "{{broker}}", "refId": "A" }
+      ]
+    },
+    {
+      "title": "Event Loop Blocked (P50)",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 43 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(event_loop_blocked_seconds_bucket[5m]))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, rate(event_loop_blocked_seconds_bucket[5m]))", "legendFormat": "p95", "refId": "B" }
+      ]
+    },
+    {
+      "title": "Process Metrics (RSS / VMS)",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 43 },
+      "targets": [
+        { "expr": "process_memory_bytes{type=\"rss\"}", "legendFormat": "rss", "refId": "A" },
+        { "expr": "process_memory_bytes{type=\"vms\"}", "legendFormat": "vms", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    }
+  ]
+}

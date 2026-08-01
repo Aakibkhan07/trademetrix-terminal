@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/use-theme'
 import { useMarketData } from '@/lib/use-market-data'
+import { api } from '@/lib/api'
 import Logo from '@/components/logo'
 import StatusBar from '@/components/status-bar'
 import MarketTicker from '@/components/market-ticker'
@@ -55,7 +56,7 @@ const NAV_SECTIONS = [
   },
 ]
 
-const STANDALONE_PAGES = ['/', '/auth', '/onboarding', '/status']
+const STANDALONE_PAGES = ['/', '/auth', '/onboarding', '/status', '/portfolio']
 const STANDALONE_PREFIXES = ['/portal']
 
 function isStandalone(pathname: string) {
@@ -72,6 +73,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [profileOpen, setProfileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>()
   const [notifOpen, setNotifOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const { theme, toggleTheme } = useTheme()
@@ -85,7 +89,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!isAuthenticated) {
       router.replace('/auth')
     } else if (!isAdmin) {
-      router.replace('/portal')
+      router.replace('/portfolio')
     }
   }, [loading, isAuthenticated, isAdmin, standalone, router])
 
@@ -106,12 +110,62 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSearchOpen(false)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true) }
+      if (e.key === 'Escape') {
+        setSearchOpen(false); setSearchQuery(''); setSearchResults([])
+        restoreFocus()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k' && pathname !== '/workspace') { e.preventDefault(); setSearchOpen(true) }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [])
+  }, [pathname])
+
+  const closeSearch = () => {
+    setSearchOpen(false); setSearchQuery(''); setSearchResults([])
+    restoreFocus()
+  }
+
+  const restoreFocus = () => {
+    const prev = document.activeElement as HTMLElement | null
+    const inOverlay = prev && prev.closest('[data-search-overlay]')
+    if (inOverlay) {
+      const openButton = document.querySelector<HTMLElement>('[data-search-open]')
+      openButton?.focus()
+    }
+  }
+
+  useEffect(() => {
+    if (!searchOpen) return
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+      const overlay = document.querySelector<HTMLElement>('[data-search-overlay]')
+      if (!overlay) return
+      const focusables = Array.from(overlay.querySelectorAll<HTMLElement>(
+        'a[href], input, button, [tabindex]:not([tabindex="-1"])',
+      )).filter(el => !el.hasAttribute('disabled'))
+      if (focusables.length === 0) { e.preventDefault(); return }
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    window.addEventListener('keydown', handleTab)
+    return () => window.removeEventListener('keydown', handleTab)
+  }, [searchOpen])
+
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (searchQuery.length < 2) { setSearchResults([]); return }
+    setSearchLoading(true)
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const data = await api.get<{ results: { symbol: string; name: string; instrument_type: string; exchange: string }[] }>(`/market/instruments?query=${encodeURIComponent(searchQuery)}&limit=8`)
+        setSearchResults(data.results || [])
+      } catch { setSearchResults([]) }
+      setSearchLoading(false)
+    }, 300)
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
+  }, [searchQuery])
 
   if (standalone) return <>{children}</>
 
@@ -125,6 +179,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden',
       background: 'var(--bg)',
     }}>
+      <a href="#main-content" style={{
+        position: 'fixed', top: -48, left: 12, zIndex: 300,
+        padding: '8px 14px', borderRadius: 'var(--radius-md)',
+        background: 'var(--bg-tertiary)', color: 'var(--text)',
+        fontSize: 12, fontWeight: 700, border: '1px solid var(--border-accent)',
+        textDecoration: 'none', transition: 'top 150ms ease',
+      }}
+        onFocus={e => { e.currentTarget.style.top = '12px' }}
+        onBlur={e => { e.currentTarget.style.top = '-48px' }}
+      >Skip to content</a>
       {/* Sidebar */}
       <nav style={{
         width: collapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)',
@@ -163,6 +227,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
+              aria-label="Collapse sidebar"
               style={{
                 background: 'none', border: 'none', color: 'var(--text-faint)',
                 cursor: 'pointer', fontSize: 14, padding: 4, flexShrink: 0,
@@ -176,6 +241,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {collapsed && (
             <button
               onClick={() => setCollapsed(false)}
+              aria-label="Expand sidebar"
               style={{
                 position: 'absolute', right: -12, top: 12, zIndex: 20,
                 width: 20, height: 20, borderRadius: '50%',
@@ -209,6 +275,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={active ? 'page' : undefined}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: collapsed ? '8px' : '6px 12px',
@@ -250,6 +317,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }}>
           <button
             onClick={signout}
+            aria-label="Sign out"
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: collapsed ? '8px' : '6px 8px',
@@ -277,20 +345,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           borderBottom: '1px solid var(--border)', gap: 8, flexShrink: 0,
         }}>
           {/* Search */}
-          <div
+          <button
             onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 50) }}
+            data-search-open
+            aria-label="Search symbols, strategies, pages (⌘K)"
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)', padding: '0 10px',
-              height: 30, width: 240, cursor: 'text', flexShrink: 0,
-            }}>
+              height: 30, width: 240, cursor: 'pointer', flexShrink: 0,
+              fontFamily: 'var(--font-sans)', textAlign: 'left',
+              transition: 'border-color 150ms ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hi)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
             <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>🔍</span>
-            <span style={{ color: 'var(--text-faint)', fontSize: 12, flex: 1 }}>
+            <span style={{ color: 'var(--text-faint)', fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {searchQuery || 'Search...'}
             </span>
             <span style={{ color: 'var(--text-faint)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>⌘K</span>
-          </div>
+          </button>
 
           {/* Market Ticker */}
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
@@ -314,7 +389,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
 
           {/* Theme toggle */}
-          <button onClick={toggleTheme} style={{
+          <button onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} style={{
             width: 28, height: 28, borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border)', background: 'transparent',
             color: 'var(--text-sub)', cursor: 'pointer',
@@ -331,7 +406,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Notifications */}
           <div style={{ position: 'relative' }}>
-            <button onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen) }} style={{
+            <button onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen) }} aria-label="Notifications" aria-expanded={notifOpen} aria-controls="notifications-popover" style={{
               width: 28, height: 28, borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)', background: 'transparent',
               color: 'var(--text-sub)', cursor: 'pointer',
@@ -349,13 +424,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               }} />
             </button>
             {notifOpen && (
-              <div style={{
+              <div id="notifications-popover" role="menu" aria-label="Notifications" onClick={e => e.stopPropagation()} style={{
                 position: 'absolute', top: '100%', right: 0, marginTop: 4,
                 width: 280, background: 'var(--bg-secondary)',
                 border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                 zIndex: 100, overflow: 'hidden',
-              }} onClick={e => e.stopPropagation()}>
+              }}>
                 <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
                   <div style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>Notifications</div>
                 </div>
@@ -374,6 +449,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div style={{ position: 'relative' }}>
             <button
               onClick={(e) => { e.stopPropagation(); setProfileOpen(!profileOpen) }}
+              aria-label="Account menu" aria-expanded={profileOpen} aria-controls="profile-popover"
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '2px 8px 2px 2px', borderRadius: 'var(--radius-sm)',
@@ -399,13 +475,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
 
             {profileOpen && (
-              <div style={{
+              <div id="profile-popover" role="menu" aria-label="Account" onClick={e => e.stopPropagation()} style={{
                 position: 'absolute', top: '100%', right: 0, marginTop: 4,
                 minWidth: 180, background: 'var(--bg-secondary)',
                 border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                 zIndex: 100, overflow: 'hidden',
-              }} onClick={e => e.stopPropagation()}>
+              }}>
                 <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
                   <div style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>{user?.email}</div>
                   <div style={{ color: 'var(--text-faint)', fontSize: 10, marginTop: 2 }}>
@@ -437,11 +513,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Search Overlay */}
         {searchOpen && (
-          <div style={{
+          <div data-search-overlay role="dialog" aria-modal="true" aria-label="Global search"
+            style={{
             position: 'fixed', inset: 0, zIndex: 200,
             background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
             display: 'flex', justifyContent: 'center', paddingTop: '15vh',
-          }} onClick={() => setSearchOpen(false)}>
+          }} onClick={closeSearch}>
             <div className="t-panel" style={{
               width: 480, maxWidth: '90vw', padding: 0, maxHeight: '60vh', overflow: 'hidden',
               display: 'flex', flexDirection: 'column',
@@ -468,6 +545,45 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {searchLoading && (
+                      <div style={{ padding: '12px', textAlign: 'center' }}>
+                        <span className="t-faint" style={{ fontSize: 11 }}>Searching...</span>
+                      </div>
+                    )}
+                    {searchResults.length > 0 && (
+                      <>
+                        <div style={{ padding: '4px 12px' }}>
+                          <span className="t-faint" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Symbols</span>
+                        </div>
+                        {searchResults.map((r: any, i: number) => (
+                          <Link key={i} href={`/terminal?symbol=${r.symbol}`} onClick={() => setSearchOpen(false)} style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px',
+                            borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 12,
+                            textDecoration: 'none', transition: 'all 100ms ease',
+                          }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                          >
+                            <span style={{ fontSize: 12, width: 20, textAlign: 'center', color: 'var(--cyan)' }}>
+                              {r.instrument_type === 'option' ? '⚡' : r.instrument_type === 'future' ? '📊' : '📈'}
+                            </span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600 }}>{r.symbol}</div>
+                              <span className="t-faint" style={{ fontSize: 10 }}>{r.name}</span>
+                            </div>
+                            <span style={{ fontSize: 10, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
+                              {r.instrument_type?.toUpperCase()}
+                            </span>
+                          </Link>
+                        ))}
+                        <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                      </>
+                    )}
+                    {!searchLoading && searchQuery.length >= 2 && searchResults.length === 0 && (
+                      <div style={{ padding: '8px 12px', textAlign: 'center' }}>
+                        <span className="t-faint" style={{ fontSize: 11 }}>No matching symbols found</span>
+                      </div>
+                    )}
                     <Link href={`/terminal?symbol=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
                       borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 12,
@@ -518,7 +634,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Content */}
-        <div className="t-content">
+        <div className="t-content" id="main-content">
           {children}
         </div>
 

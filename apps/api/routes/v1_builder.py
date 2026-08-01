@@ -1,21 +1,28 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from builder.blocks import list_blocks, list_categories, get_block
 from builder.compiler import compile_dsl
 from builder.io import from_json, to_dsl_text, validate_import
+from builder.logs import get_logs, record
 from builder.manager import builder_manager
 from builder.models import (
+    DeploymentConfig,
     GraphEdge,
     GraphNode,
     StrategySettings,
     StrategyStatus,
 )
+from builder.score import score_strategy
 from core.deps import get_current_user, require_feature
 from core.models import UserProfile
-from engine.graph_strategy_runner import start_graph_strategy, stop_graph_strategy
+from engine.graph_strategy_runner import (
+    get_runtime_dashboard,
+    start_graph_strategy,
+    stop_graph_strategy,
+)
 from engine.user_strategy_backtest import run_user_strategy_backtest
 
 logger = logging.getLogger(__name__)
@@ -188,12 +195,39 @@ async def validate_strategy(
         raise HTTPException(status_code=404, detail="Strategy not found")
 
     _, validation = compile_dsl(dsl)
+    await record(strategy_id, "validation",
+                 f"Validation: {'passed' if validation.valid else 'failed'} ({len(validation.issues)} issue(s))",
+                 level="info" if validation.valid else "warning",
+                 user_id=current_user.id,
+                 detail={"valid": validation.valid, "issues": [i.model_dump() for i in validation.issues]})
+    if validation.valid and dsl.status in (StrategyStatus.DRAFT, StrategyStatus.PUBLISHED):
+        await builder_manager.set_status(strategy_id, StrategyStatus.VALIDATED)
     return {
         "strategy_id": strategy_id,
         "valid": validation.valid,
         "issues": [i.model_dump() for i in validation.issues],
         "cycles": validation.cycles,
     }
+
+
+@router.post("/strategies/{strategy_id}/ready")
+async def mark_strategy_ready(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    dsl = await builder_manager.get(strategy_id)
+    if not dsl:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    if dsl.status not in (StrategyStatus.VALIDATED, StrategyStatus.DRAFT, StrategyStatus.PUBLISHED):
+        raise HTTPException(status_code=400, detail=f"Cannot mark {dsl.status} strategy as ready")
+
+    _, validation = compile_dsl(dsl)
+    if not validation.valid:
+        raise HTTPException(status_code=400, detail="Strategy must pass validation before it can be marked ready")
+
+    dsl = await builder_manager.set_status(strategy_id, StrategyStatus.READY)
+    await record(strategy_id, "lifecycle", "Strategy marked READY", level="info", user_id=current_user.id)
+    return {"status": "ready", "strategy_id": strategy_id}
 
 
 # ─── Preview ───
@@ -219,6 +253,7 @@ async def publish_strategy(
     dsl = await builder_manager.publish(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
+    await record(strategy_id, "lifecycle", "Strategy published (legacy flow)", level="info", user_id=current_user.id)
     return {"status": "published", "strategy_id": strategy_id}
 
 
@@ -230,29 +265,74 @@ class BacktestStrategyRequest(BaseModel):
 class StartGraphStrategyRequest(BaseModel):
     symbol: str = "NIFTY"
     interval: str = "15m"
+    mode: str = "paper"
 
 
-@router.post("/strategies/{strategy_id}/backtest")
-async def backtest_builder_strategy(
+class RiskDeployRequest(BaseModel):
+    max_position_size: float = 0.0
+    max_daily_loss: float = 0.0
+    risk_per_trade: float = 1.0
+    stop_loss_pct: float = 0.0
+    target_pct: float = 0.0
+
+
+class ScheduleDeployRequest(BaseModel):
+    trading_days: list[str] = []
+    start_time: str = "09:15"
+    end_time: str = "15:30"
+    timezone: str = "Asia/Kolkata"
+
+
+class DeployStrategyRequest(BaseModel):
+    symbol: str = "NIFTY"
+    interval: str = "15m"
+    mode: str = "paper"  # paper | live
+    broker: str = ""
+    capital: float = 0.0
+    risk: RiskDeployRequest = Field(default_factory=RiskDeployRequest)
+    schedule: ScheduleDeployRequest = Field(default_factory=ScheduleDeployRequest)
+
+
+@router.post("/strategies/{strategy_id}/deploy")
+async def deploy_builder_strategy(
     strategy_id: str,
-    req: BacktestStrategyRequest,
+    req: DeployStrategyRequest,
     current_user: UserProfile = Depends(get_current_user),
 ):
     dsl = await builder_manager.get(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
+    if dsl.status not in (StrategyStatus.READY, StrategyStatus.PUBLISHED, StrategyStatus.VALIDATED, StrategyStatus.DRAFT):
+        raise HTTPException(status_code=400, detail=f"Strategy is {dsl.status}; validate and mark ready before deploying")
 
-    from datetime import datetime, timedelta
-    to_date = req.to_date or datetime.now().strftime("%Y-%m-%d")
-    from_date = req.from_date or (datetime.strptime(to_date, "%Y-%m-%d") - timedelta(days=60)).strftime("%Y-%m-%d")
+    _, validation = compile_dsl(dsl)
+    if not validation.valid:
+        raise HTTPException(status_code=400, detail={"error": "Cannot deploy an invalid strategy", "issues": [i.model_dump() for i in validation.issues]})
 
-    result = await run_user_strategy_backtest(
-        strategy=dsl,
-        from_date=from_date,
-        to_date=to_date,
-        user_id=current_user.id,
+    if req.mode == "live" and not req.broker:
+        raise HTTPException(status_code=400, detail="Live deployment requires a broker")
+
+    deployment = DeploymentConfig(
+        mode=req.mode,
+        broker=req.broker or "paper",
+        capital=req.capital,
+        risk=req.risk.model_dump(),
+        schedule=req.schedule.model_dump(exclude_none=True),
     )
-    return result
+    await builder_manager.update(strategy_id, {"deployment": deployment.model_dump()})
+    await builder_manager.set_status(strategy_id, StrategyStatus.LIVE if req.mode == "live" else StrategyStatus.PAPER)
+    await record(strategy_id, "lifecycle",
+                 f"Deployed to {'LIVE' if req.mode == 'live' else 'PAPER'} (broker={req.broker or 'paper'}, capital={req.capital})",
+                 level="warning" if req.mode == "live" else "info", user_id=current_user.id)
+
+    result = await start_graph_strategy(
+        strategy_id=strategy_id,
+        user_id=current_user.id,
+        symbol=req.symbol.upper(),
+        interval=req.interval,
+        is_paper=req.mode != "live",
+    )
+    return {"status": result, "mode": req.mode, "broker": req.broker or "paper", "strategy_id": strategy_id}
 
 
 @router.post("/strategies/{strategy_id}/start")
@@ -264,15 +344,17 @@ async def start_builder_strategy(
     dsl = await builder_manager.get(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
-    if dsl.status != StrategyStatus.PUBLISHED:
-        raise HTTPException(status_code=400, detail="Strategy must be published first")
+    if dsl.status not in (StrategyStatus.PUBLISHED, StrategyStatus.READY, StrategyStatus.PAPER, StrategyStatus.LIVE, StrategyStatus.STOPPED, StrategyStatus.VALIDATED):
+        raise HTTPException(status_code=400, detail="Strategy must be validated and marked ready before starting")
 
     result = await start_graph_strategy(
         strategy_id=strategy_id,
         user_id=current_user.id,
         symbol=req.symbol.upper(),
         interval=req.interval,
+        is_paper=req.mode != "live",
     )
+    await builder_manager.set_status(strategy_id, StrategyStatus.LIVE if req.mode == "live" else StrategyStatus.PAPER)
     return {"status": result, "strategy_id": strategy_id}
 
 
@@ -281,7 +363,8 @@ async def stop_builder_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    await stop_graph_strategy(strategy_id)
+    await stop_graph_strategy(strategy_id, user_id=current_user.id)
+    await builder_manager.set_status(strategy_id, StrategyStatus.STOPPED)
     return {"status": "stopped", "strategy_id": strategy_id}
 
 
@@ -293,6 +376,7 @@ async def archive_strategy(
     dsl = await builder_manager.archive(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
+    await record(strategy_id, "lifecycle", "Strategy archived", level="info", user_id=current_user.id)
     return {"status": "archived", "strategy_id": strategy_id}
 
 
@@ -304,6 +388,7 @@ async def clone_strategy(
     dsl = await builder_manager.clone(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
+    await record(dsl.id, "lifecycle", f"Cloned from {strategy_id}", level="info", user_id=current_user.id)
     return dsl.model_dump(mode="json", exclude_none=True)
 
 
@@ -316,7 +401,50 @@ async def rollback_strategy(
     dsl = await builder_manager.rollback(strategy_id, version)
     if not dsl:
         raise HTTPException(status_code=404, detail="Version not found")
+    await record(strategy_id, "lifecycle", f"Restored to version v{version}", level="info", user_id=current_user.id)
     return dsl.model_dump(mode="json", exclude_none=True)
+
+
+@router.get("/strategies/{strategy_id}/score")
+async def get_strategy_score(
+    strategy_id: str,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    dsl = await builder_manager.get(strategy_id)
+    if not dsl:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    return {"strategy_id": strategy_id, "score": score_strategy(dsl).model_dump()}
+
+
+@router.get("/strategies/{strategy_id}/logs")
+async def get_strategy_logs(
+    strategy_id: str,
+    limit: int = Query(200, le=500),
+    current_user: UserProfile = Depends(get_current_user),
+):
+    logs = await get_logs(strategy_id, limit=limit)
+    return {"strategy_id": strategy_id, "logs": logs, "total": len(logs)}
+
+
+@router.get("/strategies/{strategy_id}/compare")
+async def compare_strategy_versions(
+    strategy_id: str,
+    from_version: int = Query(1),
+    to_version: int = Query(2),
+    current_user: UserProfile = Depends(get_current_user),
+):
+    result = await builder_manager.compare(strategy_id, from_version, to_version)
+    if not result:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return result
+
+
+@router.get("/dashboard")
+async def builder_dashboard(
+    current_user: UserProfile = Depends(get_current_user),
+):
+    running = await get_runtime_dashboard()
+    return {"running": running, "total_running": sum(1 for r in running if r.get("status") == "running")}
 
 
 @router.get("/strategies/{strategy_id}/versions")

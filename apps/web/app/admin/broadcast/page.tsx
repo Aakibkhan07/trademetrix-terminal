@@ -161,7 +161,7 @@ function BroadcastDashboard() {
       <div className="panel" style={{ padding: 16, marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
           <div style={{ flex: '0 0 200px' }}>
-            <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Strategy</label>
+            <label style={{ color: 'var(--text-faint)', fontSize: 10, display: 'block', marginBottom: 2 }}>Strategy</label>
             <select className="select" value={strategyKey} onChange={e => { setStrategyKey(e.target.value); setPreviewKey(''); setSendResult(null) }} style={{ fontSize: 12, padding: '4px 8px' }}>
               <option value="">Select strategy...</option>
               {catalog.map(s => (
@@ -171,38 +171,38 @@ function BroadcastDashboard() {
           </div>
 
           <div>
-            <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Symbol</label>
+            <label style={{ color: 'var(--text-faint)', fontSize: 10, display: 'block', marginBottom: 2 }}>Symbol</label>
             <input className="input" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} style={{ width: 100, fontSize: 12, padding: '4px 8px' }} />
           </div>
 
           <div>
-            <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Action</label>
+            <label style={{ color: 'var(--text-faint)', fontSize: 10, display: 'block', marginBottom: 2 }}>Action</label>
             <select className="select" value={action} onChange={e => setAction(e.target.value)} style={{ width: 80, fontSize: 12, padding: '4px 8px' }}>
               {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
 
           <div>
-            <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Qty</label>
+            <label style={{ color: 'var(--text-faint)', fontSize: 10, display: 'block', marginBottom: 2 }}>Qty</label>
             <input className="input" type="number" min={1} value={quantity} onChange={e => setQuantity(Number(e.target.value))} style={{ width: 80, fontSize: 12, padding: '4px 8px' }} />
           </div>
 
           <div>
-            <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Exchange</label>
+            <label style={{ color: 'var(--text-faint)', fontSize: 10, display: 'block', marginBottom: 2 }}>Exchange</label>
             <select className="select" value={exchange} onChange={e => setExchange(e.target.value)} style={{ width: 80, fontSize: 12, padding: '4px 8px' }}>
               {EXCHANGES.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
           </div>
 
           <div>
-            <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Type</label>
+            <label style={{ color: 'var(--text-faint)', fontSize: 10, display: 'block', marginBottom: 2 }}>Type</label>
             <select className="select" value={orderType} onChange={e => { setOrderType(e.target.value); if (e.target.value === 'MARKET') setPrice(0) }} style={{ width: 80, fontSize: 12, padding: '4px 8px' }}>
               {ORDER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 
           <div>
-            <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Product</label>
+            <label style={{ color: 'var(--text-faint)', fontSize: 10, display: 'block', marginBottom: 2 }}>Product</label>
             <select className="select" value={product} onChange={e => setProduct(e.target.value)} style={{ width: 90, fontSize: 12, padding: '4px 8px' }}>
               {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -210,14 +210,14 @@ function BroadcastDashboard() {
 
           {orderType === 'LIMIT' && (
             <div>
-              <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Price</label>
+              <label style={{ color: 'var(--text-faint)', fontSize: 10, display: 'block', marginBottom: 2 }}>Price</label>
               <input className="input" type="number" min={0} step={0.05} value={price} onChange={e => setPrice(Number(e.target.value))} style={{ width: 90, fontSize: 12, padding: '4px 8px' }} />
             </div>
           )}
         </div>
 
         <div style={{ marginBottom: 12 }}>
-          <label style={{ color: '#555570', fontSize: 10, display: 'block', marginBottom: 2 }}>Reason (optional)</label>
+          <label style={{ color: 'var(--text-faint)', fontSize: 10, display: 'block', marginBottom: 2 }}>Reason (optional)</label>
           <input className="input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Admin broadcast test" style={{ fontSize: 12, padding: '4px 8px' }} />
         </div>
 
@@ -231,7 +231,7 @@ function BroadcastDashboard() {
             Preview Recipients
           </button>
 
-          <span style={{ fontSize: 10, color: '#555570' }}>
+          <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>
             {recipients.length} user{recipients.length !== 1 ? 's' : ''} will receive this signal
           </span>
 
@@ -265,11 +265,11 @@ function BroadcastDashboard() {
             </div>
             {rejected.length > 0 && (
               <div style={{ marginTop: 8 }}>
-                <p style={{ fontSize: 11, color: '#ef4444', fontWeight: 500, margin: '0 0 4px' }}>Rejections:</p>
+                <p style={{ fontSize: 11, color: 'var(--red)', fontWeight: 500, margin: '0 0 4px' }}>Rejections:</p>
                 {rejected.map(r => (
                   <div key={r.user_id} className="glass-card" style={{ padding: '6px 10px', marginBottom: 4, fontSize: 11 }}>
                     <span style={{ color: '#f0f0f5', fontWeight: 600 }}>{r.email}</span>
-                    <span style={{ color: '#555570', marginLeft: 8 }}>{r.message}</span>
+                    <span style={{ color: 'var(--text-faint)', marginLeft: 8 }}>{r.message}</span>
                   </div>
                 ))}
               </div>
@@ -283,7 +283,7 @@ function BroadcastDashboard() {
             marginTop: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
             borderRadius: 8, padding: '12px',
           }}>
-            <p style={{ margin: '0 0 8px', fontSize: 12, color: '#ef4444', fontWeight: 600 }}>
+            <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
               Confirm LIVE Broadcast
             </p>
             <p style={{ margin: '0 0 10px', fontSize: 11, color: '#aaaac0' }}>
@@ -322,7 +322,7 @@ function BroadcastDashboard() {
         <div className="panel" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
           <div className="panel-header" style={{ padding: '12px 16px', margin: 0 }}>
             <h3 className="panel-title" style={{ fontSize: 13 }}>Recipients Preview</h3>
-            <span style={{ fontSize: 11, color: '#555570' }}>{recipients.length} user{recipients.length !== 1 ? 's' : ''}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{recipients.length} user{recipients.length !== 1 ? 's' : ''}</span>
           </div>
           <table className="data-table" style={{ fontSize: 12 }}>
             <thead>
@@ -345,7 +345,7 @@ function BroadcastDashboard() {
 
       {!recipLoading && previewKey && recipients.length === 0 && (
         <div className="panel" style={{ padding: 16, marginBottom: 20, textAlign: 'center' }}>
-          <p style={{ fontSize: 12, color: '#555570', margin: 0 }}>
+          <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: 0 }}>
             No recipients for this strategy. Users must have this strategy assigned with mirror enabled.
           </p>
         </div>
@@ -366,13 +366,13 @@ function BroadcastDashboard() {
                   <span style={{ fontWeight: 600, color: '#f0f0f5' }}>
                     {b.count} users
                   </span>
-                  <span style={{ color: b.paper ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
+                  <span style={{ color: b.paper ? '#22c55e' : 'var(--red)', fontWeight: 600 }}>
                     {b.paper ? 'PAPER' : 'LIVE'}
                   </span>
                 </div>
                 <div style={{ marginTop: 4 }}>
                   <span style={{ color: '#22c55e' }}>{p} placed</span>
-                  {rj > 0 && <span style={{ color: '#ef4444', marginLeft: 8 }}>{rj} rejected</span>}
+                  {rj > 0 && <span style={{ color: 'var(--red)', marginLeft: 8 }}>{rj} rejected</span>}
                 </div>
               </div>
             )

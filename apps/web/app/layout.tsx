@@ -5,6 +5,7 @@ import { Providers } from './providers'
 import AppLayout from '@/components/app-layout'
 import ClarityScript from '@/components/clarity'
 import FeedbackButtonWrapper from '@/components/feedback-wrapper'
+import QuickOrderDrawer from '@/components/quick-order-drawer'
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <AppLayout>{children}</AppLayout>
           <FeedbackButtonWrapper />
+          <QuickOrderDrawer />
         </Providers>
       </body>
     </html>

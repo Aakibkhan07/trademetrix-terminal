@@ -334,9 +334,10 @@ class MaxOrdersPerMinuteRule(RiskRule):
 
 class DuplicateOrderRule(RiskRule):
     rule_type = RiskRuleType.DUPLICATE_ORDER
+    DEDUP_WINDOW_SECONDS = 60.0
 
     def __init__(self):
-        self._recent_orders: dict[str, set[str]] = defaultdict(set)
+        self._recent_orders: dict[str, dict[str, float]] = defaultdict(dict)
         self._locks: dict[str, asyncio.Lock] = {}
         self._locks_lock = asyncio.Lock()
 
@@ -352,17 +353,23 @@ class DuplicateOrderRule(RiskRule):
             return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
         lock = await self._get_lock(req.user_id)
         async with lock:
+            recent = self._recent_orders[req.user_id]
+            now = time.time()
+            cutoff = now - self.DEDUP_WINDOW_SECONDS
+            for key in [k for k, ts in recent.items() if ts < cutoff]:
+                del recent[key]
             dedup_key = f"{req.user_id}:{req.broker}:{req.symbol}:{req.side}:{req.quantity}:{req.order_type}:{req.price}"
-            if dedup_key in self._recent_orders[req.user_id]:
+            if dedup_key in recent:
                 return RiskRuleResult(
                     rule=self.rule_type, decision=RiskDecision.REJECTED,
                     reason="Duplicate order detected (same user/broker/symbol/side/quantity/type/price).",
                     details={"dedup_key": dedup_key},
                     latency_ms=(time.monotonic() - start) * 1000,
                 )
-            self._recent_orders[req.user_id].add(dedup_key)
-            if len(self._recent_orders[req.user_id]) > 100:
-                self._recent_orders[req.user_id] = set(list(self._recent_orders[req.user_id])[50:])
+            recent[dedup_key] = now
+            if len(recent) > 100:
+                for key in list(recent.keys())[:50]:
+                    del recent[key]
         return RiskRuleResult(rule=self.rule_type, latency_ms=(time.monotonic() - start) * 1000)
 
 

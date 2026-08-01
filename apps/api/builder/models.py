@@ -44,7 +44,12 @@ class DataType(StrEnum):
 
 class StrategyStatus(StrEnum):
     DRAFT = "draft"
-    PUBLISHED = "published"
+    VALIDATED = "validated"
+    READY = "ready"
+    PUBLISHED = "published"  # legacy alias for READY (backward compat)
+    PAPER = "paper"
+    LIVE = "live"
+    STOPPED = "stopped"
     ARCHIVED = "archived"
 
 
@@ -116,6 +121,51 @@ class StrategySettings(BaseModel):
     require_confirmation: bool = False
 
 
+class RiskConfig(BaseModel):
+    max_position_size: float = 0.0
+    max_daily_loss: float = 0.0
+    risk_per_trade: float = 1.0
+    stop_loss_pct: float = 0.0
+    target_pct: float = 0.0
+
+
+class ScheduleConfig(BaseModel):
+    trading_days: list[str] = Field(default_factory=lambda: ["MON", "TUE", "WED", "THU", "FRI"])
+    start_time: str = "09:15"
+    end_time: str = "15:30"
+    timezone: str = "Asia/Kolkata"
+
+
+class DeploymentConfig(BaseModel):
+    mode: str = "paper"  # paper | live
+    broker: str = ""     # paper | fyers | angelone | ...
+    capital: float = 0.0
+    risk: RiskConfig = Field(default_factory=RiskConfig)
+    schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
+
+
+class StrategyScore(BaseModel):
+    overall: float = 0.0
+    quality: float = 0.0
+    risk: float = 0.0        # higher = riskier
+    complexity: float = 0.0  # higher = more complex
+    readability: float = 0.0
+    readiness: float = 0.0
+    grade: str = "F"
+    breakdown: list[dict] = Field(default_factory=list)
+
+
+class StrategyLogEntry(BaseModel):
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
+    strategy_id: str = ""
+    user_id: str = ""
+    ts: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+    kind: str = "info"      # lifecycle | decision | signal | order | rejection | exit | error | validation
+    level: str = "info"     # info | warning | error
+    message: str = ""
+    detail: dict = Field(default_factory=dict)
+
+
 class StrategyDSL(BaseModel):
     version: str = "1.0"
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
@@ -131,6 +181,7 @@ class StrategyDSL(BaseModel):
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     parent_id: str = ""
     version_number: int = 1
+    deployment: DeploymentConfig = Field(default_factory=DeploymentConfig)
 
 
 class ExecutionNode(BaseModel):

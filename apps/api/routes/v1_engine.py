@@ -31,6 +31,8 @@ class ExecuteSignalRequest(BaseModel):
     strike_price: float | None = None
     expiry_date: str | None = None
     option_type: str | None = None
+    is_paper: bool = False
+    source: str = "manual"
 
 
 class OrderNoteRequest(BaseModel):

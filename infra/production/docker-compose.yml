@@ -30,6 +30,18 @@ services:
     command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--protected-mode", "no"]
     logging: *default-logging
 
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: trademetrix_redis_exporter
+    restart: unless-stopped
+    networks:
+      - trademetrix
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    mem_limit: 64m
+    cpus: 0.1
+    logging: *default-logging
+
   api:
     build:
       context: ../../apps/api
@@ -56,6 +68,10 @@ services:
       start_period: 20s
     mem_limit: 768m
     cpus: 2.0
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     ports:
       - "127.0.0.1:8000:8000"
     security_opt:
@@ -97,6 +113,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      CADDY_ADMIN: "0.0.0.0:2019"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy-data:/data
@@ -228,6 +246,7 @@ networks:
     enable_ipv6: true
     ipam:
       config:
+        - subnet: "172.16.4.0/24"
         - subnet: "fd00:dead:beef::/48"
 
 volumes:

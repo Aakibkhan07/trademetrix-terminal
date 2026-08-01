@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { api, BrokerMeta, BrokerFieldMeta } from '@/lib/api'
+import { getAppVersion } from '@/components/app-version'
 import { BrokerLogo } from '@/components/broker-logos'
 import { useMarketData } from '@/lib/use-market-data'
 
@@ -141,7 +142,7 @@ const DrawdownChart = memo(function DrawdownChart({ points }: { points: number[]
       ))}
       <path d={`${fill}L${x(dd.length - 1)},${pad.top + ch}L${x(0)},${pad.top + ch}Z`}
         fill="color-mix(in srgb, var(--red) 8%, transparent)" />
-      <path d={fill} fill="none" stroke="#ef4444" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={fill} fill="none" stroke="var(--red)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 })
@@ -933,7 +934,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
         borderTop: '1px solid var(--border)', fontSize: 9, color: 'var(--text-faint)',
         fontFamily: 'var(--font-mono)',
       }}>
-        TradeMetrix Terminal v0.1 &middot; Client Portal &middot; Data refreshes every 15s
+        TradeMetrix Terminal v{getAppVersion()} &middot; Client Portal &middot; Data refreshes every 15s
       </footer>
     </div>
   )

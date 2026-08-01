@@ -58,10 +58,9 @@ def format_fyers_option_symbol(symbol: str, strike: float, option_type: str, exp
     if expiry_date is None:
         expiry_date = get_weekly_expiry(symbol)
     dd = f"{expiry_date.day:02d}"
-    yy = str(expiry_date.year)[-2:]
     month_code = MONTH_CODES[expiry_date.month]
     strike_int = int(strike)
-    return f"NSE:{symbol.upper()}{dd}{month_code}{yy}{strike_int}{option_type.upper()}"
+    return f"NSE:{symbol.upper()}{dd}{month_code}{strike_int}{option_type.upper()}"
 
 
 def format_fyers_future_symbol(symbol: str, expiry_date: date | None = None) -> str:
@@ -69,4 +68,4 @@ def format_fyers_future_symbol(symbol: str, expiry_date: date | None = None) -> 
         expiry_date = get_weekly_expiry(symbol)
     yy = str(expiry_date.year)[-2:]
     month_code = MONTH_CODES[expiry_date.month]
-    return f"NSE:{symbol.upper()}{yy}{month_code}"
+    return f"NSE:{symbol.upper()}{yy}{month_code}FUT"

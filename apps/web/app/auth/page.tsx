@@ -80,7 +80,7 @@ export default function AuthPage() {
         if (me?.is_admin) {
           router.push('/dashboard')
         } else {
-          router.push('/portal')
+          router.push('/portfolio')
         }
       }
     } catch (err: unknown) {

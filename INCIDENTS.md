@@ -52,11 +52,98 @@
 **Files Changed:** `apps/api/engine/user_strategy_runner.py`  
 **Verification:** No TypeError in logs. 98/98 PAT pass.
 
-## INC-006: Missing Admin API Routes — /admin/stats and /admin/users (2026-07-28)
+## INC-006: Missing Admin API Routes (2026-07-28)
 
 **Severity:** Medium  
 **Status:** Resolved  
-**Root Cause:** `AdminService` has fully implemented methods (`get_stats()`, `list_users()`, and many others), but the corresponding HTTP routes were never registered in `v1_admin.py`. The frontend admin UI calls these endpoints → 404.  
-**Fix:** Registered `GET /admin/stats` and `GET /admin/users` routes.  
+**Root Cause:** `v1_admin.py` only registered 7 routes (backups + kill-switch) while `AdminService` implements ~40 methods and the frontend admin UI calls ~30 endpoints. All missing routes returned 404.  
+**Fix:** Registered all missing admin routes: users CRUD, assignments CRUD + batch/export/import, brokers list + Fyers validate/re-auth, orders, positions, audit-log, risk, active-brokers, admins CRUD, broadcast recipients/send/notify, catalog strategies CRUD, execute-trade.  
 **Files Changed:** `apps/api/routes/v1_admin.py`, `apps/api/tests/test_admin_service.py`  
-**Verification:** 404 replaced with proper 401 (unauthenticated) or data response. 40+ tests pass.
+**Verification:** All 30+ admin endpoints now return 401/403 (properly protected) instead of 404. 42 route tests pass, 475 total tests pass.
+
+## INC-007: Market Watchlist Missing Component (2026-07-28)
+
+**Severity:** Medium  
+**Status:** Open  
+**Root Cause:** `/watchlist` route not registered in Next.js app router. The sidebar links to `/watchlist` but navigating there returns 404 in the client-side router.  
+**Fix Needed:** Register watchlist page in the Next.js app router at `apps/web/app/watchlist/page.tsx` or add as a dashboard tab.  
+**Verification:** Pending fix.
+
+## INC-008: Universal Search Shows No Results (2026-07-28)
+
+**Severity:** Medium  
+**Status:** Resolved  
+**Root Cause:** Two layers:
+1. The `app-layout.tsx` command palette had `searchQuery` state and an empty results div but **never fetched from the API** — no `useEffect` or fetch logic existed.
+2. The backend F&O symbol cache (`_fo_cache`) was always empty because `start_auto_sync()` was never called during app startup, and the NSE F&O API endpoint returns 404, so the scheduled sync always yielded 0 symbols.  
+**Fix:**
+- **Frontend** (`apps/web/components/app-layout.tsx`): Imported `{ api }` from `@/lib/api`, added `searchResults`/`searchLoading` state, added debounced 300ms `useEffect` that calls `api.get('/market/instruments?query=...')`, renders results as clickable `<Link>` items to `/terminal?symbol=...`, shows "No matching symbols found" empty state.
+- **Backend** (`apps/api/main.py`): Added `symbol_master.start_auto_sync()` call in the lifespan startup handler.
+- **Backend** (`apps/api/market/symbol_master.py`): Reordered `_auto_sync_loop` to sync immediately on startup instead of waiting until 2:30 AM UTC. Added `_seed_common_symbols()` with 68 hardcoded NSE F&O symbols as fallback when NSE API is blocked.  
+**Verification:** Search API returns real results. Playwright test confirms ⌘K opens palette, typing "NIFTY" shows 4 matching symbols, clicking navigates to `/terminal?symbol=NIFTY`.
+
+## INC-011: Backtest "Failed to fetch" — CORS + CSRF Race (2026-07-28)
+
+**Severity:** Critical  
+**Status:** Resolved  
+**Root Cause:** Two layers:
+1. **CORS middleware ordering** (`main.py`): `CORSMiddleware` was registered BEFORE `CSRFProtectMiddleware`. Since middlewares are nested innermost-first, the CSRF middleware was the OUTERMOST wrapper. When CSRF validation failed, it returned a 403 response directly without calling inner middlewares, so `CORSMiddleware` (being inner) never got to add CORS headers. The browser saw a CORS error (`net::ERR_FAILED`) and reported "Failed to fetch" instead of the actual 403.
+2. **CSRF cookie stale on page refresh** (`middleware/csrf.py`): The `/auth/csrf` route handler generates a NEW random token on every call, while the CSRF middleware only set the cookie when no cookie existed (`if not existing_token`). On page refresh, the client stores the new token from the response body, but the browser sends the OLD cookie — mismatch → 403.
+
+**Fix:**
+- **CORS ordering** (`apps/api/main.py`): Moved `CORSMiddleware` registration to LAST (outermost), so CORS headers are added to ALL responses including CSRF 403 errors.
+- **CSRF cookie refresh** (`apps/api/middleware/csrf.py`): Changed cookie logic to ALWAYS set the cookie when `request.state.csrf_token` is provided by the route handler, ensuring the cookie matches the returned token on every request.  
+**Verification:** Full regression (13 checks): login, search, backtest, strategies, settings, terminal, 5 admin tabs — all pass. Backtest API returns 200 with no CORS or CSRF errors. Replayed through Playwright headless browser — request flow now shows RESP: 200.  
+**Files Changed:** `apps/api/main.py`, `apps/api/middleware/csrf.py`
+
+## INC-009: Backend /backtest Fails with "Invalid price" (2026-07-28)
+
+**Severity:** Medium  
+**Status:** Open  
+**Root Cause:** The backtest endpoint requires a price field on the order payload that the frontend doesn't send when using MARKET orders. Backend validation rejects with "Invalid price" even though market orders don't need a price.  
+**Fix Needed:** Make price validation conditional on order type, or default price to 0 for market orders.  
+**Verification:** Pending fix.
+
+## INC-013: Production CSRF Middleware Never Deployed (2026-07-29)
+
+**Severity:** High  
+**Status:** Resolved  
+**Root Cause:** The CSRF middleware fix from INC-001/INC-011 was applied to the local source tree but NEVER deployed to production. The production container still ran the OLD code:
+```python
+existing_token = request.cookies.get(CSRF_COOKIE_NAME)
+if not existing_token:  # Only sets cookie on FIRST request
+```
+This meant the `set-cookie` header was only emitted on the very first GET /auth/csrf. Subsequent calls returned a new token in the response body but never updated the cookie. The X-CSRF-Token header was also absent on responses 2+.  
+**Fix:** Deployed the local `middleware/csrf.py` to `trademetrix_api:/app/middleware/csrf.py` via hot-deploy + container restart. The fixed code prioritizes `request.state.csrf_token` (set by route handler on every call) over the cookie-exists check, ensuring the cookie is updated on EVERY response.  
+**Files Changed:** `apps/api/middleware/csrf.py` (deployed to production container `trademetrix_api`)  
+**Verification:** 5/5 sequential GET /auth/csrf calls now return `set-cookie` and `x-csrf-token` headers with matching tokens. CSRF 403 enforcement still works (invalid token → 403, valid → passes).
+
+## INC-014: Fyers Order HTTP 403 — Wrong endpoint `/orders` vs `/orders/sync` (2026-07-29)
+
+**Severity:** Critical  
+**Status:** Resolved  
+**Root Cause:** The Fyers adapter used `POST https://api-t1.fyers.in/api/v3/orders` to place orders. This endpoint is protected by a strict Cloudflare WAF rule that blocks POST requests from datacenter/VPS IP ranges, returning HTML "Attention Required! | Cloudflare" instead of Fyers JSON. The correct Fyers v3 order placement endpoint is `POST https://api-t1.fyers.in/api/v3/orders/sync` (as documented by the official `fyers_apiv3` SDK at `Config.orders_endpoint = "/orders/sync"`), which has no Cloudflare WAF restrictions.
+
+**Evidence:**
+- `GET https://api-t1.fyers.in/api/v3/orders` → Fyers JSON ✅ (Cloudflare allows GET)
+- `POST https://api-t1.fyers.in/api/v3/orders` → Cloudflare HTML 403 ❌
+- `POST https://api-t1.fyers.in/api/v3/orders/sync` → Fyers JSON ✅
+- `POST https://api.fyers.in/api/v3/orders` → Fyers JSON ✅ (different host, no block but also doesn't process orders — returns generic error)
+
+**Fix:** Changed `fyers_adapter.py:257` from `f"{self._v3_url}/orders"` to `f"{self._v3_url}/orders/sync"`. Deployed via hot-deploy + container restart.  
+
+**Verification:** 
+- Container test with dummy credentials: POST to `/orders/sync` returns `{"s":"error","code":-16,"message":"Could not authenticate the user"}` — proper Fyers JSON, no Cloudflare block.
+- `api.fyers.in/api/v3/orders` POST,
+- `api.fyers.in/api/v2/orders` POST both work as fallbacks (return JSON, not HTML).
+- The official `fyers_apiv3==3.1.14` SDK's `Config.orders_endpoint = "/orders/sync"` is the authoritative source for the correct endpoint.
+
+**Files Changed:** `apps/api/brokers/fyers_adapter.py` line 257
+
+## INC-010: OpenAPI Schema Duplicate Content-Type (2026-07-28)
+
+**Severity:** Low  
+**Status:** Open  
+**Root Cause:** FastAPI auto-generates OpenAPI schema with "Content-Type: application/json" listed multiple times, causing Swagger UI and structured client generation to skip rendered endpoints.  
+**Fix Needed:** Deduplicate content types in OpenAPI schema generation or add a custom OpenAPI processor.  
+**Verification:** Pending fix.

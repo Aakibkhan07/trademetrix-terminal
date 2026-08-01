@@ -623,6 +623,7 @@ _reg("signal.confirmation", "Multi-Confirmation", BlockCategory.SIGNAL,
 
 _reg("order.buy", "BUY Signal", BlockCategory.ORDER,
     "Generate a BUY order signal",
+    inputs=[_i("condition", "Trigger Condition", type=DataType.SIGNAL, required=False)],
     params=[_p("quantity", "Quantity", type="number", default=0, min=0),
             _p("order_type", "Order Type", type="select", default="MARKET", options=["MARKET", "LIMIT"]),
             _p("product", "Product", type="select", default="INTRADAY", options=["INTRADAY", "MIS", "NRML"]),
@@ -631,6 +632,7 @@ _reg("order.buy", "BUY Signal", BlockCategory.ORDER,
 
 _reg("order.sell", "SELL Signal", BlockCategory.ORDER,
     "Generate a SELL order signal",
+    inputs=[_i("condition", "Trigger Condition", type=DataType.SIGNAL, required=False)],
     params=[_p("quantity", "Quantity", type="number", default=0, min=0),
             _p("order_type", "Order Type", type="select", default="MARKET", options=["MARKET", "LIMIT"]),
             _p("product", "Product", type="select", default="INTRADAY", options=["INTRADAY", "MIS", "NRML"]),
@@ -639,11 +641,13 @@ _reg("order.sell", "SELL Signal", BlockCategory.ORDER,
 
 _reg("order.exit", "EXIT Signal", BlockCategory.ORDER,
     "Exit current position",
+    inputs=[_i("condition", "Trigger Condition", type=DataType.SIGNAL, required=False)],
     params=[_p("reason", "Reason", type="string", default="Exit signal")],
     outputs=[_o("signal", DataType.SIGNAL)])
 
 _reg("order.reverse", "REVERSE Signal", BlockCategory.ORDER,
     "Reverse current position",
+    inputs=[_i("condition", "Trigger Condition", type=DataType.SIGNAL, required=False)],
     params=[_p("reason", "Reason", type="string", default="Reversal signal")],
     outputs=[_o("signal", DataType.SIGNAL)])
 

@@ -73,7 +73,11 @@ class TokenManager:
                 if not access_token:
                     raise ValueError("Empty access token returned by broker")
 
-                self._session = {"access_token": access_token, "expires_at": expires_at}
+                self._session = {
+                    "access_token": access_token,
+                    "expires_at": expires_at,
+                    "client_id": creds.get("client_id", ""),
+                }
                 self._session_create_time = time.monotonic()
                 await self.save_access_token(access_token, expires_at)
                 logger.info("Token refreshed for %s (attempt %d)", self._lock_key, attempt + 1)

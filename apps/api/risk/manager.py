@@ -75,14 +75,15 @@ class RiskManager:
         await kill_switch.recover()
         logger.info("RiskManager initialized with %d rules", len(RISK_RULES))
 
-    async def evaluate(self, req: ExecutionRequest) -> RiskEvalResult:
+    async def evaluate(self, req: ExecutionRequest, dry_run: bool = False) -> RiskEvalResult:
         start = time.monotonic()
         config = await self._load_config(req.user_id)
         results: list[RiskRuleResult] = []
         final_decision = RiskDecision.APPROVED
         warnings: list[str] = []
 
-        for rule in RISK_RULES:
+        rules = [type(r)() for r in RISK_RULES] if dry_run else RISK_RULES
+        for rule in rules:
             try:
                 result = await rule.evaluate(req, config)
                 results.append(result)

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections import OrderedDict
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 
@@ -16,7 +16,7 @@ class SymbolMaster:
         self._fo_cache: OrderedDict = OrderedDict()
         self._fo_sync_task: asyncio.Task | None = None
         self._cache_max = 10000
-        self._fo_cache_max = 5000
+        self._fo_cache_max = 120000
         self._batch_size = 200
 
     def _cache_put(self, key: str, value: dict) -> None:
@@ -51,12 +51,12 @@ class SymbolMaster:
         for i in range(0, len(rows), self._batch_size):
             batch = rows[i:i + self._batch_size]
             try:
-                await async_supabase(lambda b=batch: supabase.table("symbol_master").upsert(b, on_conflict=["broker", "token"]).execute())
+                await async_supabase(lambda b=batch: supabase.table("symbol_master").upsert(b).execute())
                 count += len(batch)
             except Exception:
                 for row in batch:
                     try:
-                        await async_supabase(lambda r=row: supabase.table("symbol_master").upsert(r, on_conflict=["broker", "token"]).execute())
+                        await async_supabase(lambda r=row: supabase.table("symbol_master").upsert(r).execute())
                         count += 1
                     except Exception as e:
                         logger.warning("Failed to upsert symbol row: %s", e)
@@ -107,30 +107,37 @@ class SymbolMaster:
         return 0
 
     async def _sync_fyers_instruments(self) -> int:
-        url = "https://public.fyers.in/symboldumps/NSE_CM.txt"
+        url = "https://public.fyers.in/sym_details/NSE_CM.csv"
         rows = []
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream("GET", url) as resp:
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.get(url)
                 if resp.status_code != 200:
                     return 0
-                async for line in resp.aiter_lines():
-                    if not line or line.startswith("SYMBOL"):
+                for line in resp.text.splitlines():
+                    if not line.strip():
                         continue
                     parts = line.split(",")
-                    if len(parts) < 7:
+                    if len(parts) < 15:
+                        continue
+                    fyers_symbol = parts[9].strip()
+                    if not fyers_symbol:
                         continue
                     rows.append({
-                        "symbol": parts[1].strip(),
+                        "symbol": parts[13].strip(),
                         "exchange": "NSE",
                         "broker": "fyers",
-                        "broker_symbol": parts[1].strip(),
+                        "broker_symbol": parts[13].strip(),
                         "token": parts[0].strip(),
-                        "instrument_type": parts[4].strip(),
-                        "lot_size": int(parts[5]) if parts[5].isdigit() else 1,
-                        "tick_size": float(parts[6]) if parts[6].replace(".", "", 1).isdigit() else 0.05,
+                        "instrument_type": "EQ",
+                        "lot_size": int(parts[3]) if parts[3].isdigit() else 1,
+                        "tick_size": float(parts[4]) if parts[4].replace(".", "", 1).lstrip("-").isdigit() else 0.05,
                         "segment": "EQ",
                         "last_updated": date.today().isoformat(),
                     })
+        except Exception as e:
+            logger.warning("Fyers instrument sync failed: %s", e)
+            return 0
         return await self._batch_upsert(rows)
 
     async def _sync_dhan_instruments(self) -> int:
@@ -179,15 +186,15 @@ class SymbolMaster:
     async def _auto_sync_loop(self) -> None:
         while True:
             try:
+                count = await self.sync_fo_symbols()
+                logger.info("Auto-synced %d F&O symbols", count)
                 now = datetime.now(UTC)
                 target = now.replace(hour=2, minute=30, second=0, microsecond=0)
                 if now > target:
-                    target = target.replace(day=target.day + 1)
+                    target = target + timedelta(days=1)
                 delay = (target - now).total_seconds()
                 if delay > 0:
                     await asyncio.sleep(delay)
-                count = await self.sync_fo_symbols()
-                logger.info("Auto-synced %d F&O symbols", count)
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -195,7 +202,9 @@ class SymbolMaster:
                 await asyncio.sleep(3600)
 
     async def sync_fo_symbols(self) -> int:
-        rows = []
+        count = await self._sync_fyers_fo()
+        if count > 0:
+            return count
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(
@@ -205,6 +214,7 @@ class SymbolMaster:
                 if resp.status_code != 200:
                     return 0
                 data = resp.json()
+                rows = []
                 for item in data:
                     symbol = item.get("symbol", "")
                     if not symbol:
@@ -222,23 +232,156 @@ class SymbolMaster:
                         "segment": "FO",
                         "last_updated": date.today().isoformat(),
                     })
-                    self._fo_cache_put(token, {
-                        "symbol": symbol,
-                        "exchange": "NFO",
-                        "instrument_type": "OPT",
-                    })
                     self._fo_cache_put(symbol, {
                         "symbol": symbol,
+                        "name": symbol,
                         "exchange": "NFO",
-                        "instrument_type": "FUT",
+                        "instrument_type": "future",
                         "lot_size": item.get("lotSize", 1),
                     })
+                count = await self._batch_upsert(rows)
+                logger.info("Synced %d F&O symbols from NSE", count)
+                return count
         except Exception as e:
-            logger.warning("F&O sync failed: %s", e)
+            logger.warning("NSE F&O sync failed: %s", e)
             return 0
-        count = await self._batch_upsert(rows)
-        logger.info("Synced %d F&O symbols from NSE", count)
-        return count
+
+    async def _sync_fyers_fo(self) -> int:
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                fo_resp = await client.get("https://public.fyers.in/sym_details/NSE_FO.csv")
+                cm_resp = await client.get("https://public.fyers.in/sym_details/NSE_CM.csv")
+        except Exception as e:
+            logger.warning("Fyers CSV download failed: %s", e)
+            return 0
+
+        if fo_resp.status_code != 200 or cm_resp.status_code != 200:
+            return 0
+
+        fo_lines = fo_resp.text.splitlines()
+        cm_lines = cm_resp.text.splitlines()
+
+        futures_map: dict[str, dict] = {}
+        db_rows: list[dict] = []
+
+        for line in fo_lines:
+            if not line.strip():
+                continue
+            parts = line.split(",")
+            if len(parts) < 21:
+                continue
+            fyers_symbol = parts[9].strip()
+            if not fyers_symbol or not fyers_symbol.startswith("NSE:"):
+                continue
+            underlying = parts[13].strip()
+            if not underlying:
+                continue
+            type_code = parts[2].strip()
+            lot_size = int(parts[3]) if parts[3].isdigit() else 1
+            tick_size = float(parts[4]) if parts[4].replace(".", "", 1).lstrip("-").isdigit() else 0.05
+
+            if type_code == "11" and underlying not in futures_map:
+                futures_map[underlying] = {
+                    "symbol": underlying, "name": underlying,
+                    "exchange": "NFO", "instrument_type": "future",
+                    "lot_size": lot_size, "tick_size": tick_size,
+                }
+                db_rows.append({
+                    "symbol": underlying,
+                    "exchange": "NFO",
+                    "broker": "fyers",
+                    "broker_symbol": fyers_symbol,
+                    "token": parts[0].strip(),
+                    "instrument_type": "FUT",
+                    "lot_size": lot_size,
+                    "tick_size": tick_size,
+                    "segment": "FO",
+                    "last_updated": date.today().isoformat(),
+                })
+
+        for line in fo_lines:
+            if not line.strip():
+                continue
+            parts = line.split(",")
+            if len(parts) < 21:
+                continue
+            fyers_symbol = parts[9].strip()
+            if not fyers_symbol or not fyers_symbol.startswith("NSE:"):
+                continue
+            type_code = parts[2].strip()
+            if type_code not in ("14", "15"):
+                continue
+            underlying = parts[13].strip()
+            opt_type = parts[16].strip() if len(parts) > 16 else ""
+            if opt_type not in ("CE", "PE"):
+                continue
+            strike = parts[15].strip() if len(parts) > 15 else ""
+            if strike.endswith(".0"):
+                strike = strike[:-2]
+            lot_size = int(parts[3]) if parts[3].isdigit() else 1
+            tick_size = float(parts[4]) if parts[4].replace(".", "", 1).lstrip("-").isdigit() else 0.05
+            entry = {
+                "symbol": fyers_symbol, "name": f"{underlying} {strike} {opt_type}",
+                "exchange": "NFO", "instrument_type": "option",
+                "lot_size": lot_size, "tick_size": tick_size,
+                "strike": strike, "option_type": opt_type,
+            }
+            self._fo_cache_put(fyers_symbol, entry)
+
+        for line in fo_lines:
+            if not line.strip():
+                continue
+            parts = line.split(",")
+            if len(parts) < 21:
+                continue
+            fyers_symbol = parts[9].strip()
+            if not fyers_symbol or not fyers_symbol.startswith("NSE:"):
+                continue
+            type_code = parts[2].strip()
+            if type_code not in ("11", "13"):
+                continue
+            underlying = parts[13].strip()
+            if underlying in futures_map:
+                continue
+            lot_size = int(parts[3]) if parts[3].isdigit() else 1
+            tick_size = float(parts[4]) if parts[4].replace(".", "", 1).lstrip("-").isdigit() else 0.05
+            futures_map[underlying] = {
+                "symbol": underlying, "name": underlying,
+                "exchange": "NFO", "instrument_type": "future",
+                "lot_size": lot_size, "tick_size": tick_size,
+            }
+
+        for underlying, entry in futures_map.items():
+            self._fo_cache_put(underlying, entry)
+
+        equity_count = 0
+        for line in cm_lines:
+            if not line.strip():
+                continue
+            parts = line.split(",")
+            if len(parts) < 20:
+                continue
+            fyers_symbol = parts[9].strip()
+            if not fyers_symbol or not fyers_symbol.startswith("NSE:"):
+                continue
+            symbol_name = parts[13].strip()
+            if not symbol_name:
+                continue
+            active_flag = parts[19].strip()
+            if active_flag != "1":
+                continue
+            if symbol_name in futures_map:
+                continue
+            self._fo_cache_put(symbol_name, {
+                "symbol": symbol_name, "name": parts[1].strip(),
+                "exchange": "NSE", "instrument_type": "EQ",
+                "lot_size": 1, "tick_size": float(parts[4]) if parts[4].replace(".", "", 1).lstrip("-").isdigit() else 0.05,
+            })
+            equity_count += 1
+
+        total_underlyings = len(futures_map)
+        logger.info("Synced %d index F&O + %d equities from Fyers CSV", total_underlyings, equity_count)
+        return total_underlyings or equity_count
 
     async def get_broker_symbol(self, canonical: str, broker: str) -> str | None:
         if broker == "master":
@@ -259,12 +402,18 @@ class SymbolMaster:
         return self._cache_get(symbol.upper())
 
     def search_symbols(self, query: str, instrument_type: str | None = None, limit: int = 20) -> list[dict]:
-        q = query.upper()
+        q = query.upper().replace(" ", "")
         results = []
+        seen = set()
         for sym, info in self._fo_cache.items():
-            if q in sym:
+            name = info.get("name", sym).upper().replace(" ", "")
+            if q in sym or q in name:
                 if instrument_type and info.get("instrument_type") != instrument_type:
                     continue
+                dedup_key = info.get("symbol", sym)
+                if dedup_key in seen:
+                    continue
+                seen.add(dedup_key)
                 results.append(info)
                 if len(results) >= limit:
                     break

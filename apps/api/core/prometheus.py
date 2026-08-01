@@ -77,6 +77,12 @@ rate_limit_breaches = Counter(
     "rate_limit_breaches_total", "Rate limit breaches", ["broker"]
 )
 
+# ── System / Domain metrics ──
+active_strategies = Gauge("active_strategies", "Number of running strategy engines")
+active_broker_sessions = Gauge("active_broker_sessions", "Number of active broker sessions")
+orders_failed_total = Counter("orders_failed_total", "Failed/cancelled/rejected orders", ["status"])
+exceptions_total = Counter("exceptions_total", "Unhandled exceptions caught by global handler", ["type"])
+
 
 def record_broker_metrics(broker: str, operation: str, duration_s: float, success: bool):
     broker_request_duration_seconds.labels(broker=broker, operation=operation).observe(duration_s)
@@ -137,4 +143,30 @@ async def prometheus_metrics():
     for name, stats in get_circuit_breaker_stats().items():
         state_val = {"closed": 0, "half_open": 1, "open": 2}.get(stats["state"], 0)
         circuit_breaker_state.labels(breaker=name).set(state_val)
+
+    try:
+        from runtime.observability import runtime_metrics
+        rs = runtime_metrics.stats
+        active_strategies.set(rs.get("active_strategies", 0))
+    except Exception:
+        pass
+
+    try:
+        from oms.observability import oms_metrics
+        os_ = oms_metrics.stats
+        for status in ("rejected", "cancelled", "expired"):
+            val = os_.get(f"orders_{status}", 0)
+            orders_failed_total.labels(status=status).inc(val - orders_failed_total.labels(status=status)._value.get())
+            # ^ incremental — we just set since this runs on each scrape and counters accumulate
+        orders_failed_total.labels(status="error").inc(os_.get("errors", 0) - orders_failed_total.labels(status="error")._value.get())
+    except Exception:
+        pass
+
+    try:
+        from portfolio.observability import portfolio_metrics
+        ps = portfolio_metrics.stats
+        active_broker_sessions.set(len(ps.get("broker_sync_counts", {})))
+    except Exception:
+        pass
+
     return Response(content=generate_latest(REGISTRY), media_type="text/plain; version=0.0.4")

@@ -220,6 +220,18 @@ class BrokerExecutionAdapter:
             logger.error("get_orders failed for %s: %s", self.broker, e)
             return []
 
+    async def get_quotes(self, symbols: list[str]) -> list:
+        if not self._adapter or not self._authenticated:
+            if not await self.connect():
+                return []
+        try:
+            return await self._handle_token_expiry_and_retry(
+                lambda: self._adapter.get_quotes(symbols)
+            )
+        except Exception as e:
+            logger.warning("get_quotes failed for %s: %s", self.broker, e)
+            return []
+
     async def get_positions(self) -> list:
         if not self._adapter or not self._authenticated:
             return []

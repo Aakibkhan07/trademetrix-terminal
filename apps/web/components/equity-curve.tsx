@@ -19,7 +19,7 @@ export default function EquityCurve({ points, height = 200 }: EquityCurveProps) 
   const start = points[0]
   const end = points[points.length - 1]
   const isPositive = end >= start
-  const lineColor = isPositive ? '#22c55e' : '#ef4444'
+  const lineColor = isPositive ? '#22c55e' : 'var(--red)'
   const fillColor = isPositive ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)'
 
   const xScale = (i: number) => padding.left + (i / (points.length - 1)) * chartW
@@ -45,7 +45,7 @@ export default function EquityCurve({ points, height = 200 }: EquityCurveProps) 
         return (
           <g key={i}>
             <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="rgba(139,92,246,0.08)" strokeWidth={1} />
-              <text x={padding.left - 8} y={y + 4} textAnchor="end" fill="#555570" fontSize={10} fontFamily="var(--font-body)">
+              <text x={padding.left - 8} y={y + 4} textAnchor="end" fill="var(--text-faint)" fontSize={10} fontFamily="var(--font-body)">
               {Math.round(min + yStep * (yTicks - i)).toLocaleString()}
             </text>
           </g>

@@ -33,8 +33,10 @@ SPEED_MULTIPLIERS: dict[ReplaySpeed, float] = {
 
 
 class BacktestConfig(BaseModel):
-    strategy_type: str
+    strategy_type: str = ""
     strategy_params: dict = Field(default_factory=dict)
+    strategy_id: str = ""
+    user_id: str = ""
     symbol: str = "NIFTY"
     exchange: str = "NSE"
     interval: str = "15m"
@@ -45,6 +47,12 @@ class BacktestConfig(BaseModel):
     file_path: str = ""
     risk_enabled: bool = True
     close_positions_on_end: bool = True
+    slippage_pct: float = 0.0
+    latency_candles: int = 0
+    partial_fill_probability: float = 0.0
+    seed: int | None = None
+    cost: dict = Field(default_factory=dict)
+    candle_slice: tuple[int, int] | None = None
 
 
 class CandleSnapshot(BaseModel):
@@ -115,6 +123,21 @@ class BacktestResult(BaseModel):
     equity_curve: list[EquityPoint] = Field(default_factory=list)
     monthly_returns: dict[str, float] = Field(default_factory=dict)
     daily_returns: dict[str, float] = Field(default_factory=dict)
+
+    expectancy: float = 0.0
+    expectancy_per_r: float = 0.0
+    avg_risk_reward_ratio: float = 0.0
+    median_risk_reward_ratio: float = 0.0
+
+    weekday_distribution: dict[str, float] = Field(default_factory=dict)
+    hour_distribution: dict[str, float] = Field(default_factory=dict)
+    month_distribution: dict[str, float] = Field(default_factory=dict)
+
+    benchmark_return_pct: float = 0.0
+    excess_return_pct: float = 0.0
+    alpha: float = 0.0
+    beta: float = 0.0
+    benchmark_max_drawdown_pct: float = 0.0
 
     started_at: str = ""
     completed_at: str = ""

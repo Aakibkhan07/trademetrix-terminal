@@ -55,7 +55,7 @@ class FyersAdapter(BaseBroker):
         self._access_token: str = ""
         self._client_id: str = ""
         self._user_id: str = ""
-        self._base_url = "https://api.fyers.in/api/v2"
+        self._base_url = "https://api-t1.fyers.in/api/v3"
         self._data_url = "https://api-t1.fyers.in/data"
         self._v3_url = "https://api-t1.fyers.in/api/v3"
         self._running = False
@@ -209,9 +209,13 @@ class FyersAdapter(BaseBroker):
 
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
         from core.constants import format_fyers_option_symbol
+        import re
+
+        order_tag = re.sub(r"[^a-zA-Z0-9]", "", order.client_order_id or "")[:20]
 
         client = await self._get_client()
-        if order.option_type and order.strike_price and order.expiry_date:
+        symbol_is_full = str(int(order.strike_price)) in order.symbol.upper() if order.strike_price else False
+        if order.option_type and order.strike_price and order.expiry_date and not symbol_is_full:
             logger.info("Admin order: symbol=%s strike=%s opt_type=%s expiry=%s", order.symbol, order.strike_price, order.option_type, order.expiry_date)
             expiry_date = None
             for fmt in ("%Y-%m-%d", "%d%b%Y", "%d%b%y"):
@@ -250,11 +254,11 @@ class FyersAdapter(BaseBroker):
             "offlineOrder": False,
             "stopLoss": 0,
             "takeProfit": 0,
-            "orderTag": order.client_order_id or "",
+            "orderTag": order_tag,
         }
         logger.info("Fyers order payload: %s", payload)
         resp = await client.post(
-            f"{self._v3_url}/orders",
+            f"{self._v3_url}/orders/sync",
             json=payload,
             headers=self._headers(),
             timeout=settings.broker_request_timeout,
@@ -270,7 +274,22 @@ class FyersAdapter(BaseBroker):
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
         client = await self._get_client()
-        payload = {"id": order_id}
+        existing = None
+        for _ in range(3):
+            book = await self.get_orderbook()
+            existing = next((o for o in book if str(o.broker_order_id) == str(order_id)), None)
+            if existing is not None:
+                break
+            await asyncio.sleep(1.0)
+        if existing is None:
+            return OrderResult(success=False, broker_order_id=order_id, message="Order not found for modify")
+        payload = {
+            "id": order_id,
+            "type": self._map_order_type(existing.order_type),
+            "limitPrice": existing.price or 0,
+            "stopPrice": existing.trigger_price or 0,
+            "qty": existing.quantity,
+        }
         if "quantity" in changes:
             payload["qty"] = changes["quantity"]
         if "price" in changes:
@@ -281,8 +300,8 @@ class FyersAdapter(BaseBroker):
             payload["type"] = self._map_order_type(OrderType(changes["order_type"]))
         if "product" in changes:
             payload["productType"] = self._map_product(ProductType(changes["product"]))
-        resp = await client.put(
-            f"{self._base_url}/orders",
+        resp = await client.patch(
+            f"{self._base_url}/orders/sync",
             json=payload,
             headers=self._headers(),
             timeout=settings.broker_request_timeout,
@@ -297,7 +316,8 @@ class FyersAdapter(BaseBroker):
     async def cancel_order(self, order_id: str) -> OrderResult:
         client = await self._get_client()
         resp = await client.delete(
-            f"{self._base_url}/orders/{order_id}",
+            f"{self._base_url}/orders/sync",
+            json={"id": order_id},
             headers=self._headers(),
             timeout=settings.broker_request_timeout,
         )
@@ -380,9 +400,9 @@ class FyersAdapter(BaseBroker):
         try:
             fyers_symbols = [self._ensure_fyers_symbol(s) for s in symbols]
             fyers_to_orig = dict(zip(fyers_symbols, symbols))
-            resp = await client.post(
+            resp = await client.get(
                 f"{self._data_url}/quotes",
-                json={"symbols": ",".join(fyers_symbols)},
+                params={"symbols": ",".join(fyers_symbols)},
                 headers=self._headers(),
                 timeout=settings.broker_request_timeout,
             )
@@ -796,7 +816,7 @@ class FyersAdapter(BaseBroker):
         clean_symbol = raw_symbol.split(":")[-1]
         return NormalizedOrder(
             id=item.get("id", ""),
-            broker_order_id=item.get("id_fyers", ""),
+            broker_order_id=item.get("id", ""),
             symbol=clean_symbol,
             exchange=Exchange.NSE,
             side=OrderSide.BUY if item.get("side", 1) == 1 else OrderSide.SELL,
@@ -900,37 +920,37 @@ class FyersAdapter(BaseBroker):
 
     @staticmethod
     def _map_order_type(ot: OrderType) -> int:
-        mapping = {OrderType.MARKET: 1, OrderType.LIMIT: 2, OrderType.SL: 3, OrderType.SLM: 4}
-        return mapping.get(ot, 1)
+        mapping = {OrderType.MARKET: 2, OrderType.LIMIT: 1, OrderType.SL: 4, OrderType.SLM: 3}
+        return mapping.get(ot, 2)
 
     @staticmethod
     def _rev_map_order_type(code: int) -> OrderType:
-        mapping = {1: OrderType.MARKET, 2: OrderType.LIMIT, 3: OrderType.SL, 4: OrderType.SLM}
+        mapping = {2: OrderType.MARKET, 1: OrderType.LIMIT, 4: OrderType.SL, 3: OrderType.SLM}
         return mapping.get(code, OrderType.MARKET)
 
     @staticmethod
     def _map_product(p: ProductType) -> str:
         mapping = {
             ProductType.INTRADAY: "INTRADAY",
-            ProductType.DELIVERY: "DELIVERY",
+            ProductType.DELIVERY: "CNC",
             ProductType.MIS: "INTRADAY",
-            ProductType.NRML: "CNC",
+            ProductType.NRML: "MARGIN",
         }
         return mapping.get(p, "INTRADAY")
 
     @staticmethod
     def _rev_map_product(code: str) -> ProductType:
-        mapping = {"INTRADAY": ProductType.INTRADAY, "DELIVERY": ProductType.DELIVERY, "MARGIN": ProductType.INTRADAY, "CNC": ProductType.NRML}
+        mapping = {"INTRADAY": ProductType.INTRADAY, "CNC": ProductType.DELIVERY, "MARGIN": ProductType.NRML}
         return mapping.get(code, ProductType.INTRADAY)
 
     @staticmethod
     def _map_status(code: int) -> OrderStatus:
         mapping = {
-            1: OrderStatus.OPEN,
-            2: OrderStatus.PENDING,
-            3: OrderStatus.FILLED,
-            4: OrderStatus.CANCELLED,
+            1: OrderStatus.CANCELLED,
+            2: OrderStatus.FILLED,
+            4: OrderStatus.PENDING,
             5: OrderStatus.REJECTED,
-            6: OrderStatus.EXPIRED,
+            6: OrderStatus.OPEN,
+            7: OrderStatus.EXPIRED,
         }
         return mapping.get(code, OrderStatus.PENDING)

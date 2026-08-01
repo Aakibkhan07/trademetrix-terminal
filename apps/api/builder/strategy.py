@@ -26,6 +26,7 @@ class GraphStrategy(BaseStrategy):
         self._memory: dict[str, Any] = {}
         self._series: dict[str, list[float]] = defaultdict(list)
         self._candle_index = 0
+        self._port_in_map: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
 
         dsl_data = config.get("_dsl") if config else None
         if dsl_data:
@@ -33,6 +34,8 @@ class GraphStrategy(BaseStrategy):
                 self._dsl = StrategyDSL(**dsl_data)
             else:
                 self._dsl = dsl_data
+            for edge in self._dsl.edges:
+                self._port_in_map[edge.target_node].append((edge.target_port, edge.source_node, edge.source_port))
             graph, validation = compile_dsl(self._dsl)
             if graph and validation.valid:
                 self._graph = graph
@@ -71,7 +74,7 @@ class GraphStrategy(BaseStrategy):
                 results[exec_node.id] = result
 
                 if exec_node.block_type in ("order.buy", "order.sell", "order.exit", "order.reverse"):
-                    if result and isinstance(result, dict) and result.get("triggered", True):
+                    if result and isinstance(result, dict) and result.get("triggered", False):
                         parsed = self._parse_signal(exec_node.block_type, result, candle)
                         if parsed:
                             signal_result = parsed
@@ -96,6 +99,9 @@ class GraphStrategy(BaseStrategy):
                 else:
                     inputs["value"] = inp_result
 
+        for target_port, source_node, source_port in self._port_in_map.get(node.id, []):
+            inputs[target_port] = _port_value(results.get(source_node), source_port)
+
         ctx = {
             "candle": candle,
             "series": dict(self._series),
@@ -113,7 +119,7 @@ class GraphStrategy(BaseStrategy):
             self._series[key] = self._series[key][-500:]
 
     def _parse_signal(self, block_type: str, result: dict, candle: Candle) -> SignalResult | None:
-        if not result or not result.get("triggered", True):
+        if not result or not result.get("triggered", False):
             return None
 
         meta = result.get("meta", {})
@@ -147,6 +153,30 @@ class GraphStrategy(BaseStrategy):
 
 def _compute_default(ctx: dict) -> Any:
     return ctx.get("inputs", {})
+
+
+def _port_value(result: Any, source_port: str) -> Any:
+    """Resolve the value flowing out of an upstream node's port."""
+    if result is None:
+        return None
+    if isinstance(result, dict):
+        return result.get(source_port)
+    return result
+
+
+def _condition_triggered(ctx: dict) -> bool:
+    """Order-block condition gate.
+
+    Returns True only when a connected condition input evaluates truthy.
+    No connected condition -> False (never trigger by default).
+    """
+    inputs = ctx.get("inputs", {})
+    if not inputs:
+        return False
+    for key in ("condition", "triggered", "result", "value"):
+        if key in inputs and inputs[key] is not None:
+            return bool(inputs[key])
+    return False
 
 
 def _get_series(ctx: dict, key: str) -> list[float]:
@@ -354,29 +384,41 @@ def _compute_cross_below(ctx: dict) -> dict:
     return {"triggered": False, "crossunder_value": 0}
 
 
-def _compute_order_buy(ctx: dict) -> dict:
+def _order_meta(ctx: dict) -> dict:
     params = ctx.get("params", {})
     return {
-        "triggered": True,
-        "meta": {
-            "quantity": int(params.get("quantity", 0) or ctx.get("config", {}).get("quantity", 75)),
-            "order_type": params.get("order_type", "MARKET"),
-            "product": params.get("product", "INTRADAY"),
-            "reason": params.get("reason", ""),
-        },
+        "quantity": int(params.get("quantity", 0) or ctx.get("config", {}).get("quantity", 75)),
+        "order_type": params.get("order_type", "MARKET"),
+        "product": params.get("product", "INTRADAY"),
+        "reason": params.get("reason", ""),
+    }
+
+
+def _compute_order_buy(ctx: dict) -> dict:
+    return {
+        "triggered": _condition_triggered(ctx),
+        "meta": _order_meta(ctx),
     }
 
 
 def _compute_order_sell(ctx: dict) -> dict:
-    params = ctx.get("params", {})
     return {
-        "triggered": True,
-        "meta": {
-            "quantity": int(params.get("quantity", 0) or ctx.get("config", {}).get("quantity", 75)),
-            "order_type": params.get("order_type", "MARKET"),
-            "product": params.get("product", "INTRADAY"),
-            "reason": params.get("reason", ""),
-        },
+        "triggered": _condition_triggered(ctx),
+        "meta": _order_meta(ctx),
+    }
+
+
+def _compute_order_exit(ctx: dict) -> dict:
+    return {
+        "triggered": _condition_triggered(ctx),
+        "meta": _order_meta(ctx),
+    }
+
+
+def _compute_order_reverse(ctx: dict) -> dict:
+    return {
+        "triggered": _condition_triggered(ctx),
+        "meta": _order_meta(ctx),
     }
 
 
@@ -611,6 +653,8 @@ _COMPUTE_FUNCTIONS: dict[str, Callable] = {
     "signal.divergence": _compute_signal_divergence,
     "order.buy": _compute_order_buy,
     "order.sell": _compute_order_sell,
+    "order.exit": _compute_order_exit,
+    "order.reverse": _compute_order_reverse,
     "smc.order_block": _compute_order_block,
     "smc.liquidity_grab": _compute_liquidity_grab,
     "smc.fvg": _compute_fvg,

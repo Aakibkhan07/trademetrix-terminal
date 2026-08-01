@@ -35,6 +35,14 @@ class RedisCache:
             self._enabled = False
             logger.warning("Redis not available, cache disabled: %s", e)
 
+    async def get_redis(self):
+        """Return the raw async redis client (lazy init), or None if unavailable."""
+        if not self._enabled:
+            await self.init()
+        if not self._enabled:
+            return None
+        return self._redis
+
     async def get(self, key: str, default: Any = None) -> Any:
         if not self._enabled or not self._redis:
             return default

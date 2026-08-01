@@ -24,10 +24,10 @@ function TierBadge({ tier }: { tier: string }) {
     enterprise: 'color-mix(in srgb, var(--red) 15%, transparent)',
   }
   const textColors: Record<string, string> = {
-    free: '#8888a0',
+    free: 'var(--text-faint)',
     starter: '#22d3ee',
     pro: '#8b5cf6',
-    enterprise: '#ef4444',
+    enterprise: 'var(--red)',
   }
   const borderColors: Record<string, string> = {
     free: 'color-mix(in srgb, var(--text-sub) 20%, transparent)',
@@ -197,7 +197,7 @@ export default function StrategyCatalogPage() {
       )}
 
       {error && (
-        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: '#ef4444', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>
           {error.message}
         </div>
       )}
@@ -220,7 +220,7 @@ export default function StrategyCatalogPage() {
             <p style={{ margin: 0, fontSize: 13, color: '#22d3ee', fontWeight: 500 }}>
               {search || tierFilter !== 'all' ? 'No matching strategies' : 'No strategies available'}
             </p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#555570' }}>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
               {search || tierFilter !== 'all'
                 ? 'Try adjusting your search or filter.'
                 : 'The strategy catalog is currently empty.'}
@@ -244,7 +244,7 @@ export default function StrategyCatalogPage() {
                 <TierBadge tier={s.required_tier} />
               </div>
               <p style={{
-                margin: 0, fontSize: 11, color: '#555570', lineHeight: 1.5, flex: 1,
+                margin: 0, fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.5, flex: 1,
               }}>
                 {s.description}
               </p>

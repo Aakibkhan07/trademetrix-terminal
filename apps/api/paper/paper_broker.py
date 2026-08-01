@@ -46,6 +46,31 @@ class PaperBroker:
         self._connected = False
         self._order_counter = 0
 
+    async def _ensure_quote(self, symbol: str) -> None:
+        try:
+            from market.cache import market_cache
+            cached = market_cache.get_quote(symbol)
+            if cached and (cached.get("last_price") or cached.get("ltp")):
+                return
+            from brokers.token_manager import TokenManager
+            from brokers.fyers_adapter import FyersAdapter
+            from core.models import Quote
+            tm = TokenManager(self.user_id, "fyers")
+            session = await tm.get_session()
+            adapter = FyersAdapter()
+            await adapter.authenticate({
+                "client_id": session.get("client_id", ""),
+                "access_token": session.get("access_token", ""),
+            })
+            quotes = await adapter.get_quotes([symbol])
+            if quotes:
+                q = quotes[0]
+                if getattr(q, "last_price", 0) > 0:
+                    market_cache.put_quote(symbol, q.model_dump(mode="json"))
+                    logger.info("Paper quote primed for %s: %.2f", symbol, q.last_price)
+        except Exception as e:
+            logger.warning("Paper quote priming failed for %s: %s", symbol, e)
+
     async def connect(self) -> bool:
         self._authenticated = True
         self._connected = True
@@ -161,6 +186,7 @@ class PaperBroker:
                 message="Insufficient margin", status="rejected",
             )
 
+        await self._ensure_quote(order.symbol)
         fill = await self._fill_engine.simulate_fill(order, self.user_id)
 
         if fill.filled_quantity <= 0:
@@ -358,7 +384,7 @@ class PaperBroker:
             for field in ("id", "run_id", "signal_id", "validity", "disclosed_quantity"):
                 if field in data and not data[field]:
                     del data[field]
-            supabase.table("orders").insert(data).execute()
+            supabase.table("orders").upsert(data, on_conflict="user_id,client_order_id").execute()
         except Exception as e:
             logger.error("Failed to persist paper order: %s", e)
 

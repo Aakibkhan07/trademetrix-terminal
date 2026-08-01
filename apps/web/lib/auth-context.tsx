@@ -38,13 +38,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const token: boolean = user !== null
 
   const fetchUser = useCallback(async () => {
-    try {
-      const u = await api.auth.me()
-      setUser(u as User)
-    } catch {
-      setUser(null)
-    } finally {
-      setLoading(false)
+    let attempt = 0
+    while (attempt < 3) {
+      try {
+        const u = await api.auth.me()
+        setUser(u as User)
+        setLoading(false)
+        return
+      } catch {
+        attempt += 1
+        if (attempt >= 3) {
+          setUser(null)
+          setLoading(false)
+        } else {
+          await new Promise(r => setTimeout(r, 1000 * attempt))
+        }
+      }
     }
   }, [])
 

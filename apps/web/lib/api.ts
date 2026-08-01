@@ -158,31 +158,28 @@ interface ApiOptions {
   signal?: AbortSignal
 }
 
-let _csrfToken = ''
 let _csrfFetching = false
 let _csrfPromise: Promise<void> | null = null
 
 function getCSRFToken(): string {
-  return _csrfToken
+  if (typeof document === 'undefined') return ''
+  const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)
+  return m ? m[1] : ''
 }
 
 async function _ensureCSRF(): Promise<void> {
-  if (_csrfToken || _csrfFetching) return
+  if (document.cookie.includes('csrf_token=') || _csrfFetching) return
   if (_csrfPromise) return _csrfPromise
   _csrfFetching = true
   _csrfPromise = (async () => {
     try {
       const ctrl = new AbortController()
       const t = setTimeout(() => ctrl.abort(), 5000)
-      const res = await fetch(`${API_BASE}/auth/csrf`, {
+      await fetch(`${API_BASE}/auth/csrf`, {
         credentials: 'include',
         signal: ctrl.signal,
       })
       clearTimeout(t)
-      if (res.ok) {
-        const data = await res.json()
-        _csrfToken = data.csrf_token || ''
-      }
     } catch {
     } finally {
       _csrfFetching = false
@@ -238,7 +235,6 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
       try { data = JSON.parse(text) } catch { data = { detail: text } }
 
       const newCsrf = res.headers.get('X-CSRF-Token')
-      if (newCsrf) _csrfToken = newCsrf
 
       if (!res.ok) {
         throw new ApiError(res.status, data.detail || `Request failed: ${res.status}`)
@@ -256,16 +252,22 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     return await _doFetch()
   } catch (e) {
     if (e instanceof ApiError && e.status === 403 && method !== 'GET') {
-      _csrfToken = ''
+      // CSRF token may be stale — force refresh
+      _csrfFetching = false
+      _csrfPromise = null
       await _ensureCSRF()
-      if (getCSRFToken()) {
-        finalHeaders['X-CSRF-Token'] = getCSRFToken()
+      const csrf = getCSRFToken()
+      if (csrf) {
+        finalHeaders['X-CSRF-Token'] = csrf
         return await _doFetch()
       }
     }
     throw e
   }
 }
+
+export const backtestExportUrl = (runId: string, format: string) =>
+  `${API_BASE}/backtests/${runId}/export?format=${format}`
 
 export const api = {
   get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
@@ -438,6 +440,7 @@ export const api = {
       exchange?: string; order_type?: string; product?: string;
       trigger_price?: number; strategy_id?: string;
       instrument_type?: string; strike_price?: number; expiry_date?: string; option_type?: string;
+      is_paper?: boolean; source?: string;
     }) => request('/engine/trade', { method: 'POST', body: data }),
     runs: () => request('/engine/runs'),
     orders: () => request('/engine/orders'),
@@ -456,6 +459,8 @@ export const api = {
       request<{ response: string }>('/ai/copilot', { method: 'POST', body: { messages } }),
     chat: (messages: { role: string; content: string }[]) =>
       request<{ intent: string; response: string; data: any }>('/ai/chat', { method: 'POST', body: { messages } }),
+    buildStrategy: (prompt: string) =>
+      request<{ strategy: any; error?: string }>('/ai/build-strategy', { method: 'POST', body: { prompt } }),
   },
 
   market: {
@@ -500,8 +505,34 @@ export const api = {
   backtest: {
     list: () => request('/backtests/'),
     get: (runId: string) => request(`/backtests/${runId}`),
-    run: (data: Record<string, unknown>) => request('/backtests/run', { method: 'POST', body: data }),
+    run: <T,>(data: Record<string, unknown>) => request<T>('/backtests/run', { method: 'POST', body: data }),
+    runV3: <T,>(data: {
+      strategy_id: string; symbol?: string; exchange?: string; interval?: string; days?: number;
+      initial_capital?: number; speed?: string; risk_enabled?: boolean; close_positions_on_end?: boolean;
+      slippage_pct?: number; latency_candles?: number; partial_fill_probability?: number; seed?: number;
+      cost?: Record<string, unknown>;
+    }) => request<T>('/backtests/run-v3', { method: 'POST', body: data }),
     strategies: () => request('/backtests/strategies'),
+    optimize: <T,>(data: {
+      strategy_type: string; params?: Record<string, unknown>; method?: string;
+      param_ranges?: Record<string, (string | number)[]>; metric?: string;
+      windows?: number; monte_carlo_paths?: number; max_combos?: number;
+      symbol?: string; exchange?: string; interval?: string; days?: number; initial_capital?: number;
+    }) => request<T>('/backtests/optimize', { method: 'POST', body: data }),
+    getOptimize: (runId: string) => request(`/backtests/optimize/${runId}`),
+    compare: <T,>(runIds: string[]) => request<T>('/backtests/compare', { method: 'POST', body: { run_ids: runIds } }),
+    exportJson: (runId: string) => request<string>(`/backtests/${runId}/export?format=json`),
+    exportCsv: (runId: string) => request<string>(`/backtests/${runId}/export?format=csv`),
+    exportPdf: (runId: string) => request<string>(`/backtests/${runId}/export?format=pdf`),
+    deployToPaper: (runId: string) =>
+      request<{ status: string; mode: string; strategy_id: string }>(`/backtests/${runId}/deploy-to-paper`, { method: 'POST' }),
+    candles: (symbol: string, interval: string, days = 60) =>
+      request(`/backtests/candles/${encodeURIComponent(symbol)}/${encodeURIComponent(interval)}?days=${days}`),
+    corporateActions: (symbol = '') =>
+      request(symbol ? `/backtests/corporate-actions?symbol=${encodeURIComponent(symbol)}` : '/backtests/corporate-actions'),
+    addCorporateAction: (data: {
+      symbol: string; ex_date: string; action: string; ratio?: string; dividend_amount?: number; record_date?: string;
+    }) => request('/backtests/corporate-actions', { method: 'POST', body: data }),
   },
 
   builder: {
@@ -522,8 +553,19 @@ export const api = {
     clone: (id: string) => request(`/builder/strategies/${id}/clone`, { method: 'POST' }),
     rollback: (id: string, version: number) => request(`/builder/strategies/${id}/rollback/${version}`, { method: 'POST' }),
     versions: (id: string) => request(`/builder/strategies/${id}/versions`),
-    start: (id: string, symbol = 'NIFTY', interval = '15m') =>
-      request(`/builder/strategies/${id}/start`, { method: 'POST', body: { symbol, interval } }),
+    ready: (id: string) => request(`/builder/strategies/${id}/ready`, { method: 'POST' }),
+    deploy: (id: string, data: {
+      symbol?: string; interval?: string; mode?: string; broker?: string; capital?: number;
+      risk?: { max_position_size?: number; max_daily_loss?: number; risk_per_trade?: number; stop_loss_pct?: number; target_pct?: number };
+      schedule?: { trading_days?: string[]; start_time?: string; end_time?: string; timezone?: string };
+    }) => request(`/builder/strategies/${id}/deploy`, { method: 'POST', body: data }),
+    score: (id: string) => request(`/builder/strategies/${id}/score`),
+    logs: (id: string, limit?: number) => request(`/builder/strategies/${id}/logs${limit ? `?limit=${limit}` : ''}`),
+    compare: (id: string, from_version: number, to_version: number) =>
+      request(`/builder/strategies/${id}/compare?from_version=${from_version}&to_version=${to_version}`),
+    dashboard: () => request(`/builder/dashboard`),
+    start: (id: string, symbol = 'NIFTY', interval = '15m', mode = 'paper') =>
+      request(`/builder/strategies/${id}/start`, { method: 'POST', body: { symbol, interval, mode } }),
     stop: (id: string) => request(`/builder/strategies/${id}/stop`, { method: 'POST' }),
     templates: () => request('/builder/templates'),
     getTemplate: (key: string) => request(`/builder/templates/${key}`),

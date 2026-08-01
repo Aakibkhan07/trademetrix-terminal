@@ -29,7 +29,7 @@ import logging
 from typing import Any
 
 from core.db import async_supabase, get_supabase
-from core.safe_query import async_safe_execute
+from core.safe_query import async_safe_execute, async_safe_single
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ async def save_order(order) -> None:
     try:
         data = order.model_dump(mode="json")
         supabase = get_supabase()
-        await async_supabase(lambda: supabase.table(TABLE).upsert(data, on_conflict=["oms_order_id"]).execute())
+        await async_supabase(lambda: supabase.table(TABLE).upsert(data, on_conflict="oms_order_id").execute())
     except Exception as e:
         logger.warning("Failed to persist OMS order %s: %s", order.oms_order_id, e)
 
@@ -55,6 +55,19 @@ async def remove_order(oms_order_id: str) -> None:
         await async_supabase(lambda: supabase.table(TABLE).delete().eq("oms_order_id", oms_order_id).execute())
     except Exception as e:
         logger.warning("Failed to remove OMS order %s: %s", oms_order_id, e)
+
+
+async def load_order(oms_order_id: str) -> dict | None:
+    """Load a single order (any state) by oms_order_id."""
+    try:
+        supabase = get_supabase()
+        row = await async_safe_single(
+            supabase.table(TABLE).select("*").eq("oms_order_id", oms_order_id)
+        )
+        return row
+    except Exception as e:
+        logger.warning("Failed to load OMS order %s: %s", oms_order_id, e)
+        return None
 
 
 async def load_active_orders() -> list[dict[str, Any]]:

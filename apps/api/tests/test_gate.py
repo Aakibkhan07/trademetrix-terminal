@@ -2,6 +2,7 @@ import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from core.models import NormalizedOrder
+from oms.models import OMSOrderState
 
 
 BASE_ORDER = dict(
@@ -83,20 +84,29 @@ async def test_paper_mode_routes_to_paper():
     with (
         patch("engine.gate.async_safe_single") as mock_single,
         patch("engine.gate.async_supabase") as mock_sb,
-        patch("execution.execution_manager") as mock_exec_mgr,
+        patch("oms.manager.order_manager") as mock_om,
     ):
         mock_single.side_effect = [None, {"broker": "angelone"}]
         mock_risk = MagicMock()
         mock_risk.check_order = AsyncMock(return_value={"allowed": True})
         mock_risk._load_settings = AsyncMock(return_value=MagicMock(is_live=False))
-        mock_exec_mgr.place_order = AsyncMock(return_value=MagicMock(success=True, broker_order_id="paper_abc123", message="Paper order placed", latency_ms=0.0, state=MagicMock(value="FILLED")))
+        mock_oms_order = MagicMock(
+            state=OMSOrderState.FILLED,
+            broker_order_id="paper_abc123",
+            filled_quantity=10,
+            average_price=150.0,
+            latency_ms=0.0,
+            filled_at=None,
+            message="Paper order placed",
+        )
+        mock_om.place_and_wait = AsyncMock(return_value=mock_oms_order)
         with patch("engine.gate.RiskGuard", return_value=mock_risk):
             from engine.gate import execute_order
             result = await execute_order(
                 user_id="test-user",
                 order=NormalizedOrder(**BASE_ORDER, client_order_id="test_005", source="manual", reason="test paper"),
             )
-            assert result.status == "FILLED"
+            assert result.status == "filled"
             assert "paper" in result.message.lower()
             assert result.broker_order_id.startswith("paper_")
 

@@ -118,6 +118,8 @@ async def lifespan(app: FastAPI):
     _background_tasks.append(asyncio.ensure_future(_startup_recovery()))
     _background_tasks.append(asyncio.ensure_future(_start_watchdog()))
     _background_tasks.append(asyncio.ensure_future(_start_webhook_retry()))
+    from market.symbol_master import symbol_master
+    await symbol_master.start_auto_sync()
     from oms.manager import order_manager
     await order_manager.start()
     yield
@@ -156,7 +158,7 @@ app = FastAPI(
     openapi_url=None if _PROD else "/openapi.json",
 )
 
-# ── Middleware (order matters: outermost first) ──
+# ── Middleware (order matters: first added = innermost, last added = outermost) ──
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 cors_origins = settings.cors_origin_list
@@ -169,13 +171,6 @@ elif not cors_origins:
 else:
     cors_creds = True
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=cors_creds,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -184,6 +179,15 @@ app.add_middleware(InputValidationMiddleware)
 app.add_middleware(CSRFProtectMiddleware)
 app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)
 app.add_middleware(AdminIPWhitelistMiddleware)
+
+# CORS must be outermost so headers are added even to error responses (e.g. CSRF 403)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=cors_creds,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
@@ -248,6 +252,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    from core.prometheus import exceptions_total
+    exceptions_total.labels(type=type(exc).__name__).inc()
     return error_response(
         message="Internal server error",
         code="INTERNAL_ERROR",

@@ -20,6 +20,15 @@ scrape_configs:
     static_configs:
       - targets: ["node-exporter:9100"]
 
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: "caddy"
+    static_configs:
+      - targets: ["caddy:2019"]
+    metrics_path: "/metrics"
+
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]

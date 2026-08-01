@@ -31,7 +31,7 @@ export default function FeedbackPage() {
           <button key={tab} onClick={() => setActiveTab(tab)} style={{
             padding: '8px 16px', fontSize: 12, fontWeight: activeTab === tab ? 600 : 400,
             background: 'none', border: 'none', borderBottom: activeTab === tab ? '2px solid var(--violet)' : '2px solid transparent',
-            color: activeTab === tab ? 'var(--violet)' : '#8888a0', cursor: 'pointer', fontFamily: 'inherit',
+            color: activeTab === tab ? 'var(--violet)' : 'var(--text-faint)', cursor: 'pointer', fontFamily: 'inherit',
           }}>{tab === 'bug' ? 'Bug Report' : tab === 'feature' ? 'Feature Request' : 'NPS Survey'}</button>
         ))}
       </div>

@@ -14,6 +14,34 @@ interface Strategy {
   created_at: string
 }
 
+interface RuntimeEntry {
+  strategy_id: string
+  status: string
+  started_at: string
+  symbol: string
+  interval: string
+  mode?: string
+  candles?: number
+  signals?: number
+  orders_placed?: number
+  orders_filled?: number
+  orders_rejected?: number
+  errors?: number
+  last_error?: string
+  last_activity?: string
+  avg_latency_ms?: number
+  pnl?: number
+  health?: string
+}
+
+function Stat({ label, value, danger }: { label: string; value?: number; danger?: boolean }) {
+  return (
+    <span style={{ fontSize: 10, color: danger ? 'var(--red)' : 'var(--text-faint)' }}>
+      {label}: <b style={{ color: danger ? 'var(--red)' : 'var(--text)' }}>{value ?? 0}</b>
+    </span>
+  )
+}
+
 export default function StrategiesPage() {
   const [strategies, setStrategies] = useState<Strategy[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,6 +52,23 @@ export default function StrategiesPage() {
   const [symbol, setSymbol] = useState('NIFTY')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+  const [running, setRunning] = useState<RuntimeEntry[]>([])
+
+  const loadDashboard = async () => {
+    try {
+      const d = await api.builder.dashboard()
+      setRunning((d as { running: RuntimeEntry[] }).running || [])
+    } catch {
+      setRunning([])
+    }
+  }
+
+  useEffect(() => { loadDashboard() }, [])
+
+  useEffect(() => {
+    const t = setInterval(loadDashboard, 5000)
+    return () => clearInterval(t)
+  }, [])
 
   const load = async () => {
     setLoading(true)
@@ -139,6 +184,36 @@ export default function StrategiesPage() {
         <ErrorMessage message={error} onRetry={load} />
       ) : (
         <>
+            {running.length > 0 && (
+            <div className="t-panel" style={{ padding: '18px 20px', marginBottom: 24 }}>
+              <div className="t-panel-header" style={{ marginBottom: 14 }}>
+                <h3 className="t-panel-title" style={{ fontSize: 15 }}>Execution Dashboard</h3>
+                <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>{running.length} running</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {running.map((r) => (
+                  <div key={r.strategy_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                    <span className={`t-badge ${r.health === 'ok' ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 9, flexShrink: 0 }}>
+                      {r.health === 'ok' ? '● Healthy' : '● Degraded'}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>{r.symbol || '—'}</span>
+                    <span className="t-faint" style={{ fontSize: 10 }}>{r.interval || '—'} · {r.mode || 'paper'}</span>
+                    <span style={{ flex: 1 }} />
+                    <Stat label="Candles" value={r.candles} />
+                    <Stat label="Signals" value={r.signals} />
+                    <Stat label="Orders" value={r.orders_placed} />
+                    <Stat label="Filled" value={r.orders_filled} />
+                    <Stat label="Rejected" value={r.orders_rejected} />
+                    <Stat label="Errors" value={r.errors} danger={!!r.errors && r.errors > 0} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: (r.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {(r.pnl || 0) >= 0 ? '+' : ''}{r.pnl?.toFixed(2)}
+                    </span>
+                    <Link href={`/strategies/builder?id=${r.strategy_id}`} className="t-btn t-btn-sm" style={{ fontSize: 10 }}>Open</Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
             <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 15, margin: '0 0 14px', color: 'var(--text)' }}>
             Saved Strategies ({strategies.length})
           </h2>

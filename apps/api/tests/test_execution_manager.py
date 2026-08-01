@@ -33,6 +33,7 @@ async def test_place_order_happy_path(req):
         patch.object(ExecutionManager, "_get_adapter") as mock_adapter,
         patch.object(ExecutionManager, "_insert_order_atomic") as mock_insert,
         patch.object(ExecutionManager, "_execute_with_retry") as mock_exec,
+        patch.object(ExecutionManager, "_update_order_in_db"),
         patch("execution.manager.log_execution_event"),
         patch("execution.manager.log_validation_failure"),
     ):
@@ -41,7 +42,7 @@ async def test_place_order_happy_path(req):
         mock_risk.evaluate = AsyncMock(return_value=MagicMock(decision=RiskDecision.APPROVED))
         mock_adapter.return_value = AsyncMock()
         mock_insert.return_value = {"id": "order-1"}
-        mock_exec.return_value = OrderResult(success=True, broker_order_id="brk-1", filled_qty=10)
+        mock_exec.return_value = OrderResult(success=True, broker_order_id="brk-1", filled_qty=10, status="filled")
 
         mgr = ExecutionManager()
         result = await mgr.place_order(req)
@@ -179,6 +180,7 @@ async def test_place_order_partial_fill(req):
         patch.object(ExecutionManager, "_get_adapter") as mock_adapter,
         patch.object(ExecutionManager, "_insert_order_atomic") as mock_insert,
         patch.object(ExecutionManager, "_execute_with_retry") as mock_exec,
+        patch.object(ExecutionManager, "_update_order_in_db"),
         patch("execution.manager.log_execution_event"),
         patch("execution.manager.log_validation_failure"),
     ):

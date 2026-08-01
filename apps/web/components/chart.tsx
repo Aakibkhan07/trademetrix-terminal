@@ -7,18 +7,20 @@ import { api } from '@/lib/api'
 interface ChartProps {
   symbol: string
   height?: number
+  interval?: Interval
+  onIntervalChange?: (interval: Interval) => void
 }
 
 type Interval = '5m' | '15m' | '1h' | '1d'
 
 const INTERVALS: Interval[] = ['5m', '15m', '1h', '1d']
 
-export default function Chart({ symbol, height = 400 }: ChartProps) {
+export default function Chart({ symbol, height = 400, interval: controlledInterval, onIntervalChange }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null)
-  const [interval, setInterval_] = useState<Interval>('15m')
+  const [interval, setInterval_] = useState<Interval>(controlledInterval || '15m')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -115,6 +117,15 @@ export default function Chart({ symbol, height = 400 }: ChartProps) {
     if (chartRef.current) loadData()
   }, [loadData])
 
+  useEffect(() => {
+    if (controlledInterval && controlledInterval !== interval) setInterval_(controlledInterval)
+  }, [controlledInterval, interval])
+
+  const chooseInterval = (i: Interval) => {
+    setInterval_(i)
+    onIntervalChange?.(i)
+  }
+
   return (
     <div className="chart-container" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -123,7 +134,7 @@ export default function Chart({ symbol, height = 400 }: ChartProps) {
             <button
               key={i}
               className={`chart-btn ${interval === i ? 'active' : ''}`}
-              onClick={() => setInterval_(i)}
+              onClick={() => chooseInterval(i)}
             >
               {i}
             </button>

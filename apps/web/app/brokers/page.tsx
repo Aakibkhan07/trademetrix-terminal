@@ -9,6 +9,8 @@ interface BrokerCred {
   broker: string
   is_active: boolean
   created_at: string
+  token_status?: string
+  token_expires_at?: string
 }
 
 interface MetadataMap {
@@ -189,6 +191,26 @@ export default function BrokersPage() {
 
   const isOAuth = (broker: string) => metadataMap[broker]?.oauth_available ?? false
 
+  const tokenBadge = (c: BrokerCred) => {
+    if (!c.token_expires_at) return null
+    const expiry = new Date(c.token_expires_at)
+    const hoursLeft = (expiry.getTime() - Date.now()) / 3600000
+    let cls = 't-badge-green'
+    let label = `Token valid until ${expiry.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+    if (hoursLeft <= 0) {
+      cls = 't-badge-red'
+      label = 'Token expired — re-auth required'
+    } else if (hoursLeft <= 24) {
+      cls = 't-badge-amber'
+      label = `Token expires in ${hoursLeft < 1 ? Math.round(hoursLeft * 60) + 'm' : Math.round(hoursLeft) + 'h'} — re-auth recommended`
+    }
+    return (
+      <span className={`t-badge ${cls}`} style={{ fontSize: 9, padding: '2px 8px', marginTop: 2 }}>
+        {label}
+      </span>
+    )
+  }
+
   return (
     <div>
       <div className="t-row" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -333,6 +355,7 @@ export default function BrokersPage() {
                         <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
                           {c.is_active ? 'Active' : 'Inactive'}
                         </span>
+                        {tokenBadge(c)}
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button className="t-btn t-btn-sm t-btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => openEdit(c.broker)}>
                             Edit

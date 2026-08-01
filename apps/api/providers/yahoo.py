@@ -89,10 +89,10 @@ async def fetch_quotes(symbols: list[str]) -> list[Quote]:
         quotes = []
         for i, s in enumerate(symbols):
             ys = yahoo_symbols[i]
-            t = tickers.tickers.get(ys)
+            t = await loop.run_in_executor(None, lambda ys=ys: tickers.tickers.get(ys))
             if not t:
                 continue
-            info = t.info if hasattr(t, "info") else {}
+            info = await loop.run_in_executor(None, lambda t=t: t.info if hasattr(t, "info") else {})
             if not info:
                 continue
             quotes.append(Quote(

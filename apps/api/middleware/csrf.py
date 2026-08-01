@@ -51,9 +51,20 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
 
-        existing_token = request.cookies.get(CSRF_COOKIE_NAME)
-        if not existing_token:
-            token = getattr(request.state, 'csrf_token', None) or secrets.token_hex(32)
+        token = getattr(request.state, 'csrf_token', None)
+        if token:
+            response.set_cookie(
+                key=CSRF_COOKIE_NAME,
+                value=token,
+                httponly=False,
+                secure=settings.env == "production",
+                samesite="none",
+                path="/",
+                domain=settings.cookie_domain or None,
+            )
+            response.headers["X-CSRF-Token"] = token
+        elif not request.cookies.get(CSRF_COOKIE_NAME):
+            token = secrets.token_hex(32)
             response.set_cookie(
                 key=CSRF_COOKIE_NAME,
                 value=token,

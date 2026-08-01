@@ -8,6 +8,7 @@ from core.models import Candle, Exchange, NormalizedOrder
 from execution.manager import ExecutionManager
 from execution.models import ExecutionRequest
 from portfolio.manager import portfolio_manager
+from risk.manager import risk_manager
 from strategies.base import BaseStrategy
 
 logger = logging.getLogger(__name__)
@@ -54,13 +55,17 @@ class ReplayEngine:
         exec_mgr: ExecutionManager,
         snapshots: list[dict],
         buffer_interval_s: float = 0.0,
+        broker=None,
+        risk_check: bool = True,
+        bt_user_id: str = "",
     ) -> None:
         self._stopped = False
         self._total_candles = len(raw_candles)
         self._current_index = 0
         self._start_time = time.monotonic()
 
-        await self._prefetch_positions()
+        if broker is None:
+            await self._prefetch_positions()
 
         try:
             for idx, raw in enumerate(raw_candles):
@@ -74,22 +79,37 @@ class ReplayEngine:
                 self._current_candle = candle
 
                 try:
+                    if broker is not None:
+                        await broker.on_candle(idx)
+
                     signal = await strategy.on_candle(candle)
 
                     if signal and signal.orders:
                         for order in signal.orders:
-                            req = self._order_to_request(order)
-                            result = await exec_mgr.place_order(req)
-                            if not result.success:
+                            if broker is not None:
+                                if risk_check:
+                                    risk_result = await risk_manager.evaluate(
+                                        self._order_to_request(order), dry_run=True,
+                                    )
+                                    if risk_result.decision == "REJECTED":
+                                        continue
+                                result = await broker.place_order(order)
+                            else:
+                                req = self._order_to_request(order)
+                                result = await exec_mgr.place_order(req)
+                            if not getattr(result, "success", False):
                                 logger.debug(
                                     "Order failed at candle %d: %s - %s",
-                                    idx, order.symbol, result.message,
+                                    idx, order.symbol, getattr(result, "message", ""),
                                 )
                 except Exception as e:
                     logger.error("Candle %d evaluation error: %s", idx, e)
 
-                snapshot = await self._collect_snapshot()
-                snapshots.append(snapshot)
+                if broker is not None:
+                    snapshots.append(self._broker_snapshot(broker))
+                else:
+                    snapshot = await self._collect_snapshot()
+                    snapshots.append(snapshot)
 
                 await self._apply_speed_delay(raw, idx)
 
@@ -125,6 +145,36 @@ class ReplayEngine:
         self._current_candle = candle
         logger.info("ReplayEngine seeked to candle %d/%d", target_index, len(raw_candles))
         return [raw_candles[target_index]]
+
+    def _broker_snapshot(self, broker) -> dict:
+        snapshot = {
+            "index": self._current_index,
+            "timestamp": str(datetime.now(UTC)),
+            "equity": broker.equity(),
+            "positions": [],
+            "pnl": {},
+        }
+        try:
+            positions = broker.positions()
+            snapshot["positions"] = [
+                {
+                    "symbol": symbol,
+                    "quantity": p.get("quantity", 0),
+                    "unrealised_pnl": p.get("unrealised_pnl", 0.0),
+                    "realised_pnl": p.get("realized_pnl", 0.0),
+                    "average_buy_price": p.get("avg_price", 0.0),
+                }
+                for symbol, p in positions.items()
+            ]
+            snapshot["pnl"] = {
+                "realised": broker.realized_pnl,
+                "unrealised": broker.equity() - broker.cash,
+                "daily": broker.realized_pnl,
+                "overall": broker.realized_pnl + broker.equity() - broker.cash,
+            }
+        except Exception as e:
+            logger.debug("Broker snapshot error: %s", e)
+        return snapshot
 
     async def _prefetch_positions(self):
         try:
@@ -228,6 +278,7 @@ class ReplayEngine:
             trigger_price=order.trigger_price,
             strategy_id=order.strategy_id,
             source="backtest",
+            is_paper=True,
         )
 
 

@@ -1,10 +1,10 @@
 'use client'
 
-import { Suspense, useState, useMemo, useCallback } from 'react'
+import { Suspense, useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { api } from '@/lib/api'
+import { api, backtestExportUrl } from '@/lib/api'
 
-const STRATEGIES = [
+const BUILTIN_STRATEGIES = [
   { id: 'trend_rider', name: 'Trend Rider' },
   { id: 'orb_pro', name: 'ORB Pro' },
   { id: 'smc_sniper', name: 'SMC Sniper' },
@@ -22,153 +22,175 @@ const INTERVALS = [
   { id: '1d', label: 'Daily' },
 ]
 
-interface Trade {
+const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
+
+interface BTTrade {
   symbol: string; side: string; entry_price: number; exit_price: number
   quantity: number; pnl: number; entry_time: string; exit_time: string
 }
 
-interface BacktestResultsData {
-  symbol: string; strategy: string; interval: string; days: number
-  initial_capital: number; candles_analyzed: number
-  slippage_pct?: number; brokerage_pct?: number; stt_pct?: number; exchange_pct?: number
-  results: {
-    total_trades: number; winning_trades: number; losing_trades: number
-    win_rate: number; total_pnl: number; max_drawdown: number
-    sharpe_ratio: number; avg_win: number; avg_loss: number
-    largest_win: number; largest_loss: number
-    trades: Trade[]
-    equity_curve: { equity: number; timestamp: string }[]
+interface BTResult {
+  run_id: string; status: string; strategy_id: string
+  config: { strategy_type: string; symbol: string; interval: string; days: number; initial_capital: number }
+  summary: {
+    total_trades: number; winning_trades: number; losing_trades: number; win_rate: number
+    net_pnl: number; profit_factor: number; max_drawdown_pct: number; sharpe_ratio: number
+    sortino_ratio: number; calmar_ratio: number; return_pct: number; expectancy: number
+    expectancy_per_r: number; avg_risk_reward_ratio: number; median_risk_reward_ratio: number
+    alpha: number; beta: number; benchmark_return_pct: number; excess_return_pct: number
+    candles_analyzed: number; start_equity: number; end_equity: number
   }
+  trades: BTTrade[]
+  equity_curve: { index?: number; equity: number; timestamp?: string; drawdown?: number; drawdown_pct?: number }[]
+  weekday_distribution: Record<string, number>
+  hour_distribution: Record<string, number>
+  month_distribution: Record<string, number>
+  duration_seconds: number
+  error?: string
 }
 
-function runMonteCarlo(trades: Trade[], initialCapital: number, iterations = 500): number[][] {
-  if (trades.length < 3) return []
-  const pnlValues = trades.map(t => t.pnl)
-  const paths: number[][] = []
-  for (let i = 0; i < iterations; i++) {
-    let eq = initialCapital
-    const curve = [eq]
-    for (let j = 0; j < trades.length; j++) {
-      eq += pnlValues[Math.floor(Math.random() * pnlValues.length)]
-      curve.push(eq)
-    }
-    paths.push(curve)
-  }
-  return paths
+interface OptimizeResult {
+  run_id: string; status: string; method: string; strategy_type: string; symbol: string
+  combos_total: number; combos_completed: number
+  results: { params: Record<string, string | number>; metrics: Record<string, number>; error?: string }[]
+  best: Record<string, unknown>
+  distribution: Record<string, number>
+  error?: string
 }
 
-function computeMonthlyReturns(trades: Trade[]): { month: string; return_pct: number }[] {
-  const byMonth: Record<string, number> = {}
-  for (const t of trades) {
-    const m = t.exit_time ? t.exit_time.slice(0, 7) : 'unknown'
-    byMonth[m] = (byMonth[m] || 0) + t.pnl
-  }
-  const totalPnl = trades.reduce((s, t) => s + t.pnl, 0)
-  return Object.entries(byMonth).map(([month, pnl]) => ({
-    month,
-    return_pct: totalPnl !== 0 ? (pnl / Math.abs(totalPnl)) * 100 : 0,
-  }))
+interface BuilderStrategyItem { id: string; name: string; status: string }
+
+function fmt(x: number | null | undefined, digits = 2): string {
+  if (x === null || x === undefined || Number.isNaN(x)) return '—'
+  return Number(x).toFixed(digits)
 }
 
-function computeDrawdowns(equityCurve: { equity: number }[]): { depth: number; from: number; to: number }[] {
-  const dd: { depth: number; from: number; to: number }[] = []
-  let peak = -Infinity
-  let peakIdx = 0
-  let inDrawdown = false
-  let startIdx = 0
-  for (let i = 0; i < equityCurve.length; i++) {
-    const e = equityCurve[i].equity
-    if (e > peak) {
-      peak = e
-      peakIdx = i
-      if (inDrawdown) {
-        inDrawdown = false
-      }
-    }
-    if (e < peak) {
-      if (!inDrawdown) {
-        inDrawdown = true
-        startIdx = peakIdx
-      }
-      const depth = ((peak - e) / peak) * 100
-      dd.push({ depth, from: startIdx, to: i })
-    }
-  }
-  return dd.sort((a, b) => b.depth - a.depth).slice(0, 5)
+function fmtMoney(x: number | null | undefined): string {
+  if (x === null || x === undefined || Number.isNaN(x)) return '—'
+  const sign = x >= 0 ? '+' : ''
+  return `${sign}₹${Math.round(x).toLocaleString('en-IN')}`
 }
 
-function EquityChart({ curves, height = 200, color = 'var(--green)', label }: { curves: number[][]; height?: number; color?: string; label?: string }) {
-  if (curves.length === 0) return null
-  const all = curves.flat()
-  const min = Math.min(...all)
-  const max = Math.max(...all)
+function LineChart({ series, height = 180, color = 'var(--green)', yLabel = '' }: {
+  series: { x: string; y: number }[]; height?: number; color?: string; yLabel?: string
+}) {
+  if (series.length < 2) return null
+  const ys = series.map(p => p.y)
+  const min = Math.min(...ys); const max = Math.max(...ys)
   const range = max - min || 1
   const width = 600
-  const pad = { top: 16, right: 16, bottom: 24, left: 60 }
+  const pad = { top: 14, right: 16, bottom: 22, left: 58 }
   const cw = width - pad.left - pad.right
   const ch = height - pad.top - pad.bottom
-  const x = (_i: number, len: number) => pad.left + (_i / (len - 1 || 1)) * cw
+  const x = (i: number) => pad.left + (i / (series.length - 1)) * cw
   const y = (v: number) => pad.top + ch - ((v - min) / range) * ch
+  const last = series[series.length - 1]
+  const first = series[0]
+  const avg = ys.reduce((s, v) => s + v, 0) / ys.length
 
   return (
     <div>
-      {label && <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>{label}</div>}
       <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto' }}>
-        <defs>
-          <linearGradient id="mc-fade"><stop offset="0%" stopColor={color} stopOpacity="0.08" /><stop offset="100%" stopColor={color} stopOpacity="0.01" /></linearGradient>
-        </defs>
         {Array.from({ length: 5 }).map((_, i) => {
-          const yy = pad.top + (i / 5) * ch
+          const yy = pad.top + (i / 4) * ch
+          const val = max - (range / 4) * i
           return (
             <g key={i}>
               <line x1={pad.left} y1={yy} x2={width - pad.right} y2={yy} stroke="color-mix(in srgb, var(--text-inverse) 3%, transparent)" strokeWidth={1} />
-              <text x={pad.left - 6} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">
-                {Math.round(min + (range / 5) * (5 - i)).toLocaleString()}
+              <text x={pad.left - 5} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">
+                {Math.round(val).toLocaleString()}
               </text>
             </g>
           )
         })}
-        {curves.slice(0, 50).map((curve, ci) => (
-          <path key={ci} d={curve.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i, curve.length)},${y(v)}`).join('')}
-            fill="none" stroke={color} strokeWidth={0.3} strokeOpacity={0.15} />
-        ))}
-        {curves.length > 0 && (
-          <path d={curves[0].map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i, curves[0].length)},${y(v)}`).join('')}
-            fill="none" stroke={color} strokeWidth={2} />
-        )}
+        <line x1={pad.left} y1={y(avg)} x2={width - pad.right} y2={y(avg)} stroke="var(--amber)" strokeWidth={1} strokeDasharray="4 3" opacity={0.6} />
+        <path d={series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.y)}`).join('')}
+          fill="none" stroke={color} strokeWidth={2} />
+        <circle cx={x(series.length - 1)} cy={y(last.y)} r={3} fill={color} />
+        <text x={x(series.length - 1) - 4} y={y(last.y) - 6} textAnchor="end" fill="var(--text)" fontSize={9} fontFamily="var(--font-mono)" fontWeight={700}>
+          {Math.round(last.y).toLocaleString()}
+        </text>
+        <text x={pad.left + 2} y={y(first.y) + 10} fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">
+          {Math.round(first.y).toLocaleString()}
+        </text>
+        {yLabel && <text x={8} y={pad.top} fill="var(--text-faint)" fontSize={8} fontWeight={700}>{yLabel}</text>}
       </svg>
     </div>
   )
 }
 
-function BarChart({ data, height = 120 }: { data: { label: string; value: number; color?: string }[]; height?: number }) {
+function BarChart({ data, height = 120, unit = '' }: { data: { label: string; value: number }[]; height?: number; unit?: string }) {
   if (data.length === 0) return null
   const maxVal = Math.max(...data.map(d => Math.abs(d.value)), 1)
   const w = 600
-  const barW = Math.max(8, (w - 60) / data.length - 4)
+  const barW = Math.max(7, (w - 60) / data.length - 3)
   return (
     <svg viewBox={`0 0 ${w} ${height}`} style={{ width: '100%', height: 'auto' }}>
       <line x1={40} y1={height - 20} x2={w - 10} y2={height - 20} stroke="color-mix(in srgb, var(--text-inverse) 6%, transparent)" />
-      <line x1={40} y1={20} x2={40} y2={height - 20} stroke="color-mix(in srgb, var(--text-inverse) 6%, transparent)" />
-      {data.map((d) => {
-        const i = data.indexOf(d)
-        const xPos = 44 + i * (barW + 4)
+      <line x1={40} y1={16} x2={40} y2={height - 20} stroke="color-mix(in srgb, var(--text-inverse) 6%, transparent)" />
+      {data.map((d, i) => {
+        const xPos = 44 + i * (barW + 3)
         const barH = (Math.abs(d.value) / maxVal) * (height - 40)
         const yPos = d.value >= 0 ? height - 20 - barH : height - 20
         return (
           <g key={d.label}>
-            <rect x={xPos} y={yPos} width={barW} height={Math.max(1, barH)} rx={2} fill={d.color || (d.value >= 0 ? 'var(--green)' : 'var(--red)')} opacity={0.7} />
-            {height > 80 && (
-              <text x={xPos + barW / 2} y={height - 6} textAnchor="middle" fill="var(--text-faint)" fontSize={7} fontFamily="var(--font-sans)">
-                {d.label.length > 5 ? d.label.slice(0, 5) : d.label}
-              </text>
-            )}
+            <rect x={xPos} y={yPos} width={barW} height={Math.max(1, barH)} rx={2}
+              fill={d.value >= 0 ? 'var(--green)' : 'var(--red)'} opacity={0.7} />
+            <text x={xPos + barW / 2} y={height - 6} textAnchor="middle" fill="var(--text-faint)" fontSize={7} fontFamily="var(--font-sans)">
+              {d.label.length > 5 ? d.label.slice(0, 5) : d.label}
+            </text>
           </g>
         )
       })}
     </svg>
   )
 }
+
+function Heatmap({ data, title }: { data: Record<string, number>; title: string }) {
+  const hours = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
+  const flat = Object.values(data)
+  const max = Math.max(...flat, 1)
+  const min = Math.min(...flat, 0)
+  const cell = 22
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 6, fontWeight: 700 }}>{title}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${24}, ${cell}px)`, gap: 2, overflowX: 'auto' }}>
+        {hours.map(h => (
+          <div key={h} style={{ fontSize: 8, color: 'var(--text-faint)', textAlign: 'center' }}>{h}</div>
+        ))}
+        {WEEKDAYS.map(day => (
+          <div key={day}>
+            {hours.map(h => {
+              const v = data[`${day}-${h}`] ?? data[h] ?? 0
+              const t = max > min ? (v - min) / (max - min) : 0
+              const alpha = v === 0 ? 0.05 : 0.25 + t * 0.6
+              return (
+                <div key={`${day}-${h}`} style={{
+                  width: cell, height: cell, borderRadius: 3, marginBottom: 2,
+                  background: v >= 0 ? `rgba(34,197,94,${alpha})` : `rgba(239,68,68,${alpha})`,
+                }} title={`${day} ${h}:00 — ${v}`} />
+              )
+            })}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 4, fontSize: 8, color: 'var(--text-faint)' }}>
+        <span>Mon</span>
+        <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'color-mix(in srgb, var(--text-inverse) 8%, transparent)' }} />
+        <span>Fri</span>
+      </div>
+    </div>
+  )
+}
+
+const kpiCard = (label: string, value: string, sub?: string, color?: string) => (
+  <div className="t-panel" style={{ padding: 12 }}>
+    <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{label}</div>
+    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: color || 'var(--text)', marginBottom: 1 }}>{value}</div>
+    {sub && <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{sub}</div>}
+  </div>
+)
 
 export default function BacktestPage() {
   return (
@@ -181,106 +203,226 @@ export default function BacktestPage() {
 function BacktestContent() {
   const searchParams = useSearchParams()
   const initialStrategy = searchParams.get('strategy') || 'trend_rider'
+
+  const [source, setSource] = useState<'builtin' | 'builder'>(initialStrategy === 'trend_rider' ? 'builtin' : 'builder')
   const [strategy, setStrategy] = useState(initialStrategy)
+  const [builderStrategies, setBuilderStrategies] = useState<BuilderStrategyItem[]>([])
   const [symbol, setSymbol] = useState('NIFTY')
   const [interval, setInterval] = useState('15m')
   const [days, setDays] = useState(60)
   const [capital, setCapital] = useState(100000)
   const [slippage, setSlippage] = useState(0.05)
-  const [brokerage, setBrokerage] = useState(0.03)
-  const [running, setRunning] = useState(false)
-  const [result, setResult] = useState<BacktestResultsData | null>(null)
-  const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<'overview' | 'montecarlo' | 'optimization' | 'trades'>('overview')
-  const [optParam, setOptParam] = useState('fast_period')
-  const [optValues, setOptValues] = useState('5,9,14,21')
-  const [optResults, setOptResults] = useState<{ value: string; result: BacktestResultsData }[]>([])
-  const [optRunning, setOptRunning] = useState(false)
-  const [compareStrategies, setCompareStrategies] = useState<string[]>(['trend_rider'])
-  const [compareResults, setCompareResults] = useState<BacktestResultsData[]>([])
-  const [compareRunning, setCompareRunning] = useState(false)
+  const [latency, setLatency] = useState(0)
+  const [partialFill, setPartialFill] = useState(0)
+  const [riskEnabled, setRiskEnabled] = useState(true)
 
-  const handleRun = async () => {
+  const [running, setRunning] = useState(false)
+  const [result, setResult] = useState<BTResult | null>(null)
+  const [error, setError] = useState('')
+
+  const [activeTab, setActiveTab] = useState<'overview' | 'optimizer' | 'compare' | 'trades'>('overview')
+
+  const [optMethod, setOptMethod] = useState('grid')
+  const [optMetric, setOptMetric] = useState('sharpe_ratio')
+  const [optParamsText, setOptParamsText] = useState('fast_period=5,9,14,21\nslow_period=13,26')
+  const [optRunning, setOptRunning] = useState(false)
+  const [optResult, setOptResult] = useState<OptimizeResult | null>(null)
+  const [optError, setOptError] = useState('')
+
+  const [compareIdsText, setCompareIdsText] = useState('')
+  const [compareRunning, setCompareRunning] = useState(false)
+  const [comparison, setComparison] = useState<Record<string, Record<string, unknown>> | null>(null)
+  const [compareError, setCompareError] = useState('')
+
+  const [exporting, setExporting] = useState<string | null>(null)
+  const [deploying, setDeploying] = useState(false)
+  const [deployMsg, setDeployMsg] = useState('')
+
+  useEffect(() => {
+    api.builder.list().then(res => {
+      const items = Array.isArray(res) ? res : (res as { strategies?: BuilderStrategyItem[] }).strategies || []
+      setBuilderStrategies(items.filter(s => s.status !== 'ARCHIVED' && s.status !== 'STOPPED'))
+    }).catch(() => { /* skip */ })
+  }, [])
+
+  const handleRun = useCallback(async () => {
     setRunning(true); setError(''); setResult(null)
     try {
-      const data = await api.post('/backtests/run', {
-        strategy_type: strategy, symbol, interval, days,
-        initial_capital: capital, config: {},
-        slippage_pct: slippage, brokerage_pct: brokerage,
-      })
-      setResult(data as BacktestResultsData)
+      let data: BTResult
+      if (source === 'builder') {
+        if (!strategy) throw new Error('Select a builder strategy')
+        data = await api.backtest.runV3({
+          strategy_id: strategy, symbol, interval, days,
+          initial_capital: capital, risk_enabled: riskEnabled,
+          slippage_pct: slippage, latency_candles: latency,
+          partial_fill_probability: partialFill,
+        })
+      } else {
+        data = await api.backtest.run({
+          strategy_type: strategy, symbol, interval, days,
+          initial_capital: capital, config: {},
+          slippage_pct: slippage,
+        })
+      }
+      setResult(data)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Backtest failed')
     } finally { setRunning(false) }
-  }
+  }, [source, strategy, symbol, interval, days, capital, slippage, latency, partialFill, riskEnabled])
 
-  const r = result?.results
-  const mcPaths = useMemo(() => r?.trades ? runMonteCarlo(r.trades, result!.initial_capital) : [], [r?.trades, result?.initial_capital])
-  const monthlyReturns = useMemo(() => r?.trades ? computeMonthlyReturns(r.trades) : [], [r?.trades])
-  const drawdowns = useMemo(() => r?.equity_curve ? computeDrawdowns(r.equity_curve) : [], [r?.equity_curve])
-
-  const handleToggleCompare = (strategyId: string) => {
-    setCompareStrategies(prev =>
-      prev.includes(strategyId) ? prev.filter(s => s !== strategyId) : [...prev, strategyId]
-    )
-  }
-
-  const handleRunComparison = async () => {
-    setCompareRunning(true)
-    const results: BacktestResultsData[] = []
-    for (const s of compareStrategies) {
-      try {
-        const data = await api.post('/backtests/run', { strategy_type: s, symbol, interval, days, initial_capital: capital, config: {} })
-        results.push(data as BacktestResultsData)
-      } catch { /* skip failures */ }
+  const handleRunOptimize = useCallback(async () => {
+    setOptRunning(true); setOptError(''); setOptResult(null)
+    const paramRanges: Record<string, (string | number)[]> = {}
+    for (const line of optParamsText.split('\n')) {
+      const eq = line.indexOf('=')
+      if (eq <= 0) continue
+      const key = line.slice(0, eq).trim()
+      const values = line.slice(eq + 1).split(',').map(v => {
+        const n = Number(v.trim())
+        return Number.isNaN(n) ? v.trim() : n
+      }).filter(v => v !== '')
+      if (key && values.length) paramRanges[key] = values
     }
-    setCompareResults(results)
-    setCompareRunning(false)
-  }
-
-  const handleRunOptimization = async () => {
-    setOptRunning(true); setOptResults([])
-    const values = optValues.split(',').map(v => v.trim()).filter(Boolean)
-    const results: { value: string; result: BacktestResultsData }[] = []
-    for (const v of values) {
-      try {
-        const data = await api.post('/backtests/run', {
-          strategy_type: strategy, symbol, interval, days, initial_capital: capital,
-          config: { [optParam]: Number(v) },
-        })
-        results.push({ value: v, result: data as BacktestResultsData })
-      } catch { /* skip */ }
+    if (Object.keys(paramRanges).length === 0) {
+      setOptError('Enter at least one parameter range (e.g. fast_period=5,9,14)')
+      setOptRunning(false)
+      return
     }
-    setOptResults(results)
-    setOptRunning(false)
-  }
+    try {
+      const data = await api.backtest.optimize({
+        strategy_type: strategy,
+        method: optMethod,
+        param_ranges: paramRanges,
+        metric: optMetric,
+        symbol, interval, days,
+      })
+      setOptResult(data as OptimizeResult)
+    } catch (err: unknown) {
+      setOptError(err instanceof Error ? err.message : 'Optimization failed')
+    } finally { setOptRunning(false) }
+  }, [strategy, optMethod, optMetric, optParamsText, symbol, interval, days])
 
-  const kpiCard = (label: string, value: string, sub?: string, color?: string) => (
-    <div className="t-panel" style={{ padding: 12 }}>
-      <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: color || 'var(--text)', marginBottom: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{sub}</div>}
-    </div>
-  )
+  const handleCompare = useCallback(async () => {
+    setCompareRunning(true); setCompareError(''); setComparison(null)
+    const ids = compareIdsText.split(',').map(s => s.trim()).filter(Boolean)
+    if (ids.length < 2) {
+      setCompareError('Enter at least 2 run IDs (comma-separated)')
+      setCompareRunning(false)
+      return
+    }
+    try {
+      const data = await api.backtest.compare<{ comparison: Record<string, Record<string, unknown>> }>(ids)
+      setComparison(data.comparison)
+    } catch (err: unknown) {
+      setCompareError(err instanceof Error ? err.message : 'Compare failed')
+    } finally { setCompareRunning(false) }
+  }, [compareIdsText])
+
+  const handleExport = useCallback(async (format: 'json' | 'csv' | 'pdf') => {
+    if (!result) return
+    setExporting(format)
+    try {
+      const url = backtestExportUrl(result.run_id, format)
+      const res = await fetch(url, { credentials: 'include' })
+      if (!res.ok) {
+        const t = await res.text()
+        try { const j = JSON.parse(t); throw new Error(j.detail || `Export failed: ${res.status}`) } catch (e) { throw e }
+      }
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `backtest-${result.run_id}.${format}`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Export failed')
+    } finally { setExporting(null) }
+  }, [result])
+
+  const handleDeployToPaper = useCallback(async () => {
+    if (!result) return
+    setDeploying(true); setDeployMsg('')
+    try {
+      const data = await api.backtest.deployToPaper(result.run_id)
+      setDeployMsg(`Deployed to paper — ${data.status} (${data.strategy_id})`)
+    } catch (err: unknown) {
+      setDeployMsg(err instanceof Error ? err.message : 'Deploy failed')
+    } finally { setDeploying(false) }
+  }, [result])
+
+  const s = result?.summary
+  const equityPoints = useMemo(() => (result?.equity_curve || []).map((p, i) => ({
+    x: p.timestamp || String(p.index ?? i),
+    y: p.equity,
+  })), [result])
+
+  const drawdownSeries = useMemo(() => {
+    let peak = -Infinity
+    return (result?.equity_curve || []).map((p, i) => {
+      if (p.equity > peak) peak = p.equity
+      return { x: p.timestamp || String(p.index ?? i), y: peak > 0 ? ((peak - p.equity) / peak) * 100 : 0 }
+    })
+  }, [result])
+
+  const weekdayBars = useMemo(() => WEEKDAYS
+    .map(d => ({ label: d, value: result?.weekday_distribution?.[d] || 0 }))
+    .filter(d => d.value !== 0), [result])
+
+  const hourBars = useMemo(() => Array.from({ length: 24 }, (_, h) => {
+    const key = String(h).padStart(2, '0')
+    return { label: key, value: result?.hour_distribution?.[key] || 0 }
+  }).filter(d => d.value !== 0), [result])
+
+  const monthBars = useMemo(() => Object.entries(result?.month_distribution || {})
+    .map(([k, v]) => ({ label: k.slice(5, 7) || k, value: v })), [result])
+
+  const bestCombo = useMemo(() => {
+    if (!optResult?.results?.length) return null
+    const key = optMetric
+    return [...optResult.results].sort((a, b) => (b.metrics?.[key] ?? -Infinity) - (a.metrics?.[key] ?? -Infinity))[0]
+  }, [optResult, optMetric])
+
+  const selectedBuilderName = builderStrategies.find(b => b.id === strategy)?.name || strategy
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div>
-        <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Backtest</h1>
-        <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>Test strategies against historical data</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Backtest Engine</h1>
+          <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>Institutional-grade backtesting for Indian markets — costs, corporate actions, continuous futures</p>
+        </div>
+        {result?.run_id && (
+          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
+            run {result.run_id} · {(result.duration_seconds || 0).toFixed(1)}s
+          </div>
+        )}
       </div>
 
-      {/* Parameters Panel */}
-      <div style={{
-        background: 'var(--panel)', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)', padding: 12,
-      }}>
+      {/* Run Form */}
+      <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Strategy</label>
-            <select className="t-select" value={strategy} onChange={e => setStrategy(e.target.value)}>
-              {STRATEGIES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Source</label>
+            <select className="t-select" value={source} onChange={e => {
+              setSource(e.target.value as 'builtin' | 'builder')
+              if (e.target.value === 'builder') setStrategy(builderStrategies[0]?.id || '')
+            }}>
+              <option value="builtin">Built-in</option>
+              <option value="builder">Builder (DSL)</option>
             </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Strategy</label>
+            {source === 'builtin' ? (
+              <select className="t-select" value={strategy} onChange={e => setStrategy(e.target.value)}>
+                {BUILTIN_STRATEGIES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            ) : (
+              <select className="t-select" value={strategy} onChange={e => setStrategy(e.target.value)}>
+                {builderStrategies.length === 0 && <option value="">No builder strategies</option>}
+                {builderStrategies.map(s => <option key={s.id} value={s.id}>{s.name} ({s.status.toLowerCase()})</option>)}
+              </select>
+            )}
           </div>
           <div>
             <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Symbol</label>
@@ -294,7 +436,7 @@ function BacktestContent() {
           </div>
           <div>
             <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Days</label>
-            <input className="t-input" type="number" value={days} onChange={e => setDays(Number(e.target.value))} min={1} max={365} />
+            <input className="t-input" type="number" value={days} onChange={e => setDays(Number(e.target.value))} min={1} max={730} />
           </div>
           <div>
             <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Capital</label>
@@ -305,247 +447,297 @@ function BacktestContent() {
             <input className="t-input" type="number" value={slippage} onChange={e => setSlippage(Number(e.target.value))} min={0} step={0.01} />
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Brokerage %</label>
-            <input className="t-input" type="number" value={brokerage} onChange={e => setBrokerage(Number(e.target.value))} min={0} step={0.01} />
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Latency (candles)</label>
+            <input className="t-input" type="number" value={latency} onChange={e => setLatency(Number(e.target.value))} min={0} max={5} />
+          </div>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Partial fill %</label>
+            <input className="t-input" type="number" value={partialFill} onChange={e => setPartialFill(Number(e.target.value))} min={0} max={100} />
+          </div>
+          <div>
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Risk checks</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 28 }}>
+              <button className={`t-chip ${riskEnabled ? 'active' : ''}`} onClick={() => setRiskEnabled(!riskEnabled)} style={{ fontSize: 10 }}>
+                {riskEnabled ? 'ON' : 'OFF'}
+              </button>
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button className="t-btn t-btn-primary" onClick={handleRun} disabled={running} style={{ width: '100%', height: 28 }}>
-              {running ? 'Running...' : 'Run'}
+              {running ? 'Running…' : 'Run Backtest'}
             </button>
           </div>
+        </div>
+        <div style={{ marginTop: 8, fontSize: 10, color: 'var(--text-faint)' }}>
+          {source === 'builder' ? `Running DSL strategy "${selectedBuilderName}" via the GraphStrategy runtime — same code path as paper/live deployment.` : 'Built-in strategy path. Use Builder source to backtest DSL strategies and deploy them to paper with one click.'}
         </div>
       </div>
 
       {error && (
-        <div style={{
-          background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 15%, transparent)',
-          borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12,
-        }}>{error}</div>
+        <div style={{ background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 15%, transparent)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12 }}>{error}</div>
       )}
 
-      {r && (
+      {s && (
         <>
-          {/* Tab Bar */}
           <div className="t-tabs">
-            {(['overview', 'montecarlo', 'optimization', 'trades'] as const).map(tab => (
+            {(['overview', 'optimizer', 'compare', 'trades'] as const).map(tab => (
               <button key={tab} className={`t-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
-                {tab === 'overview' ? 'Overview' : tab === 'montecarlo' ? 'Monte Carlo' : tab === 'optimization' ? 'Optimization' : 'Trade Log'}
+                {tab === 'overview' ? 'Overview' : tab === 'optimizer' ? 'Optimizer' : tab === 'compare' ? 'Compare Runs' : `Trades (${s.total_trades})`}
               </button>
             ))}
           </div>
 
           {activeTab === 'overview' && (
             <>
-              {/* KPI Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-                {kpiCard('Total P&L (after costs)', `${r.total_pnl >= 0 ? '+' : ''}${r.total_pnl.toFixed(0)}`, `${r.total_trades} trades`, r.total_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)')}
-                {kpiCard('Win Rate', `${r.win_rate}%`, `${r.winning_trades}W / ${r.losing_trades}L`, r.win_rate >= 50 ? 'var(--text-green)' : 'var(--text-red)')}
-                {kpiCard('Sharpe', r.sharpe_ratio.toFixed(2), r.sharpe_ratio >= 1 ? 'Good' : 'Below threshold', r.sharpe_ratio >= 1 ? 'var(--text-green)' : 'var(--amber)')}
-                {kpiCard('Max DD', `-${r.max_drawdown.toFixed(1)}%`, drawdowns[0] ? `${drawdowns[0].depth.toFixed(1)}% deepest` : '', 'var(--text-red)')}
-                {kpiCard('Avg Win / Loss', `+${r.avg_win.toFixed(0)} / -${r.avg_loss.toFixed(0)}`, `Best: +${r.largest_win.toFixed(0)} / Worst: ${r.largest_loss.toFixed(0)}`)}
-                {kpiCard('Candles', result!.candles_analyzed.toLocaleString(), `${result!.symbol} ${result!.interval}`)}
+              {/* KPI grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+                {kpiCard('Net P&L (after costs)', fmtMoney(s.net_pnl), `${s.total_trades} trades`, s.net_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)')}
+                {kpiCard('Return', `${s.return_pct >= 0 ? '+' : ''}${fmt(s.return_pct)}%`, `from ₹${Math.round(s.start_equity).toLocaleString('en-IN')}`)}
+                {kpiCard('Win Rate', `${fmt(s.win_rate, 1)}%`, `${s.winning_trades}W / ${s.losing_trades}L`, s.win_rate >= 50 ? 'var(--text-green)' : 'var(--text-red)')}
+                {kpiCard('Profit Factor', fmt(s.profit_factor), s.profit_factor >= 1.5 ? 'Healthy' : s.profit_factor >= 1 ? 'Positive' : 'Below 1', s.profit_factor >= 1 ? 'var(--text-green)' : 'var(--text-red)')}
+                {kpiCard('Expectancy', fmtMoney(s.expectancy), `${fmt(s.expectancy_per_r)}R per trade`, s.expectancy >= 0 ? 'var(--text-green)' : 'var(--text-red)')}
+                {kpiCard('Sharpe', fmt(s.sharpe_ratio), s.sharpe_ratio >= 1 ? 'Good' : 'Below threshold', s.sharpe_ratio >= 1 ? 'var(--text-green)' : 'var(--amber)')}
+                {kpiCard('Sortino', fmt(s.sortino_ratio), 'downside-adjusted')}
+                {kpiCard('Calmar', fmt(s.calmar_ratio), 'return / max DD')}
+                {kpiCard('Max Drawdown', `-${fmt(s.max_drawdown_pct)}%`, `peak-to-trough`, 'var(--text-red)')}
+                {kpiCard('Alpha (252d)', `${s.alpha >= 0 ? '+' : ''}${fmt(s.alpha)}%`, `vs ${s.benchmark_return_pct >= 0 ? '+' : ''}${fmt(s.benchmark_return_pct)}% benchmark`, s.alpha >= 0 ? 'var(--text-green)' : 'var(--text-red)')}
+                {kpiCard('Beta (252d)', fmt(s.beta), s.beta <= 1 ? 'Lower vol than market' : 'Higher vol than market')}
+                {kpiCard('Avg / Med RR', `${fmt(s.avg_risk_reward_ratio)} / ${fmt(s.median_risk_reward_ratio)}`, 'risk-reward per trade')}
+                {kpiCard('Candles', (s.candles_analyzed || 0).toLocaleString(), `${result!.config.symbol} ${result!.config.interval}`)}
+                {kpiCard('Final Equity', fmtMoney(s.end_equity), `+${fmt(s.return_pct)}%`) }
               </div>
 
-              {/* Costs Summary */}
-              <div className="t-panel" style={{ padding: 12 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Transaction Costs Applied</div>
-                <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-sub)' }}>
-                  <span>Slippage: <strong>{result!.slippage_pct ?? 0.05}%</strong></span>
-                  <span>Brokerage: <strong>{result!.brokerage_pct ?? 0.03}%</strong></span>
-                  <span>STT: <strong>{result!.stt_pct ?? 0.025}%</strong></span>
-                  <span>Exchange: <strong>{result!.exchange_pct ?? 0.003}%</strong></span>
-                </div>
-              </div>
-
-              {/* Charts Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
-                {/* Equity Curve */}
+              {/* Equity + Drawdown */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <EquityChart curves={[r.equity_curve.map(p => p.equity)]} height={180} color={r.total_pnl >= 0 ? 'var(--green)' : 'var(--red)'} label="Equity Curve" />
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Equity Curve</div>
+                  <LineChart series={equityPoints} height={170} color={s.net_pnl >= 0 ? 'var(--green)' : 'var(--red)'} />
                 </div>
-
-                {/* Monthly Returns */}
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Monthly Returns</div>
-                  <BarChart data={monthlyReturns.map(m => ({ label: m.month.slice(-2), value: m.return_pct }))} height={120} />
-                  <div style={{ fontSize: 9, color: 'var(--text-faint)', textAlign: 'center', marginTop: 2 }}>% of total P&L</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Drawdown %</div>
+                  <LineChart series={drawdownSeries} height={170} color="var(--red)" />
                 </div>
               </div>
 
-              {/* Drawdown Analysis */}
-              {drawdowns.length > 0 && (
+              {/* Distributions */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>Largest Drawdowns</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {drawdowns.slice(0, 3).map((dd, idx) => (
-                      <div key={`${dd.depth}-${dd.from}-${dd.to}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-faint)', width: 16 }}>#{idx + 1}</span>
-                        <div style={{ flex: 1, height: 6, background: 'var(--panel-2)', borderRadius: 3, overflow: 'hidden' }}>
-                          <div style={{ width: `${Math.min(dd.depth / (drawdowns[0]?.depth || 1) * 100, 100)}%`, height: '100%', background: 'var(--red)', borderRadius: 3, opacity: 0.6 }} />
-                        </div>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--text-red)', width: 60, textAlign: 'right' }}>
-                          -{dd.depth.toFixed(1)}%
-                        </span>
-                        <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>
-                          candles {dd.from}–{dd.to}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>By Weekday</div>
+                  <BarChart data={weekdayBars} height={110} />
                 </div>
-              )}
-
-              {/* Strategy Comparison */}
-              <div className="t-panel" style={{ padding: 12 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>Compare Strategies</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                  {STRATEGIES.map(s => (
-                    <button key={s.id}
-                      className={`t-chip ${compareStrategies.includes(s.id) ? 'active' : ''}`}
-                      onClick={() => handleToggleCompare(s.id)}
-                    >{s.name}</button>
-                  ))}
+                <div className="t-panel" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>By Hour (IST)</div>
+                  <BarChart data={hourBars} height={110} />
                 </div>
-                <button className="t-btn t-btn-sm t-btn-primary" onClick={handleRunComparison} disabled={compareRunning || compareStrategies.length < 2}>
-                  {compareRunning ? 'Running...' : `Compare ${compareStrategies.length} Strategies`}
-                </button>
+              </div>
 
-                {compareResults.length > 0 && (
-                  <div style={{ marginTop: 10, overflowX: 'auto' }}>
-                    <table className="t-table">
-                      <thead>
-                        <tr>
-                          <th>Metric</th>
-                          {compareResults.map(cr => <th key={cr.strategy} style={{ textAlign: 'right' }}>{cr.strategy.replace('_', ' ')}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          { label: 'Total P&L', get: (cr: BacktestResultsData) => `${cr.results.total_pnl >= 0 ? '+' : ''}${cr.results.total_pnl.toFixed(0)}`, color: (cr: BacktestResultsData) => cr.results.total_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
-                          { label: 'Win Rate', get: (cr: BacktestResultsData) => `${cr.results.win_rate}%` },
-                          { label: 'Sharpe', get: (cr: BacktestResultsData) => cr.results.sharpe_ratio.toFixed(2) },
-                          { label: 'Max DD', get: (cr: BacktestResultsData) => `-${cr.results.max_drawdown.toFixed(1)}%` },
-                          { label: 'Trades', get: (cr: BacktestResultsData) => cr.results.total_trades.toString() },
-                          { label: 'Avg Win', get: (cr: BacktestResultsData) => `+${cr.results.avg_win.toFixed(0)}` },
-                          { label: 'Avg Loss', get: (cr: BacktestResultsData) => `-${cr.results.avg_loss.toFixed(0)}` },
-                        ].map(row => (
-                          <tr key={row.label}>
-                            <td style={{ fontWeight: 700 }}>{row.label}</td>
-                            {compareResults.map(cr => (
-                              <td key={cr.strategy} className="t-num" style={{ color: row.color?.(cr) || 'var(--text)' }}>{row.get(cr)}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="t-panel" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>P&L by Month (₹)</div>
+                  <BarChart data={monthBars} height={110} />
+                </div>
+                <div className="t-panel" style={{ padding: 12 }}>
+                  <Heatmap data={result?.weekday_distribution || {}} title="Weekday × Hour P&L Heatmap" />
+                </div>
+              </div>
+
+              {/* Export + Deploy */}
+              <div className="t-panel" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700 }}>Export run</span>
+                <button className="t-btn t-btn-sm" onClick={() => handleExport('json')} disabled={exporting !== null}>{exporting === 'json' ? '…' : 'JSON'}</button>
+                <button className="t-btn t-btn-sm" onClick={() => handleExport('csv')} disabled={exporting !== null}>{exporting === 'csv' ? '…' : 'CSV'}</button>
+                <button className="t-btn t-btn-sm" onClick={() => handleExport('pdf')} disabled={exporting !== null}>{exporting === 'pdf' ? '…' : 'PDF report'}</button>
+                <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+                {result?.strategy_id ? (
+                  <>
+                    <button className="t-btn t-btn-sm t-btn-primary" onClick={handleDeployToPaper} disabled={deploying}>
+                      {deploying ? 'Deploying…' : 'Deploy to Paper'}
+                    </button>
+                    <span style={{ fontSize: 10, color: deployMsg && !deployMsg.includes('Error') ? 'var(--text-green)' : 'var(--text-red)' }}>
+                      {deployMsg}
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>Deploy-to-paper available for builder (DSL) runs only</span>
                 )}
               </div>
             </>
           )}
 
-          {activeTab === 'montecarlo' && (
+          {activeTab === 'optimizer' && (
             <div className="t-panel" style={{ padding: 12 }}>
               <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Monte Carlo Simulation</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Parameter Optimizer</div>
                 <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>
-                  500 simulated paths based on trade outcome distribution. Solid line = actual equity curve.
-                </div>
-              </div>
-              <EquityChart curves={mcPaths} height={240} color="var(--violet)" />
-              {mcPaths.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
-                  {(() => {
-                    const finalEq = mcPaths.map(p => p[p.length - 1])
-                    const avg = finalEq.reduce((s, v) => s + v, 0) / finalEq.length
-                    const sorted = [...finalEq].sort((a, b) => a - b)
-                    const p95 = sorted[Math.floor(sorted.length * 0.95)]
-                    const p05 = sorted[Math.floor(sorted.length * 0.05)]
-                    return (
-                      <>
-                        {kpiCard('Expected Final', `₹${avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, `from ₹${result!.initial_capital.toLocaleString()}`)}
-                        {kpiCard('Best Case (P95)', `₹${p95.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, `+${((p95 - result!.initial_capital) / result!.initial_capital * 100).toFixed(0)}%`, 'var(--text-green)')}
-                        {kpiCard('Worst Case (P5)', `₹${p05.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, `${((p05 - result!.initial_capital) / result!.initial_capital * 100).toFixed(0)}%`, p05 >= result!.initial_capital ? 'var(--text-green)' : 'var(--text-red)')}
-                      </>
-                    )
-                  })()}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'optimization' && (
-            <div className="t-panel" style={{ padding: 12 }}>
-              <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Parameter Optimization</div>
-                <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>
-                  Test different parameter values to find the optimal configuration
+                  Grid (≤512 combos), walk-forward (train prior folds), Monte Carlo (2000 bootstrap paths) and OFAT ±20% sensitivity on the server.
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 10, flexWrap: 'wrap' }}>
                 <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Parameter</label>
-                  <select className="t-select" value={optParam} onChange={e => setOptParam(e.target.value)} style={{ width: 140 }}>
-                    <option value="fast_period">Fast Period</option>
-                    <option value="slow_period">Slow Period</option>
-                    <option value="lookback">Lookback</option>
-                    <option value="threshold">Threshold</option>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Method</label>
+                  <select className="t-select" value={optMethod} onChange={e => setOptMethod(e.target.value)} style={{ width: 140 }}>
+                    <option value="grid">Grid search</option>
+                    <option value="walk_forward">Walk-forward</option>
+                    <option value="monte_carlo">Monte Carlo</option>
+                    <option value="sensitivity">Sensitivity (OFAT)</option>
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Values (comma-separated)</label>
-                  <input className="t-input" value={optValues} onChange={e => setOptValues(e.target.value)} style={{ width: 200 }} />
+                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Optimize metric</label>
+                  <select className="t-select" value={optMetric} onChange={e => setOptMetric(e.target.value)} style={{ width: 150 }}>
+                    <option value="sharpe_ratio">Sharpe</option>
+                    <option value="net_pnl">Net P&L</option>
+                    <option value="return_pct">Return %</option>
+                    <option value="win_rate">Win rate</option>
+                    <option value="profit_factor">Profit factor</option>
+                    <option value="sortino_ratio">Sortino</option>
+                    <option value="calmar_ratio">Calmar</option>
+                    <option value="max_drawdown_pct">Max DD (min)</option>
+                  </select>
                 </div>
-                <button className="t-btn t-btn-primary" onClick={handleRunOptimization} disabled={optRunning}>
-                  {optRunning ? 'Running...' : 'Optimize'}
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Param ranges (one per line: param=v1,v2,…)</label>
+                  <textarea className="t-input" value={optParamsText} onChange={e => setOptParamsText(e.target.value)}
+                    style={{ minHeight: 46, fontFamily: 'var(--font-mono)', fontSize: 11, resize: 'vertical' }} />
+                </div>
+                <button className="t-btn t-btn-primary" onClick={handleRunOptimize} disabled={optRunning}>
+                  {optRunning ? 'Optimizing…' : 'Optimize'}
                 </button>
               </div>
+              {optError && <div style={{ color: 'var(--text-red)', fontSize: 11, marginBottom: 8 }}>{optError}</div>}
 
-              {optResults.length > 0 && (
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="t-table">
-                    <thead>
-                      <tr>
-                        <th>Value</th>
-                        <th className="num">P&L</th>
-                        <th className="num">Win Rate</th>
-                        <th className="num">Sharpe</th>
-                        <th className="num">Max DD</th>
-                        <th className="num">Trades</th>
-                        <th className="num">Avg Win</th>
-                        <th className="num">Avg Loss</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {optResults.sort((a, b) => b.result.results.sharpe_ratio - a.result.results.sharpe_ratio).map(or => {
-                        const cr = or.result.results
-                        const best = or === optResults.sort((a, b) => b.result.results.sharpe_ratio - a.result.results.sharpe_ratio)[0]
-                        return (
-                          <tr key={or.value} style={best ? { background: 'color-mix(in srgb, var(--cyan) 4%, transparent)' } : {}}>
-                            <td style={{ fontWeight: 700 }}>{or.value}{best ? ' ✓' : ''}</td>
-                            <td className={`num ${cr.total_pnl >= 0 ? 't-up' : 't-down'}`}>{cr.total_pnl >= 0 ? '+' : ''}{cr.total_pnl.toFixed(0)}</td>
-                            <td className="num">{cr.win_rate}%</td>
-                            <td className="num" style={{ color: cr.sharpe_ratio >= 1 ? 'var(--text-green)' : 'var(--amber)' }}>{cr.sharpe_ratio.toFixed(2)}</td>
-                            <td className="num t-down">-{cr.max_drawdown.toFixed(1)}%</td>
-                            <td className="num">{cr.total_trades}</td>
-                            <td className="num t-up">+{cr.avg_win.toFixed(0)}</td>
-                            <td className="num t-down">-{cr.avg_loss.toFixed(0)}</td>
+              {optResult && (
+                <>
+                  <div style={{ display: 'flex', gap: 14, fontSize: 10, color: 'var(--text-faint)', marginBottom: 8, flexWrap: 'wrap' }}>
+                    <span>status: <strong>{optResult.status}</strong></span>
+                    <span>method: <strong>{optResult.method}</strong></span>
+                    <span>combos: <strong>{optResult.combos_completed}/{optResult.combos_total}</strong></span>
+                    {bestCombo && (
+                      <span style={{ color: 'var(--text-green)' }}>
+                        best: {Object.entries(bestCombo.params).map(([k, v]) => `${k}=${v}`).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  {optResult.error && <div style={{ color: 'var(--text-red)', fontSize: 11, marginBottom: 8 }}>{optResult.error}</div>}
+                  {optResult.results.length > 0 && (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="t-table">
+                        <thead>
+                          <tr>
+                            <th>Params</th>
+                            <th className="num">Net P&L</th>
+                            <th className="num">Return %</th>
+                            <th className="num">Win %</th>
+                            <th className="num">PF</th>
+                            <th className="num">Sharpe</th>
+                            <th className="num">Sortino</th>
+                            <th className="num">Max DD %</th>
+                            <th className="num">Trades</th>
                           </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {optResult.results.map((c, idx) => {
+                            const isBest = bestCombo === c
+                            return (
+                              <tr key={idx} style={isBest ? { background: 'color-mix(in srgb, var(--cyan) 4%, transparent)' } : {}}>
+                                <td style={{ fontWeight: 700, fontSize: 11 }}>
+                                  {Object.entries(c.params).map(([k, v]) => `${k}=${v}`).join(' ')}
+                                  {isBest && <span style={{ color: 'var(--cyan)' }}> ✓</span>}
+                                </td>
+                                <td className={`num ${(c.metrics?.net_pnl ?? 0) >= 0 ? 't-up' : 't-down'}`}>{fmtMoney(c.metrics?.net_pnl)}</td>
+                                <td className="num">{fmt(c.metrics?.return_pct)}%</td>
+                                <td className="num">{fmt(c.metrics?.win_rate, 1)}%</td>
+                                <td className="num">{fmt(c.metrics?.profit_factor)}</td>
+                                <td className="num" style={{ color: (c.metrics?.sharpe_ratio ?? 0) >= 1 ? 'var(--text-green)' : 'var(--amber)' }}>{fmt(c.metrics?.sharpe_ratio)}</td>
+                                <td className="num">{fmt(c.metrics?.sortino_ratio)}</td>
+                                <td className="num t-down">-{fmt(c.metrics?.max_drawdown_pct)}%</td>
+                                <td className="num">{Math.round(c.metrics?.total_trades ?? 0)}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
 
-          {activeTab === 'trades' && r.trades.length > 0 && (
+          {activeTab === 'compare' && (
+            <div className="t-panel" style={{ padding: 12 }}>
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Compare Runs</div>
+                <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>
+                  Compare up to 10 saved runs by run ID (comma-separated). The current run is {result.run_id}.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
+                  <input className="t-input" value={compareIdsText} onChange={e => setCompareIdsText(e.target.value)}
+                    placeholder={`${result.run_id}, <another run id>`} style={{ width: '100%' }} />
+                </div>
+                <button className="t-btn t-btn-primary" onClick={handleCompare} disabled={compareRunning}>
+                  {compareRunning ? 'Comparing…' : 'Compare'}
+                </button>
+              </div>
+              {compareError && <div style={{ color: 'var(--text-red)', fontSize: 11, marginBottom: 8 }}>{compareError}</div>}
+
+              {comparison && Object.keys(comparison).length > 0 && (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="t-table">
+                    <thead>
+                      <tr>
+                        <th>Metric</th>
+                        {Object.keys(comparison).map(id => <th key={id} style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{id.slice(0, 8)}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {([
+                        ['total_trades', (v: any) => String(Math.round(v))],
+                        ['net_pnl', (v: any) => fmtMoney(v)],
+                        ['return_pct', (v: any) => `${v >= 0 ? '+' : ''}${fmt(v)}%`],
+                        ['win_rate', (v: any) => `${fmt(v, 1)}%`],
+                        ['profit_factor', (v: any) => fmt(v)],
+                        ['max_drawdown_pct', (v: any) => `-${fmt(v)}%`],
+                        ['sharpe_ratio', (v: any) => fmt(v)],
+                        ['sortino_ratio', (v: any) => fmt(v)],
+                        ['expectancy', (v: any) => fmtMoney(v)],
+                        ['alpha', (v: any) => `${v >= 0 ? '+' : ''}${fmt(v)}%`],
+                        ['beta', (v: any) => fmt(v)],
+                      ] as [string, (v: any) => string][]).map(([key, render]) => (
+                        <tr key={key}>
+                          <td style={{ fontWeight: 700, fontSize: 11 }}>{key.replace(/_/g, ' ')}</td>
+                          {Object.entries(comparison).map(([id, row]) => {
+                            const v = (row as Record<string, unknown>)[key] as number
+                            const isPnl = key === 'net_pnl'
+                            return (
+                              <td key={id} className="t-num" style={{
+                                color: isPnl ? (v >= 0 ? 'var(--text-green)' : 'var(--text-red)') : 'var(--text)',
+                                fontSize: 11,
+                              }}>{render(v)}</td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {comparison && Object.keys(comparison).length === 0 && (
+                <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0 }}>No matching runs found for the given IDs.</p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'trades' && s.total_trades > 0 && (
             <div className="t-panel" style={{ padding: 0 }}>
               <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Trade Log ({r.trades.length} trades)</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Trade Log ({s.total_trades} trades)</span>
+                <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>costs applied</span>
               </div>
-              <div style={{ overflowX: 'auto', maxHeight: 400, overflowY: 'auto' }}>
+              <div style={{ overflowX: 'auto', maxHeight: 480, overflowY: 'auto' }}>
                 <table className="t-table">
                   <thead>
                     <tr>
@@ -556,13 +748,13 @@ function BacktestContent() {
                       <th className="num">Exit</th>
                       <th className="num">Qty</th>
                       <th className="num">P&L</th>
-                      <th>Entry Time</th>
-                      <th>Exit Time</th>
+                      <th>Entry</th>
+                      <th>Exit</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {r.trades.map((t, idx) => (
-                      <tr key={t.entry_time}>
+                    {result!.trades.map((t, idx) => (
+                      <tr key={idx}>
                         <td className="t-faint">{idx + 1}</td>
                         <td style={{ fontWeight: 600 }}>{t.symbol}</td>
                         <td><span className={t.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{t.side}</span></td>
@@ -580,7 +772,7 @@ function BacktestContent() {
             </div>
           )}
 
-          {activeTab === 'trades' && r.trades.length === 0 && (
+          {activeTab === 'trades' && s.total_trades === 0 && (
             <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
               <p style={{ color: 'var(--text-faint)', fontSize: 12, margin: 0 }}>No trades were generated</p>
             </div>
@@ -588,10 +780,10 @@ function BacktestContent() {
         </>
       )}
 
-      {!r && !running && !error && (
+      {!s && !running && !error && (
         <div className="t-panel" style={{ padding: 32, textAlign: 'center' }}>
           <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: '0 0 4px' }}>Configure parameters and run a backtest</p>
-          <p style={{ color: 'var(--text-faint)', fontSize: 11, margin: 0 }}>Compare strategies, optimize parameters, and analyze Monte Carlo simulations</p>
+          <p style={{ color: 'var(--text-faint)', fontSize: 11, margin: 0 }}>Realistic Indian-market costs · corporate actions · continuous futures · deploy to paper</p>
         </div>
       )}
     </div>

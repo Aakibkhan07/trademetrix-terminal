@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from builder.models import StrategyDSL, GraphNode, GraphEdge, StrategySettings, Position
 
 
@@ -13,6 +15,25 @@ def _e(source: str, sp: str, target: str, tp: str) -> GraphEdge:
 
 def _dsl(name: str, desc: str, nodes: list[GraphNode], edges: list[GraphEdge],
          settings: dict | None = None, tags: list[str] | None = None) -> StrategyDSL:
+    node_ids = [n.id for n in nodes]
+
+    def resolve(ref: str) -> str:
+        if re.fullmatch(r"n\d+", ref):
+            idx = int(ref[1:])
+            if idx < len(node_ids):
+                return node_ids[idx]
+        return ref
+
+    edges = [
+        GraphEdge(
+            id=e.id,
+            source_node=resolve(e.source_node),
+            source_port=e.source_port,
+            target_node=resolve(e.target_node),
+            target_port=e.target_port,
+        )
+        for e in edges
+    ]
     return StrategyDSL(
         name=name, description=desc, nodes=nodes, edges=edges,
         settings=StrategySettings(**(settings or {})),
@@ -90,6 +111,8 @@ T_VWAP = _dsl(
     edges=[
         _e("n1", "deviation_pct", "n2", "a"),
         _e("n1", "deviation_pct", "n3", "a"),
+        _e("n0", "close", "n2", "b"),
+        _e("n0", "close", "n3", "b"),
         _e("n2", "result", "n4", "condition"),
         _e("n3", "result", "n5", "condition"),
     ],
@@ -135,6 +158,7 @@ T_BOLLINGER = _dsl(
         _n("order.sell", 700, 200, {"quantity": 75, "reason": "Price rejected off upper band"}),
     ],
     edges=[
+        _e("n1", "prices", "n2", "source"),
         _e("n0", "close", "n3", "a"),
         _e("n2", "lower", "n3", "b"),
         _e("n0", "close", "n4", "a"),
@@ -160,6 +184,10 @@ T_SMC = _dsl(
         _n("order.sell", 550, 200, {"quantity": 75, "reason": "Bearish order block detected"}),
     ],
     edges=[
+        _e("n0", "open", "n2", "open"),
+        _e("n0", "high", "n2", "high"),
+        _e("n0", "low", "n2", "low"),
+        _e("n0", "close", "n2", "close"),
         _e("n2", "bullish", "n3", "condition"),
         _e("n2", "bearish", "n4", "condition"),
     ],
@@ -183,6 +211,7 @@ T_MACD = _dsl(
         _n("order.sell", 700, 200, {"quantity": 75, "reason": "MACD bearish crossover"}),
     ],
     edges=[
+        _e("n1", "prices", "n2", "source"),
         _e("n2", "series_macd", "n3", "a"),
         _e("n2", "series_signal", "n3", "b"),
         _e("n2", "series_macd", "n4", "a"),
@@ -221,6 +250,8 @@ T_SCALP = _dsl(
         _e("n3", "value", "n5", "b"),
         _e("n4", "result", "n6", "condition"),
         _e("n5", "result", "n7", "condition"),
+        _e("n0", "close", "n8", "entry_price"),
+        _e("n0", "close", "n9", "entry_price"),
     ],
     settings={"symbol": "BANKNIFTY", "interval": "1m", "max_positions": 3, "max_daily_trades": 10},
     tags=["scalping", "ema", "fast"],
@@ -246,6 +277,12 @@ T_ICT = _dsl(
         _e("n2", "is_active", "n5", "a"),
         _e("n3", "bullish", "n5", "b"),
         _e("n4", "bullish", "n5", "c"),
+        _e("n0", "high", "n3", "high"),
+        _e("n0", "low", "n3", "low"),
+        _e("n0", "open", "n4", "open"),
+        _e("n0", "high", "n4", "high"),
+        _e("n0", "low", "n4", "low"),
+        _e("n0", "close", "n4", "close"),
         _e("n5", "result", "n6", "condition"),
     ],
     settings={"symbol": "NIFTY", "interval": "5m", "max_positions": 1},
@@ -272,6 +309,10 @@ T_EXPIRY = _dsl(
         _e("n2", "value", "n6", "a"),
         _e("n3", "is_expiry", "n5", "a"),
         _e("n4", "in_range", "n5", "b"),
+        _e("n0", "high", "n2", "high"),
+        _e("n0", "low", "n2", "low"),
+        _e("n0", "close", "n2", "close"),
+        _e("n2", "value", "n6", "b"),
         _e("n5", "result", "n7", "condition"),
         _e("n6", "result", "n7", "condition"),
     ],
@@ -292,3 +333,7 @@ STRATEGY_TEMPLATES: dict[str, StrategyDSL] = {
     "ict_silver_bullet": T_ICT,
     "expiry_hunter": T_EXPIRY,
 }
+
+# Template marketplace categories (official = shipped with the platform;
+# community / private are reserved for user-submitted and personal templates).
+TEMPLATE_CATEGORIES: dict[str, str] = {k: "official" for k in STRATEGY_TEMPLATES}
