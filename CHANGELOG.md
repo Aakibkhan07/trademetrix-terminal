@@ -21,6 +21,23 @@ All audit findings (`docs/ProductCleanupAudit.md`, KEEP 29) are now fixed in pla
 - `tsc --noEmit` clean; prod build clean (all pages incl. `/funds`).
 - Prod E2E + screenshots of landing/funds/feedback/analytics/status and workspace sidebar.
 
+## v1.1.1 (2026-08-03) — POST-DEPLOY E2E HOTFIXES
+
+### Fixed
+- **Status probes hit the wrong origin** — health endpoints mount at the API root (no `/api/v1` prefix), so probes 404'd; the status page now derives `API_ORIGIN = new URL(API_BASE).origin` and probes `/health`, `/health/ready`, `/health/metrics` there (`44462a4`, `362c026`).
+- **Metrics renderer assumed the wrong payload shape** — `/health/metrics` `requests` is a per-path dict (`{path: {count, avg_ms, max_ms, min_ms}}`), not a flat object; total + top path are now computed and rendered (`362c026`).
+- **Logged-out users got 3× 401 retries on every page** — `auth-context` `fetchUser` now fast-paths any `401` to anonymous state immediately (`44462a4`).
+- **Status EventSource opened unauthenticated** — the events stream is auth-gated; the page now checks `/auth/me` first and marks the stream operational for anonymous visitors instead of failing (`44462a4`).
+- **lightweight-charts parse errors on the workspace chart** — `color-mix()`/CSS-var colors are unparseable by the chart library; all theme colors are now resolved to concrete hex at runtime via `colorVar()` (getComputedStyle) + `mix()` (hex-alpha) helpers (`dc673d9`). Zero pageerrors after fix.
+- **Intermittent 405 / stale profile on `PATCH /api/v1/auth/profile`** — two distinct causes, both fixed:
+  1. `profiles.onboarding_completed` column did not exist on remote Supabase (PGRST204 → 500). New migration `supabase/migrations/20260803_01400_onboarding_completed.sql` applied.
+  2. The 120s in-memory `_user_cache` was never invalidated by profile writes, so `/auth/me` returned the pre-PATCH profile for up to 2 minutes; `update_profile` now pops the cache entry (`a8cbc16`). FastAPI 0.141.x lazy `_IncludedRouter` startup warm-up was also added as a hardening measure (`b0c73f1`).
+
+### Verification
+- API regression: `pytest tests/` → **563 passed, 1 xfailed**.
+- Full prod E2E green (18/18): landing nav/footer, live status probes, signup → onboarding PATCH → `/auth/me` reflects `onboarding_completed: true`, funds CTA, feedback submit + history, analytics live P&L, workspace Terminal/Option-Chain links. Zero pageerrors, zero hydration errors.
+- Remaining expected console noise: single 401 on `/auth/me` per anonymous page visit (no retries), 503 from the external option-chain vendor.
+
 ## v1.0.1 (2026-08-02) — USER NAVIGATION REDESIGN (P0 INCIDENT FIX)
 
 ### Product discoverability — navigation only (zero backend/API/logic changes)

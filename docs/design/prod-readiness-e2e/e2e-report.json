@@ -1,5 +1,5 @@
 {
-  "email": "prtest1785698888045@example.com",
+  "email": "prtest1785700152073@example.com",
   "results": [
     [
       "header nav",
@@ -33,8 +33,8 @@
     ],
     [
       "onboarding flag",
-      "FAIL",
-      "{\"csrf\":200,\"patch\":{\"status\":-1,\"body\":\"TypeError: Failed to fetch\"},\"me\":200,\"onboarding\":false}"
+      "OK",
+      "{\"csrf\":200,\"patch\":{\"status\":200,\"body\":\"{\\\"id\\\":\\\"7b6611e8-b947-4e37-90dd-1b667c9296a5\\\",\\\"email\\\":\\\"prtest1785700152073@example.com\\\",\\\"full_name\\\":\\\"prtest1785700152073\\\",\\\"phone\\\":null,\\\"is_admin\\\":false,\\\"role\\\":\\\"\\\",\\\"subscription_tier\\\":\\\"free\\\",\\\"onboarding_\"},\"me\":200,\"onboarding\":true}"
     ],
     [
       "funds renders",
@@ -87,10 +87,6 @@
     "Failed to load resource: the server responded with a status of 401 ()",
     "Failed to load resource: the server responded with a status of 401 ()",
     "Failed to load resource: the server responded with a status of 401 ()",
-    "Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/auth/profile' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
-    "Failed to load resource: net::ERR_FAILED",
-    "Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/auth/profile' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
-    "Failed to load resource: net::ERR_FAILED",
     "Failed to load resource: the server responded with a status of 503 ()"
   ],
   "hydrationWarnings": [],
@@ -98,8 +94,6 @@
     "HTTP 401 [https://ai.trademetrix.tech/]: https://api.ai.trademetrix.tech/api/v1/auth/me",
     "HTTP 401 [https://ai.trademetrix.tech/status]: https://api.ai.trademetrix.tech/api/v1/auth/me",
     "HTTP 401 [https://ai.trademetrix.tech/status]: https://api.ai.trademetrix.tech/api/v1/auth/me",
-    "HTTP 401 [https://ai.trademetrix.tech/auth]: https://api.ai.trademetrix.tech/api/v1/auth/me",
-    "REQFAIL [https://ai.trademetrix.tech/onboarding]: https://api.ai.trademetrix.tech/api/v1/auth/profile net::ERR_FAILED",
-    "REQFAIL [https://ai.trademetrix.tech/onboarding]: https://api.ai.trademetrix.tech/api/v1/auth/profile net::ERR_FAILED"
+    "HTTP 401 [https://ai.trademetrix.tech/auth]: https://api.ai.trademetrix.tech/api/v1/auth/me"
   ]
 }
