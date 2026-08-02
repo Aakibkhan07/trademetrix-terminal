@@ -99,6 +99,18 @@ compliance layer, not a replacement.
 - Pending after deploy: `/brokers/admin/rate-limit` snapshot under budget on a live trading day;
   `/health/metrics` `fyers` block present; `fyers.request`/`fyers.retry` log lines visible.
 
+## Live verification (post-deploy)
+
+- Imports OK in container; `fyers` key present in `/health/metrics`; `GET /api/v1/brokers/admin/rate-limit`
+  returns `{budget_rpm_per_token:100, burst_per_second:8, tokens:[...]}` (admin auth verified).
+- A direct `get_funds` smoke call through the transport hit real Fyers and received a proper JSON
+  response (401 → adapter fail-open zeros) — **no Cloudflare 403 WAF block** on the new path.
+- Full RPM accounting (`tokens` populated, `fyers.request` log lines) requires a valid access token;
+  the stored Fyers token expired 2026-08-01 and needs re-authorization via the portal
+  (pre-existing gap, unaffected by this change). Until then, option-chain reads correctly fall back
+  to NSE → mock with structured warnings.
+
+
 ## Residual risk
 
 - Sustained multi-broker workloads share one token budget — safe because every endpoint's own
