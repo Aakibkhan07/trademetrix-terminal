@@ -89,7 +89,7 @@ async def test_429_respected_with_retry_after(transport):
     client.get = go
     transport._client = client
 
-    with __import__("unittest.mock").mock.patch("brokers.fyers_http.asyncio.sleep", fake_sleep):
+    with __import__("unittest.mock").mock.patch("brokers.sdk.transport.asyncio.sleep", fake_sleep):
         resp = await transport.request("GET", "/api/v3/orders", retries=3, caller="t")
     assert resp.status_code == 200
     assert attempts["n"] == 2
@@ -114,7 +114,7 @@ async def test_1015_backoff_has_jitter_and_cap(transport):
     client.get = go
     transport._client = client
 
-    with __import__("unittest.mock").mock.patch("brokers.fyers_http.asyncio.sleep", fake_sleep):
+    with __import__("unittest.mock").mock.patch("brokers.sdk.transport.asyncio.sleep", fake_sleep):
         resp = await transport.request("GET", "/api/v3/orders", retries=2, caller="t")
     assert resp.status_code == 1015
     assert attempts["n"] == 3          # initial + 2 retries, no more

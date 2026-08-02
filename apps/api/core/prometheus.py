@@ -77,6 +77,49 @@ rate_limit_breaches = Counter(
     "rate_limit_breaches_total", "Rate limit breaches", ["broker"]
 )
 
+# ── Generic broker transport metrics (brokers/sdk/transport.py) ──
+broker_transport_calls = Counter(
+    "broker_http_calls_total", "Logical broker transport calls", ["broker", "endpoint"]
+)
+broker_transport_wire_calls = Counter(
+    "broker_http_wire_calls_total", "Actual broker HTTP round-trips", ["broker", "endpoint"]
+)
+broker_transport_cache_hits = Counter(
+    "broker_http_cache_hits_total", "Broker transport cache hits", ["broker", "endpoint"]
+)
+broker_transport_dedup_hits = Counter(
+    "broker_http_dedup_hits_total", "Broker transport dedup hits", ["broker", "endpoint"]
+)
+broker_transport_retries = Counter(
+    "broker_http_retries_total", "Broker transport retry attempts", ["broker", "endpoint"]
+)
+broker_transport_rate_limited = Counter(
+    "broker_http_rate_limited_total", "Broker 429/1015 responses seen", ["broker", "endpoint"]
+)
+broker_transport_waf_blocks = Counter(
+    "broker_http_waf_blocks_total", "Broker WAF blocks seen", ["broker", "endpoint"]
+)
+broker_transport_failures = Counter(
+    "broker_http_failures_total", "Broker transport final failures", ["broker", "endpoint"]
+)
+broker_http_latency_seconds = Histogram(
+    "broker_http_latency_seconds",
+    "Broker transport retry-wait latency in seconds",
+    ["broker", "endpoint"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
+)
+
+_TRANSPORT_METRICS = {
+    "calls": broker_transport_calls,
+    "wire_calls": broker_transport_wire_calls,
+    "cache_hits": broker_transport_cache_hits,
+    "dedup_hits": broker_transport_dedup_hits,
+    "retries": broker_transport_retries,
+    "rate_limited": broker_transport_rate_limited,
+    "waf_blocks": broker_transport_waf_blocks,
+    "failures": broker_transport_failures,
+}
+
 # ── System / Domain metrics ──
 active_strategies = Gauge("active_strategies", "Number of running strategy engines")
 active_broker_sessions = Gauge("active_broker_sessions", "Number of active broker sessions")
@@ -99,6 +142,16 @@ def record_broadcast_metrics(strategy_key: str, total: int, success_count: int, 
 
 def record_rate_limit_breach(broker: str):
     rate_limit_breaches.labels(broker=broker).inc()
+
+
+def record_broker_transport_metric(name: str, broker: str, endpoint: str, value: int = 1):
+    counter = _TRANSPORT_METRICS.get(name)
+    if counter is not None:
+        counter.labels(broker=broker, endpoint=endpoint).inc(value)
+
+
+def record_broker_transport_latency(broker: str, endpoint: str, seconds: float):
+    broker_http_latency_seconds.labels(broker=broker, endpoint=endpoint).observe(seconds)
 
 
 def record_metrics(method: str, path: str, status_code: int, duration_s: float):
