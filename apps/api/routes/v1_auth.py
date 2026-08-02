@@ -9,7 +9,7 @@ from core.audit import record_audit
 from core.notifications import send_welcome_email
 from core.config import settings
 from core.db import async_supabase, get_supabase
-from core.deps import get_capabilities, get_current_user
+from core.deps import _user_cache, get_capabilities, get_current_user
 from core.http_client import get_http_client
 from core.models import AuditLogEntry, UserProfile
 from core.security import create_access_token
@@ -309,6 +309,7 @@ async def update_profile(req: UpdateProfileRequest, current_user: UserProfile = 
     supabase = get_supabase()
     data = req.model_dump()
     await async_supabase(lambda: supabase.table("profiles").update(data).eq("id", current_user.id).execute())
+    _user_cache.pop(current_user.id, None)
     current_user.onboarding_completed = req.onboarding_completed
     return current_user
 
