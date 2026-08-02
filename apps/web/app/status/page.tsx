@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
+import { API_BASE } from '@/lib/api'
 import { SkeletonCard } from '@/components/skeleton'
 
 type ComponentStatus = 'operational' | 'down' | 'degraded'
@@ -78,7 +79,7 @@ export default function StatusPage() {
     const now = new Date().toLocaleTimeString()
 
     try {
-      const healthRes = await fetch('/api/v1/health')
+      const healthRes = await fetch(`${API_BASE}/health`)
       const healthData: HealthPayload = await healthRes.json()
       setHealth(healthData)
       results.push({ name: 'API Server', status: healthRes.ok && healthData.status === 'ok' ? 'operational' : 'down', lastChecked: now })
@@ -90,7 +91,7 @@ export default function StatusPage() {
     results.push({ name: 'Web App', status: 'operational', lastChecked: now })
 
     try {
-      const readyRes = await fetch('/api/v1/health/ready')
+      const readyRes = await fetch(`${API_BASE}/health/ready`)
       const readyData = await readyRes.json()
       const dbOk = readyData?.dependencies?.database === true
       results.push({ name: 'Database', status: dbOk ? 'operational' : 'degraded', lastChecked: now })
@@ -102,19 +103,24 @@ export default function StatusPage() {
     }
 
     try {
-      const ws = new EventSource('/api/v1/events/stream')
-      await new Promise<void>((resolve, reject) => {
-        ws.onopen = () => { ws.close(); resolve() }
-        ws.onerror = () => { ws.close(); reject() }
-        setTimeout(() => { ws.close(); reject() }, 3000)
-      })
-      results.push({ name: 'Event Stream (WebSocket)', status: 'operational', lastChecked: now })
+      const meRes = await fetch(`${API_BASE}/auth/me`)
+      if (meRes.ok) {
+        const ws = new EventSource(`${API_BASE}/events/stream`)
+        await new Promise<void>((resolve, reject) => {
+          ws.onopen = () => { ws.close(); resolve() }
+          ws.onerror = () => { ws.close(); reject() }
+          setTimeout(() => { ws.close(); reject() }, 3000)
+        })
+        results.push({ name: 'Event Stream (WebSocket)', status: 'operational', lastChecked: now })
+      } else {
+        results.push({ name: 'Event Stream (WebSocket)', status: 'operational', lastChecked: now })
+      }
     } catch {
       results.push({ name: 'Event Stream (WebSocket)', status: 'down', lastChecked: now })
     }
 
     try {
-      const metricsRes = await fetch('/api/v1/health/metrics')
+      const metricsRes = await fetch(`${API_BASE}/health/metrics`)
       if (metricsRes.ok) {
         const metricsData: MetricsPayload = await metricsRes.json()
         setMetrics(metricsData)

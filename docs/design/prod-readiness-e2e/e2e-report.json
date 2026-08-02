@@ -1,0 +1,121 @@
+{
+  "email": "prtest1785697804652@example.com",
+  "results": [
+    [
+      "header nav",
+      "OK",
+      "Pricing/Status/Portal links present"
+    ],
+    [
+      "footer cols",
+      "OK",
+      "3-column public footer"
+    ],
+    [
+      "footer hrefs",
+      "OK",
+      "all footer links resolve to real routes"
+    ],
+    [
+      "status live",
+      "OK",
+      "live health probes render"
+    ],
+    [
+      "status probes",
+      "OK",
+      "health endpoints fetched (2)"
+    ],
+    [
+      "signup",
+      "OK",
+      "https://ai.trademetrix.tech/onboarding"
+    ],
+    [
+      "funds renders",
+      "OK",
+      "funds page content present"
+    ],
+    [
+      "funds no-broker CTA",
+      "OK",
+      "broker-connect CTA for fresh user"
+    ],
+    [
+      "feedback form",
+      "OK",
+      "submit form present"
+    ],
+    [
+      "feedback submit",
+      "OK",
+      "submit posts to API"
+    ],
+    [
+      "feedback history API",
+      "FAIL",
+      "GET /api/v1/feedback -> 404"
+    ],
+    [
+      "analytics KPIs",
+      "OK",
+      "KPI row present"
+    ],
+    [
+      "analytics snapshot",
+      "OK",
+      "P&L snapshot panel present"
+    ],
+    [
+      "analytics live",
+      "OK",
+      "pnl fetched (2)"
+    ],
+    [
+      "workspace links",
+      "OK",
+      "Terminal + Option Chain entries in workspace sidebar"
+    ]
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/auth/profile' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "PAGEERROR: Failed to parse color: color-mix(in srgb, var(--red) 30%, transparent)",
+    "PAGEERROR: Failed to parse color: color-mix(in srgb, var(--red) 30%, transparent)",
+    "Failed to load resource: the server responded with a status of 503 ()"
+  ],
+  "hydrationWarnings": [],
+  "failedRequests": [
+    "HTTP 401 [https://ai.trademetrix.tech/]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 401 [https://ai.trademetrix.tech/]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 401 [https://ai.trademetrix.tech/]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 401 [https://ai.trademetrix.tech/status]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 404 [https://ai.trademetrix.tech/status]: https://ai.trademetrix.tech/api/v1/health",
+    "HTTP 404 [https://ai.trademetrix.tech/status]: https://ai.trademetrix.tech/api/v1/health/ready",
+    "HTTP 404 [https://ai.trademetrix.tech/status]: https://ai.trademetrix.tech/api/v1/events/stream",
+    "REQFAIL [https://ai.trademetrix.tech/status]: https://ai.trademetrix.tech/api/v1/events/stream net::ERR_ABORTED",
+    "HTTP 404 [https://ai.trademetrix.tech/status]: https://ai.trademetrix.tech/api/v1/health/metrics",
+    "HTTP 401 [https://ai.trademetrix.tech/status]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 401 [https://ai.trademetrix.tech/status]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 401 [https://ai.trademetrix.tech/auth]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 401 [https://ai.trademetrix.tech/auth]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "HTTP 401 [https://ai.trademetrix.tech/auth]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "REQFAIL [https://ai.trademetrix.tech/onboarding]: https://api.ai.trademetrix.tech/api/v1/auth/profile net::ERR_FAILED",
+    "HTTP 404 [https://ai.trademetrix.tech/feedback]: https://ai.trademetrix.tech/api/v1/feedback",
+    "HTTP 503 [https://ai.trademetrix.tech/workspace]: https://api.ai.trademetrix.tech/api/v1/marketdata/option-chain?symbol=NIFTY50-INDEX"
+  ]
+}

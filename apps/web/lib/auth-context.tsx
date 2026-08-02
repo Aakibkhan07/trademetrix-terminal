@@ -45,7 +45,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(u as User)
         setLoading(false)
         return
-      } catch {
+      } catch (err: any) {
+        if (err?.status === 401) {
+          setUser(null)
+          setLoading(false)
+          return
+        }
         attempt += 1
         if (attempt >= 3) {
           setUser(null)
