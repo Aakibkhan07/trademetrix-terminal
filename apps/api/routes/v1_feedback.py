@@ -38,6 +38,13 @@ async def submit_feedback(
     return result
 
 
+@router.get("/api/v1/feedback")
+async def list_my_feedback(
+    user: UserProfile = Depends(get_current_user),
+):
+    return await _feedback_service.list_user_feedback(user.id)
+
+
 @router.get("/api/v1/admin/feedback")
 async def admin_list_feedback(
     category: str = "",

@@ -26,7 +26,8 @@ const USER_SECTIONS = [
       { href: '/workspace', label: 'Trading Workspace', icon: '📈' },
       { href: '/trade', label: 'Orders', icon: '📋' },
       { href: '/positions', label: 'Positions', icon: '📍' },
-      { href: '/brokers', label: 'Funds', icon: '💰' },
+      { href: '/funds', label: 'Funds', icon: '💰' },
+      { href: '/brokers', label: 'Brokers', icon: '🏦' },
     ],
   },
   {

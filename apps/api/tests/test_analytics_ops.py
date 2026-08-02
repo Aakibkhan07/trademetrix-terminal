@@ -137,6 +137,34 @@ async def test_feedback_requires_text(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_list_user_feedback_scoped_to_user(monkeypatch):
+    events, feedback = [], []
+    _install_fake_supabase(monkeypatch, events, feedback)
+    svc = AnalyticsService()
+
+    class U:
+        id = "user-1"
+        email = "u@test.dev"
+        full_name = "Tester"
+
+    class U2:
+        id = "user-2"
+        email = "v@test.dev"
+        full_name = "Other"
+
+    await svc.submit_feedback(U(), "bug", "Mine", "desc", {})
+    await svc.submit_feedback(U2(), "feature", "Theirs", "desc", {})
+
+    mine = await svc.list_user_feedback("user-1")
+    assert mine["count"] == 1
+    assert mine["feedback"][0]["title"] == "Mine"
+    assert mine["feedback"][0]["user_id"] == "user-1"
+
+    none = await svc.list_user_feedback("user-3")
+    assert none["count"] == 0
+
+
+@pytest.mark.asyncio
 async def test_funnel_counts_by_step(monkeypatch):
     events = []
     _install_fake_supabase(monkeypatch, events, [])

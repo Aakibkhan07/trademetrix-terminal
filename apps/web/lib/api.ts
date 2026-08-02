@@ -463,6 +463,20 @@ export const api = {
       request<{ strategy: any; error?: string }>('/ai/build-strategy', { method: 'POST', body: { prompt } }),
   },
 
+  feedback: {
+    submit: (data: { category: string; title: string; description: string; metadata?: Record<string, unknown> }) =>
+      request<{ ok: boolean; id?: number }>('/feedback', { method: 'POST', body: data }),
+    myHistory: () => request<{ feedback: Array<{
+      id: number; category: string; title: string; description: string;
+      status: string; notes?: string | null; created_at?: string;
+    }>; count: number }>('/feedback'),
+  },
+
+  analytics: {
+    pnl: (period = '1d') => request<{ pnl: any; period: string; broker: string | null }>(`/analytics/pnl?period=${period}`),
+    mtm: () => request<{ mtm: number }>('/analytics/mtm'),
+  },
+
   market: {
     optionChain: (symbol: string, expiry = '') =>
       request(`/market/option-chain?symbol=${symbol}${expiry ? `&expiry=${expiry}` : ''}`),

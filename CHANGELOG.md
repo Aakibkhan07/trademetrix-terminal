@@ -1,3 +1,26 @@
+## v1.1.0 (2026-08-03) — PRODUCTION READINESS FIXES
+
+### Product policy: complete-and-keep (no removals)
+All audit findings (`docs/ProductCleanupAudit.md`, KEEP 29) are now fixed in place — every page is functional, live-data, and discoverable. No features deleted.
+
+### Added
+- **`GET /api/v1/feedback` (user feedback history)** — new route in `routes/v1_feedback.py` + `list_user_feedback()` in `application/services/analytics_service.py` (Supabase `feedback_items` query, fail-open fallback); scoped to the authenticated user; new test `test_list_user_feedback_scoped_to_user`.
+- **`/funds` page** (`app/funds/page.tsx`) — live margin cards, margin breakdown (pay-in/pay-out, collateral, MTM unrealised) and P&L panel from `/engine/funds` + `/analytics/pnl?period=1d`; broker-connect CTA when no broker. New Trade nav item `Funds` (💰) alongside the broker-management page (`/brokers`, 🏦).
+- **Workspace→Terminal integration** — `components/workspace/sidebar.tsx` gained Terminal (💻, `/terminal`) and Option Chain (📡, `/marketdata`) entries.
+
+### Changed
+- **Feedback page** (`app/feedback/page.tsx`) — real API submit via `api.feedback.submit` (removed fake `setTimeout`), submission history via `api.feedback.myHistory`, status badges (new/triaged/resolved/wontfix), NPS 0–10 persisted in metadata, auto-refresh after submit.
+- **Analytics page** (`app/analytics/page.tsx`) — live `/analytics/pnl?period=1d|1w` + `/analytics/mtm`; KPI row now real (Today's P&L, Total P&L, Win Rate, Avg Win/Loss, Expectancy, Active Runs) plus a live P&L Snapshot panel (realized/unrealized/weekly/monthly/overall P&L, current equity, drawdown %, MTM).
+- **Status page** (`app/status/page.tsx`) — rewritten: live probes to `/health`, `/health/ready` (db/cache dependencies), `/health/metrics` (CPU/memory/requests/threads) and EventSource websocket check; 60s auto-refresh; real version/uptime; fake incidents and the mock maintenance button removed.
+- **Landing page** (`app/page.tsx`) — header nav gained Pricing + System Status; footer expanded to full public nav (Product: Pricing/Client Portal/Open Terminal; Resources: System Status/Documentation/Contact; Legal: Privacy/Terms/Risk Disclosure/Disclaimer). Footer styles hoisted to module constants to avoid a TypeScript JSX parser bug with nested inline styles.
+- **`lib/api.ts`** — new `feedback` (submit/myHistory) and `analytics` (pnl/mtm) client groups; `api.feedback.submit` matches the production endpoint.
+- **`docs/ProductCleanupAudit.md`** — updated to KEEP 29; prior HIDE/REMOVE recommendations superseded by the no-delete policy.
+
+### Verification
+- API regression: `pytest tests/` → **563 passed, 1 xfailed** (incl. new feedback-history test). Note: bare `pytest` at repo root collects the standalone `pat_test.py` runner (matches `*_test.py`) which exits at import — run scoped to `tests/`.
+- `tsc --noEmit` clean; prod build clean (all pages incl. `/funds`).
+- Prod E2E + screenshots of landing/funds/feedback/analytics/status and workspace sidebar.
+
 ## v1.0.1 (2026-08-02) — USER NAVIGATION REDESIGN (P0 INCIDENT FIX)
 
 ### Product discoverability — navigation only (zero backend/API/logic changes)

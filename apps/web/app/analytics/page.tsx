@@ -47,14 +47,20 @@ export default function AnalyticsPage() {
   const { data: ordData, loading: ordLoading, error: ordError } = useApi<{ orders: any[] }>('/engine/orders')
   const { data: fundData, loading: fundLoading, error: fundError } = useApi('/engine/funds')
   const { data: runData, loading: runLoading, error: runError } = useApi<{ runs: any[] }>('/engine/runs')
+  const { data: pnlDailyData, loading: pnlDailyLoading, error: pnlDailyError } = useApi<{ pnl: { daily?: number } | any; broker: string | null }>('/analytics/pnl?period=1d')
+  const { data: pnlStateData, loading: pnlStateLoading, error: pnlStateError } = useApi<{ pnl: any; broker: string | null }>('/analytics/pnl?period=1w')
+  const { data: mtmData, loading: mtmLoading, error: mtmError } = useApi<{ mtm: number }>('/analytics/mtm')
 
-  const loading = posLoading || ordLoading || fundLoading || runLoading
-  const error = posError || ordError || fundError || runError
+  const loading = posLoading || ordLoading || fundLoading || runLoading || pnlDailyLoading || pnlStateLoading || mtmLoading
+  const error = posError || ordError || fundError || runError || pnlDailyError || pnlStateError || mtmError
 
   const positions = posData?.positions || []
   const orders = ordData?.orders || []
   const funds = fundData as { total_margin?: number; available_margin?: number; used_margin?: number } | null
   const runs = runData?.runs || []
+  const dailyPnl = pnlDailyData?.pnl?.daily ?? null
+  const pnlState = pnlStateData?.pnl ?? null
+  const mtm = mtmData?.mtm ?? null
 
   const analytics = useMemo(() => {
     const totalPnl = positions.reduce((s: number, p: any) => s + (p.unrealised_pnl || 0), 0)
@@ -104,11 +110,11 @@ export default function AnalyticsPage() {
       {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
         {[
+          { label: 'Today\'s P&L', value: dailyPnl === null ? '—' : `${dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(0)}`, sub: pnlDailyData?.broker ? `${pnlDailyData.broker} (realized)` : 'no broker', color: (dailyPnl ?? 0) >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
           { label: 'Total P&L', value: `${analytics.totalPnl >= 0 ? '+' : ''}${analytics.totalPnl.toFixed(0)}`, sub: `${positions.length} positions`, color: analytics.totalPnl >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
           { label: 'Win Rate', value: `${analytics.winRate.toFixed(1)}%`, sub: `${analytics.wins.length}W / ${analytics.losses.length}L`, color: analytics.winRate >= 50 ? 'var(--text-green)' : 'var(--text-red)' },
           { label: 'Avg Win / Loss', value: `+${analytics.avgWin.toFixed(0)} / -${analytics.avgLoss.toFixed(0)}`, sub: `PF: ${analytics.profitFactor.toFixed(2)}` },
           { label: 'Expectancy', value: analytics.expectancy >= 0 ? `+${analytics.expectancy.toFixed(0)}` : analytics.expectancy.toFixed(0), sub: 'per trade', color: analytics.expectancy >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
-          { label: 'Total Orders', value: `${orders.length}`, sub: `${analytics.filled.length} filled` },
           { label: 'Active Runs', value: `${analytics.activeRuns}`, sub: `${runs.length} total runs` },
         ].map(kpi => (
           <div key={kpi.label} className="t-panel" style={{ padding: 12 }}>
@@ -180,6 +186,34 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </div>
+
+      {/* P&L Snapshot (live portfolio P&L) */}
+      {(pnlState || mtm !== null) && (
+        <div className="t-panel" style={{ padding: 12 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>
+            P&L Snapshot {pnlStateData?.broker ? `· ${pnlStateData.broker}` : ''}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
+            {[
+              { label: 'Realized', value: pnlState?.realised_pnl ?? null, fmt: (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}` },
+              { label: 'Unrealized', value: pnlState?.unrealised_pnl ?? null, fmt: (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}` },
+              { label: 'Weekly', value: pnlState?.weekly_pnl ?? null, fmt: (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}` },
+              { label: 'Monthly', value: pnlState?.monthly_pnl ?? null, fmt: (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}` },
+              { label: 'Overall', value: pnlState?.overall_pnl ?? null, fmt: (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}` },
+              { label: 'Current Equity', value: pnlState?.current_equity ?? null, fmt: (v: number) => `₹${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+              { label: 'Drawdown', value: pnlState?.drawdown_pct ?? null, fmt: (v: number) => `${v.toFixed(2)}%` },
+              { label: 'MTM Exposure', value: mtm, fmt: (v: number) => `₹${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+            ].map(m => (
+              <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'color-mix(in srgb, var(--violet) 4%, transparent)' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.value === null ? 'var(--text-faint)' : (m.label === 'Drawdown' || m.label === 'MTM Exposure' || m.label === 'Current Equity' ? 'var(--text)' : ((m.value as number) >= 0 ? 'var(--text-green)' : 'var(--text-red)')) }}>
+                  {m.value === null ? '—' : m.fmt(m.value as number)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Holdings + Recent Runs */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

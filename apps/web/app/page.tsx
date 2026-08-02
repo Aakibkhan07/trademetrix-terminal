@@ -1,6 +1,13 @@
 import Link from 'next/link'
 import Logo from '@/components/logo'
 
+const footerColumnTitle: React.CSSProperties = {
+  fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+  color: 'var(--text-sub)', marginBottom: 10,
+}
+const footerLink: React.CSSProperties = { color: 'var(--text-faint)', textDecoration: 'none' }
+const footerColumn: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6 }
+
 export default function LandingPage() {
   return (
     <div style={{
@@ -22,6 +29,14 @@ export default function LandingPage() {
           TradeMetrix
         </Link>
         <nav style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <Link href="/pricing" style={{
+            fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
+            letterSpacing: '0.03em', transition: 'color 0.15s',
+          }}>Pricing</Link>
+          <Link href="/status" style={{
+            fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
+            letterSpacing: '0.03em', transition: 'color 0.15s',
+          }}>System Status</Link>
           <Link href="/portfolio" style={{
             fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.03em', transition: 'color 0.15s',
@@ -128,11 +143,40 @@ export default function LandingPage() {
       </main>
 
       <footer style={{
-        height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderTop: '1px solid color-mix(in srgb, var(--violet) 10%, transparent)', fontSize: 10, color: 'var(--text-faint)',
-        fontFamily: 'var(--font-mono)',
+        padding: '32px 24px 20px', borderTop: '1px solid color-mix(in srgb, var(--violet) 10%, transparent)',
+        fontSize: 11, color: 'var(--text-faint)', fontFamily: 'var(--font-body)',
+        display: 'flex', flexDirection: 'column', gap: 24,
       }}>
-        TradeMetrix Terminal &copy; 2026
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 24, maxWidth: 900, width: '100%', margin: '0 auto' }}>
+          <div>
+            <div style={footerColumnTitle}>Product</div>
+            <div style={footerColumn}>
+              <Link href="/pricing" style={footerLink}>Pricing</Link>
+              <Link href="/portfolio" style={footerLink}>Client Portal</Link>
+              <Link href="/auth" style={footerLink}>Open Terminal</Link>
+            </div>
+          </div>
+          <div>
+            <div style={footerColumnTitle}>Resources</div>
+            <div style={footerColumn}>
+              <Link href="/status" style={footerLink}>System Status</Link>
+              <Link href="/help" style={footerLink}>Documentation</Link>
+              <Link href="/feedback" style={footerLink}>Contact / Feedback</Link>
+            </div>
+          </div>
+          <div>
+            <div style={footerColumnTitle}>Legal</div>
+            <div style={footerColumn}>
+              <Link href="/legal/privacy" style={footerLink}>Privacy Policy</Link>
+              <Link href="/legal/terms" style={footerLink}>Terms of Service</Link>
+              <Link href="/legal/risk-disclosure" style={footerLink}>Risk Disclosure</Link>
+              <Link href="/legal/disclaimer" style={footerLink}>Disclaimer</Link>
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign: 'center', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-faint)' }}>
+          TradeMetrix Terminal {'\u00A9'} 2026 · Trading involves substantial risk. Trade responsibly.
+        </div>
       </footer>
     </div>
   )

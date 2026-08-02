@@ -136,6 +136,26 @@ class AnalyticsService:
             self._fallback_feedback.append({**row, "id": len(self._fallback_feedback) + 1})
             return {"ok": True, "id": len(self._fallback_feedback)}
 
+    async def list_user_feedback(
+        self, user_id: str, limit: int = 100
+    ) -> dict:
+        try:
+            supabase = get_supabase()
+            res = await async_supabase(
+                lambda: supabase.table("feedback_items")
+                .select("*")
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            rows = cast(list[dict], res.data) if res and res.data else []
+            return {"feedback": rows, "count": len(rows)}
+        except Exception as e:
+            logger.debug("user feedback list fallback: %s", e)
+            rows = [r for r in self._fallback_feedback if r.get("user_id") == user_id]
+            return {"feedback": rows, "count": len(rows)}
+
     async def list_feedback(
         self, category: str = "", status: str = "", limit: int = 500
     ) -> dict:
