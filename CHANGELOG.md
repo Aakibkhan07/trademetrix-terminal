@@ -58,6 +58,27 @@ All audit findings (`docs/ProductCleanupAudit.md`, KEEP 29) are now fixed in pla
 - Compliance report: `docs/FyersRateLimitAudit.md` (full endpoint inventory, RPM table, controls, residual risk).
 - Pending post-deploy: `/brokers/admin/rate-limit` snapshot on a live trading day; `fyers` block in `/health/metrics`; `fyers.request`/`fyers.retry` lines in logs.
 
+## v1.2.0 (2026-08-03) — UNIFIED BROKER SDK V2 (PHASE 1 FOUNDATION)
+
+### Added
+- **`brokers/sdk/` (new)** — enterprise broker-agnostic layer:
+  - `errors.py` — typed `BrokerError` taxonomy: `UnsupportedFeatureError`, `BrokerAuthError`, `BrokerRateLimitError` (Retry-After aware), `BrokerWAFError` (never retried), `BrokerConnectionError`, `BrokerTimeoutError`, `BrokerDisconnectedError`, `BrokerValidationError`, `OrderRejectedError`/`MarginInsufficientError`, `BrokerServerError` — each with `code`, `broker`, `retryable`, `http_status`, `retry_after`, `correlation_id`; `translate_broker_error(status, body, headers)` and `translate_exception()` map HTTP/raw failures onto the taxonomy.
+  - `capabilities.py` — `CapabilityFlag` enum (19 features: order mod, bracket, cover, GTT, multi-leg, option chain, historical, websocket, market depth, greeks, indices, currency, commodity, margin calculator, …) + `BrokerCapabilities` (canonical `supports()`/`require()` with typed `UnsupportedFeatureError` + the legacy boolean surface) + authoritative per-broker matrix.
+  - `registry.py` — `BrokerRegistry` (adapter class + UI metadata + capabilities in one spec), `create()` preserving the `CircuitBreakerBroker` factory contract.
+  - `interface.py` — `BrokerPort` protocol (19-method v2 surface) + `BrokerAdapterBase` mixin bridging v2 names onto legacy `BaseBroker` methods; unimplemented features raise the typed error instead of failing unpredictably.
+  - `certification.py` — reusable Level A interface cert + Level B behavioral flow.
+- **All 11 broker adapters now expose the identical v2 surface** (via `BrokerAdapterBase`; zero behavior change).
+- **Certification suite** (`tests/test_broker_certification.py`) — Level A cert for every registered broker; all 11 currently CERTIFIED; one capability gap recorded (fyers `option_chain` — Phase 4 will implement it on the adapter).
+
+### Changed
+- **Single source of truth** — execution-layer `BROKER_CAPABILITIES` and UI broker metadata now derive from the SDK registry/matrix (values identical, verified by `test_legacy_equivalence`); legacy `create_broker`/`register_broker`/`get_broker_metadata` delegate to the SDK.
+
+### Documentation
+- `docs/evolution/BROKER_SDK_V2.md` — layers, capability matrix, sequence diagrams (order flow, market data, error translation), phased roadmap (transport → auth/ws/health/audit → adapter porting → live cert → benchmarks), migration plan, rollback strategy.
+
+### Verification
+- Full API regression: `pytest tests/` → **644 passed, 1 xfailed** (+71 new SDK/certification tests).
+
 
 ## v1.0.1 (2026-08-02) — USER NAVIGATION REDESIGN (P0 INCIDENT FIX)
 
