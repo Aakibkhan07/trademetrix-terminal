@@ -15,6 +15,16 @@ type Interval = '5m' | '15m' | '1h' | '1d'
 
 const INTERVALS: Interval[] = ['5m', '15m', '1h', '1d']
 
+const colorVar = (name: string, fallback = '#8888a0'): string =>
+  typeof window !== 'undefined' ? (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback) : fallback
+
+const mix = (hex: string, pct: number): string => {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+  const alpha = Math.round((pct / 100) * 255).toString(16).padStart(2, '0')
+  return `#${full.slice(0, 6)}${alpha}`
+}
+
 export default function Chart({ symbol, height = 400, interval: controlledInterval, onIntervalChange }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -39,13 +49,15 @@ export default function Chart({ symbol, height = 400, interval: controlledInterv
       }
       const cd: CandlestickData[] = []
       const vd: { time: Time; value: number; color: string }[] = []
+      const green = colorVar('--green', '#34d399')
+      const red = colorVar('--red', '#f87171')
       for (const c of candles) {
         const t = (new Date(c.timestamp).getTime() / 1000) as Time
         cd.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close })
         vd.push({
           time: t,
           value: c.volume,
-          color: c.close >= c.open ? 'color-mix(in srgb, var(--green) 30%, transparent)' : 'color-mix(in srgb, var(--red) 30%, transparent)',
+          color: c.close >= c.open ? mix(green, 30) : mix(red, 30),
         })
       }
       candleSeriesRef.current?.setData(cd)
@@ -63,33 +75,33 @@ export default function Chart({ symbol, height = 400, interval: controlledInterv
       height,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: 'var(--text-sub)',
+        textColor: colorVar('--text-sub'),
         fontSize: 10,
         fontFamily: 'var(--font-body)',
       },
       grid: {
-        vertLines: { color: 'color-mix(in srgb, var(--violet) 6%, transparent)' },
-        horzLines: { color: 'color-mix(in srgb, var(--violet) 6%, transparent)' },
+        vertLines: { color: mix(colorVar('--violet'), 6) },
+        horzLines: { color: mix(colorVar('--violet'), 6) },
       },
       crosshair: {
-        vertLine: { color: 'color-mix(in srgb, var(--violet) 30%, transparent)', width: 1, style: 2, labelBackgroundColor: 'var(--bg-secondary)' },
-        horzLine: { color: 'color-mix(in srgb, var(--violet) 30%, transparent)', width: 1, style: 2, labelBackgroundColor: 'var(--bg-secondary)' },
+        vertLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
+        horzLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
       },
       timeScale: {
-        borderColor: 'color-mix(in srgb, var(--text-inverse) 6%, transparent)',
+        borderColor: mix(colorVar('--text-inverse'), 6),
         timeVisible: true,
         secondsVisible: false,
       },
-      rightPriceScale: { borderColor: 'color-mix(in srgb, var(--text-inverse) 6%, transparent)' },
+      rightPriceScale: { borderColor: mix(colorVar('--text-inverse'), 6) },
     })
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: 'var(--green)',
-      downColor: 'var(--red)',
-      borderUpColor: 'var(--green)',
-      borderDownColor: 'var(--red)',
-      wickUpColor: 'var(--green)',
-      wickDownColor: 'var(--red)',
+      upColor: colorVar('--green', '#34d399'),
+      downColor: colorVar('--red', '#f87171'),
+      borderUpColor: colorVar('--green', '#34d399'),
+      borderDownColor: colorVar('--red', '#f87171'),
+      wickUpColor: colorVar('--green', '#34d399'),
+      wickDownColor: colorVar('--red', '#f87171'),
     })
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
