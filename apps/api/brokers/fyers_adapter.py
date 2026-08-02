@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 
 from brokers.base import BaseBroker
+from brokers.sdk.interface import BrokerAdapterBase
 from brokers.fyers_http import FyersWAFError, FyersResponse, get_transport
 from core.config import settings
 from core.models import (
@@ -44,7 +45,7 @@ _MARGIN_PRODUCT_MAP = {
 }
 
 
-class FyersAdapter(BaseBroker):
+class FyersAdapter(BaseBroker, BrokerAdapterBase):
     broker_name = "fyers"
     MAX_RECONNECT_SEC = 60
     MAX_RECONNECT_ATTEMPTS = 10

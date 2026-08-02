@@ -166,9 +166,13 @@ _register_broker_meta("kotakneo", {
 
 
 def get_broker_metadata(broker: str | None = None) -> list[dict] | dict:
-    if broker:
-        data = BROKER_METADATA.get(broker)
-        if not data:
-            raise ValueError(f"Unknown broker: {broker}")
-        return {"broker": broker, **data}
-    return [{"broker": k, **v} for k, v in BROKER_METADATA.items()]
+    """Legacy facade — data now lives in the Unified Broker SDK v2 registry.
+
+    BROKER_METADATA above remains as the authored UI copy; the SDK registry
+    (populated from it by brokers/__init__) is the single source of truth and
+    additionally carries adapter classes + capability sets.
+    """
+
+    from brokers.sdk.registry import registry
+
+    return registry.metadata(broker)

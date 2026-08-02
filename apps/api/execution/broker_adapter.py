@@ -14,58 +14,38 @@ from execution.rate_limiter import acquire_broker_token
 logger = logging.getLogger(__name__)
 
 
-BROKER_CAPABILITIES: dict[str, BrokerCapabilities] = {
-    "fyers": BrokerCapabilities(
-        broker="fyers", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=True, supports_cover=False, supports_gtt=False,
-        supports_websocket=True, supports_option_chain=True, supports_positions=True, supports_holdings=True,
-    ),
-    "dhan": BrokerCapabilities(
-        broker="dhan", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=False, supports_cover=False, supports_gtt=True,
-        supports_websocket=True, supports_option_chain=False, supports_positions=True, supports_holdings=True,
-    ),
-    "zerodha": BrokerCapabilities(
-        broker="zerodha", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=True, supports_cover=True, supports_gtt=True,
-        supports_websocket=False, supports_option_chain=False, supports_positions=True, supports_holdings=True,
-    ),
-    "angelone": BrokerCapabilities(
-        broker="angelone", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=True, supports_cover=True, supports_gtt=True,
-        supports_websocket=True, supports_option_chain=False, supports_positions=True, supports_holdings=True,
-    ),
-    "upstox": BrokerCapabilities(
-        broker="upstox", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=True, supports_cover=True, supports_gtt=True,
-        supports_websocket=True, supports_option_chain=False, supports_positions=True, supports_holdings=True,
-    ),
-    "fivepaisa": BrokerCapabilities(
-        broker="fivepaisa", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=False, supports_cover=False, supports_gtt=False,
-        supports_websocket=False, supports_option_chain=False, supports_positions=True, supports_holdings=True,
-    ),
-    "aliceblue": BrokerCapabilities(
-        broker="aliceblue", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=False, supports_cover=False, supports_gtt=False,
-        supports_websocket=True, supports_option_chain=False, supports_positions=True, supports_holdings=True,
-    ),
-    "finvasia": BrokerCapabilities(
-        broker="finvasia", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=False, supports_cover=False, supports_gtt=False,
-        supports_websocket=True, supports_option_chain=False, supports_positions=True, supports_holdings=True,
-    ),
-    "flattrade": BrokerCapabilities(
-        broker="flattrade", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=False, supports_cover=False, supports_gtt=False,
-        supports_websocket=True, supports_option_chain=False, supports_positions=True, supports_holdings=True,
-    ),
-    "kotakneo": BrokerCapabilities(
-        broker="kotakneo", supports_orders=True, supports_modify=True, supports_cancel=True,
-        supports_bracket=True, supports_cover=False, supports_gtt=True,
-        supports_websocket=True, supports_option_chain=False, supports_positions=True, supports_holdings=True,
-    ),
-}
+def _build_capabilities() -> dict[str, "BrokerCapabilities"]:
+    """Legacy capability facade — single source of truth is brokers/sdk/capabilities.py.
+
+    Builds the execution-layer read model (execution.models.BrokerCapabilities) from
+    the SDK matrix so capability data lives in exactly one place.
+    """
+
+    from brokers.sdk.capabilities import get_capabilities
+
+    result: dict[str, BrokerCapabilities] = {}
+    for name in (
+        "fyers", "dhan", "zerodha", "angelone", "upstox",
+        "fivepaisa", "aliceblue", "finvasia", "flattrade", "kotakneo",
+    ):
+        caps = get_capabilities(name)
+        result[name] = BrokerCapabilities(
+            broker=name,
+            supports_orders=caps.supports_orders,
+            supports_modify=caps.supports_modify,
+            supports_cancel=caps.supports_cancel,
+            supports_bracket=caps.supports_bracket,
+            supports_cover=caps.supports_cover,
+            supports_gtt=caps.supports_gtt,
+            supports_websocket=caps.supports_websocket,
+            supports_option_chain=caps.supports_option_chain,
+            supports_positions=caps.supports_positions,
+            supports_holdings=caps.supports_holdings,
+        )
+    return result
+
+
+BROKER_CAPABILITIES: dict[str, BrokerCapabilities] = _build_capabilities()
 
 
 _TOKEN_EXPIRY_KEYWORDS = ("token", "expired", "unauthorized", "invalid session", "auth failed", "auth_error", "invalid_token")

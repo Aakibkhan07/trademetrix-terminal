@@ -9,6 +9,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 from brokers.base import BaseBroker
+from brokers.sdk.interface import BrokerAdapterBase
 from core.config import settings
 from core.http_client import get_http_client
 import httpx
@@ -72,7 +73,7 @@ def _dict_val(d: dict, *keys: str, default=None):
     return default
 
 
-class AngelOneAdapter(BaseBroker):
+class AngelOneAdapter(BaseBroker, BrokerAdapterBase):
     broker_name = "angelone"
 
     def __init__(self):

@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 import httpx
 
 from brokers.base import BaseBroker
+from brokers.sdk.interface import BrokerAdapterBase
 from core.config import settings
 from core.http_client import get_http_client
 from core.models import (
@@ -34,7 +35,7 @@ from core.models import (
 logger = logging.getLogger(__name__)
 
 
-class FlattradeAdapter(BaseBroker):
+class FlattradeAdapter(BaseBroker, BrokerAdapterBase):
     broker_name = "flattrade"
 
     def __init__(self):

@@ -9,14 +9,42 @@ from brokers.flattrade_adapter import FlattradeAdapter
 from brokers.fyers_adapter import FyersAdapter
 from brokers.groww_adapter import GrowwAdapter
 from brokers.kotakneo_adapter import KotakNeoAdapter
+from brokers.sdk.registry import BrokerSpec, registry as _sdk_registry
 from brokers.upstox_adapter import UpstoxAdapter
 from brokers.zerodha_adapter import ZerodhaAdapter
+
+# ── Unified Broker SDK v2 registry (single source of truth) ──────────
+# Adapter classes + UI metadata + capabilities all live in the SDK registry.
+# The functions below are the legacy facade; they delegate to it so behaviour
+# is unchanged for existing callers (execution layer, token manager, engine).
+
+
+def _register_spec(name: str, cls: type[BaseBroker]) -> None:
+    from brokers.registry import BROKER_METADATA
+
+    meta = BROKER_METADATA.get(name, {})
+    _sdk_registry.register(
+        BrokerSpec(
+            name=name,
+            display_name=meta.get("display_name", name),
+            auth_type=meta.get("auth_type", "oauth"),
+            description=meta.get("description", ""),
+            fields=meta.get("fields", []),
+            has_additional_params=meta.get("has_additional_params", False),
+            additional_params_fields=meta.get("additional_params_fields", []),
+            instructions=meta.get("instructions", ""),
+            oauth_available=meta.get("oauth_available", False),
+            adapter_class=cls,
+        )
+    )
+
 
 _broker_registry: dict[str, type[BaseBroker]] = {}
 
 
 def register_broker(name: str, cls: type[BaseBroker]) -> None:
     _broker_registry[name] = cls
+    _register_spec(name, cls)
 
 
 def get_broker(name: str) -> type[BaseBroker]:
@@ -26,9 +54,13 @@ def get_broker(name: str) -> type[BaseBroker]:
 
 
 def create_broker(name: str) -> CircuitBreakerBroker:
-    cls = get_broker(name)
-    inner = cls()
-    return CircuitBreakerBroker(inner, breaker_name=f"broker_{name}")
+    """Instantiate the broker adapter wrapped in a circuit breaker (legacy contract).
+
+    Delegates to the SDK registry factory, which wraps with
+    CircuitBreakerBroker(breaker_name=f"broker_{name}").
+    """
+
+    return _sdk_registry.create(name, wrap_circuit_breaker=True)
 
 
 def list_brokers() -> list[str]:

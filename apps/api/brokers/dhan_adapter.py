@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 import httpx
 
 from brokers.base import BaseBroker
+from brokers.sdk.interface import BrokerAdapterBase
 from core.config import settings
 from core.http_client import get_http_client
 from core.models import (
@@ -32,7 +33,7 @@ from core.models import (
 logger = logging.getLogger(__name__)
 
 
-class DhanAdapter(BaseBroker):
+class DhanAdapter(BaseBroker, BrokerAdapterBase):
     broker_name = "dhan"
 
     def __init__(self):
