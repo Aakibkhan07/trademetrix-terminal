@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { API_BASE } from '@/lib/api'
 import { SkeletonCard } from '@/components/skeleton'
 
+const API_ORIGIN = typeof window !== 'undefined' ? new URL(API_BASE).origin : ''
+
 type ComponentStatus = 'operational' | 'down' | 'degraded'
 
 interface Component {
@@ -29,10 +31,12 @@ interface MetricsPayload {
     open_fds?: number
   }
   requests?: {
-    total?: number
-    errors?: number
-    error_rate?: number
-    avg_latency_ms?: number
+    [path: string]: {
+      count?: number
+      avg_ms?: number
+      max_ms?: number
+      min_ms?: number
+    }
   }
 }
 
@@ -79,7 +83,7 @@ export default function StatusPage() {
     const now = new Date().toLocaleTimeString()
 
     try {
-      const healthRes = await fetch(`${API_BASE}/health`)
+      const healthRes = await fetch(`${API_ORIGIN}/health`)
       const healthData: HealthPayload = await healthRes.json()
       setHealth(healthData)
       results.push({ name: 'API Server', status: healthRes.ok && healthData.status === 'ok' ? 'operational' : 'down', lastChecked: now })
@@ -91,7 +95,7 @@ export default function StatusPage() {
     results.push({ name: 'Web App', status: 'operational', lastChecked: now })
 
     try {
-      const readyRes = await fetch(`${API_BASE}/health/ready`)
+      const readyRes = await fetch(`${API_ORIGIN}/health/ready`)
       const readyData = await readyRes.json()
       const dbOk = readyData?.dependencies?.database === true
       results.push({ name: 'Database', status: dbOk ? 'operational' : 'degraded', lastChecked: now })
@@ -120,7 +124,7 @@ export default function StatusPage() {
     }
 
     try {
-      const metricsRes = await fetch(`${API_BASE}/health/metrics`)
+      const metricsRes = await fetch(`${API_ORIGIN}/health/metrics`)
       if (metricsRes.ok) {
         const metricsData: MetricsPayload = await metricsRes.json()
         setMetrics(metricsData)
@@ -144,6 +148,8 @@ export default function StatusPage() {
 
   const sys = metrics?.system
   const req = metrics?.requests
+  const totalRequests = req ? Object.values(req).reduce((sum: number, r) => sum + (r.count ?? 0), 0) : undefined
+  const topPath = req ? Object.entries(req).sort((a, b) => (b[1].count ?? 0) - (a[1].count ?? 0))[0] : undefined
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
@@ -223,9 +229,12 @@ export default function StatusPage() {
           </div>
           {req && (
             <div>
-              <div style={{ fontSize: 9, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>REQUESTS / ERRORS</div>
+              <div style={{ fontSize: 9, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>REQUESTS</div>
               <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
-                {req.total?.toLocaleString() ?? '—'} / {(req.errors ?? 0).toLocaleString()}
+                {totalRequests?.toLocaleString() ?? '—'}
+              </div>
+              <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 2 }}>
+                {topPath ? `${topPath[0]} · ${topPath[1].avg_ms?.toFixed(0)}ms` : ''}
               </div>
             </div>
           )}
