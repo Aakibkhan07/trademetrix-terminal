@@ -1,3 +1,20 @@
+## v1.3.0 (2026-08-03) — UNIFIED BROKER SDK V2 (PHASE 2: GENERIC TRANSPORT)
+
+### Added
+- **`brokers/sdk/transport.py` (new)** — generic, broker-agnostic `HttpTransport` extracted from `brokers/fyers_http.py`: per-token sliding-window rate limiter (RPM + burst), jittered exponential backoff honoring `Retry-After` (429/1015), zero-retry WAF blocks (403), in-flight dedup, GET response caching, correlation ids, `health()`, and Prometheus counters (`broker_http_calls/wire_calls/cache_hits/dedup_hits/retries/rate_limited/waf_blocks/failures_total` + `broker_http_latency_seconds`).
+- **Pluggable strategy extension points** — `AuthStrategy` (header + signing hook), `HeaderStrategy`, `URLBuilder`, `ResponseParser`, `ErrorTranslator` (status → typed `BrokerError`), `RetryPolicy`, `RateLimiter`/`TokenRateLimiter` — zero `if broker` branches; adding a broker = config + strategy overrides only.
+- **`GET /brokers/admin/rate-limit`** now backed by the same transport (unchanged shape) — per-token RPM/retry ledger plus new `health()` data.
+
+### Changed
+- **`brokers/fyers_http.py` refactored into a thin facade** over the generic transport — public API identical (`FyersTransport`, `FyersResponse`, `FyersWAFError`, `TokenRateLimiter`, `get_transport`, `fyers_rate_snapshot`); all 7 consumer sites untouched. `FyersWAFError` now subclasses SDK `BrokerWAFError`.
+- **`core/prometheus.py`** — new `broker_http_*` transport counters + `record_broker_transport_metric()`/`record_broker_transport_latency()`.
+- **Structured logs** gained a `corr=` field (per-request correlation id) on `fyers.request`/`fyers.retry`/`fyers.waf` records.
+
+### Verification
+- API regression: `pytest tests/` → **662 passed, 1 xfailed** (baseline 644; +16 generic-transport tests in `tests/test_sdk_transport.py`). Two `asyncio.sleep` patch targets moved from `brokers.fyers_http` to `brokers.sdk.transport` (where sleep now executes).
+- Before/after benchmark (`apps/api/benchmark_transport.py`, canned workload vs git HEAD): **Δ = 0 on every accounting counter** (calls, wire calls, cache hits, dedup hits, retries, rate-limited, WAF blocks, failures); overhead ≈ +0.09 ms + ~63 B per request (correlation id + metric emit). Report: `docs/BrokerTransportBenchmark.md`.
+- Docs: `docs/evolution/BROKER_SDK_V2.md` §2/§8/§11 updated (Phases 1–2 marked done, onboarding recipe).
+
 ## v1.1.0 (2026-08-03) — PRODUCTION READINESS FIXES
 
 ### Product policy: complete-and-keep (no removals)

@@ -36,9 +36,9 @@ Engine / OMS / Strategies / UI / Backtest
 | Registry | `brokers/registry.py` UI metadata only; `brokers/__init__.py` class map + `create_broker()` → `CircuitBreakerBroker(Adapter())` |
 | Capabilities | static `BROKER_CAPABILITIES` dict in `execution/broker_adapter.py` (10 booleans) |
 | Reliability | `core/resilience.py` CircuitBreaker + retry; `execution/rate_limiter.py` per-broker bucket; `brokers/circuit_breaker_broker.py` wrapper |
-| Transport | `brokers/fyers_http.py` per-token transport (sliding limiter, jittered backoff, Retry-After, WAF-aware, cache, dedup) — Fyers only |
-| Errors | ad-hoc `Exception` strings + `OrderResult(success=False, message=…)` |
-| Observability | `core/prometheus.py` broker op metrics; `/health/metrics` with `fyers` block; no per-call audit of broker traffic |
+| Transport | generic `brokers/sdk/transport.py` `HttpTransport` (sliding limiter, jittered backoff, Retry-After, WAF-aware, cache, dedup, correlation ids, Prometheus counters, health) with pluggable strategies; Fyers uses it via a thin facade |
+| Errors | typed taxonomy in `brokers/sdk/errors.py` (`BrokerError` + WAF/auth/rate-limit/timeout/connection/validation/order-rejected) + `translate_broker_error` |
+| Observability | `core/prometheus.py` broker op metrics + `broker_http_*` transport counters; `/health/metrics` with `fyers` block; structured `fyers.request`/`fyers.retry`/`fyers.waf` logs with `corr=` |
 
 Gaps vs mission: no typed error taxonomy, no `UnsupportedFeatureError` contract, no capability
 *discovery* (static dict only), transport/retry/circuit logic not generalized, no auth layer
@@ -205,8 +205,8 @@ line with correlation id: `broker.call {broker, operation, status, latency_ms, r
 
 | Phase | Scope | Exit gate |
 |---|---|---|
-| **1** (this session) | `brokers/sdk/`: errors, capabilities matrix, registry, interface; wire execution layer + UI metadata to registry | 573+ passed; typed-error tests |
-| **2** | Generalize transport: extract `HttpTransport` from `fyers_http.py` (rate limit, retry, dedup, cache, WAF); Fyers uses it via shared core; other adapters opt in incrementally | transport unit tests + Fyers cert |
+| **1** (done 2026-08-03) | `brokers/sdk/`: errors, capabilities matrix, registry, interface; wire execution layer + UI metadata to registry | 644 passed; typed-error tests; prod cert 11/11 |
+| **2** (done 2026-08-03) | Generalize transport: `brokers/sdk/transport.py` `HttpTransport` extracted from `fyers_http.py` (rate limit, retry, dedup, cache, WAF, correlation ids, metrics, health); Fyers uses it via thin facade; before/after benchmark | 662 passed; `docs/BrokerTransportBenchmark.md` |
 | **3** | Auth layer (unified token/session lifecycle incl. refresh_token), WS layer (reconnect/heartbeat), health monitor, audit logger, error-translator adoption in all adapters | all adapters cert (mock) |
 | **4** | Adapter port: Fyers → full v2 surface (get_profile, get_option_chain, exit_position); Angel/Dhan v2 aliases; capability discovery endpoint (`GET /brokers/{name}/capabilities`) | per-broker cert green |
 | **5** | Certification suite on live sandbox (auth→quotes→order lifecycle→funds→holdings→positions→reconnect→rate limit→breaker→health) for fyers/angel/dhan | cert report `docs/BrokerCertification.md` |
@@ -237,3 +237,65 @@ New broker onboarding after Phase 4 = write one adapter file + one registry entr
   idempotency keys as today); only observability and typed errors change.
 - Backup snapshot before each deploy (`infra/scripts/backup.sh`) + git revert + redeploy is the
   documented DR path (see `DISASTER_RECOVERY.md`).
+
+## 11. Phase 2 — generic `HttpTransport` (done 2026-08-03)
+
+### Design decisions
+
+1. **Generic core, broker facade.** `brokers/sdk/transport.py` owns every piece of
+   machinery with **zero broker-specific logic** (enforced by
+   `test_transport_has_no_broker_specific_logic` — no broker names, no
+   `broker == ...` branches). `brokers/fyers_http.py` is now a thin facade
+   supplying `TransportConfig` (budgets, hosts, retry knobs) + strategy
+   overrides; its public API is byte-for-byte the same
+   (`FyersTransport`, `FyersResponse`, `FyersWAFError`, `TokenRateLimiter`,
+   `get_transport`, `fyers_rate_snapshot`) so all 7 consumer sites were
+   untouched.
+2. **Strategy extension points** (per the Phase-2 mandate, no `if broker`):
+   - `AuthStrategy` — `authorization()` header + `sign()` hook for HMAC-style
+     signing (Fyers: `{client_id}:{access_token}`).
+   - `HeaderStrategy` — static header set + Content-Type logic (Fyers:
+     browser-identical headers for Cloudflare).
+   - `URLBuilder` — path → absolute URL + stats stub (Fyers: `api-t1.fyers.in`
+     + `public.fyers.in` CSV stubs, preserving legacy stats keys).
+   - `ResponseParser` — raw client response → `TransportResponse`.
+   - `ErrorTranslator` — status → typed `BrokerError` (Fyers: 403 →
+     `FyersWAFError`, which now also subclasses SDK `BrokerWAFError`).
+   - `RetryPolicy` — retryable statuses, Retry-After, jittered backoff.
+   - `RateLimiter` (a.k.a. `TokenRateLimiter`) — the rate-limit policy
+     (sliding window + burst), byte-identical to the pre-refactor limiter.
+3. **New capabilities**: per-request `correlation_id` (defaults to a uuid,
+   logged as `corr=` on every `request`/`retry`/`waf` record), `health()`
+   (liveness + latency + last error), Prometheus counters
+   (`broker_http_calls/wire_calls/cache_hits/dedup_hits/retries/
+   rate_limited/waf_blocks/failures_total` + `broker_http_latency_seconds`),
+   and `waf_statuses`/`rate_limit_statuses`/`retryable_http` config sets.
+4. **Shared pools preserved**: one transport + one limiter per `client_id`
+   via the facade registry — all adapter/caller instances for a token share
+   the connection pool and RPM ledger.
+5. **Verification**: full regression **662 passed, 1 xfailed** (baseline 644);
+   before/after benchmark (identical canned workload vs git HEAD) shows **Δ = 0
+   on every accounting counter** (calls/wire/cache/dedup/retries/rate-limited/
+   WAF/failures) and ~+0.09 ms + ~63 B per request from correlation-id +
+   metric emission — see `docs/BrokerTransportBenchmark.md`.
+6. **Test-only change**: two `asyncio.sleep` patch targets moved from
+   `brokers.fyers_http` to `brokers.sdk.transport` (where sleep now executes).
+
+### Onboarding another broker (post-Phase 4)
+
+```python
+from brokers.sdk.transport import HttpTransport, TransportConfig
+
+config = TransportConfig(broker="acme", base_url="https://api.acme.in",
+                         rpm=60, burst=5, impersonate="chrome131",
+                         log_prefix="acme")
+class AcmeAuth(AuthStrategy): ...   # tokens/signing
+class AcmeHeaders(HeaderStrategy): ...
+class AcmeURL(URLBuilder): ...
+class AcmeErrors(ErrorTranslator): ...  # status -> BrokerError subclasses
+transport = HttpTransport(config, client_id=cid, access_token=tok,
+                          auth=AcmeAuth(), headers=AcmeHeaders(),
+                          url_builder=AcmeURL(), translator=AcmeErrors())
+```
+
+No machinery changes required — the transport never branches on broker.
