@@ -439,14 +439,17 @@ async def get_option_chain(
         raw_token = session["access_token"]
         client_id = session.get("client_id", "")
 
-        async with httpx.AsyncClient(timeout=15) as client:
-            headers = {"Authorization": f"{client_id}:{raw_token}", "Content-Type": "application/json"}
-            resp = await client.post(
-                "https://api-t1.fyers.in/data/options-chain-v3",
-                json={"symbol": fyers_symbol, "strikecount": 9, "timestamp": ""},
-                headers=headers,
-            )
-            data = resp.json()
+        from brokers.fyers_http import get_transport
+        tr = get_transport(client_id, raw_token)
+        resp = await tr.request(
+            "POST",
+            "/data/options-chain-v3",
+            json_body={"symbol": fyers_symbol, "strikecount": 9, "timestamp": ""},
+            cache_ttl=10.0,
+            retries=1,
+            caller="option-chain-route",
+        )
+        data = resp.json()
         if data.get("s") == "ok":
             chain = data.get("data", {})
             raw_options = chain.get("optionsChain", []) or chain.get("optionChain", [])

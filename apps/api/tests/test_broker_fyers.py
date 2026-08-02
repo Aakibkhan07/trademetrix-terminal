@@ -2,12 +2,20 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from brokers.fyers_adapter import FyersAdapter
+from brokers.fyers_http import FyersResponse
 from core.models import Exchange, NormalizedOrder, OrderSide, OrderType, ProductType
+
+
+def _resp(status: int, payload: dict) -> FyersResponse:
+    import json
+    return FyersResponse(status_code=status, body=json.dumps(payload).encode("utf-8"))
 
 
 @pytest.fixture
 def adapter():
-    return FyersAdapter()
+    a = FyersAdapter()
+    a._http.request = AsyncMock()
+    return a
 
 
 @pytest.mark.asyncio
@@ -25,25 +33,22 @@ async def test_authenticate_failure(adapter: FyersAdapter):
 
 
 @pytest.mark.asyncio
-async def test_authenticate_with_oauth(adapter: FyersAdapter):
-    client = AsyncMock()
-    resp = MagicMock(status_code=200)
-    resp.json.return_value = {"s": "ok", "access_token": "oauth_token"}
-    client.post = AsyncMock(return_value=resp)
-    adapter._get_client = AsyncMock(return_value=client)
+async def test_authenticate_with_oauth(adapter: FyersAdapter, monkeypatch):
+    fake_transport = MagicMock()
+    fake_transport.request = AsyncMock(return_value=_resp(200, {"s": "ok", "access_token": "oauth_token"}))
+    fake_transport.set_token = MagicMock()
+    monkeypatch.setattr("brokers.fyers_adapter.get_transport", lambda cid, tok: fake_transport)
 
     session = await adapter.authenticate({"client_id": "cid", "auth_code": "ac1", "secret_key": "sk1"})
     assert session.authenticated is True
     assert session.access_token == "oauth_token"
+    fake_transport.request.assert_awaited_once()
+    assert fake_transport.request.await_args.kwargs["authenticated"] is False
 
 
 @pytest.mark.asyncio
 async def test_place_order(adapter: FyersAdapter):
-    client = AsyncMock()
-    resp = MagicMock(status_code=200)
-    resp.json.return_value = {"s": "ok", "id": "fy123"}
-    client.post = AsyncMock(return_value=resp)
-    adapter._get_client = AsyncMock(return_value=client)
+    adapter._http.request = AsyncMock(return_value=_resp(200, {"s": "ok", "id": "fy123"}))
     adapter._access_token = "test"
     adapter._client_id = "cid"
 
@@ -51,15 +56,12 @@ async def test_place_order(adapter: FyersAdapter):
     result = await adapter.place_order(order)
     assert result.success is True
     assert result.broker_order_id == "fy123"
+    assert adapter._http.request.await_args.kwargs["retries"] == 0
 
 
 @pytest.mark.asyncio
 async def test_cancel_order_returns_status(adapter: FyersAdapter):
-    client = AsyncMock()
-    resp = MagicMock(status_code=200)
-    resp.json.return_value = {"s": "ok", "id": "fy999"}
-    client.delete = AsyncMock(return_value=resp)
-    adapter._get_client = AsyncMock(return_value=client)
+    adapter._http.request = AsyncMock(return_value=_resp(200, {"s": "ok", "id": "fy999"}))
     adapter._access_token = "test"
     adapter._client_id = "cid"
 
@@ -70,11 +72,7 @@ async def test_cancel_order_returns_status(adapter: FyersAdapter):
 
 @pytest.mark.asyncio
 async def test_get_orderbook(adapter: FyersAdapter):
-    client = AsyncMock()
-    resp = MagicMock(status_code=200)
-    resp.json.return_value = {"s": "ok", "orderBook": [{"id": "o1", "symbol": "NSE:RELIANCE", "qty": 1, "type": 2, "side": 1, "status": 2, "productType": "INTRADAY"}]}
-    client.get = AsyncMock(return_value=resp)
-    adapter._get_client = AsyncMock(return_value=client)
+    adapter._http.request = AsyncMock(return_value=_resp(200, {"s": "ok", "orderBook": [{"id": "o1", "symbol": "NSE:RELIANCE", "qty": 1, "type": 2, "side": 1, "status": 2, "productType": "INTRADAY"}]}))
     adapter._access_token = "test"
     adapter._client_id = "cid"
 
@@ -85,11 +83,7 @@ async def test_get_orderbook(adapter: FyersAdapter):
 
 @pytest.mark.asyncio
 async def test_get_positions(adapter: FyersAdapter):
-    client = AsyncMock()
-    resp = MagicMock(status_code=200)
-    resp.json.return_value = {"s": "ok", "netPositions": [{"symbol": "NSE:RELIANCE", "netQty": 10}]}
-    client.get = AsyncMock(return_value=resp)
-    adapter._get_client = AsyncMock(return_value=client)
+    adapter._http.request = AsyncMock(return_value=_resp(200, {"s": "ok", "netPositions": [{"symbol": "NSE:RELIANCE", "netQty": 10}]}))
     adapter._access_token = "test"
     adapter._client_id = "cid"
 
@@ -99,11 +93,7 @@ async def test_get_positions(adapter: FyersAdapter):
 
 @pytest.mark.asyncio
 async def test_get_funds(adapter: FyersAdapter):
-    client = AsyncMock()
-    resp = MagicMock(status_code=200)
-    resp.json.return_value = {"s": "ok", "fund_limit": [{"title": "Total Balance", "equityAmount": 50000}, {"title": "Utilized Amount", "equityAmount": 10000}, {"title": "Clear Balance", "equityAmount": 40000}]}
-    client.get = AsyncMock(return_value=resp)
-    adapter._get_client = AsyncMock(return_value=client)
+    adapter._http.request = AsyncMock(return_value=_resp(200, {"s": "ok", "fund_limit": [{"title": "Total Balance", "equityAmount": 50000}, {"title": "Utilized Amount", "equityAmount": 10000}, {"title": "Clear Balance", "equityAmount": 40000}]}))
     adapter._access_token = "test"
     adapter._client_id = "cid"
 
@@ -111,3 +101,17 @@ async def test_get_funds(adapter: FyersAdapter):
     assert funds.total_margin == 50000
     assert funds.available_margin == 40000
     assert funds.broker == "fyers"
+
+
+@pytest.mark.asyncio
+async def test_get_quotes_falls_back_to_yahoo(adapter: FyersAdapter, monkeypatch):
+    adapter._http.request = AsyncMock(return_value=_resp(429, {"s": "error", "message": "rate limited"}))
+    adapter._access_token = "test"
+    adapter._client_id = "cid"
+
+    async def fake_fetch_quotes(symbols):
+        return []
+    monkeypatch.setattr("providers.yahoo.fetch_quotes", fake_fetch_quotes)
+
+    quotes = await adapter.get_quotes(["RELIANCE"])
+    assert quotes == []

@@ -80,6 +80,7 @@ class OrderManager:
         self._running = False
         self._completed: OrderedDict[str, OmniOrder] = OrderedDict()
         self._quote_cache: dict[tuple[str, str, str], tuple[float, float]] = {}
+        self._quote_inflight: dict[tuple[str, str], asyncio.Task] = {}
 
     async def start(self) -> None:
         await self._recover_active_orders()
@@ -810,9 +811,36 @@ class OrderManager:
         cached = self._quote_cache.get(key)
         if cached and now - cached[0] < QUOTE_CACHE_TTL:
             return cached[1]
+        # Prefer WebSocket-fed ticks (shared_socket / market_cache) before any
+        # REST quote call — live market updates never hit the Fyers REST API.
+        from market.cache import market_cache
+        from datetime import UTC, datetime
+        ws_tick = market_cache.get_tick(bracket.symbol)
+        if ws_tick and ws_tick.last_price > 0:
+            tick_age = (datetime.now(UTC) - ws_tick.timestamp).total_seconds()
+            if tick_age < 5.0:
+                price = ws_tick.last_price
+                self._quote_cache[key] = (now, price)
+                return price
+        # Single-flight: multiple brackets on the same (user, symbol) share ONE
+        # REST round-trip; the bracket monitor itself is a single global worker.
+        flight_key = (bracket.user_id, bracket.symbol)
+        existing = self._quote_inflight.get(flight_key)
+        if existing is not None:
+            return await existing
+        task = asyncio.create_task(self._bracket_quote_fetch(bracket))
+        self._quote_inflight[flight_key] = task
+        try:
+            price = await task
+        finally:
+            self._quote_inflight.pop(flight_key, None)
+        self._quote_cache[key] = (now, price)
+        return price
+
+    async def _bracket_quote_fetch(self, bracket: BracketOrder) -> float:
+        from market.cache import market_cache
         price = 0.0
         if bracket.broker == PAPER_BROKER:
-            from market.cache import market_cache
             q = market_cache.get_quote(bracket.symbol)
             if not q or not (q.get("last_price") or q.get("ltp")):
                 try:
@@ -839,7 +867,6 @@ class OrderManager:
                 quotes = await adapter.get_quotes([bracket.symbol])
                 if quotes and getattr(quotes[0], "last_price", 0):
                     price = quotes[0].last_price
-        self._quote_cache[key] = (now, price)
         return price
 
     async def _place_exit(self, bracket: BracketOrder, leg: str, last: float) -> None:

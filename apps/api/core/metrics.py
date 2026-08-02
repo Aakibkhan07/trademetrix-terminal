@@ -27,9 +27,15 @@ def get_system_metrics() -> dict[str, Any]:
 
 
 def get_metrics() -> dict[str, Any]:
-    return {
+    metrics = {
         "system": get_system_metrics(),
         "requests": get_request_stats(),
         "circuit_breakers": get_circuit_breaker_stats(),
         "status": "healthy",
     }
+    try:
+        from brokers.fyers_http import fyers_rate_snapshot
+        metrics["fyers"] = fyers_rate_snapshot()
+    except Exception:
+        pass
+    return metrics

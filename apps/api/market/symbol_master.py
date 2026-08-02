@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from collections import OrderedDict
 from datetime import UTC, date, datetime, timedelta
 
@@ -8,6 +9,34 @@ import httpx
 from core.db import async_supabase, get_supabase
 
 logger = logging.getLogger(__name__)
+
+CSV_CACHE_TTL_SECONDS = 24 * 3600  # Fyers symbol CSVs change ~once per day
+_csv_cache: dict[str, tuple[float, str]] = {}
+
+
+async def _fetch_csv(url: str, ttl: float = CSV_CACHE_TTL_SECONDS) -> str | None:
+    """Download a static symbol CSV once per TTL; exponential backoff + jitter on failure."""
+    now = time.monotonic()
+    cached = _csv_cache.get(url)
+    if cached and now - cached[0] < ttl:
+        return cached[1]
+    import random
+    attempt = 0
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.get(url)
+            if resp.status_code == 200:
+                _csv_cache[url] = (now, resp.text)
+                return resp.text
+            logger.warning("Fyers CSV %s returned status %d", url, resp.status_code)
+        except Exception as e:
+            logger.warning("Fyers CSV download failed for %s: %s", url, e)
+        if attempt >= 3:
+            return None
+        delay = min(0.5 * (2 ** attempt), 8.0) * random.uniform(0.5, 1.0)
+        await asyncio.sleep(delay)
+        attempt += 1
 
 
 class SymbolMaster:
@@ -110,11 +139,10 @@ class SymbolMaster:
         url = "https://public.fyers.in/sym_details/NSE_CM.csv"
         rows = []
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                resp = await client.get(url)
-                if resp.status_code != 200:
-                    return 0
-                for line in resp.text.splitlines():
+            text = await _fetch_csv(url)
+            if not text:
+                return 0
+            for line in text.splitlines():
                     if not line.strip():
                         continue
                     parts = line.split(",")
@@ -248,18 +276,17 @@ class SymbolMaster:
 
     async def _sync_fyers_fo(self) -> int:
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                fo_resp = await client.get("https://public.fyers.in/sym_details/NSE_FO.csv")
-                cm_resp = await client.get("https://public.fyers.in/sym_details/NSE_CM.csv")
+            fo_text = await _fetch_csv("https://public.fyers.in/sym_details/NSE_FO.csv")
+            cm_text = await _fetch_csv("https://public.fyers.in/sym_details/NSE_CM.csv")
         except Exception as e:
             logger.warning("Fyers CSV download failed: %s", e)
             return 0
 
-        if fo_resp.status_code != 200 or cm_resp.status_code != 200:
+        if not fo_text or not cm_text:
             return 0
 
-        fo_lines = fo_resp.text.splitlines()
-        cm_lines = cm_resp.text.splitlines()
+        fo_lines = fo_text.splitlines()
+        cm_lines = cm_text.splitlines()
 
         futures_map: dict[str, dict] = {}
         db_rows: list[dict] = []

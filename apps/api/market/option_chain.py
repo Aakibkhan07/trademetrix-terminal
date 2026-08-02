@@ -194,17 +194,19 @@ class OptionChainEngine:
             if not client_id or not raw_token:
                 return None
 
-            async with httpx.AsyncClient(timeout=10) as client:
-                headers = {"Authorization": f"{client_id}:{raw_token}", "Content-Type": "application/json"}
-                params = {"symbol": fyers_symbol, "strikecount": 50, "timestamp": ""}
-                resp = await client.get(
-                    "https://api-t1.fyers.in/data/options-chain-v3",
-                    params=params,
-                    headers=headers,
-                )
-                data = resp.json()
-                if data.get("s") != "ok" and data.get("code") != 200:
-                    return None
+            from brokers.fyers_http import get_transport
+            tr = get_transport(client_id, raw_token)
+            params = {"symbol": fyers_symbol, "strikecount": 50, "timestamp": ""}
+            resp = await tr.request(
+                "GET",
+                "/data/options-chain-v3",
+                params=params,
+                cache_ttl=10.0,
+                caller="option_chain",
+            )
+            data = resp.json()
+            if data.get("s") != "ok" and data.get("code") != 200:
+                return None
                 chain = data.get("data", {})
                 raw_options = chain.get("optionsChain", [])
                 raw_expiry_data = chain.get("expiryData", [])

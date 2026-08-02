@@ -38,6 +38,27 @@ All audit findings (`docs/ProductCleanupAudit.md`, KEEP 29) are now fixed in pla
 - Full prod E2E green (18/18): landing nav/footer, live status probes, signup → onboarding PATCH → `/auth/me` reflects `onboarding_completed: true`, funds CTA, feedback submit + history, analytics live P&L, workspace Terminal/Option-Chain links. Zero pageerrors, zero hydration errors.
 - Remaining expected console noise: single 401 on `/auth/me` per anonymous page visit (no retries), 503 from the external option-chain vendor.
 
+## v1.1.2 (2026-08-03) — FYERS RATE-LIMIT COMPLIANCE
+
+### Added
+- **`brokers/fyers_http.py` (new)** — shared per-token `FyersTransport`: sliding-window `TokenRateLimiter` (budget **100 RPM + 8 req/s burst** per access token, 50% headroom under Fyers' ~200/min community-observed ceiling), response caching (`cache_ttl`), concurrent-request dedup (in-flight future), jittered exponential backoff (base 0.25s, cap 8s, `MAX_RETRIES=3`) honoring `Retry-After`, and Cloudflare semantics: **1015 retryable**, **403 = WAF block → `FyersWAFError`, zero retries**. Process-wide registry keyed by `client_id`; `fyers_rate_snapshot()` per-token stats.
+- **`GET /brokers/admin/rate-limit`** (admin-only) — live snapshot of per-token Fyers traffic (calls, wire calls, cache/dedup hits, retries, rate-limited, WAF-blocked, failures, RPM). `fyers` key added to `/health/metrics`.
+- **Structured logs** — `fyers.request` (endpoint, method, status, retries, latency_ms, cached, dedup, rate_rpm, caller) and `fyers.retry` (attempt, delay, reason).
+- **`_fetch_csv` in `market/symbol_master.py`** — 24h TTL cache + backoff for the static Fyers symbol CSVs (NSE_CM/NSE_FO).
+
+### Changed
+- **All Fyers REST traffic routed through the transport** — authenticate, place/modify/cancel, orderbook (3s TTL), positions (5s), holdings (10s), funds (5s), quotes (0.5s), span margin (60s cache), history (retries=1/URL, no cache). Order writes (place/modify/cancel) never retry; auth retries=2; reads retries=3.
+- **Option-chain call sites** (`routes/v1_marketdata.py` POST + `market/option_chain.py`) — now via `get_transport` with 10s TTL; web route capped at retries=1.
+- **OMS bracket quotes WS-first** — `_bracket_quote` prefers a fresh WS-fed tick (`market_cache`, age <5s) over REST and single-flights quotes per (user, symbol) so the global 2s bracket monitor issues one REST quote per symbol regardless of bracket count.
+- **`_stream_yahoo` backoff** — Yahoo fallback polling now backs off exponentially (cap 30s) instead of tight-looping on failures.
+
+### Verification
+- New `tests/test_fyers_http.py` (9 tests: 429/`Retry-After`, 1015 backoff cap, WAF no-retry, 400 no-retry, dedup → 1 wire call, cache, sliding window + burst ceiling, RPM accounting); `tests/test_broker_fyers.py` rewritten against the mocked transport; `tests/test_margin_estimate.py` updated to transport-shape assertions.
+- Full API regression: `pytest tests/` → **573 passed, 1 xfailed**.
+- Compliance report: `docs/FyersRateLimitAudit.md` (full endpoint inventory, RPM table, controls, residual risk).
+- Pending post-deploy: `/brokers/admin/rate-limit` snapshot on a live trading day; `fyers` block in `/health/metrics`; `fyers.request`/`fyers.retry` lines in logs.
+
+
 ## v1.0.1 (2026-08-02) — USER NAVIGATION REDESIGN (P0 INCIDENT FIX)
 
 ### Product discoverability — navigation only (zero backend/API/logic changes)

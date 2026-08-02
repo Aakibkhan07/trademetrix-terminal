@@ -8,7 +8,7 @@ from application.services.broker_service import BrokerService
 from brokers import list_brokers
 from brokers.registry import get_broker_metadata
 from core.config import settings
-from core.deps import get_current_user
+from core.deps import get_current_user, require_admin
 from core.models import UserProfile
 from infrastructure.repositories.broker_repository import SupabaseBrokerRepository
 
@@ -143,3 +143,10 @@ async def broker_callback(broker: str, code: str = Query(None, alias="auth_code"
     if success:
         return RedirectResponse(url=f"{_frontend_url()}?auth_success=1")
     return RedirectResponse(url=f"{_frontend_url()}?auth_error={quote(msg)}")
+
+
+@router.get("/admin/rate-limit")
+async def broker_rate_limit_status(current_user: UserProfile = Depends(require_admin)):
+    """Per-endpoint Fyers request rates + retry behavior (for limit compliance)."""
+    from brokers.fyers_http import fyers_rate_snapshot
+    return fyers_rate_snapshot()
