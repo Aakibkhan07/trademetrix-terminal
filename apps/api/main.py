@@ -62,6 +62,41 @@ logger = logging.getLogger(__name__)
 _PROD = os.getenv("ENV", "").lower() == "production"
 
 
+def _prewarm_lazy_routes(app: "FastAPI") -> None:
+    """Force FastAPI's lazy included-router caches to expand at import time.
+
+    Newer FastAPI versions defer route expansion until first request. A request
+    racing the first expansion of a given router can receive an intermittent
+    405 (with `allow` echoing the request method) for perfectly valid routes,
+    in the minutes after process start. Expanding every lazy router here —
+    serially, single-threaded, before uvicorn binds the port — removes the race.
+    """
+    try:
+        seen = set()
+
+        def expand(route) -> None:
+            rid = id(route)
+            if rid in seen:
+                return
+            seen.add(rid)
+            for method in ("effective_candidates", "effective_low_priority_routes"):
+                fn = getattr(route, method, None)
+                if callable(fn):
+                    try:
+                        for child in fn():
+                            if type(child).__name__ == "_IncludedRouter":
+                                expand(child)
+                    except Exception:
+                        pass
+
+        for route in app.routes:
+            if type(route).__name__ == "_IncludedRouter":
+                expand(route)
+        logger.info("Lazy route warm-up complete (%d routers expanded)", len(seen))
+    except Exception as e:  # warm-up is best-effort; never block startup
+        logger.warning("Lazy route warm-up failed: %s", e)
+
+
 async def _startup_recovery():
     try:
         await asyncio.sleep(10)
@@ -243,6 +278,8 @@ app.include_router(portfolio_router)
 app.include_router(subscriptions_router, prefix="/api/v1")
 app.include_router(referrals_router, prefix="/api/v1")
 app.include_router(broker_webhook_router, prefix="/api/v1")
+
+_prewarm_lazy_routes(app)
 
 
 @app.exception_handler(AppError)

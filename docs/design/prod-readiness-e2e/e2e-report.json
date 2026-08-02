@@ -1,5 +1,5 @@
 {
-  "email": "prtest1785698452110@example.com",
+  "email": "prtest1785698888045@example.com",
   "results": [
     [
       "header nav",
@@ -30,6 +30,11 @@
       "signup",
       "OK",
       "https://ai.trademetrix.tech/onboarding"
+    ],
+    [
+      "onboarding flag",
+      "FAIL",
+      "{\"csrf\":200,\"patch\":{\"status\":-1,\"body\":\"TypeError: Failed to fetch\"},\"me\":200,\"onboarding\":false}"
     ],
     [
       "funds renders",
@@ -84,8 +89,8 @@
     "Failed to load resource: the server responded with a status of 401 ()",
     "Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/auth/profile' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
     "Failed to load resource: net::ERR_FAILED",
-    "PAGEERROR [https://ai.trademetrix.tech/workspace]: Failed to parse color: color-mix(in srgb, var(--green) 30%, transparent)",
-    "PAGEERROR [https://ai.trademetrix.tech/workspace]: Failed to parse color: color-mix(in srgb, var(--green) 30%, transparent)",
+    "Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/auth/profile' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED",
     "Failed to load resource: the server responded with a status of 503 ()"
   ],
   "hydrationWarnings": [],
@@ -94,6 +99,7 @@
     "HTTP 401 [https://ai.trademetrix.tech/status]: https://api.ai.trademetrix.tech/api/v1/auth/me",
     "HTTP 401 [https://ai.trademetrix.tech/status]: https://api.ai.trademetrix.tech/api/v1/auth/me",
     "HTTP 401 [https://ai.trademetrix.tech/auth]: https://api.ai.trademetrix.tech/api/v1/auth/me",
+    "REQFAIL [https://ai.trademetrix.tech/onboarding]: https://api.ai.trademetrix.tech/api/v1/auth/profile net::ERR_FAILED",
     "REQFAIL [https://ai.trademetrix.tech/onboarding]: https://api.ai.trademetrix.tech/api/v1/auth/profile net::ERR_FAILED"
   ]
 }
