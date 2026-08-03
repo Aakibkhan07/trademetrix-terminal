@@ -130,6 +130,7 @@ async def _startup_strategy_runtime():
     restoring the execution/portfolio book (so adoption sees real data)."""
     try:
         await asyncio.sleep(4)
+        from strategy_runtime.manager import strategy_runtime_manager
         from strategy_runtime.recovery import RuntimeRecovery
 
         await RuntimeRecovery(strategy_runtime_manager).recover()
