@@ -347,7 +347,7 @@ export default function PaperTradingPage() {
           </div>
 
           <p className="t-faint" style={{ fontSize: 10, marginTop: 4 }}>
-            Engine state is process-local: after a server restart, closed trades and running strategies reset (this page will show the new empty state).
+            Open positions, P&amp;L, and running strategies are checkpointed automatically and restored after a server restart.
           </p>
         </>
       )}

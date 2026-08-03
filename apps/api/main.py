@@ -109,6 +109,21 @@ async def _startup_recovery():
         logger.warning("Startup recovery skipped: %s", e)
 
 
+async def _startup_engine_recovery():
+    """Restore persisted runtime state (positions/P&L + running strategies).
+
+    Runs once, shortly after startup, so the execution engine's legacy bus and
+    market sockets are already up. Fail-open: a broken store or DB never blocks
+    or crashes startup.
+    """
+    try:
+        from execution_engine.persistence import recover_runtime_state
+        result = await recover_runtime_state()
+        logger.info("Runtime persistence recovery complete: %s", result)
+    except Exception as e:
+        logger.warning("Runtime persistence recovery skipped: %s", e)
+
+
 async def _start_watchdog():
     from execution.token_watchdog import token_watchdog_loop
     asyncio.ensure_future(token_watchdog_loop())
@@ -172,6 +187,14 @@ async def lifespan(app: FastAPI):
         logger.info("Execution Engine v1.0 wired into application lifespan")
     except Exception as e:
         logger.warning("Execution Engine init failed (non-fatal): %s", e)
+    try:
+        from execution_engine.persistence import SupabaseCheckpointStore, enable_execution_persistence
+
+        enable_execution_persistence(SupabaseCheckpointStore())
+        logger.info("Execution Engine runtime persistence enabled (execution_checkpoints)")
+    except Exception as e:
+        logger.warning("Execution Engine persistence enable failed (non-fatal): %s", e)
+    _background_tasks.append(asyncio.ensure_future(_startup_engine_recovery()))
     yield
     for task in _background_tasks:
         task.cancel()

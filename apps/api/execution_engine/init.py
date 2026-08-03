@@ -28,6 +28,7 @@ def init_execution_engine(loop: asyncio.AbstractEventLoop | None = None) -> dict
     from execution_engine.engine import execution_engine as facade
     from execution_engine.events import bridge_engine_events, bridge_legacy_events
     from execution_engine.metrics import execution_metrics
+    from execution_engine.persistence import runtime_persistence
 
     # Chain: ORDER fills -> TradeManager -> TRADE -> PositionManager -> POSITION
     # -> PnLEngine -> PORTFOLIO_REVALUED -> PortfolioEngine -> PORTFOLIO_SNAPSHOT
@@ -43,6 +44,7 @@ def init_execution_engine(loop: asyncio.AbstractEventLoop | None = None) -> dict
 
     bridge_legacy_events()
     bridge_engine_events()
+    runtime_persistence.install()  # checkpoint writer (no-op until a store is configured)
 
     if loop is not None:
         execution_bus.start(loop)

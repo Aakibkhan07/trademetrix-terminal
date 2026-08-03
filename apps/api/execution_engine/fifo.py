@@ -111,3 +111,24 @@ class FifoLots:
                 "average_buy_price": self.average_price("BUY"),
                 "average_sell_price": self.average_price("SELL"),
             }
+
+    # ------------------------------------------------------------------
+    # Serialization (runtime persistence): open lots are the ground truth
+    # for unrealized + future realized P&L, so they are checkpointed with
+    # the engine state.
+    # ------------------------------------------------------------------
+    def to_lots(self) -> dict[str, list[list[float]]]:
+        """Export open lots as [[qty, price], ...] pairs (canonical JSON)."""
+        with self._lock:
+            return {
+                "longs": [[float(qty), float(price)] for qty, price in self._longs],
+                "shorts": [[float(qty), float(price)] for qty, price in self._shorts],
+            }
+
+    @classmethod
+    def from_lots(cls, lots: dict[str, list[list[float]]]) -> "FifoLots":
+        """Reconstruct from ``to_lots`` output (deterministic round-trip)."""
+        fifo = cls()
+        fifo._longs = [[float(qty), float(price)] for qty, price in lots.get("longs", [])]
+        fifo._shorts = [[float(qty), float(price)] for qty, price in lots.get("shorts", [])]
+        return fifo

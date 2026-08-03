@@ -57,6 +57,29 @@ no new streams infrastructure — reuse the existing per-user SSE
 4. **No schema / no config / no new deps.** Engine stays in-memory; empty
    states documented (state resets on API restart until durable store §4).
 
+## §7 — Runtime persistence + recovery (implemented)
+
+Engine state is durable across API restarts via `execution_engine/persistence.py`
++ the `execution_checkpoints` table (Supabase):
+
+- **What is checkpointed (minimum required runtime state):** per user, open
+  positions + FIFO lots (`FifoLots.to_lots`) + P&L accounts, written after
+  every portfolio rebuild (coordinator subscribes to the canonical
+  `PORTFOLIO_SNAPSHOT` event); plus each **running** graph strategy's restart
+  spec (user, symbol, interval, paper/live), written on start and removed on
+  stop. A per-user SHA digest skips writes when nothing changed.
+- **Recovery** (`recover_runtime_state`, called in `main.py` lifespan at
+  startup): restores engine accounting state first (replace-in-place, no event
+  replay), rebuilds the portfolio snapshot, then re-starts every persisted
+  running strategy (idempotent `already_running` guard). Fail-open: a broken
+  store/DB never blocks startup.
+- **Deterministic**: canonical JSON round-trip (pydantic `model_dump` /
+  `model_validate`); verified byte-identical in `test_runtime_recovery.py`.
+- **Tests**: 8 automated restart tests (determinism, idempotency, hash-guard,
+  no-store no-op, strategy persist/recover/delete, event-writer path).
+- **Backend**: Supabase store injected at startup; tests use
+  `InMemoryCheckpointStore`, so the engine stays I/O-free without one.
+
 ### Frontend (usability)
 
 5. **New `/paper` page** — "Paper Trading" workspace (sidebar under *Trade*):
@@ -80,7 +103,7 @@ no new streams infrastructure — reuse the existing per-user SSE
 | Stop / restart | existing `builder.stop` / `start` |
 | Live events | existing `/events/stream` + `useEvents()` (back-bridged) |
 | Positions / P&L / trades | new `/paper/*` (engine state, read-only) |
-| Durability across API restart | KNOWN GAP — in-memory; documented in UI + limitations |
+| Durability across API restart | `execution_checkpoints` table + `execution_engine/persistence.py` (see §7) |
 
 ## Testing & rollout
 

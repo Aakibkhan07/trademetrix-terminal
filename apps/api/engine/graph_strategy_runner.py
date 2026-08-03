@@ -233,6 +233,9 @@ async def start_graph_strategy(
     await record(strategy_id, "lifecycle", f"Strategy started ({'paper' if is_paper else 'live'}, {symbol} {interval})",
                  level="info", user_id=user_id)
 
+    from execution_engine.persistence import runtime_persistence
+    asyncio.ensure_future(runtime_persistence.persist_strategy(strategy_id))
+
     try:
         supabase = get_supabase()
         await async_supabase(lambda: supabase.table("strategy_runs").insert({
@@ -264,6 +267,9 @@ async def stop_graph_strategy(strategy_id: str, user_id: str = ""):
     stats["stopped_at"] = datetime.now(UTC).isoformat()
     stats["last_activity"] = datetime.now(UTC).isoformat()
     await record(strategy_id, "lifecycle", "Strategy stopped", level="info", user_id=user_id)
+
+    from execution_engine.persistence import runtime_persistence
+    asyncio.ensure_future(runtime_persistence.delete_strategy(strategy_id))
 
     try:
         supabase = get_supabase()
