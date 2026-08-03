@@ -194,18 +194,17 @@ async def _probe_stream(adapter: Any, symbol: str, timeout: float) -> dict[str, 
         done, _pending = await asyncio.wait(
             [finished, tick_task], timeout=timeout, return_when=asyncio.FIRST_COMPLETED
         )
-        if finished in done and finished.exception() is not None:
-            raise finished.exception()
         if finished in done:
+            err = finished.exception()
+            if err is not None:
+                raise err
             return {"passed": True, "detail": "subscription accepted (stream ended cleanly)"}
         if tick_task in done:
             return {"passed": True, "detail": "live tick received"}
         # Connection established but no tick within the window — the feed is
         # idle (e.g. market closed). Ticks are market-hours dependent; a connected
         # stream with no errors is a live subscription, so score it a pass.
-        if not finished.done() and finished.exception() is None:
-            return {"passed": True, "detail": "subscription connected (no tick — market closed?)"}
-        return {"passed": False, "error": f"no live tick from {symbol}"}
+        return {"passed": True, "detail": "subscription connected (no tick — market closed?)"}
     except _USFE as exc:
         return {"passed": False, "error": str(exc), "skipped": True}
     except Exception as exc:  # noqa: BLE001
