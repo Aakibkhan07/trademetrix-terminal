@@ -186,6 +186,7 @@ class PortfolioManager:
         portfolio_metrics.record_sync(broker, elapsed_ms, True)
 
         self._publish_event("PortfolioUpdated", user_id, broker, state)
+        self._publish_canonical_snapshot(state, user_id, broker)
         return state
 
     async def reconcile(self, user_id: str, broker: str) -> ReconciliationResult:
@@ -464,6 +465,45 @@ class PortfolioManager:
             fire_and_forget(execution_event_bus.publish(event))
         except Exception as e:
             logger.error("Failed to publish %s event: %s", event_type, e)
+
+    def _publish_canonical_snapshot(self, state: PortfolioState, user_id: str, broker: str):
+        """Mirror broker-truth state onto the Execution Engine's canonical bus.
+
+        Additive composition: engine consumers (metrics, analytics, ring
+        buffer) see broker-synced positions/funds/PnL without touching the
+        legacy event surface. Fail-open — the canonical bus is optional.
+        """
+        try:
+            from execution_engine.events import (
+                ExecutionEventType,
+                execution_bus,
+                portfolio_event,
+            )
+
+            open_positions = sum(1 for p in state.positions.values() if p.quantity != 0)
+            execution_bus.publish(
+                portfolio_event(
+                    ExecutionEventType.PORTFOLIO_SNAPSHOT,
+                    user_id=user_id,
+                    broker=broker,
+                    message=f"Broker snapshot: {open_positions} open positions (portfolio_manager)",
+                    payload={
+                        "open_positions": open_positions,
+                        "total_positions": len(state.positions),
+                        "realised_pnl": state.pnl.realised_pnl,
+                        "unrealised_pnl": state.pnl.unrealised_pnl,
+                        "daily_pnl": state.pnl.daily_pnl,
+                        "current_equity": state.pnl.current_equity,
+                        "drawdown_pct": state.pnl.drawdown_pct,
+                        "total_margin": state.funds.total_margin,
+                        "used_margin": state.funds.used_margin,
+                        "available_margin": state.funds.available_margin,
+                        "source": "portfolio_manager",
+                    },
+                )
+            )
+        except Exception as e:
+            logger.debug("Canonical portfolio snapshot publish skipped: %s", e)
 
 
 portfolio_manager = PortfolioManager()

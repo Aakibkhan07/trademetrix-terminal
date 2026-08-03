@@ -1,3 +1,27 @@
+## v1.4.0 (2026-08-03) — EXECUTION ENGINE V1.0 (CANONICAL EVENT-DRIVEN EXECUTION LAYER)
+
+### Added
+- **`execution_engine/` (new package)** — canonical, event-driven execution layer composed on top of the frozen Broker SDK v2: typed domain bus (`events.py`, 6 domains / 24 event types, thread-safe publish with `call_soon_threadsafe`, single async FIFO dispatcher, deterministic inline dispatch pre-startup, sequence + correlation ids, 2000-event ring buffer, legacy `execution.event_bus` bridge), canonical `OrderState` machine with `FAILED` + `PARTIAL` alias (`state_machine.py`), FIFO lot engine (`fifo.py`), fills ledger + `TradeManager` (`trades.py`, optional `TradeStore` protocol), event-driven netting + MTM (`positions.py`), per-account P&L with IST daily window + equity/peak/drawdown recomputed from state (`pnl.py`), portfolio snapshots (`portfolio_engine.py`, optional `SnapshotStore`), `ExecutionEngine` facade with idempotent `submit`/`cancel`/`modify` (`engine.py`), Prometheus sink (`metrics.py`), and one-call bootstrap `init_execution_engine(loop)` wired into `main.py` lifespan.
+- **Legacy composition** — `portfolio/manager.py` `refresh()` mirrors broker-truth state onto the canonical bus (`portfolio.snapshot`, `source: portfolio_manager`), additive and fail-open.
+
+### Changed
+- `apps/api/main.py` — lifespan calls `init_execution_engine()` after `order_manager.start()` and `shutdown_execution_engine()` on graceful shutdown (both non-fatal on failure).
+
+### Fixed (found while building the engine)
+- FIFO realized P&L sign inversions (SELL-against-longs + BUY-against-shorts) — closing above entry now realizes a profit.
+- Infinite `portfolio.snapshot` fanout (PortfolioEngine self-trigger) + duplicate snapshots per fill (subscription scoped to PORTFOLIO domain).
+- Duplicate ring-buffer entries (`_finalize` idempotency) and inline-dispatch race (`apublish` drains cascade tasks).
+- `EXECUTION_RESULT` KeyError on non-fill statuses; `open_positions` added to `portfolio.revalued` payload.
+
+### Verification
+- New tests: `tests/test_execution_engine.py` (40 tests: state machine, FIFO, bus incl. thread-safety, trade ledger, positions lifecycle, P&L/portfolio chain with FIFO round-trip 267.5, facade outcomes, metrics, bootstrap, legacy composition).
+- Full regression: `pytest tests/` → **756 passed, 1 xfailed** (+39 vs v1.3.1's 717).
+
+### Known gaps
+- Durable `TradeStore`/`SnapshotStore` adapters not wired (legacy `orders` audit table remains the durable trail).
+- `oms/state_machine.py` / `execution/models.py` delegation to the canonical machine deferred to keep the regression surface frozen.
+- Docs: `docs/evolution/EXECUTION_ENGINE_V1.md`, `docs/evolution/RELEASE_NOTES_EXECUTION_ENGINE_V1.md`.
+
 ## v1.3.1 (2026-08-03) — UNIFIED BROKER SDK V2 (PHASES 3 & 4: OBSERVABILITY + LIVE CERTIFICATION)
 
 ### Added

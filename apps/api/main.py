@@ -164,6 +164,13 @@ async def lifespan(app: FastAPI):
     await symbol_master.start_auto_sync()
     from oms.manager import order_manager
     await order_manager.start()
+    try:
+        from execution_engine.init import init_execution_engine
+
+        init_execution_engine()
+        logger.info("Execution Engine v1.0 wired into application lifespan")
+    except Exception as e:
+        logger.warning("Execution Engine init failed (non-fatal): %s", e)
     yield
     for task in _background_tasks:
         task.cancel()
@@ -188,6 +195,12 @@ async def lifespan(app: FastAPI):
     for task in list(_pending_tasks):
         task.cancel()
     _pending_tasks.clear()
+    try:
+        from execution_engine.init import shutdown_execution_engine
+
+        await shutdown_execution_engine()
+    except Exception as e:
+        logger.warning("Execution Engine shutdown failed (non-fatal): %s", e)
     logger.info("Graceful shutdown complete")
 
 
