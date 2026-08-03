@@ -54,16 +54,22 @@ Broker health/metrics/capabilities endpoints verified · deployed (deploy.sh, he
 - **Endpoints** — `GET /api/v1/brokers/health[/{broker}]`, `/metrics/{broker}`, `/capabilities`;
   `/health/metrics` `brokers` block.
 - **Live certification** — `brokers/sdk/live_cert.py` (canonical engine workflow, order steps opt-in,
-  per-step timeouts, JSON+MD reports) + `python -m brokers.live_cert --broker <name>` CLI.
-- Verification: regression 715 passed, 1 xfailed (+53; 9 new live-cert tests).
+  per-step timeouts, JSON+MD reports) + `python -m brokers.live_cert --broker <name> --user <uuid>` CLI
+  (credential-backed runs via stored broker credentials).
+- **Fyers LIVE_CERTIFIED (v1.3.1)** — credential-backed run completed `LIVE_CERTIFIED` in 18.1s with real
+  live data: login/quotes/history/websocket/positions/holdings/funds/disconnect/reconnect/circuit_recovery
+  all PASS; `token_refresh`/`token_expiry`/`option_chain` recorded as SKIP (`UnsupportedFeatureError`).
+  Report: `docs/evolution/certs/fyers_live_cert.{json,md}`.
+- Verification: regression 717 passed, 1 xfailed (+53; 11 live-cert tests, incl. the credential-backed
+  CLI with `--user`).
 
 ---
 
 ## Remaining known limitations
 
-1. **Fyers `get_option_chain` — live cert run pending a real token.** Functionality is in place and
-   platform-covered by the transport; only the credential-backed live-cert exercise is outstanding (a
-   validation gap, not a code defect).
+1. **Fyers `get_option_chain` — live cert gap (validation, not code).** Fyers raises
+   `UnsupportedFeatureError` for `get_option_chain` (no direct API); the live-cert run records it as SKIP,
+   the option-chain platform feature remains covered via the transport.
 2. **Live cred-backed certification for the other 10 brokers** — the framework is ready; runs await
    active credentials per broker.
 3. **Durable broker audit-event store** — the event bus exists; a persistent consumer is not yet built.
@@ -80,6 +86,6 @@ Broker health/metrics/capabilities endpoints verified · deployed (deploy.sh, he
 
 ## Operational notes
 
-- Live certification: `cd apps/api && .venv/bin/python -m brokers.live_cert --broker fyers --allow-orders --out docs/evolution/certs/fyers_live.json` (on the API host with valid credentials).
+- Live certification: `cd apps/api && .venv/bin/python -m brokers.live_cert --broker fyers --user <user-uuid> --out docs/evolution/certs/fyers_live.json` (on the API host with valid stored credentials).
 - Architecture: `docs/evolution/BROKER_SDK_V2.md` · Transport benchmark: `docs/BrokerTransportBenchmark.md` · Live-cert reports: `docs/evolution/certs/`.
 - Freeze scope: internals of `brokers/sdk/*`; adapters + auth providers are still extended for new brokers.
