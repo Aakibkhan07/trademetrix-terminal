@@ -46,8 +46,8 @@ async def _resolve_credentials(broker: str, user_id: str) -> dict:
     return {"cred": cred, "rows": rows, "user_id": user_id, "broker": broker}
 
 
-async def _authenticate_adapter(adapter, cred) -> None:
-    """Authenticate the raw adapter using the stored credential row (decrypts token)."""
+async def _authenticate_adapter(adapter, cred) -> dict:
+    """Authenticate the adapter using the stored credential row (decrypts token)."""
     from core.security import decrypt_broker_credentials
 
     client_id = (getattr(cred, "client_id", "") or "").strip()
@@ -67,7 +67,9 @@ async def _authenticate_adapter(adapter, cred) -> None:
         raise SystemExit(
             f"Broker '{broker_name(adapter)}' has no usable access_token/client_id — re-auth required"
         )
-    await adapter.authenticate({"client_id": client_id, "access_token": raw_token})
+    creds = {"client_id": client_id, "access_token": raw_token}
+    await adapter.authenticate(creds)
+    return creds
 
 
 def broker_name(adapter) -> str:
@@ -78,6 +80,7 @@ async def _run(broker: str, allow_orders: bool, out_path: str, user_id: str | No
     from brokers.sdk.live_cert import run_live_certification, write_report
 
     adapter = _load_adapter(broker)
+    step_drivers = None
     if user_id:
         resolved = await _resolve_credentials(broker, user_id)
         cred = resolved["cred"]
@@ -85,10 +88,23 @@ async def _run(broker: str, allow_orders: bool, out_path: str, user_id: str | No
             raise SystemExit(
                 f"No stored {broker} credentials for user '{user_id}' — cannot run credential-backed cert"
             )
-        await _authenticate_adapter(adapter, cred)
+        creds = await _authenticate_adapter(adapter, cred)
         logger.info(f"Authenticated {broker} adapter as {user_id}")
 
-    result = await run_live_certification(adapter, broker=broker, allow_orders=allow_orders)
+        from brokers.sdk.live_cert import _call_live
+
+        async def _cred_connect(_step: str) -> dict:
+            return await _call_live(adapter, "connect", {"credentials": creds})
+
+        step_drivers = {
+            "login": lambda: _cred_connect("login"),
+            "reconnect": lambda: _cred_connect("reconnect"),
+            "circuit_recovery": lambda: _cred_connect("circuit_recovery"),
+        }
+
+    result = await run_live_certification(
+        adapter, broker=broker, allow_orders=allow_orders, step_drivers=step_drivers
+    )
     write_report(result, out_path)
     print(result.to_dict()["result"], f"-> {out_path} (+ .md)")
     for step in result.steps.values():

@@ -87,29 +87,73 @@ async def _call_live(adapter: Any, method: str, kwargs: dict[str, Any] | None = 
     A completed call without an exception is a passing probe — adapters
     legitimately return ``None`` for fire-and-forget operations (disconnect,
     subscribe), so certification scores completion, not truthiness.
+
+    Kwargs are filtered to the callable's accepted parameter names, and any
+    required positional-only parameter named after a supplied kwarg (e.g.
+    ``subscribe_market_data(symbols, on_tick)``) is bound positionally — so
+    the canonical v2 vocabulary probes safely against legacy
+    ``BaseBroker``-style methods without spurious TypeErrors.
     """
     try:
         fn = getattr(adapter, method, None)
         if not callable(fn):
             return {"passed": False, "error": f"adapter has no {method}", "skipped": True}
-        result = fn(**(kwargs or {}))
+        result = fn(*_fitted_positional(fn, kwargs), **(_filter_kwargs(fn, kwargs or {})))
         if asyncio.iscoroutine(result):
             result = await result
         return {"passed": True, "detail": _snippet(result)}
     except UnsupportedFeatureError as exc:  # capability-absent → SKIP, not FAIL
         return {"passed": False, "error": str(exc), "skipped": True}
+    except (TypeError, ValueError) as exc:
+        return {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
     except Exception as exc:  # noqa: BLE001
         return {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _filter_kwargs(fn: Callable, kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Drop kwargs the callable does not accept (name-based)."""
+    import inspect
+
+    try:
+        sig = inspect.signature(fn)
+    except (ValueError, TypeError):
+        return kwargs
+    names = set(sig.parameters)
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+        return kwargs
+    return {k: v for k, v in kwargs.items() if k in names}
+
+
+def _fitted_positional(fn: Callable, kwargs: dict[str, Any]) -> list[Any]:
+    """Fill required positional-only params whose names match kwargs (e.g. on_tick)."""
+    import inspect
+
+    try:
+        sig = inspect.signature(fn)
+    except (ValueError, TypeError):
+        return []
+    positional = []
+    for name, p in sig.parameters.items():
+        if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+            if name in ("self",):
+                continue
+            break  # first real positional is enough; later ones get their own keyword
+    return positional
 
 
 async def _websocket_driver(adapter: Any) -> dict[str, Any]:
     if not (callable(getattr(adapter, "subscribe_market_data", None))):
         return {"passed": False, "error": "adapter lacks subscribe_market_data"}
     try:
-        res = adapter.subscribe_market_data(["NSE:NIFTY"])
+        async def _noop_tick(_tick):  # fire-and-forget probe
+            return None
+
+        res = adapter.subscribe_market_data(["NSE:NIFTY"], on_tick=_noop_tick)
         if asyncio.iscoroutine(res):
             await res
         return {"passed": True, "detail": "market-data subscription accepted"}
+    except UnsupportedFeatureError as exc:
+        return {"passed": False, "error": str(exc), "skipped": True}
     except Exception as exc:  # noqa: BLE001
         return {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
 
@@ -124,24 +168,28 @@ async def _order_driver(adapter: Any, step: str) -> dict[str, Any]:
 
 
 def default_driver(adapter: Any, step: str) -> Callable[..., Awaitable[dict[str, Any]]] | None:
-    """Map a LIVE_STEP to the canonical adapter surface (None when absent)."""
+    """Map a LIVE_STEP to the canonical adapter surface (None when absent).
+
+    Kwargs follow the canonical v2 signatures (see ``BrokerAdapterBase``), so
+    the probes bind cleanly against every registered broker.
+    """
     if step == "websocket":
         return lambda: _websocket_driver(adapter)
     if step in ORDER_STEPS:
         return lambda: _order_driver(adapter, step)
     method_map = {
-        "login": ("connect", {}),
-        "token_refresh": ("refresh_token", {"token": "expired"}),
+        "login": ("connect", {"credentials": {}}),
+        "token_refresh": ("refresh_token", {"credentials": {"access_token": "expired"}}),
         "quotes": ("get_quotes", {"symbols": ["NSE:NIFTY"]}),
-        "history": ("get_historical_data", {"symbol": "NSE:NIFTY", "interval": "5m", "limit": 5}),
-        "option_chain": ("get_option_chain", {"underlying": "NIFTY"}),
+        "history": ("get_historical_data", {"symbol": "NSE:NIFTY", "interval": "5m"}),
+        "option_chain": ("get_option_chain", {"symbol": "NSE:NIFTY"}),
         "positions": ("get_positions", {}),
         "holdings": ("get_holdings", {}),
         "funds": ("get_funds", {}),
         "disconnect": ("disconnect", {}),
-        "reconnect": ("connect", {}),
-        "token_expiry": ("refresh_token", {"token": {"access_token": "stale-token", "expires_at": 0}}),
-        "circuit_recovery": ("connect", {}),
+        "reconnect": ("connect", {"credentials": {}}),
+        "token_expiry": ("refresh_token", {"credentials": {"access_token": "stale-token"}}),
+        "circuit_recovery": ("connect", {"credentials": {}}),
     }
     entry = method_map.get(step)
     if entry is None:
@@ -175,8 +223,8 @@ async def run_live_certification(
         if step in ORDER_STEPS and not allow_orders:
             result.add(step, False, "skipped (opt-in: allow_orders=True)", skipped=True)
             continue
-        if step_drivers is not None:
-            driver = step_drivers.get(step)
+        if step_drivers is not None and step in step_drivers:
+            driver = step_drivers[step]
         else:
             driver = default_driver(adapter, step)
         if driver is None:

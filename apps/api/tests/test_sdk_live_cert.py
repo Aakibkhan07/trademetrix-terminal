@@ -16,22 +16,22 @@ from brokers.sdk.live_cert import (
 class HealthyAdapter:
     broker_name = "fakebroker"
 
-    async def connect(self):
+    async def connect(self, credentials):
         return {"ok": True}
 
     async def disconnect(self):
         return None
 
-    async def refresh_token(self, token):
+    async def refresh_token(self, credentials):
         return {"ok": True}
 
     async def get_quotes(self, symbols):
         return [{"ltp": 100}]
 
-    async def get_historical_data(self, **kwargs):
+    async def get_historical_data(self, symbol, interval, **kwargs):
         return {"candles": [1, 2, 3]}
 
-    async def get_option_chain(self, **kwargs):
+    async def get_option_chain(self, symbol, **kwargs):
         return {"option_chain": []}
 
     async def get_positions(self):
@@ -52,7 +52,7 @@ class HealthyAdapter:
     async def cancel_order(self, **kwargs):
         return {"broker_order_id": "o1", "status": "CANCELLED"}
 
-    def subscribe_market_data(self, symbols):
+    def subscribe_market_data(self, symbols, on_tick):
         return asyncio.sleep(0)
 
 
@@ -69,7 +69,7 @@ class BrokenAdapter(HealthyAdapter):
 class ExpiredTokenAdapter(HealthyAdapter):
     broker_name = "expiredbroker"
 
-    async def refresh_token(self, token):
+    async def refresh_token(self, credentials):
         raise RuntimeError("expired token")
 
 
@@ -169,10 +169,10 @@ async def test_live_cert_capability_absent_is_skipped_not_fail():
     class LimitedAdapter(HealthyAdapter):
         broker_name = "limitedbroker"
 
-        async def get_option_chain(self, **kwargs):
+        async def get_option_chain(self, symbol, **kwargs):
             raise UnsupportedFeatureError("get_option_chain", broker=self.broker_name)
 
-        async def refresh_token(self, token):
+        async def refresh_token(self, credentials):
             raise UnsupportedFeatureError("refresh_token", broker=self.broker_name)
 
     result = await run_live_certification(LimitedAdapter())
