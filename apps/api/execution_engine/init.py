@@ -61,12 +61,18 @@ def init_execution_engine(loop: asyncio.AbstractEventLoop | None = None) -> dict
 
 
 async def shutdown_execution_engine() -> None:
-    """Drain + stop the canonical bus and its dispatcher task."""
+    """Drain + stop the canonical bus and its dispatcher task.
+
+    Resets the init flag so a subsequent ``init_execution_engine`` re-wires
+    and restarts the bus (idempotent lifecycle contract).
+    """
+    global _initialized
     from execution_engine import execution_bus
 
     if execution_bus.running:
         await execution_bus.stop()
         logger.info("Execution Engine bus stopped")
+    _initialized = False
 
 
 def reset_execution_engine() -> None:

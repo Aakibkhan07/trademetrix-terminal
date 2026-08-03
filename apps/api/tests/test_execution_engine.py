@@ -705,3 +705,122 @@ class TestInit:
         init_execution_engine()  # running inside asyncio test -> picks up loop
         assert execution_bus.running
         await shutdown_execution_engine()
+
+    @pytest.mark.asyncio
+    async def test_shutdown_then_reinit_restarts_bus(self):
+        from execution_engine import execution_bus
+        from execution_engine.init import init_execution_engine, shutdown_execution_engine
+
+        init_execution_engine(asyncio.get_running_loop())
+        assert execution_bus.running
+        await shutdown_execution_engine()
+        assert not execution_bus.running
+        init_execution_engine(asyncio.get_running_loop())
+        assert execution_bus.running
+        await shutdown_execution_engine()
+
+
+# ---------------------------------------------------------------------------
+# Legacy bus bridge -> engine integration
+# ---------------------------------------------------------------------------
+class TestLegacyBridge:
+    """The production fill path: legacy OMS/paper events -> canonical engine."""
+
+    @pytest.mark.asyncio
+    async def test_oms_order_completed_reaches_position(self):
+        from execution_engine import pnl_engine, portfolio_engine, position_manager, trade_manager
+        from execution_engine.events import bridge_legacy_events
+        from execution.event_bus import execution_event_bus
+        from execution.models import ExecutionEvent
+
+        pnl_engine._positions = position_manager
+        portfolio_engine._positions = position_manager
+        portfolio_engine._pnl = pnl_engine
+        trade_manager.install()
+        position_manager.install()
+
+        bridge_legacy_events()
+        await execution_event_bus.publish(ExecutionEvent(
+            event_type="OrderCompleted",
+            execution_request_id="req-1",
+            user_id="u1", broker="fyers", symbol="NIFTY", side="BUY",
+            message="filled",
+            payload={"quantity": 10, "filled_quantity": 10, "average_price": 71.75,
+                     "broker_order_id": "B-1", "oms_order_id": "oms-1",
+                     "is_paper": False, "source": "engine", "strategy_id": "s1"},
+        ))
+        await asyncio.sleep(0.05)
+        pos = position_manager.get_position("u1", "fyers", "NIFTY")
+        assert pos is not None and pos.quantity == 10
+        assert round(pos.average_price, 2) == 71.75
+
+    @pytest.mark.asyncio
+    async def test_paper_fill_events_reach_trade_ledger(self):
+        from execution_engine import pnl_engine, portfolio_engine, position_manager, trade_manager
+        from execution_engine.events import bridge_legacy_events
+        from execution.event_bus import execution_event_bus
+        from execution.models import ExecutionEvent
+
+        pnl_engine._positions = position_manager
+        portfolio_engine._positions = position_manager
+        portfolio_engine._pnl = pnl_engine
+        trade_manager.install()
+        position_manager.install()
+
+        bridge_legacy_events()
+        for etype, req_id, payload in (
+            ("PaperOrderFilled", "paper-1",
+             {"order_id": "paper-1", "quantity": 10, "price": 73.0,
+              "fill": {"order_id": "paper-1", "filled_quantity": 4, "filled_price": 73.25}}),
+            ("PaperOrderPartiallyFilled", "paper-2",
+             {"order_id": "paper-2", "quantity": 10, "price": 74.0,
+              "fill": {"order_id": "paper-2", "filled_quantity": 3, "filled_price": 74.1}}),
+        ):
+            await execution_event_bus.publish(ExecutionEvent(
+                event_type=etype,
+                execution_request_id=req_id,
+                user_id="u1", broker="paper", symbol="NIFTY", side="SELL",
+                message="paper bridge",
+                payload=payload,
+            ))
+        await asyncio.sleep(0.05)
+        assert trade_manager.count("u1") == 2
+        pos = position_manager.get_position("u1", "paper", "NIFTY")
+        assert pos is not None and pos.quantity == -7
+
+    @pytest.mark.asyncio
+    async def test_unmapped_legacy_events_are_ignored(self):
+        from execution_engine import pnl_engine, portfolio_engine, position_manager, trade_manager
+        from execution_engine.events import bridge_legacy_events
+        from execution.event_bus import execution_event_bus
+        from execution.models import ExecutionEvent
+
+        pnl_engine._positions = position_manager
+        portfolio_engine._positions = position_manager
+        portfolio_engine._pnl = pnl_engine
+        trade_manager.install()
+        position_manager.install()
+
+        bridge_legacy_events()
+        await execution_event_bus.publish(ExecutionEvent(
+            event_type="PaperPositionUpdated", execution_request_id="x1",
+            user_id="u1", broker="paper", symbol="NIFTY", side="BUY",
+            payload={"order_id": "x1"},
+        ))
+        await execution_event_bus.publish(ExecutionEvent(
+            event_type="OrderSent", execution_request_id="x2",
+            user_id="u1", broker="paper", symbol="NIFTY", side="BUY",
+            payload={},
+        ))
+        await asyncio.sleep(0.05)
+        assert trade_manager.count("u1") == 0
+        assert position_manager.get_position("u1", "paper", "NIFTY") is None
+
+    def test_bridge_wiring_is_idempotent(self):
+        from execution_engine.events import bridge_legacy_events
+        from execution.event_bus import execution_event_bus
+
+        bridge_legacy_events()
+        before = len(execution_event_bus._subscribers.get("*", []))
+        bridge_legacy_events()
+        assert len(execution_event_bus._subscribers.get("*", [])) == before

@@ -562,13 +562,20 @@ class LoggingSink:
 execution_bus = ExecutionEngineBus()
 execution_bus.subscribe(ExecutionDomain.ORDER, LoggingSink())
 
+_LEGACY_BRIDGE_WIRED = False
+
 
 def bridge_legacy_events() -> None:
     """Forward the legacy string-typed execution bus into the typed domain bus.
 
     Wired once at engine init so existing producers (risk/manager.py, OMS)
-    emit canonical events without any change to their code.
+    emit canonical events without any change to their code. Idempotent: the
+    legacy bus dedupes subscribers by callback identity, and a module flag
+    prevents double-wiring after an init/shutdown/init cycle.
     """
+    global _LEGACY_BRIDGE_WIRED
+    if _LEGACY_BRIDGE_WIRED:
+        return
     try:
         from execution.event_bus import execution_event_bus
     except Exception as e:  # pragma: no cover
@@ -579,9 +586,14 @@ def bridge_legacy_events() -> None:
         "RiskDecision": (ExecutionEventType.RISK_DECISION, ExecutionDomain.RISK),
         "OrderRejected": (ExecutionEventType.ORDER_REJECTED, ExecutionDomain.ORDER),
         "OrderPending": (ExecutionEventType.ORDER_PENDING, ExecutionDomain.ORDER),
-        "OrderFilled": (ExecutionEventType.ORDER_FILLED, ExecutionDomain.ORDER),
         "OrderCancelled": (ExecutionEventType.ORDER_CANCELLED, ExecutionDomain.ORDER),
         "OrderExpired": (ExecutionEventType.ORDER_EXPIRED, ExecutionDomain.ORDER),
+        # OMS fills publish "OrderCompleted" (direct + reconciled paths)
+        "OrderCompleted": (ExecutionEventType.ORDER_FILLED, ExecutionDomain.ORDER),
+        # paper broker fill events
+        "PaperOrderFilled": (ExecutionEventType.ORDER_FILLED, ExecutionDomain.ORDER),
+        "PaperOrderPartiallyFilled": (ExecutionEventType.ORDER_PARTIALLY_FILLED, ExecutionDomain.ORDER),
+        "PaperOrderPending": (ExecutionEventType.ORDER_PENDING, ExecutionDomain.ORDER),
     }
 
     def _forward(legacy_event) -> None:
@@ -592,20 +604,30 @@ def bridge_legacy_events() -> None:
         etype, domain = mapped
         payload = dict(getattr(legacy_event, "payload", None) or {})
         payload.setdefault("source", "legacy_execution_bus")
-        execution_bus.publish(
-            ExecutionEngineEvent(
-                domain=domain,
-                type=etype,
-                correlation_id=payload.get("correlation_id", ""),
-                user_id=getattr(legacy_event, "user_id", "") or "",
-                broker=getattr(legacy_event, "broker", "") or "",
-                client_order_id=getattr(legacy_event, "execution_request_id", "") or "",
-                message=getattr(legacy_event, "message", "") or "",
-                payload=payload,
-            )
-        )
+        data: dict[str, Any] = {
+            "domain": domain,
+            "type": etype,
+            "correlation_id": payload.get("correlation_id", ""),
+            "user_id": getattr(legacy_event, "user_id", "") or "",
+            "broker": getattr(legacy_event, "broker", "") or "",
+            "symbol": getattr(legacy_event, "symbol", "") or payload.get("symbol", "") or "",
+            "side": getattr(legacy_event, "side", "") or payload.get("side", "") or "",
+            "quantity": int(payload.get("quantity") or 0),
+            "client_order_id": getattr(legacy_event, "execution_request_id", "") or "",
+            "message": getattr(legacy_event, "message", "") or "",
+            "payload": payload,
+        }
+        if etype in (ExecutionEventType.ORDER_FILLED, ExecutionEventType.ORDER_PARTIALLY_FILLED):
+            fill = payload.get("fill") or {}
+            data["order_id"] = str(payload.get("order_id") or payload.get("oms_order_id") or "")
+            data["broker_order_id"] = str(payload.get("broker_order_id") or payload.get("order_id") or "")
+            data["filled_quantity"] = int(payload.get("filled_quantity") or fill.get("filled_quantity") or 0)
+            data["avg_price"] = float(payload.get("average_price") or fill.get("filled_price") or payload.get("price") or 0.0)
+        execution_bus.publish(ExecutionEngineEvent(**data))
 
     try:
-        execution_event_bus.subscribe(_forward)
+        execution_event_bus.subscribe("*", _forward)
     except Exception as e:  # pragma: no cover
         logger.warning("Legacy event bridge subscription failed: %s", e)
+        return
+    _LEGACY_BRIDGE_WIRED = True
