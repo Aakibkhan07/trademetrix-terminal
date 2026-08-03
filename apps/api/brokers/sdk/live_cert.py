@@ -175,6 +175,11 @@ async def _websocket_driver(adapter: Any, timeout: float = 20.0) -> dict[str, An
 
 
 async def _probe_stream(adapter: Any, symbol: str, timeout: float) -> dict[str, Any]:
+    try:
+        from brokers.sdk.errors import UnsupportedFeatureError as _USFE  # noqa: PLC0415
+    except ImportError:  # pragma: no cover
+        _USFE = Exception
+
     got_tick = asyncio.Event()
 
     def on_tick(_tick):  # fire—noop collector; first tick flips the gate
