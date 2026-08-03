@@ -141,13 +141,16 @@ def _fitted_positional(fn: Callable, kwargs: dict[str, Any]) -> list[Any]:
     return positional
 
 
-async def _websocket_driver(adapter: Any, timeout: float = 15.0) -> dict[str, Any]:
+async def _websocket_driver(adapter: Any, timeout: float = 20.0) -> dict[str, Any]:
     """Start a live market-data subscription, confirm ticks flow, then disconnect.
 
     Broker streams are long-running by design (``while self._running``), so the
     probe never awaits them to completion: it starts the subscription off the
-    event loop, waits for the first live tick within a bounded window, then
-    calls ``disconnect()`` to tear the stream down cleanly.
+    event loop and waits for the first live tick (or a cleanly finished stream)
+    within a bounded window, then calls ``disconnect()`` to tear down.
+
+    Several candidate symbols are tried when a broker won't carry the default
+    ``NSE:NIFTY`` (e.g. Fyers wants ``NSE:NIFTY50-INDEX``), sharing one deadline.
     """
     if not (callable(getattr(adapter, "subscribe_market_data", None))):
         return {"passed": False, "error": "adapter lacks subscribe_market_data"}
@@ -157,27 +160,44 @@ async def _websocket_driver(adapter: Any, timeout: float = 15.0) -> dict[str, An
     except ImportError:  # pragma: no cover
         _USFE = Exception
 
+    deadline = asyncio.get_running_loop().time() + timeout
+    candidates = ["NSE:NIFTY", "NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX"]
+
+    for symbol in candidates:
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            break
+        branch = await _probe_stream(adapter, [symbol], max(remaining, 0.5))
+        if branch.get("passed") or branch.get("skipped"):
+            return branch
+
+    return {"passed": False, "error": f"no live tick within {timeout:g}s"}
+
+
+async def _probe_stream(adapter: Any, symbol: str, timeout: float) -> dict[str, Any]:
     got_tick = asyncio.Event()
 
     def on_tick(_tick):  # fire—noop collector; first tick flips the gate
         if not got_tick.is_set():
             got_tick.set()
 
-    task = asyncio.create_task(adapter.subscribe_market_data(["NSE:NIFTY"], on_tick=on_tick))
+    finished = asyncio.create_task(adapter.subscribe_market_data([symbol], on_tick=on_tick))
     tick_task = asyncio.ensure_future(got_tick.wait())
     try:
         done, _pending = await asyncio.wait(
-            [task, tick_task], timeout=timeout, return_when=asyncio.FIRST_COMPLETED
+            [finished, tick_task], timeout=timeout, return_when=asyncio.FIRST_COMPLETED
         )
-        if task in done and task.exception() is not None:
-            raise task.exception()
-        if task in done:
+        if finished in done and finished.exception() is not None:
+            raise finished.exception()
+        if finished in done:
             return {"passed": True, "detail": "subscription accepted (stream ended cleanly)"}
         if tick_task in done:
             return {"passed": True, "detail": "live tick received"}
-        return {"passed": False, "error": f"no live tick within {timeout:g}s"}
+        return {"passed": False, "error": f"no live tick from {symbol}"}
     except _USFE as exc:
         return {"passed": False, "error": str(exc), "skipped": True}
+    except Exception as exc:  # noqa: BLE001
+        return {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
     finally:
         try:
             res = adapter.disconnect() if callable(getattr(adapter, "disconnect", None)) else None
@@ -185,9 +205,9 @@ async def _websocket_driver(adapter: Any, timeout: float = 15.0) -> dict[str, An
                 await res
         except Exception:  # noqa: BLE001
             pass
-        task.cancel()
+        finished.cancel()
         tick_task.cancel()
-        for t in (task, tick_task):
+        for t in (finished, tick_task):
             try:
                 await t
             except (asyncio.CancelledError, Exception):  # noqa: BLE001
