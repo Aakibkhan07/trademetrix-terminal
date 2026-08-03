@@ -32,25 +32,17 @@ def _load_adapter(broker: str):
     return adapter
 
 
-def _resolve_credentials(broker: str, user_id: str) -> dict:
+async def _resolve_credentials(broker: str, user_id: str) -> dict:
     """Load the full stored credential row for ``user_id``/``broker``.
 
     Uses ``get_by_user_and_broker_full`` so the decrypted-token columns are
     present; also returns the lightweight list for token_status sanity checks.
     """
-    import asyncio
-
     from infrastructure.repositories.broker_repository import SupabaseBrokerRepository
 
     repo = SupabaseBrokerRepository()
-
-    async def _load():
-        # run repo's async methods in one pass
-        cred = await repo.get_by_user_and_broker_full(user_id, broker)
-        rows = await repo.list_credentials(user_id) or []
-        return cred, rows
-
-    cred, rows = asyncio.run(_load())
+    cred = await repo.get_by_user_and_broker_full(user_id, broker)
+    rows = await repo.list_credentials(user_id) or []
     return {"cred": cred, "rows": rows, "user_id": user_id, "broker": broker}
 
 
@@ -87,7 +79,7 @@ async def _run(broker: str, allow_orders: bool, out_path: str, user_id: str | No
 
     adapter = _load_adapter(broker)
     if user_id:
-        resolved = _resolve_credentials(broker, user_id)
+        resolved = await _resolve_credentials(broker, user_id)
         cred = resolved["cred"]
         if not cred:
             raise SystemExit(
