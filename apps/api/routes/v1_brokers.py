@@ -150,3 +150,99 @@ async def broker_rate_limit_status(current_user: UserProfile = Depends(require_a
     """Per-endpoint Fyers request rates + retry behavior (for limit compliance)."""
     from brokers.fyers_http import fyers_rate_snapshot
     return fyers_rate_snapshot()
+
+
+_METRIC_KEYS = (
+    "requests_total",
+    "success_rate",
+    "failure_rate",
+    "retry_total",
+    "token_refresh_total",
+    "order_latency_ms",
+    "rest_latency_ms",
+    "websocket_latency_ms",
+    "cache_hit_ratio",
+    "dedup_hit_ratio",
+    "rate_limit_utilization",
+)
+
+
+def _capability_report(broker: str) -> dict:
+    from brokers.sdk import capabilities
+    return capabilities.get_capabilities(broker).to_dict()
+
+
+def _health_report(broker: str) -> dict:
+    """Unified per-broker health payload (auth/rest/ws/circuit/rate/caps)."""
+    from brokers.sdk.health import default_health_service
+    from brokers.sdk.auth import default_session_manager
+
+    health = default_health_service.get(broker)
+    session_health = next(
+        (s.health() for s in default_session_manager.sessions() if s.provider.broker == broker),
+        None,
+    )
+    return {
+        "broker": broker,
+        "authentication": {
+            "ok": session_health.ok if session_health else (health.auth_ok if health else None),
+            "state": (session_health.auth_state.value if session_health else "unregistered"),
+            "reason": (session_health.reason if session_health else ""),
+        },
+        "rest_connectivity": bool(health.rest_healthy) if health else False,
+        "websocket_connectivity": bool(health.ws_healthy) if health else False,
+        "circuit_state": "open" if (health and health.circuit_open) else "closed",
+        "rate_limit": {
+            "budget_rpm": (health.components.get("rate_budget_rpm") if health else None),
+            "used_last_minute": (health.components.get("rate_used_last_minute") if health else None),
+        },
+        "last_successful_request": health.components.get("last_success_at") if health else None,
+        "last_failed_request": (health.components.get("last_failed_at") if health else None),
+        "last_error": health.last_error if health else "",
+        "capabilities": _capability_report(broker),
+        "reported_at": round(health.updated_at, 3) if health else None,
+    }
+
+
+def _metric_report(broker: str) -> dict:
+    from brokers.sdk.metrics import default_broker_metrics
+    snap = default_broker_metrics.snapshot(broker)
+    payload = snap.to_dict()
+    payload["metrics"] = {k: payload["metrics"].get(k) for k in _METRIC_KEYS if k in payload["metrics"]}
+    return payload
+
+
+@router.get("/health")
+async def brokers_health_status(current_user: UserProfile = Depends(get_current_user)):
+    """Unified health for all known brokers (Phase 4 observability)."""
+    from brokers.sdk.health import default_health_service
+    brokers = list_brokers()
+    report = {}
+    for name in brokers:
+        report[name] = _health_report(name)
+    overall_healthy = all(
+        d.get("rest_connectivity") or d.get("websocket_connectivity")
+        for d in report.values()
+    )
+    return {"overall_healthy": overall_healthy, "brokers": report}
+
+
+@router.get("/health/{broker}")
+async def broker_health(broker: str, current_user: UserProfile = Depends(get_current_user)):
+    if broker not in list_brokers():
+        raise HTTPException(status_code=404, detail=f"Unknown broker '{broker}'")
+    return _health_report(broker)
+
+
+@router.get("/metrics/{broker}")
+async def broker_metrics(broker: str, current_user: UserProfile = Depends(get_current_user)):
+    if broker not in list_brokers():
+        raise HTTPException(status_code=404, detail=f"Unknown broker '{broker}'")
+    return _metric_report(broker)
+
+
+@router.get("/capabilities")
+async def broker_capabilities():
+    """Runtime capability discovery (never a static table)."""
+    from brokers.sdk.capabilities import get_capabilities
+    return {"brokers": {name: get_capabilities(name).to_dict() for name in list_brokers()}}

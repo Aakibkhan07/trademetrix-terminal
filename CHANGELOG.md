@@ -1,3 +1,33 @@
+## v1.3.1 (2026-08-03) — UNIFIED BROKER SDK V2 (PHASES 3 & 4: OBSERVABILITY + LIVE CERTIFICATION)
+
+### Added
+- **`brokers/sdk/events.py` (new)** — typed broker audit event bus: canonical `BrokerEventKind` set (login/logout, token refresh/expiry, auth, order sent/rejected/filled, position, websocket up/down, rate-limited, circuit open, health-changed, reauth-required), sequence-numbered fan-out to sinks, in-memory ring buffer (`recent`), severity normalisation, `LoggingSink` (structured `event=…` lines), `MetricsSink` → Prometheus `broker_events_total`, and a health bridge (state transitions publish `HEALTH_CHANGED`).
+- **`brokers/sdk/auth.py` (new)** — unified authentication layer: `Token` / `TokenState` / `token_state()` (valid / expiring-soon / expired / invalid with 5-min buffer), single-flight refresh (`ManagedSession`), re-auth-required state, `InMemoryTokenStore` + pluggable `TokenStore`, per-account `SessionManager` registry with snapshot, and `AuthProvider` base for brokers. Re-auth on refresh failure → `ReAuthRequiredError`; state exposed via `session.health()`.
+- **`brokers/sdk/websocket.py` (new)** — unified WebSocket manager (backend-agnostic via a `WebSocketBackend` factory): auto-reconnect with exponential backoff (cap 60s), heartbeat + latency monitoring, subscription dedup + resubscription on connect, message routing to handlers, stats (`messages_in`, reconnects, last pong), and `health()`.
+- **`brokers/sdk/health.py` (new)** — `BrokerHealthService`: component signals (REST, WS, auth, rate-limit, circuit, degraded) → one canonical `BrokerHealthState` (connected/rest/ws-only/degraded/rate_limited/circuit_open/auth_failed/disconnected); event-bus driven; per-broker snapshot with `reported_at`.
+- **`brokers/sdk/metrics.py` (new)** — unified broker metrics surface: flat serialisable snapshot (requests/success/failure/retry, breaker, ws, auth, token-refresh count, order/rest/ws latency, cache/dedup hit ratio, rate-limit utilisation), `MetricSource` producer protocol, `BrokerMetrics` registry with per-broker snapshots + health overlay.
+- **`brokers/sdk/observability.py` (new)** — one-call app wiring (`wire_default_observability`): `TransportMetricSource` (adapts `HttpTransport.snapshot()`/`health()` to the metrics contract), `breaker_state_bridge` (circuit-breaker callback → health + `CIRCUIT_OPEN` event + prometheus gauge), and health/event/metrics composition. Wired in `main.py` lifespan (non-fatal on failure).
+- **`brokers/fyers_provider.py` (new)** — Fyers auth `AuthProvider` (access-token consent model, no silent refresh → `ReAuthRequiredError`) + live-observability glue `register_fyers_observability` (real transport snapshot into the default metrics/health registries).
+- **New broker endpoints** — `GET /api/v1/brokers/health` (all brokers), `/health/{broker}`, `/metrics/{broker}` (14-key flat snapshot), `/capabilities` (runtime discovery). Auth-required; unknown broker → 404. Brokers block added to `/health/metrics` (`brokers` key).
+- **Prometheus** — `broker_events_total{broker,kind}`, `broker_health_state{broker}` (1–8 ladder), `broker_auth_state{broker}` (0–5 ladder), plus `record_broker_event/record_broker_health/record_broker_auth` in `core/prometheus.py`.
+- **`brokers/sdk/live_cert.py` (new)** — live certification framework for the canonical engine workflow: `LIVE_STEPS` (login → token refresh → quotes → history → option chain → websocket → positions → holdings → funds → disconnect → reconnect → token-expiry → circuit-recovery → [place/modify/cancel order]).
+- **`brokers/live_cert.py` (new)** — `python -m brokers.live_cert --broker <name> [--allow-orders] [--out path]` orchestration: resolves the adapter via the SDK registry, runs every step with a per-step timeout, and writes `.{json,md}` certification reports.
+
+### Changed
+- `apps/api/routes/v1_brokers.py` — health/metrics/capabilities endpoints (Phase 4) with auth + 404 handling, per-broker payloads backed by the SDK health/metrics registries.
+- `apps/api/core/metrics.py` — `/health/metrics` now includes the `brokers` key from the SDK metrics registry.
+- `apps/api/core/prometheus.py` — broker state gauges + event counter (Phase 4).
+- `apps/api/main.py` — `wire_default_observability()` called in lifespan (event bus → health → metrics composed), `broker.connected` event recorded on credential save.
+- `apps/api/brokers/sdk/live_cert.py` — `LiveCertResult` is skip-aware (`add(..., skipped=True)`); `passed` = every **executed** (non-skipped) step passed; `ran` lists executed steps; order-steps recorded as skipped unless `allow_orders=True`; `write_report` emits `.json` + `.md`; `_call_live` scores a completed call (even returning `None`) as passing, matching adapter fire-and-forget semantics.
+
+### Verification
+- New tests: `tests/test_sdk_phase3.py` (events bus fanout/ring/severity/sinks, auth lifecycle incl. refresh/re-auth/invalidate/session-manager, health derivation/tracking/degrades, websocket manager subscribe/reconnect/routing/latency — ~25 tests) + `tests/test_sdk_phase4.py` (metrics overlays, registry snapshots, breaker bridge, health/metrics/capabilities endpoint shapes — ~13 tests) + `tests/test_sdk_live_cert.py` (healthy pass, broken adapter, token-expiry invalidation, opt-in order steps, per-step timeout, report serialisation/presence, default-driver coverage of all steps — 9 tests).
+- Full API regression: `pytest tests/` → **715 passed, 1 xfailed** (baseline 662 for v1.3.0; +53 new).
+
+### Known limitations (not regressions)
+- **Fyers `get_option_chain` live validation is not yet certified on a live cred** — the adapter exposes the v2 surface and the option-chain live step exists in `LIVE_STEPS`, but a real credential-backed run hasn't exercised Fyers' option-chain endpoint through the SDK yet. Tracked in `docs/evolution/BROKER_SDK_V2.md` → Known Gaps; the platform-level option-chain route remains covered by the transport (10s TTL) and the Fyers rate-limit audit.
+- Live certification for the 10 non-Fyers brokers still waits on active credentials (cert-only step recorded when run).
+
 ## v1.3.0 (2026-08-03) — UNIFIED BROKER SDK V2 (PHASE 2: GENERIC TRANSPORT)
 
 ### Added

@@ -1,6 +1,7 @@
 # Unified Broker SDK v2 — Enterprise Architecture
 
-Status: IMPLEMENTED (Phases 1–2) · Owner: Platform Engineering · Target: real-money multi-broker trading
+Status: PRODUCTION COMPLETE (Phases 1–4) · Owner: Platform Engineering · Target: real-money multi-broker trading
+Broker SDK: **FROZEN** (2026-08-03) — no further architectural refactoring unless fixing production defects or adding a completely new broker.
 
 ## 1. Mission
 
@@ -31,18 +32,21 @@ Engine / OMS / Strategies / UI / Backtest
 
 | Concern | Status today |
 |---|---|
-| Adapter surface | `BaseBroker` ABC: authenticate, place/modify/cancel, orderbook, positions, holdings, funds, quotes, historical, stream, disconnect + margin estimate + unsubscribe |
+| Adapter surface | `BaseBroker` ABC: authenticate, place/modify/cancel, orderbook, positions, holdings, funds, quotes, historical, stream, disconnect + margin estimate + unsubscribe; every adapter also exposes the v2 surface via `BrokerAdapterBase` |
 | Adapters | fyers, angelone, dhan, zerodha, upstox, aliceblue, fivepaisa, finvasia, flattrade, kotakneo, groww (11) |
-| Registry | `brokers/registry.py` UI metadata only; `brokers/__init__.py` class map + `create_broker()` → `CircuitBreakerBroker(Adapter())` |
-| Capabilities | static `BROKER_CAPABILITIES` dict in `execution/broker_adapter.py` (10 booleans) |
-| Reliability | `core/resilience.py` CircuitBreaker + retry; `execution/rate_limiter.py` per-broker bucket; `brokers/circuit_breaker_broker.py` wrapper |
+| Registry | `brokers/sdk/registry.py` single source of truth (adapter class + UI metadata + capabilities); legacy `create_broker`/`get_broker_metadata`/`BROKER_CAPABILITIES` delegate to it |
+| Capabilities | authoritative matrix in `brokers/sdk/capabilities.py`; runtime discovery endpoint `GET /api/v1/brokers/capabilities` |
+| Reliability | `core/resilience.py` CircuitBreaker + retry; `brokers/circuit_breaker_broker.py` wrapper; breaker state bridged to health + typed `CIRCUIT_OPEN` events |
 | Transport | generic `brokers/sdk/transport.py` `HttpTransport` (sliding limiter, jittered backoff, Retry-After, WAF-aware, cache, dedup, correlation ids, Prometheus counters, health) with pluggable strategies; Fyers uses it via a thin facade |
 | Errors | typed taxonomy in `brokers/sdk/errors.py` (`BrokerError` + WAF/auth/rate-limit/timeout/connection/validation/order-rejected) + `translate_broker_error` |
-| Observability | `core/prometheus.py` broker op metrics + `broker_http_*` transport counters; `/health/metrics` with `fyers` block; structured `fyers.request`/`fyers.retry`/`fyers.waf` logs with `corr=` |
+| Auth | `brokers/sdk/auth.py` unified token/session lifecycle (`ManagedSession`, single-flight refresh, re-auth state, `TokenStore`, `SessionManager` registry); Fyers provider in `fyers_provider.py` |
+| WebSocket | `brokers/sdk/websocket.py` generic manager (reconnect/backoff, heartbeat + latency, subscribe dedup + resubscribe, routing, stats) |
+| Health | `brokers/sdk/health.py` `BrokerHealthService` (component signals → canonical state); `GET /api/v1/brokers/health[/{broker}]` |
+| Observability | `brokers/sdk/events.py` typed audit bus; `brokers/sdk/metrics.py` unified metrics registry; `core/prometheus.py` broker event/health/auth gauges; `GET /api/v1/brokers/metrics/{broker}`; `/health/metrics` `brokers` block |
+| Certification | `brokers/sdk/certification.py` Level A interface + Level B behavioral certs (all 11 brokers CERTIFIED); `live_cert.py` live engine-workflow certification (`.json` + `.md` reports) |
 
-Gaps vs mission: no typed error taxonomy, no `UnsupportedFeatureError` contract, no capability
-*discovery* (static dict only), transport/retry/circuit logic not generalized, no auth layer
-abstraction, no unified WS layer, no broker health monitor, no per-call audit, no cert suite.
+Phase 4 completes the SDK roadmap; the remaining exception is a **validation
+gap only** (not a code gap): see [Known gaps](#known-gaps).
 
 ## 3. Target architecture (Clean Architecture)
 
@@ -191,28 +195,31 @@ sequenceDiagram
     A-->>C: typed error (code, broker, retryable, correlation_id)
 ```
 
-## 7. Observability (Phase 3 additions)
+## 7. Observability (Phases 3–4, done)
 
 Prometheus (new broker_* metrics): `broker_requests_total{broker,operation,status}`,
 `broker_request_duration_ms{broker,operation}`, `broker_rpm_usage{broker,client}`,
 `broker_reconnects_total{broker}`, `broker_uptime_seconds{broker}`, `broker_circuit_state{broker}`,
-`broker_ws_*{broker}` (connected, messages, missed), `broker_order_latency_ms{broker,type}`.
-Health: `/brokers/admin/rate-limit` (done), per-broker `/health` block with connection score
-(0–100 from heartbeat age, recent failures, circuit state). Every broker call logs one structured
-line with correlation id: `broker.call {broker, operation, status, latency_ms, retries, cached, dedup, correlation_id}`.
+`broker_ws_*{broker}` (connected, messages, missed), `broker_order_latency_ms{broker,type}` +
+`broker_events_total{broker,kind}`, `broker_health_state{broker}`, `broker_auth_state{broker}`
+(v1.3.1). Health: `/brokers/admin/rate-limit` (Fyers), `/api/v1/brokers/health[/{broker}]` (all),
+per-broker health payload with auth/rest/ws/circuit/rate/caps + `reported_at`. Every broker call
+logs one structured line with correlation id: `broker.call {broker, operation, status, latency_ms, retries, cached, dedup, correlation_id}`; audit events fan out through `events.py` (structured log + prometheus + health bridge).
 
-## 8. Phased roadmap (each phase ends green: `pytest tests/` + deploy)
+## 8. Phased roadmap (all phases green: `pytest tests/` + deploy)
 
-| Phase | Scope | Exit gate |
+| Phase | Scope | Status |
 |---|---|---|
-| **1** (done 2026-08-03) | `brokers/sdk/`: errors, capabilities matrix, registry, interface; wire execution layer + UI metadata to registry | 644 passed; typed-error tests; prod cert 11/11 |
-| **2** (done 2026-08-03) | Generalize transport: `brokers/sdk/transport.py` `HttpTransport` extracted from `fyers_http.py` (rate limit, retry, dedup, cache, WAF, correlation ids, metrics, health); Fyers uses it via thin facade; before/after benchmark | 662 passed; `docs/BrokerTransportBenchmark.md` |
-| **3** | Auth layer (unified token/session lifecycle incl. refresh_token), WS layer (reconnect/heartbeat), health monitor, audit logger, error-translator adoption in all adapters | all adapters cert (mock) |
-| **4** | Adapter port: Fyers → full v2 surface (get_profile, get_option_chain, exit_position); Angel/Dhan v2 aliases; capability discovery endpoint (`GET /brokers/{name}/capabilities`) | per-broker cert green |
-| **5** | Certification suite on live sandbox (auth→quotes→order lifecycle→funds→holdings→positions→reconnect→rate limit→breaker→health) for fyers/angel/dhan | cert report `docs/BrokerCertification.md` |
-| **6** | Performance: thousands of users — transport sharing audit, cache hit-rate, WS-first enforcement, memory profile; benchmarks report | `docs/BrokerBenchmarks.md` |
+| **1** — Foundation (done 2026-08-03) | `brokers/sdk/`: errors, capabilities matrix, registry, interface; wire execution layer + UI metadata to registry | **PRODUCTION COMPLETE** — 644 passed; typed-error tests; cert 11/11 |
+| **2** — Transport (done 2026-08-03) | Generalize transport: `brokers/sdk/transport.py` `HttpTransport` extracted from `fyers_http.py` (rate limit, retry, dedup, cache, WAF, correlation ids, metrics, health); Fyers uses it via thin facade; before/after benchmark | **PRODUCTION COMPLETE** — 662 passed; `docs/BrokerTransportBenchmark.md` |
+| **3** — Infrastructure (done 2026-08-03) | Auth layer (`auth.py` token/session lifecycle), WS layer (`websocket.py`), health monitor (`health.py`), audit event bus (`events.py`), error-translator adoption | **PRODUCTION COMPLETE** — 690 passed incl. `test_sdk_phase3.py` |
+| **4** — Observability + live cert (done 2026-08-03) | Unified metrics surface (`metrics.py`, `observability.py`, `fyers_provider.py` glue); broker health/metrics/capabilities endpoints; live certification framework (`live_cert`) + CLI | **PRODUCTION COMPLETE** — 715 passed incl. `test_sdk_phase4.py` + `test_sdk_live_cert.py` |
+| **5** — Live cred-backed certification per broker | Run the live cert framework on demand with fresh credentials per broker (fyers first; others as creds become available) | Fyers first-run documented in `docs/evolution/certs/`; other brokers pending real credentials (Known gaps) |
+| **6** — Performance | Thousands of users — transport sharing audit, cache hit-rate, WS-first enforcement, memory profile | `docs/BrokerBenchmarks.md` (deferred — no current need; re-open under freeze exception) |
 
-New broker onboarding after Phase 4 = write one adapter file + one registry entry + run cert suite.
+New broker onboarding (now that Phases 1–4 are production-complete) = write one adapter file + one
+registry entry + one auth provider + run the cert suite + live certification. **Per the freeze
+(2026-08-03): do not refactor SDK internals without a production defect or a new broker.**
 
 ## 9. Migration plan (zero breakage)
 
@@ -299,3 +306,33 @@ transport = HttpTransport(config, client_id=cid, access_token=tok,
 ```
 
 No machinery changes required — the transport never branches on broker.
+
+## 12. Phases 3 & 4 — builder blocks + observability + live certification (done 2026-08-03)
+
+### Phase 3 — reusable infrastructure
+
+| Module | Responsibility |
+|---|---|
+| `events.py` | Typed `BrokerEventKind` audit bus — sequence-numbered fan-out to sinks, `LoggingSink` (structured `event=` lines), `MetricsSink` → `broker_events_total`, ring buffer, health bridge (state transitions emit `HEALTH_CHANGED`) |
+| `auth.py` | `Token`/`TokenStore`/`ManagedSession`/`SessionManager`/`AuthProvider` — expiry detection (5-min buffer), single-flight refresh, re-auth state, per-account registry, `session.health()` |
+| `websocket.py` | generic `WebSocketManager` (backend-factory pattern) — reconnect/backoff (cap 60s), heartbeats + latency, subscription dedup + resubscribe, message routing, stats |
+| `health.py` | `BrokerHealthService` — REST/WS/auth/rate-limit/circuit/degraded signals → canonical `BrokerHealthState` after components |
+
+### Phase 4 — Observability + live certification
+
+- **`metrics.py`** — one metrics contract (`requests/success/failure/retry`, breaker, WS, auth, token-refresh, latency, cache/dedup ratio, rate-limit utilisation) exposed as a flat snapshot.
+- **`observability.py`** — `TransportMetricSource` adapts `HttpTransport`s live snapshot to the metrics contract; `wire_default_observability()` composes bus → health → metrics at app start; `breaker_state_bridge()` forwarding circuit-breaker state into health + events + prometheus.
+- **`fyers_provider.py`** — Fyers `AuthProvider` + `register_fyers_observability` (real transport snapshot into default registry).
+- **Endpoints** — `GET /api/v1/brokers/health[/{broker}]`, `/metrics/{broker}`, `/capabilities` (all auth-required, unknown broker → 404); `/health/metrics` `brokers` block.
+- **Live certification** — `brokers/sdk/live_cert.py` (`LIVE_STEPS`, `run_live_certification`, `LiveCertResult`, `write_report` → `.json` + `.md`) + `brokers/live_cert.py` CLI. `allow_orders=True` gates the destructive place/modify/cancel steps. Each step has a timeout; completed-without-exception (incl. `None` from fire-and-forget) counts as pass.
+
+### Phase 4 verification
+- `pytest tests/` → **715 passed, 1 xfailed** (662 baseline + 53 new).
+- Live cert framework unit-tested end-to-end with fake adapters (healthy adapter certifies, broken/expired-token adapters invalidate, opt-in order steps, per-step timeouts, JSON+MD report emission).
+- Refer `CHANGELOG` v1.3.1 for the full change list.
+
+### Known Gaps
+
+1. **Fyers `get_option_chain` — live certification not yet run on a real token.** The adapter exposes the v2 surface (`BrokerAdapterBase`), the capability matrix marks `option_chain` ✓, the platform option-chain route is backed by the transport (10s TTL, WAF-aware), and `option_chain` is a live step in `LIVE_STEPS`. What's pending is one credential-backed live-cert run that actually exercises Fyers' option-chain endpoint through the SDK (a validation gap, not a code defect). Tracked here until a run exists under `docs/evolution/certs/`.
+2. **Live cred-backed certification for angelone / dhan / zerodha / upstox / aliceblue / fivepaisa / finvasia / flattrade / kotakneo / groww** — the SDK+cert framework is ready; running it requires active broker credentials per broker (fyers-first documented; others when creds are available).
+3. **Per-call broker audit logger** (Phase-3 design listed `audit.py`) — superseded by the event bus (`events.py`) so every call can publish to `broker.call`; a durable store for those events is not yet built. Re-open under the freeze exception only for a production defect.

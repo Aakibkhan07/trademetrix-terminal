@@ -38,4 +38,9 @@ def get_metrics() -> dict[str, Any]:
         metrics["fyers"] = fyers_rate_snapshot()
     except Exception:
         pass
+    try:
+        from brokers.sdk.metrics import default_broker_metrics
+        metrics["brokers"] = default_broker_metrics.snapshot_all()
+    except Exception:
+        pass
     return metrics

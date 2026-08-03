@@ -127,6 +127,13 @@ async def lifespan(app: FastAPI):
     init_vault()
     from core.resilience import set_breaker_state_callback
     set_breaker_state_callback(_on_breaker_state_change)
+    try:
+        from brokers.sdk.observability import wire_default_observability
+
+        wire_default_observability()
+        logger.info("Broker SDK observability wired (event bus -> health -> metrics)")
+    except Exception as e:
+        logger.warning("Broker SDK observability wiring failed (non-fatal): %s", e)
     await cache.init()
     from infrastructure.database import init_db, close_db
     try:

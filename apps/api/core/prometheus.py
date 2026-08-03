@@ -126,6 +126,20 @@ active_broker_sessions = Gauge("active_broker_sessions", "Number of active broke
 orders_failed_total = Counter("orders_failed_total", "Failed/cancelled/rejected orders", ["status"])
 exceptions_total = Counter("exceptions_total", "Unhandled exceptions caught by global handler", ["type"])
 
+# ── Broker audit events (brokers/sdk/events.py MetricsSink) ──
+broker_events_total = Counter(
+    "broker_events_total", "Broker audit events by kind", ["broker", "kind"]
+)
+broker_health_state = Gauge(
+    "broker_health_state",
+    "Derived broker health (1=connected, 2=websocket_healthy, 3=rest_healthy, 4=degraded, 5=rate_limited, 6=circuit_open, 7=auth_failed, 8=disconnected)",
+    ["broker"],
+)
+broker_auth_state = Gauge(
+    "broker_auth_state", "Broker auth state (0=anonymous,1=authenticating,2=authenticated,3=expired,4=reauth_required,5=refresh_failed)",
+    ["broker"],
+)
+
 
 def record_broker_metrics(broker: str, operation: str, duration_s: float, success: bool):
     broker_request_duration_seconds.labels(broker=broker, operation=operation).observe(duration_s)
@@ -152,6 +166,42 @@ def record_broker_transport_metric(name: str, broker: str, endpoint: str, value:
 
 def record_broker_transport_latency(broker: str, endpoint: str, seconds: float):
     broker_http_latency_seconds.labels(broker=broker, endpoint=endpoint).observe(seconds)
+
+
+_HEALTH_TO_VALUE = {
+    "connected": 1,
+    "websocket_healthy": 2,
+    "rest_healthy": 3,
+    "degraded": 4,
+    "rate_limited": 5,
+    "circuit_open": 6,
+    "authentication_failed": 7,
+    "disconnected": 8,
+}
+
+_AUTH_TO_VALUE = {
+    "anonymous": 0,
+    "authenticating": 1,
+    "authenticated": 2,
+    "expired": 3,
+    "reauth_required": 4,
+    "refresh_failed": 5,
+}
+
+
+def record_broker_event(broker: str, kind: str) -> None:
+    """Record one broker audit event kind (wired via events.MetricsSink)."""
+    broker_events_total.labels(broker=broker or "unknown", kind=kind).inc()
+
+
+def record_broker_health(broker: str, state: str) -> None:
+    value = 8 if state not in _HEALTH_TO_VALUE else _HEALTH_TO_VALUE[state]
+    broker_health_state.labels(broker=broker).set(value)
+
+
+def record_broker_auth(broker: str, auth_state: str) -> None:
+    value = 0 if auth_state not in _AUTH_TO_VALUE else _AUTH_TO_VALUE[auth_state]
+    broker_auth_state.labels(broker=broker).set(value)
 
 
 def record_metrics(method: str, path: str, status_code: int, duration_s: float):
