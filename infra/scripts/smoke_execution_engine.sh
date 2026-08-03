@@ -51,7 +51,7 @@ ssh_run() { sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no "$VPS_HOST" "
 remote_date() { ssh_run "date -u -d @$1 +%Y-%m-%dT%H:%M:%SZ"; }
 
 ck() { # ck <name> <0|1> <detail>
-    RESULTS+=("$1|$2|$3")
+    RESULTS+=("$1|$2|${3:-}")
     if [ "$2" = "1" ]; then
         echo "[PASS] $1${3:+ — $3}"
     else
@@ -59,8 +59,8 @@ ck() { # ck <name> <0|1> <detail>
     fi
 }
 
-log_count() { # log_count <iso-since> <pattern>
-    ssh_run "docker logs --since '$1' $CONTAINER 2>&1 | grep -c \"$2\" || true"
+log_count() { # log_count <iso-since> <ere-pattern>
+    ssh_run "docker logs --since '$1' $CONTAINER 2>&1 | grep -cE \"$2\" || true"
 }
 
 get_gauge() { # get_gauge <metric> <label-value>
@@ -98,7 +98,7 @@ expire
 # ---------------------------------------------------------------------------
 # 1. Startup  |  11. Health endpoint
 # ---------------------------------------------------------------------------
-STARTUP_LOG=$(log_count "$ISO_START" "Execution Engine v1.0 initialized \(bus running=True")
+STARTUP_LOG=$(ssh_run "docker logs $CONTAINER 2>&1 | grep -cE 'Execution Engine v1.0 initialized \(bus running=True'")
 if [ "$STARTUP_LOG" -ge 1 ]; then
     ck "Startup — engine initialized, bus running" 1 "log lines: $STARTUP_LOG"
 else
@@ -127,8 +127,8 @@ expire
 # 12. Metrics endpoint
 # ---------------------------------------------------------------------------
 METRICS=$(curl -s -m 20 "$API_URL/metrics")
-if printf '%s' "$METRICS" | grep -q '^execution_engine_trades_executed_total' \
-   && printf '%s' "$METRICS" | grep -q '^execution_engine_realized_pnl'; then
+if printf '%s' "$METRICS" | grep -q 'execution_engine_trades_executed_total' \
+   && printf '%s' "$METRICS" | grep -q 'execution_engine_realized_pnl'; then
     ck "Metrics endpoint — GET /metrics exposes engine gauges" 1 "trades+realized present"
 else
     ck "Metrics endpoint — GET /metrics exposes engine gauges" 0 "engine gauges missing"
@@ -154,7 +154,7 @@ async def main():
     req = ExecutionRequest(
         user_id=USER, broker="paper", symbol=SYMBOL, exchange="NSE",
         side="BUY", order_type="MARKET", product="INTRADAY",
-        quantity=5, price=0.0, strategy_id="smoke", source="smoke",
+        quantity=5, price=0.0, strategy_id=None, source="smoke",
         is_paper=True, execution_request_id=f"smoke-oms-{int(asyncio.get_event_loop().time())}",
     )
     order = await order_manager.place_and_wait(req, timeout=30.0)
@@ -302,7 +302,7 @@ RESTART_LOG=$(log_count "$ISO_RESTART" "Execution Engine v1.0 initialized \(bus 
 expire
 
 LIVE_STATE=$(run_probe liveness "$SMOKE_USER")
-LIVE_IDS=$(echo "$LIVE_STATE" | grep '^KEY ledger_count_per_id=' | cut -d= -f2)
+LIVE_IDS=$(echo "$LIVE_STATE" | grep '^KEY ledger_count_per_id=' | cut -d= -f2-)
 LIVE_1=$(echo "$LIVE_IDS" | tr '|' '\n' | grep '^smoke-live-1=' | cut -d= -f2)
 [ "$LIVE_1" = "1" ] && ck "Restart — fills processed after restart" 1 "ledger=1" \
     || ck "Restart — fills processed after restart" 0 "ledger=${LIVE_1:-0}"

@@ -57,13 +57,14 @@ no-op that left dispatch non-thread-safe). Fixed in `execution_engine/init.py`.
 
 ## Deploy plan
 
-No schema, no config, no dependency changes — two Python files + tests:
+No schema, no config, no dependency changes — new `execution_engine/` package
+plus two modified files:
 
-1. Commit the 3-file change set (docs optional in same commit).
+1. Commit the change set (docs optional in same commit).
 2. VPS: `git fetch && git reset --hard origin/main`.
-3. `docker cp` the updated files into `trademetrix_api`:
-   `execution_engine/events.py`, `execution_engine/init.py` (tests not needed
-   on prod), then `docker restart trademetrix_api`.
+3. `docker cp` into `trademetrix_api`:
+   `execution_engine/` (whole package), `main.py`, `portfolio/manager.py`
+   (tests not needed on prod), then `docker restart trademetrix_api`.
 4. Verify: poll `https://api.ai.trademetrix.tech/health` until 200.
 
 ## Post-deploy smoke checklist

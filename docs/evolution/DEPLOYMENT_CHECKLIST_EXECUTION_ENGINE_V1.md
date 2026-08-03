@@ -1,8 +1,10 @@
 # Deployment Checklist — Execution Engine v1.0 (2026-08-03)
 
-Release commit: `4278f42` (fix: wire legacy bridge to real fill events +
-shutdown re-init) on top of `b1cef9e` (feat: engine v1.0).
-No schema / config / dependency changes — two Python files + tests + docs.
+Release commits: `b1cef9e` (feat: engine v1.0 — adds the whole
+`execution_engine/` package + `main.py` lifetime wiring + `portfolio/manager.py`
+snapshot hooks), `4278f42` (fix: wire legacy bridge to real fill events +
+shutdown re-init), `43f8e70` (deployment gate: smoke harness + checklists).
+No schema / config / dependency changes.
 
 ## 0. Pre-deploy gate (workstation)
 
@@ -19,12 +21,15 @@ No schema / config / dependency changes — two Python files + tests + docs.
       by `infra/production/deploy.sh`).
 - [ ] On VPS `root@187.127.185.56`:
       `cd /root/trademetrix-terminal && git fetch && git reset --hard origin/main`
-- [ ] Hot-deploy (no rebuild needed — two files only):
+- [ ] Hot-deploy (no rebuild needed — new package + 2 modified files):
   ```
-  docker cp apps/api/execution_engine/events.py trademetrix_api:/app/execution_engine/events.py
-  docker cp apps/api/execution_engine/init.py trademetrix_api:/app/execution_engine/init.py
+  docker cp apps/api/execution_engine trademetrix_api:/app/execution_engine
+  docker cp apps/api/main.py trademetrix_api:/app/main.py
+  docker cp apps/api/portfolio/manager.py trademetrix_api:/app/portfolio/manager.py
   docker restart trademetrix_api
   ```
+  (`main.py` wires the engine lifecycle into the app lifespan;
+  `portfolio/manager.py` feeds engine portfolio snapshots.)
 - [ ] Poll `https://api.ai.trademetrix.tech/health` → 200.
 
 ## 2. Post-deploy verification (quick)
