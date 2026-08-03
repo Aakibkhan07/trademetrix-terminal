@@ -219,11 +219,16 @@ async def _probe_stream(adapter: Any, symbol: str, timeout: float) -> dict[str, 
             pass
         finished.cancel()
         tick_task.cancel()
-        for t in (finished, tick_task):
-            try:
-                await t
-            except (asyncio.CancelledError, Exception):  # noqa: BLE001
-                pass
+        # Drain quickly: broker WS clients run on an interruptible-by-cancel engine
+        # thread, so awaiting the cancelled stream can stall for seconds. Bound it.
+        try:
+            await asyncio.wait_for(asyncio.shield(finished), timeout=1.5)
+        except (asyncio.TimeoutError, asyncio.CancelledError, Exception):  # noqa: BLE001
+            pass
+        try:
+            await tick_task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            pass
 
 
 async def _order_driver(adapter: Any, step: str) -> dict[str, Any]:
