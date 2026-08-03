@@ -26,7 +26,7 @@ def init_execution_engine(loop: asyncio.AbstractEventLoop | None = None) -> dict
 
     from execution_engine import trade_manager, position_manager, pnl_engine, portfolio_engine, execution_bus
     from execution_engine.engine import execution_engine as facade
-    from execution_engine.events import bridge_legacy_events
+    from execution_engine.events import bridge_engine_events, bridge_legacy_events
     from execution_engine.metrics import execution_metrics
 
     # Chain: ORDER fills -> TradeManager -> TRADE -> PositionManager -> POSITION
@@ -42,6 +42,7 @@ def init_execution_engine(loop: asyncio.AbstractEventLoop | None = None) -> dict
     execution_metrics.install()
 
     bridge_legacy_events()
+    bridge_engine_events()
 
     if loop is not None:
         execution_bus.start(loop)

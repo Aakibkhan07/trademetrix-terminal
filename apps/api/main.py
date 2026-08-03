@@ -43,6 +43,7 @@ from routes.v1_tradingview import router as tradingview_router
 from routes.v1_user_strategies import router as user_strategies_router
 from routes.v1_builder import router as builder_router
 from routes.v1_events import router as events_router
+from routes.v1_paper import router as paper_router
 from routes.v1_analytics import router as analytics_router
 from routes.v1_feedback import router as feedback_router
 from routes.v1_margin_estimate import router as margin_estimate_router
@@ -284,6 +285,7 @@ app.include_router(tradingview_router, prefix="/api/v1")
 app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(builder_router, prefix="/api/v1")
+app.include_router(paper_router, prefix="/api/v1")
 app.include_router(events_router, prefix="/api/v1")
 app.include_router(analytics_router)
 app.include_router(feedback_router)

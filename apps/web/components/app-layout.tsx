@@ -27,6 +27,7 @@ const USER_SECTIONS = [
       { href: '/trade', label: 'Orders', icon: '📋' },
       { href: '/positions', label: 'Positions', icon: '📍' },
       { href: '/funds', label: 'Funds', icon: '💰' },
+      { href: '/paper', label: 'Paper Trading', icon: '📄' },
       { href: '/brokers', label: 'Brokers', icon: '🏦' },
     ],
   },

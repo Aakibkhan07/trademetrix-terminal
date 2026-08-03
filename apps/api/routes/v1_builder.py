@@ -451,7 +451,7 @@ async def compare_strategy_versions(
 async def builder_dashboard(
     current_user: UserProfile = Depends(get_current_user),
 ):
-    running = await get_runtime_dashboard()
+    running = await get_runtime_dashboard(user_id=current_user.id)
     return {"running": running, "total_running": sum(1 for r in running if r.get("status") == "running")}
 
 

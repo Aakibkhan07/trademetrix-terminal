@@ -563,6 +563,65 @@ execution_bus = ExecutionEngineBus()
 execution_bus.subscribe(ExecutionDomain.ORDER, LoggingSink())
 
 _LEGACY_BRIDGE_WIRED = False
+_ENGINE_BRIDGE_WIRED = False
+
+
+def bridge_engine_events() -> None:
+    """Publish engine TRADE/POSITION/PORTFOLIO events onto the legacy bus.
+
+    The per-user HTTP SSE endpoint (``/api/v1/events/stream``) subscribes to
+    the legacy ``execution_event_bus``, so this bridge carries the canonical
+    engine events (trade.executed, position.*, portfolio.*) to the live UI
+    without any new streaming infrastructure. Loop-safe: these engine event
+    names are not keys of the legacy ``_TYPE_MAP``, so the legacy→engine
+    forward bridge drops them on the way back. Idempotent.
+    """
+    global _ENGINE_BRIDGE_WIRED
+    if _ENGINE_BRIDGE_WIRED:
+        return
+    try:
+        from execution.event_bus import execution_event_bus
+    except Exception as e:  # pragma: no cover
+        logger.warning("Legacy execution bus unavailable, engine bridge skipped: %s", e)
+        return
+
+    _UI_DOMAINS = {ExecutionDomain.TRADE, ExecutionDomain.POSITION, ExecutionDomain.PORTFOLIO}
+
+    def _back_forward(event: "ExecutionEngineEvent") -> None:
+        if event.domain not in _UI_DOMAINS or not event.user_id:
+            return
+        try:
+            from execution.event_bus import ExecutionEvent, fire_and_forget
+            from execution.models import ExecutionState
+
+            try:
+                state = ExecutionState(event.state)
+            except Exception:
+                state = ExecutionState.NEW
+
+            legacy = ExecutionEvent(
+                event_type=event.type.value,
+                execution_request_id=event.client_order_id or event.correlation_id or "",
+                user_id=event.user_id,
+                broker=event.broker,
+                symbol=event.symbol,
+                side=event.side,
+                state=state,
+                message=event.message,
+                payload={"engine_event": event.to_dict()},
+            )
+            fire_and_forget(execution_event_bus.publish(legacy))
+        except Exception:  # pragma: no cover
+            logger.warning("Engine event bridge publish failed for %s", event.domain, exc_info=True)
+
+    try:
+        execution_bus.subscribe(ExecutionDomain.TRADE, _back_forward)
+        execution_bus.subscribe(ExecutionDomain.POSITION, _back_forward)
+        execution_bus.subscribe(ExecutionDomain.PORTFOLIO, _back_forward)
+    except Exception:  # pragma: no cover
+        logger.warning("Engine event bridge subscription failed", exc_info=True)
+        return
+    _ENGINE_BRIDGE_WIRED = True
 
 
 def bridge_legacy_events() -> None:

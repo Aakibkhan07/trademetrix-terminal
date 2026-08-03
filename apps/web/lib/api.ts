@@ -451,6 +451,24 @@ export const api = {
     funds: () => request('/engine/funds'),
   },
 
+  paper: {
+    status: () => request<{
+      engine: { wired: boolean; engine_bridge: boolean; bus_running: boolean; subscribers: number; legacy_star_subscribers: number };
+      user_id: string;
+    }>('/paper/status'),
+    account: () => request<{
+      broker: string; initial_capital: number; realised_pnl: number; unrealised_pnl: number;
+      daily_pnl: number; current_equity: number; day_start_equity: number; peak_equity: number;
+      drawdown_pct: number; day_date: string; updated_at: string;
+    }>('/paper/account'),
+    positions: () => request<{ positions: any[]; count: number }>('/paper/positions'),
+    trades: (limit = 50) => request<{ trades: any[]; count: number }>(`/paper/trades?limit=${limit}`),
+    portfolio: () => request<{
+      brokers: string[]; open_positions: number; total_positions: number; realised_pnl: number;
+      unrealised_pnl: number; daily_pnl: number; current_equity: number; peak_equity: number; drawdown_pct: number;
+    }>('/paper/portfolio'),
+  },
+
   ai: {
     desk: (command: string) => request('/ai/desk', { method: 'POST', body: { command } }),
     journal: (lookbackDays = 7) => request(`/ai/journal?lookback_days=${lookbackDays}`),

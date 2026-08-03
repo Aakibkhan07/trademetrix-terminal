@@ -23,6 +23,7 @@ _runtime: dict[str, dict] = {}
 def _runtime_stats(strategy_id: str) -> dict:
     stats = _runtime.setdefault(strategy_id, {
         "strategy_id": strategy_id,
+        "user_id": "",
         "status": "idle",
         "started_at": "",
         "stopped_at": "",
@@ -221,6 +222,7 @@ async def start_graph_strategy(
     stats = _runtime_stats(strategy_id)
     stats.update({
         "status": "running",
+        "user_id": user_id,
         "started_at": datetime.now(UTC).isoformat(),
         "stopped_at": "",
         "symbol": symbol,
@@ -273,11 +275,16 @@ async def stop_graph_strategy(strategy_id: str, user_id: str = ""):
         logger.warning("Could not update strategy_runs row for %s: %s", strategy_id, e)
 
 
-async def get_runtime_dashboard() -> list[dict]:
+async def get_runtime_dashboard(user_id: str | None = None) -> list[dict]:
     """Execution dashboard: per-strategy runtime stats + read-only PnL from the
-    orders audit table (source=graph_strategy). No OMS/broker writes."""
+    orders audit table (source=graph_strategy). No OMS/broker writes.
+
+    Scoped to ``user_id`` when provided (privacy: runtime state is owned by the
+    user who started the run)."""
     out: list[dict] = []
     for strategy_id, stats in _runtime.items():
+        if user_id and stats.get("user_id") and stats.get("user_id") != user_id:
+            continue
         entry = dict(stats)
         entry["health"] = "degraded" if stats.get("errors") and stats["errors"] > 2 else "ok"
         try:
