@@ -141,21 +141,57 @@ def _fitted_positional(fn: Callable, kwargs: dict[str, Any]) -> list[Any]:
     return positional
 
 
-async def _websocket_driver(adapter: Any) -> dict[str, Any]:
+async def _websocket_driver(adapter: Any, timeout: float = 15.0) -> dict[str, Any]:
+    """Start a live market-data subscription, confirm ticks flow, then disconnect.
+
+    Broker streams are long-running by design (``while self._running``), so the
+    probe never awaits them to completion: it starts the subscription off the
+    event loop, waits for the first live tick within a bounded window, then
+    calls ``disconnect()`` to tear the stream down cleanly.
+    """
     if not (callable(getattr(adapter, "subscribe_market_data", None))):
         return {"passed": False, "error": "adapter lacks subscribe_market_data"}
-    try:
-        async def _noop_tick(_tick):  # fire-and-forget probe
-            return None
 
-        res = adapter.subscribe_market_data(["NSE:NIFTY"], on_tick=_noop_tick)
-        if asyncio.iscoroutine(res):
-            await res
-        return {"passed": True, "detail": "market-data subscription accepted"}
-    except UnsupportedFeatureError as exc:
+    try:
+        from brokers.sdk.errors import UnsupportedFeatureError as _USFE  # noqa: PLC0415
+    except ImportError:  # pragma: no cover
+        _USFE = Exception
+
+    got_tick = asyncio.Event()
+
+    def on_tick(_tick):  # fire—noop collector; first tick flips the gate
+        if not got_tick.is_set():
+            got_tick.set()
+
+    task = asyncio.create_task(adapter.subscribe_market_data(["NSE:NIFTY"], on_tick=on_tick))
+    tick_task = asyncio.ensure_future(got_tick.wait())
+    try:
+        done, _pending = await asyncio.wait(
+            [task, tick_task], timeout=timeout, return_when=asyncio.FIRST_COMPLETED
+        )
+        if task in done and task.exception() is not None:
+            raise task.exception()
+        if task in done:
+            return {"passed": True, "detail": "subscription accepted (stream ended cleanly)"}
+        if tick_task in done:
+            return {"passed": True, "detail": "live tick received"}
+        return {"passed": False, "error": f"no live tick within {timeout:g}s"}
+    except _USFE as exc:
         return {"passed": False, "error": str(exc), "skipped": True}
-    except Exception as exc:  # noqa: BLE001
-        return {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
+    finally:
+        try:
+            res = adapter.disconnect() if callable(getattr(adapter, "disconnect", None)) else None
+            if asyncio.iscoroutine(res):
+                await res
+        except Exception:  # noqa: BLE001
+            pass
+        task.cancel()
+        tick_task.cancel()
+        for t in (task, tick_task):
+            try:
+                await t
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                pass
 
 
 async def _order_driver(adapter: Any, step: str) -> dict[str, Any]:
