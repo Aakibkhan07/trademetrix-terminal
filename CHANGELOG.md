@@ -1,3 +1,31 @@
+## v1.5.0 (2026-08-04) — STRATEGY RUNTIME V1.0 (DETERMINISTIC STRATEGY EXECUTION LAYER)
+
+### Added
+- **`strategy_runtime/` (new package, v1.0.0)** — first-class runtime owning the full strategy lifecycle (start → run → pause/resume → stop → restart → recover): typed `StrategySpec`/`StrategyTrigger`/`RuntimeState` (`models.py`), strict `RuntimeStateMachine` + `IllegalTransition` + `can_transition` (`state_machine.py`), per-user/per-broker `RuntimeRegistry` (`registry.py`), `RuntimeContext` + `position_memory_for()` (`context.py`), `RuntimeLifecycle` + `runtime_strategy_lifecycle` singleton (`lifecycle.py`), `StrategyRuntimeManager` + `strategy_runtime_manager` singleton (`manager.py`), `RuntimeDispatcher`/`CandleDispatcher`/`TriggerDispatcher` (`dispatchers.py`), `StrategyWorker` (run loop, candles, time-trigger fold, manual dry-run evaluate) (`workers.py`), `RuntimeRecovery` (restore + adopt + fail-open) (`recovery.py`), `RuntimeObservability` (`observability.py`), `RuntimeEvent`/`runtime_bus` (`events.py`), `StrategyStateStore` + `CheckpointStateStore` + `InMemoryStateStore` (`state_store.py`), public API + `__version__` (`__init__.py`).
+- **HTTP surface** — `routes/v1_strategy_runtime.py` (prefix `/api/v1/runtime`, auth-gated): POST `/deploy`, `/{id}/stop|pause|resume|restart|evaluate`, GET `/{id}/status`, `/strategies`, `/health`, POST `/event` (admin). Legacy `routes/v1_builder.py` deploy/start/stop now delegate **runtime-first** with legacy `start_graph_strategy` fallback (`_build_runtime_spec`/`_runtime_start`/`_runtime_stop`).
+- **App wiring** — `main.py` lifespan: `configure_state_store(SupabaseCheckpointStore())` + `await initialize()` (fail-open) + 4s-delayed `RuntimeRecovery().recover()` background task + graceful `shutdown()` (scheduler → workers → dispatcher).
+- **Prometheus** — additive metrics in `core/prometheus.py`: `strategy_runtime_running` Gauge; `strategy_runtime_lifecycle_events_total{state}`, `_orders_total{outcome}`, `_errors_total`, `_restarts_total`, `_ticks_total`, `_dropped_ticks_total` Counters; `strategy_runtime_latency_seconds`/`strategy_runtime_recovery_seconds` Histograms.
+
+### Changed
+- `execution_engine/persistence.py` `recover_runtime_state()` skips runtime-owned strategies (checkpoint kind `strategy_runtime` → `runtime_owned_strategies` → recorded in `strategy_skips`) — no double-start with engine recovery.
+- Manager: `_start_running` calls `_stop_legacy(...)`; new `_stop_legacy()` cancels surviving legacy `graph_strategy_runner._running_tasks` for adopted strategies; new `shutdown()`.
+
+### Fixed (found while building the runtime)
+- `core.cache` `get`/`set` are coroutines — `_persist_seen_ids`/`_load_seen_ids` in `workers.py` now async and awaited in `stop()` and the run-loop `finally`.
+- `recovery.py` bogus `from strategy_runtime.recovery import runtime_observability` removed; `_adopt` called on `self` (not `self._manager`); `obs.record_recovery` → `runtime_observability.record_recovery`.
+- `routes/v1_builder.py` manager junk line removed; `_publish_event` wrapper removed (`_on_broker_disconnect` now emits `_publish_runtime_event("BrokerDisconnected", ...)` directly).
+
+### Verification
+- New tests: `tests/test_strategy_runtime.py` (18: lifecycle, state-machine table, pause/resume/restart, restart-from-stopped, candle eval + orders, seen-candle dedup, no-signal, two-strategy isolation, MTF aggregation, manual dry-run, broker disconnect/reconnect + per-broker isolation, session open/close, checkpoint persist/remove, health, user isolation), `tests/test_strategy_runtime_recovery.py` (8: restore running, idempotent, skip stopped, paused-as-paused, adopt legacy-running, engine-recovery skip guard, legacy-only restart, fail-open broken store), `tests/test_strategy_runtime_api.py` (3 HTTP: deploy→status→pause→resume→evaluate→stop lifecycle, health, 404 unknown id).
+- Full regression: `pytest tests/` → **806 passed, 1 xfailed** (+3 vs v1.4.0's 803, +50 vs v1.3.1's 717).
+- Benchmark (`benchmark_strategy_runtime.py`): tick throughput ≈78k ticks/s (0 dropped), candle eval ≈15.7k evals/s (avg 0.31ms), 10-worker fanout ≈4.2k ticks/s (uniform, 0 dropped), seen-candle dedup 10k replays → 1 eval/1 order.
+
+### Known gaps
+- Order execution still flows through the frozen `engine.gate.execute_order(...)` path; runtime-level risk integration (position/order checks) deferred.
+- Recovery is fail-open by design — a broken store means no auto-restore (never crashes startup).
+- Supabase `strategy_runs` insert noise (permission-related) is benign warn-level.
+- Docs: `docs/evolution/STRATEGY_RUNTIME_V1.md`, `docs/evolution/RELEASE_AUDIT_STRATEGY_RUNTIME_V1.md`, `docs/evolution/PROD_READINESS_STRATEGY_RUNTIME_V1.md`.
+
 ## v1.4.0 (2026-08-03) — EXECUTION ENGINE V1.0 (CANONICAL EVENT-DRIVEN EXECUTION LAYER)
 
 ### Added

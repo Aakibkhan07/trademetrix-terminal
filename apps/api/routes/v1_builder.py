@@ -301,6 +301,45 @@ class DeployStrategyRequest(BaseModel):
     schedule: ScheduleDeployRequest = Field(default_factory=ScheduleDeployRequest)
 
 
+def _build_runtime_spec(
+    strategy_id: str,
+    user_id: str,
+    symbol: str,
+    interval: str,
+    mode: str,
+    broker: str,
+    capital: float,
+    risk: dict,
+    schedule: dict,
+) -> "StrategySpec":
+    """Materialize a Strategy Runtime spec from the legacy builder deploy payload.
+
+    Execution now owns the strategy (runtime worker on the frozen engine path);
+    the legacy ``graph_strategy_runner`` stays as the pre-runtime fallback.
+    """
+    from strategy_runtime.models import StrategySpec
+
+    return StrategySpec(
+        strategy_id=strategy_id,
+        user_id=user_id,
+        symbol=symbol.upper(),
+        exchange="NSE",
+        interval=interval or "15m",
+        timeframes=[interval or "15m"],
+        mode="live" if mode == "live" else "paper",
+        is_paper=mode != "live",
+        broker=broker,
+        account="",
+        trigger="MARKET_OPEN" if (schedule and schedule.get("start_time")) else "CANDLE_CLOSE",
+        warmup=True,
+        quantity=int(risk.get("max_position_size") or 0) if (risk and risk.get("max_position_size")) else 0,
+        max_positions=1,
+        max_risk_per_trade=float((risk or {}).get("risk_per_trade") or 0.0),
+        max_daily_trades=0,
+        variables={"capital": capital, "schedule": schedule or {}},
+    )
+
+
 @router.post("/strategies/{strategy_id}/deploy")
 async def deploy_builder_strategy(
     strategy_id: str,
@@ -333,14 +372,52 @@ async def deploy_builder_strategy(
                  f"Deployed to {'LIVE' if req.mode == 'live' else 'PAPER'} (broker={req.broker or 'paper'}, capital={req.capital})",
                  level="warning" if req.mode == "live" else "info", user_id=current_user.id)
 
-    result = await start_graph_strategy(
+    spec = _build_runtime_spec(
         strategy_id=strategy_id,
         user_id=current_user.id,
-        symbol=req.symbol.upper(),
+        symbol=req.symbol,
         interval=req.interval,
-        is_paper=req.mode != "live",
+        mode=req.mode,
+        broker=req.broker,
+        capital=req.capital,
+        risk=req.risk.model_dump(),
+        schedule=req.schedule.model_dump(exclude_none=True),
     )
-    return {"status": result, "mode": req.mode, "broker": req.broker or "paper", "strategy_id": strategy_id}
+    result = await _runtime_start(spec)
+    return {"status": result["status"], "mode": req.mode, "broker": req.broker or "paper", "strategy_id": strategy_id}
+
+
+async def _runtime_start(spec: "StrategySpec") -> dict:
+    """Start through the Strategy Runtime; legacy runner is the fallback."""
+    from strategy_runtime.manager import strategy_runtime_manager
+
+    try:
+        if strategy_runtime_manager._initialized:
+            return await strategy_runtime_manager.start_strategy(spec)
+    except Exception as e:
+        logger.warning("Strategy Runtime start failed for %s (legacy fallback): %s", spec.strategy_id, e)
+    return {"status": await start_graph_strategy(
+        strategy_id=spec.strategy_id,
+        user_id=spec.user_id,
+        symbol=spec.symbol,
+        interval=spec.interval,
+        is_paper=spec.is_paper,
+    )}
+
+
+async def _runtime_stop(strategy_id: str, user_id: str) -> str:
+    """Stop through the Strategy runtime; legacy fallback."""
+    from strategy_runtime.manager import strategy_runtime_manager
+
+    try:
+        if strategy_runtime_manager._initialized:
+            outcome = await strategy_runtime_manager.stop_strategy(strategy_id, user_id=user_id)
+            if outcome.get("status") in ("stopped", "not_found"):
+                return outcome["status"]
+    except Exception as e:
+        logger.warning("runtime stop failed (%s, legacy fallback): %s", strategy_id, e)
+    await stop_graph_strategy(strategy_id, user_id=user_id)
+    return "stopped"
 
 
 @router.post("/strategies/{strategy_id}/start")
@@ -355,15 +432,23 @@ async def start_builder_strategy(
     if dsl.status not in (StrategyStatus.PUBLISHED, StrategyStatus.READY, StrategyStatus.PAPER, StrategyStatus.LIVE, StrategyStatus.STOPPED, StrategyStatus.VALIDATED):
         raise HTTPException(status_code=400, detail="Strategy must be validated and marked ready before starting")
 
-    result = await start_graph_strategy(
+    deployment = {}
+    if isinstance(getattr(dsl, "deployment", None), DeploymentConfig):
+        deployment = dsl.deployment.model_dump()
+    spec = _build_runtime_spec(
         strategy_id=strategy_id,
         user_id=current_user.id,
-        symbol=req.symbol.upper(),
+        symbol=req.symbol,
         interval=req.interval,
-        is_paper=req.mode != "live",
+        mode=req.mode,
+        broker=deployment.get("broker", ("" if req.mode != "live" else "fyers")),
+        capital=float(deployment.get("capital") or 0.0),
+        risk=deployment.get("risk") or {},
+        schedule=deployment.get("schedule") or {},
     )
+    result = await _runtime_start(spec)
     await builder_manager.set_status(strategy_id, StrategyStatus.LIVE if req.mode == "live" else StrategyStatus.PAPER)
-    return {"status": result, "strategy_id": strategy_id}
+    return {"status": result["status"], "strategy_id": strategy_id}
 
 
 @router.post("/strategies/{strategy_id}/stop")
@@ -371,9 +456,9 @@ async def stop_builder_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    await stop_graph_strategy(strategy_id, user_id=current_user.id)
     await builder_manager.set_status(strategy_id, StrategyStatus.STOPPED)
-    return {"status": "stopped", "strategy_id": strategy_id}
+    outcome = await _runtime_stop(strategy_id, current_user.id)
+    return {"status": outcome, "strategy_id": strategy_id}
 
 
 @router.post("/strategies/{strategy_id}/archive")

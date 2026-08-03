@@ -57,6 +57,7 @@ from routes.v1_referrals import router as referrals_router
 from routes.v1_broker_webhook import router as broker_webhook_router
 from routes.v1_orders import router as orders_router
 from routes.v1_portfolio import router as portfolio_router
+from routes.v1_strategy_runtime import router as strategy_runtime_router
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,18 @@ async def _startup_engine_recovery():
         logger.info("Runtime persistence recovery complete: %s", result)
     except Exception as e:
         logger.warning("Runtime persistence recovery skipped: %s", e)
+
+
+async def _startup_strategy_runtime():
+    """Restore strategy runtime state AFTER the engine recovery has finished
+    restoring the execution/portfolio book (so adoption sees real data)."""
+    try:
+        await asyncio.sleep(4)
+        from strategy_runtime.recovery import RuntimeRecovery
+
+        await RuntimeRecovery(strategy_runtime_manager).recover()
+    except Exception as e:
+        logger.warning("Strategy Runtime recovery skipped (non-fatal): %s", e)
 
 
 async def _start_watchdog():
@@ -195,6 +208,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Execution Engine persistence enable failed (non-fatal): %s", e)
     _background_tasks.append(asyncio.ensure_future(_startup_engine_recovery()))
+    try:
+        from strategy_runtime.manager import strategy_runtime_manager
+        from execution_engine.persistence import SupabaseCheckpointStore
+
+        strategy_runtime_manager.configure_state_store(SupabaseCheckpointStore())
+        await strategy_runtime_manager.initialize()
+        _background_tasks.append(asyncio.ensure_future(_startup_strategy_runtime()))
+        logger.info("Strategy Runtime v1.0 initialized (persistence via execution_checkpoints)")
+    except Exception as e:
+        logger.warning("Strategy Runtime init failed (non-fatal): %s", e)
     yield
     for task in _background_tasks:
         task.cancel()
@@ -225,6 +248,12 @@ async def lifespan(app: FastAPI):
         await shutdown_execution_engine()
     except Exception as e:
         logger.warning("Execution Engine shutdown failed (non-fatal): %s", e)
+    try:
+        from strategy_runtime.manager import strategy_runtime_manager
+
+        await strategy_runtime_manager.shutdown()
+    except Exception as e:
+        logger.warning("Strategy Runtime shutdown failed (non-fatal): %s", e)
     logger.info("Graceful shutdown complete")
 
 
@@ -308,6 +337,7 @@ app.include_router(tradingview_router, prefix="/api/v1")
 app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(builder_router, prefix="/api/v1")
+app.include_router(strategy_runtime_router, prefix="/api/v1")
 app.include_router(paper_router, prefix="/api/v1")
 app.include_router(events_router, prefix="/api/v1")
 app.include_router(analytics_router)

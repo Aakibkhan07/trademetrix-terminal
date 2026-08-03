@@ -408,10 +408,25 @@ async def recover_runtime_state() -> dict[str, Any]:
 
         from engine.graph_strategy_runner import start_graph_strategy
 
+        # Strategies owned by the Strategy Runtime v1.0 (kind ``strategy_runtime``)
+        # are resumed by the runtime manager itself (restore or adopt); the engine
+        # must not double-start them through the legacy runner.
+        runtime_owned_strategies: set[str] = set()
+        try:
+            runtime_owned_strategies = {
+                (r.get("data") or {}).get("strategy_id") or r.get("key", "")
+                for r in await runtime_persistence._store_load("strategy_runtime")
+            }
+        except Exception:
+            pass
+
         for row in await runtime_persistence._store_load(KIND_STRATEGY):
             spec = row["data"]
             sid = spec.get("strategy_id") or row.get("key", "")
             if not sid or not spec.get("user_id"):
+                continue
+            if sid in runtime_owned_strategies:
+                result["strategy_skips"].append(sid)
                 continue
             try:
                 outcome = await start_graph_strategy(
