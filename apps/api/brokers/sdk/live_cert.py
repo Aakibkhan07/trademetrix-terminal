@@ -16,6 +16,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
+from brokers.sdk.errors import UnsupportedFeatureError
+
 LIVE_STEPS: list[str] = [
     "login",
     "token_refresh",
@@ -89,11 +91,13 @@ async def _call_live(adapter: Any, method: str, kwargs: dict[str, Any] | None = 
     try:
         fn = getattr(adapter, method, None)
         if not callable(fn):
-            return {"passed": False, "error": f"adapter has no {method}"}
+            return {"passed": False, "error": f"adapter has no {method}", "skipped": True}
         result = fn(**(kwargs or {}))
         if asyncio.iscoroutine(result):
             result = await result
         return {"passed": True, "detail": _snippet(result)}
+    except UnsupportedFeatureError as exc:  # capability-absent → SKIP, not FAIL
+        return {"passed": False, "error": str(exc), "skipped": True}
     except Exception as exc:  # noqa: BLE001
         return {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
 
@@ -193,6 +197,7 @@ async def run_live_certification(
             detail=str(outcome.get("detail", "") or ""),
             error=outcome.get("error", ""),
             ms=(time.monotonic() - stamp) * 1000,
+            skipped=bool(outcome.get("skipped")),
         )
     result.elapsed = time.monotonic() - started
     return result

@@ -3,6 +3,7 @@ import asyncio
 
 import pytest
 
+from brokers.sdk.errors import UnsupportedFeatureError
 from brokers.sdk.live_cert import (
     LIVE_STEPS,
     LiveCertResult,
@@ -161,3 +162,31 @@ def test_live_cert_markdown_report(tmp_path):
     assert "Live Certification" in md
     assert "PASS" in md
     assert "FAIL" in md
+
+
+@pytest.mark.asyncio
+async def test_live_cert_capability_absent_is_skipped_not_fail():
+    class LimitedAdapter(HealthyAdapter):
+        broker_name = "limitedbroker"
+
+        async def get_option_chain(self, **kwargs):
+            raise UnsupportedFeatureError("get_option_chain", broker=self.broker_name)
+
+        async def refresh_token(self, token):
+            raise UnsupportedFeatureError("refresh_token", broker=self.broker_name)
+
+    result = await run_live_certification(LimitedAdapter())
+    # capability-absent capability is skipped (the cert still passes)
+    assert result.passed is True
+    skipped = {s["check"] for s in result.steps.values() if s.get("skipped")}
+    assert {"option_chain", "token_refresh", "token_expiry"} <= skipped
+    assert result.steps["option_chain"]["skipped"] is True
+
+
+@pytest.mark.asyncio
+async def test_live_help_citation_recipe_attributes(tmp_path):
+    """CLI usage recipe referenced by docs must resolve to real names."""
+    from brokers.live_cert import _load_adapter, _resolve_credentials
+
+    assert callable(_load_adapter)
+    assert callable(_resolve_credentials)
