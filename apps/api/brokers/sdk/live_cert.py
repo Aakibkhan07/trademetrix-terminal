@@ -165,9 +165,11 @@ async def _websocket_driver(adapter: Any, timeout: float = 20.0) -> dict[str, An
 
     for symbol in candidates:
         remaining = deadline - asyncio.get_running_loop().time()
-        if remaining <= 0:
+        if remaining <= 1.0:
             break
-        branch = await _probe_stream(adapter, [symbol], max(remaining, 0.5))
+        # Give each candidate a bounded slice so the whole probe returns well
+        # inside the runner's per-step budget (broker connect/settle can be slow).
+        branch = await _probe_stream(adapter, [symbol], min(remaining, 6.0))
         if branch.get("passed") or branch.get("skipped"):
             return branch
 
