@@ -1,0 +1,103 @@
+{
+  "certification": "auto_trading_v1",
+  "date": "2026-08-03T20:07:53.914123+00:00",
+  "verdict": "CERTIFIED",
+  "summary": {
+    "Paper": {
+      "name": "Paper",
+      "passed": true,
+      "checks": [
+        {
+          "ok": true,
+          "skipped": false,
+          "label": "automated-suite",
+          "detail": "exit=0 elapsed_ms=7285 36 passed in 6.23s"
+        }
+      ],
+      "total": 1,
+      "executed": 1,
+      "skipped": 0
+    },
+    "Live": {
+      "name": "Live",
+      "passed": true,
+      "checks": [
+        {
+          "ok": true,
+          "skipped": false,
+          "label": "automated-suite",
+          "detail": "exit=0 elapsed_ms=5698 9 passed, 7 warnings in 4.51s"
+        },
+        {
+          "ok": true,
+          "skipped": true,
+          "label": "live-credential-gate",
+          "detail": "no AUTO_CERT_USER configured \u2014 live start SKIP (credential-gated)"
+        }
+      ],
+      "total": 2,
+      "executed": 1,
+      "skipped": 1
+    },
+    "Recovery": {
+      "name": "Recovery",
+      "passed": true,
+      "checks": [
+        {
+          "ok": true,
+          "skipped": false,
+          "label": "automated-suite",
+          "detail": "exit=0 elapsed_ms=1966 8 passed in 1.26s"
+        }
+      ],
+      "total": 1,
+      "executed": 1,
+      "skipped": 0
+    },
+    "Restart": {
+      "name": "Restart",
+      "passed": true,
+      "checks": [
+        {
+          "ok": true,
+          "skipped": false,
+          "label": "automated-suite",
+          "detail": "exit=0 elapsed_ms=5762 18 passed in 4.82s"
+        }
+      ],
+      "total": 1,
+      "executed": 1,
+      "skipped": 0
+    },
+    "MultiAccount": {
+      "name": "MultiAccount",
+      "passed": true,
+      "checks": [
+        {
+          "ok": true,
+          "skipped": false,
+          "label": "automated-suite",
+          "detail": "exit=0 elapsed_ms=5507 18 passed in 4.56s"
+        }
+      ],
+      "total": 1,
+      "executed": 1,
+      "skipped": 0
+    },
+    "Risk": {
+      "name": "Risk",
+      "passed": true,
+      "checks": [
+        {
+          "ok": true,
+          "skipped": false,
+          "label": "automated-suite",
+          "detail": "exit=0 elapsed_ms=5610 27 passed, 7 warnings in 4.55s"
+        }
+      ],
+      "total": 1,
+      "executed": 1,
+      "skipped": 0
+    }
+  }
+}

@@ -43,6 +43,10 @@ class KillSwitch:
         return any(self._emergency_stops.values())
 
     async def trigger_emergency_stop(self, user_id: str, reason: str = "", triggered_by: str = "") -> bool:
+        # engage the in-memory flag FIRST — trading halts even if the audit
+        # persistence fails (fail-open infra, fail-closed trading)
+        self._emergency_stops[user_id] = True
+        logger.warning("EMERGENCY STOP triggered for user %s: %s", user_id, reason)
         try:
             await async_supabase(lambda: get_supabase().table("risk_audit_log").insert({
                 "user_id": user_id,
@@ -51,14 +55,13 @@ class KillSwitch:
                 "triggered_by": triggered_by,
                 "created_at": datetime.now(UTC).isoformat(),
             }).execute())
-            self._emergency_stops[user_id] = True
-            logger.warning("EMERGENCY STOP triggered for user %s: %s", user_id, reason)
             return True
         except Exception as e:
-            logger.error("Failed to trigger emergency stop: %s", e)
+            logger.error("Failed to persist emergency stop: %s", e)
             return False
 
     async def release_emergency_stop(self, user_id: str, triggered_by: str = "") -> bool:
+        self._emergency_stops[user_id] = False
         try:
             await async_supabase(lambda: get_supabase().table("risk_audit_log").insert({
                 "user_id": user_id,
@@ -67,11 +70,10 @@ class KillSwitch:
                 "triggered_by": triggered_by,
                 "created_at": datetime.now(UTC).isoformat(),
             }).execute())
-            self._emergency_stops[user_id] = False
             logger.warning("EMERGENCY STOP released for user %s", user_id)
             return True
         except Exception as e:
-            logger.error("Failed to release emergency stop: %s", e)
+            logger.error("Failed to persist emergency stop release: %s", e)
             return False
 
     async def global_kill_switch_active(self) -> bool:

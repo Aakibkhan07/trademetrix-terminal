@@ -16,6 +16,7 @@ export interface DeploymentDraft {
   trading_days: string[]
   start_time: string
   end_time: string
+  confirm_live: boolean
 }
 
 const DEFAULT_DRAFT: DeploymentDraft = {
@@ -31,6 +32,7 @@ const DEFAULT_DRAFT: DeploymentDraft = {
   trading_days: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
   start_time: '09:15',
   end_time: '15:30',
+  confirm_live: false,
 }
 
 const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
@@ -55,9 +57,12 @@ export default function DeployWizard({
   const canDeploy = useMemo(() => {
     if (busy) return false
     if (draft.mode === 'live' && !draft.broker.trim()) return false
+    if (draft.mode === 'live' && !draft.confirm_live) return false
     if (!draft.symbol.trim()) return false
     return true
-  }, [busy, draft])
+  }, [busy, draft, draft.confirm_live])
+
+  const liveNeedsConfirm = draft.mode === 'live' && draft.broker.trim() !== '' && !draft.confirm_live
 
   const set = <K extends keyof DeploymentDraft>(k: K, v: DeploymentDraft[K]) => {
     setDraft(prev => ({ ...prev, [k]: v }))
@@ -81,6 +86,7 @@ export default function DeployWizard({
         interval: draft.interval,
         mode: draft.mode,
         broker: draft.broker,
+        confirm_live: draft.confirm_live,
         capital: draft.capital,
         risk: {
           risk_per_trade: draft.risk_per_trade,
@@ -121,10 +127,24 @@ export default function DeployWizard({
             <button className={`t-seg-btn ${draft.mode === 'paper' ? 'active' : ''}`} onClick={() => set('mode', 'paper')} style={{ fontSize: 11, padding: '0 12px' }}>
               📄 Paper
             </button>
-            <button className={`t-seg-btn ${draft.mode === 'live' ? 'active' : ''}`} onClick={() => set('mode', 'live')} style={{ fontSize: 11, padding: '0 12px' }}>
+            <button className={`t-seg-btn ${draft.mode === 'live' ? 'active' : ''}`} onClick={() => { set('confirm_live', false); set('mode', 'live') }} style={{ fontSize: 11, padding: '0 12px' }}>
               ⚡ Live
             </button>
           </div>
+
+          {liveNeedsConfirm && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 25%, transparent)' }}>
+              <input
+                type="checkbox"
+                id="confirm-live"
+                checked={draft.confirm_live}
+                onChange={e => set('confirm_live', e.target.checked)}
+              />
+              <label htmlFor="confirm-live" style={{ fontSize: 11, color: 'var(--text)', margin: 0 }}>
+                <strong>I confirm this deploys real money on {draft.broker.toUpperCase()}.</strong> Live orders are executed through the broker with risk checks and can only be stopped via the Kill Switch / Emergency Stop.
+              </label>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>

@@ -296,6 +296,8 @@ class DeployStrategyRequest(BaseModel):
     interval: str = "15m"
     mode: str = "paper"  # paper | live
     broker: str = ""
+    account: str = ""
+    confirm_live: bool = False  # explicit LIVE confirmation (Auto Trading v1.0)
     capital: float = 0.0
     risk: RiskDeployRequest = Field(default_factory=RiskDeployRequest)
     schedule: ScheduleDeployRequest = Field(default_factory=ScheduleDeployRequest)
@@ -311,6 +313,8 @@ def _build_runtime_spec(
     capital: float,
     risk: dict,
     schedule: dict,
+    account: str = "",
+    confirmed: bool = False,
 ) -> "StrategySpec":
     """Materialize a Strategy Runtime spec from the legacy builder deploy payload.
 
@@ -329,7 +333,8 @@ def _build_runtime_spec(
         mode="live" if mode == "live" else "paper",
         is_paper=mode != "live",
         broker=broker,
-        account="",
+        account=account,
+        confirmed=confirmed,
         trigger="MARKET_OPEN" if (schedule and schedule.get("start_time")) else "CANDLE_CLOSE",
         warmup=True,
         quantity=int(risk.get("max_position_size") or 0) if (risk and risk.get("max_position_size")) else 0,
@@ -358,6 +363,8 @@ async def deploy_builder_strategy(
 
     if req.mode == "live" and not req.broker:
         raise HTTPException(status_code=400, detail="Live deployment requires a broker")
+    if req.mode == "live" and not req.confirm_live:
+        raise HTTPException(status_code=409, detail="Live deployment requires explicit confirmation (confirm_live=true)")
 
     deployment = DeploymentConfig(
         mode=req.mode,
@@ -379,18 +386,35 @@ async def deploy_builder_strategy(
         interval=req.interval,
         mode=req.mode,
         broker=req.broker,
+        account=req.account,
         capital=req.capital,
         risk=req.risk.model_dump(),
         schedule=req.schedule.model_dump(exclude_none=True),
+        confirmed=req.confirm_live,
     )
     result = await _runtime_start(spec)
+    if result.get("status") == "refused":
+        raise HTTPException(status_code=423 if "KILL" in result.get("code", "") or "EMERGENCY" in result.get("code", "") else 400, detail=result.get("reason"))
     return {"status": result["status"], "mode": req.mode, "broker": req.broker or "paper", "strategy_id": strategy_id}
 
 
 async def _runtime_start(spec: "StrategySpec") -> dict:
-    """Start through the Strategy Runtime; legacy runner is the fallback."""
-    from strategy_runtime.manager import strategy_runtime_manager
+    """Start through the Strategy Runtime; legacy runner is the fallback.
 
+    Safety: an unconfirmed LIVE spec is NEVER routed to the legacy runner
+    (it does not implement the explicit confirmation gate). No fallback.
+    """
+    from strategy_runtime.manager import strategy_runtime_manager
+    from strategy_runtime.mode import ModeGuardError, assert_orders_allowed
+
+    try:
+        await assert_orders_allowed(spec.user_id)
+    except ModeGuardError as e:
+        return {"status": "refused", "strategy_id": spec.strategy_id,
+                "reason": getattr(e, "message", str(e)), "code": e.code}
+    if (spec.mode or "") == "live" and not spec.confirmed:
+        return {"status": "refused", "strategy_id": spec.strategy_id,
+                "reason": "Live deployment requires explicit confirmation", "code": "LIVE_CONFIRMATION_REQUIRED"}
     try:
         if strategy_runtime_manager._initialized:
             return await strategy_runtime_manager.start_strategy(spec)
@@ -435,19 +459,26 @@ async def start_builder_strategy(
     deployment = {}
     if isinstance(getattr(dsl, "deployment", None), DeploymentConfig):
         deployment = dsl.deployment.model_dump()
+    # persist trading mode: an explicit live start, or the previously
+    # deployed mode when the request did not ask for paper explicitly.
+    effective_mode = "live" if (req.mode == "live" or (req.mode == "paper" and deployment.get("mode") == "live")) else "paper"
     spec = _build_runtime_spec(
         strategy_id=strategy_id,
         user_id=current_user.id,
         symbol=req.symbol,
         interval=req.interval,
-        mode=req.mode,
-        broker=deployment.get("broker", ("" if req.mode != "live" else "fyers")),
+        mode=effective_mode,
+        broker=deployment.get("broker", ("" if effective_mode != "live" else "fyers")),
+        account=deployment.get("account", ""),
         capital=float(deployment.get("capital") or 0.0),
         risk=deployment.get("risk") or {},
         schedule=deployment.get("schedule") or {},
+        confirmed=deployment.get("mode") == "live",
     )
     result = await _runtime_start(spec)
-    await builder_manager.set_status(strategy_id, StrategyStatus.LIVE if req.mode == "live" else StrategyStatus.PAPER)
+    if result.get("status") == "refused":
+        raise HTTPException(status_code=409, detail=result.get("reason", "Live deployment requires explicit confirmation"))
+    await builder_manager.set_status(strategy_id, StrategyStatus.LIVE if effective_mode == "live" else StrategyStatus.PAPER)
     return {"status": result["status"], "strategy_id": strategy_id}
 
 

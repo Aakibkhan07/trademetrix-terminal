@@ -81,6 +81,9 @@ class StrategyRuntimeManager:
 
     # -- lifecycle verbs -----------------------------------------------------
     async def start_strategy(self, spec: StrategySpec) -> dict:
+        guard = await self._guard_start(spec)
+        if guard:
+            return guard
         existing = await self._registry.get(spec.strategy_id)
         if existing:
             if existing.state in (RuntimeState.STARTING, RuntimeState.RUNNING):
@@ -94,6 +97,33 @@ class StrategyRuntimeManager:
         record.last_error = ""
         await self._start_running(record)
         return {"status": "started", "strategy_id": spec.strategy_id}
+
+    async def _guard_start(self, spec: StrategySpec) -> dict | None:
+        """Auto Trading v1.0 trading-mode safety gate (fail-closed).
+
+        Refuses to start a spec whose mode is unknown, a live spec that was
+        never explicitly confirmed, or any spec while a kill switch or an
+        emergency stop is active for the user / globally.
+        """
+        from strategy_runtime.mode import ModeGuardError, assert_orders_allowed
+
+        mode = (spec.mode or "").strip().lower()
+        if mode not in ("paper", "live"):
+            return {"status": "refused", "strategy_id": spec.strategy_id,
+                    "reason": f"Unknown trading mode: {spec.mode!r}", "code": "MODE_UNKNOWN"}
+        if mode == "live":
+            if not spec.confirmed:
+                return {"status": "refused", "strategy_id": spec.strategy_id,
+                        "reason": "Live deployment requires explicit confirmation", "code": "LIVE_CONFIRMATION_REQUIRED"}
+            if spec.is_paper is not False or not spec.broker or spec.broker == "paper":
+                return {"status": "refused", "strategy_id": spec.strategy_id,
+                        "reason": "Live mode requires a real broker account", "code": "MODE_NO_BROKER"}
+        try:
+            await assert_orders_allowed(spec.user_id)
+        except ModeGuardError as e:
+            return {"status": "refused", "strategy_id": spec.strategy_id,
+                    "reason": e.message if hasattr(e, "message") else str(e), "code": e.code}
+        return None
 
     async def _start_running(self, record: RuntimeRecord) -> None:
         from strategy_runtime.workers import StrategyWorker
@@ -276,7 +306,101 @@ class StrategyRuntimeManager:
             return None
         status = record.status()
         status.stats = record.stats
-        return status.model_dump()
+        body = status.model_dump()
+        body["confirmed"] = record.spec.confirmed
+        body["account"] = record.spec.account
+        body["broker"] = record.spec.broker
+        body["mode"] = record.spec.mode
+        return body
+
+    # -- Auto Trading v1.0: kill switch / emergency stop / reconcile -----------
+    async def emergency_stop(self, user_id: str, reason: str = "", strategy_id: str = "") -> dict:
+        """Emergency stop: trigger the user-level emergency flag, halt the
+        matching strategy(s), and return what was affected."""
+        from risk.kill_switch import kill_switch
+
+        triggered = await kill_switch.trigger_emergency_stop(user_id or "system",
+                                                             reason=reason or "User emergency stop")
+        halted: list[str] = []
+        if strategy_id:
+            res = await self.pause_strategy(strategy_id, user_id=user_id, reason="emergency_stop")
+            if res.get("status") in ("paused",):
+                halted.append(strategy_id)
+        else:
+            for record in await self._registry.list_all():
+                if record.spec.user_id != user_id:
+                    continue
+                if record.state == RuntimeState.RUNNING:
+                    await self.pause_strategy(record.spec.strategy_id, user_id=user_id, reason="emergency_stop")
+                    halted.append(record.spec.strategy_id)
+        self._observability.record_lifecycle("EMERGENCY_STOP", strategy_id or "")
+        _publish_runtime_event("EmergencyStop", strategy_id or "", user_id,
+                               payload={"reason": reason, "halted": halted, "triggered": triggered})
+        engaged = triggered or kill_switch.active(user_id)
+        return {"status": "emergency_stopped" if engaged else "emergency_failed",
+                "triggered": triggered, "halted": halted}
+
+    async def release_emergency_stop(self, user_id: str, triggered_by: str = "") -> dict:
+        from risk.kill_switch import kill_switch
+
+        released = await kill_switch.release_emergency_stop(user_id or "local", triggered_by=triggered_by)
+        engaged = kill_switch.active(user_id)
+        _publish_runtime_event("EmergencyStopReleased", "", user_id, payload={"released": released})
+        return {"status": "emergency_released" if (released or not engaged) else "release_failed",
+                "released": released}
+
+    async def pause_all(self, user_id: str, reason: str = "manual") -> dict:
+        halted: list[str] = []
+        for record in await self._registry.list_all():
+            if record.spec.user_id != user_id:
+                continue
+            if record.state == RuntimeState.RUNNING:
+                await self.pause_strategy(record.spec.strategy_id, user_id=user_id, reason=reason)
+                halted.append(record.spec.strategy_id)
+        return {"status": "paused", "halted": halted}
+
+    async def reconcile(self, strategy_id: str, user_id: str = "") -> dict:
+        """Trade reconciliation: compare runtime bookkeeping (orders placed /
+        filled, current position) against the broker-connected truth for the
+        strategy's symbol. Read-only reconciliation surface for Auto Trading."""
+        record = await self._registry.get(strategy_id)
+        if record is None:
+            return {"status": "not_found", "strategy_id": strategy_id}
+        if user_id and record.spec.user_id != user_id:
+            return {"status": "forbidden", "strategy_id": strategy_id}
+        broker = record.spec.broker or "paper"
+        reconciliation = {
+            "strategy_id": strategy_id,
+            "mode": record.spec.mode,
+            "broker": broker,
+            "state": record.state.value,
+            "runtime": {
+                "orders_placed": record.stats.get("orders_placed", 0),
+                "orders_filled": record.stats.get("orders_filled", 0),
+                "orders_open": record.stats.get("orders_open", 0),
+            },
+            "checks": [],
+        }
+        try:
+            from execution_engine.positions import position_manager
+
+            positions = await position_manager.get_positions(user_id, broker)
+            open_positions = [p for p in (positions or []) if str(getattr(p, "symbol", "")).upper() == str(record.spec.symbol).upper()]
+            reconciliation["broker"] = {"open_positions": len(open_positions), "positions": open_positions}
+            runtime_open = record.stats.get("orders_open", 0)
+            reconciled = runtime_open == 0 and len(open_positions) >= 0
+            mismatch = runtime_open > 0 != (len(open_positions) > 0)
+            reconciliation["checks"].append({
+                "name": "position_consistency",
+                "ok": not mismatch,
+                "detail": f"runtime_open_orders={runtime_open} broker_positions={len(open_positions)}",
+            })
+            reconciliation["reconciled"] = not mismatch
+        except Exception as e:
+            logger.warning("Reconcile read failed for %s: %s", strategy_id, e)
+            reconciliation["checks"].append({"rule": "broker_read", "ok": False, "detail": str(e)[:200]})
+            reconciliation["reconciled"] = False
+        return reconciliation
 
     async def list_strategies(self, user_id: str = "") -> list[dict]:
         records = await self._registry.list_all()

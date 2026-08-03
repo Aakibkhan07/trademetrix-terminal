@@ -587,7 +587,9 @@ export const api = {
     versions: (id: string) => request(`/builder/strategies/${id}/versions`),
     ready: (id: string) => request(`/builder/strategies/${id}/ready`, { method: 'POST' }),
     deploy: (id: string, data: {
-      symbol?: string; interval?: string; mode?: string; broker?: string; capital?: number;
+      symbol?: string; interval?: string; mode?: string; broker?: string; account?: string;
+      confirm_live?: boolean;
+      capital?: number;
       risk?: { max_position_size?: number; max_daily_loss?: number; risk_per_trade?: number; stop_loss_pct?: number; target_pct?: number };
       schedule?: { trading_days?: string[]; start_time?: string; end_time?: string; timezone?: string };
     }) => request(`/builder/strategies/${id}/deploy`, { method: 'POST', body: data }),
@@ -603,6 +605,33 @@ export const api = {
     getTemplate: (key: string) => request(`/builder/templates/${key}`),
     import: (data: Record<string, unknown>) => request('/builder/import', { method: 'POST', body: data }),
     export: (id: string, format?: string) => request(`/builder/strategies/${id}/export${format ? `?format=${format}` : ''}`),
+  },
+
+  // ── Auto Trading runtime v1.0 ─────────────────────────────────────────
+  runtime: {
+    deploy: (id: string, data: {
+      symbol?: string; exchange?: string; interval?: string; timeframes?: string[];
+      mode?: string; is_paper?: boolean; broker?: string; account?: string; confirm_live?: boolean;
+      trigger?: string; warmup?: boolean; quantity?: number;
+      max_positions?: number; max_risk_per_trade?: number; max_daily_trades?: number;
+      variables?: Record<string, unknown>;
+    }) => request(`/runtime/deploy`, { method: 'POST', body: { strategy_id: id, ...data } }),
+    status: (id: string) => request(`/runtime/${id}/status`),
+    strategies: () => request(`/runtime/strategies`),
+    accounts: () => request(`/runtime/accounts`),
+    health: () => request(`/runtime/health`),
+    stop: (id: string) => request(`/runtime/${id}/stop`, { method: 'POST' }),
+    pause: (id: string) => request(`/runtime/${id}/pause`, { method: 'POST' }),
+    resume: (id: string) => request(`/runtime/${id}/resume`, { method: 'POST' }),
+    restart: (id: string) => request(`/runtime/${id}/restart`, { method: 'POST' }),
+    evaluate: (id: string) => request(`/runtime/${id}/evaluate`, { method: 'POST' }),
+    reconcile: (id: string) => request(`/runtime/${id}/reconcile`, { method: 'POST' }),
+    emergencyStop: (id?: string, reason = 'Kill switch from dashboard') =>
+      id
+        ? request(`/runtime/${id}/emergency-stop`, { method: 'POST', body: { reason } })
+        : request(`/runtime/emergency`, { method: 'POST', body: { reason } }),
+    release: () => request(`/runtime/emergency/release`, { method: 'POST' }),
+    pauseAll: () => request(`/runtime/pause-all`, { method: 'POST' }),
   },
 
   userStrategies: {

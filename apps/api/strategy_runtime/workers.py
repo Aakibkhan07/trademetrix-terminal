@@ -344,12 +344,79 @@ class StrategyWorker:
             return signal
 
     # -- orders --------------------------------------------------------------
+    async def _enforce_order_limits(self, order: Any) -> tuple[bool, str, str]:
+        """Auto Trading v1.0 pre-order risk gates (fail-safe by design).
+
+        1. kill switch / emergency stop re-check (right before the order)
+        2. max_daily_trades — calendar-day counter, persists across restarts
+           via the checkpointed record stats
+        3. max_positions — open-position cap for the strategy symbol
+        4. max_risk_per_trade — notional exposure cap per order
+
+        Exits (sell / exit sides) are never blocked by position/exposure
+        limits — closing is always allowed.
+        """
+        from strategy_runtime.mode import ModeGuardError, assert_orders_allowed
+
+        try:
+            await assert_orders_allowed(self.spec.user_id)
+        except ModeGuardError as e:
+            return False, str(e), e.code
+
+        today = datetime.now(UTC).date().isoformat()
+        stats = self.record.stats
+        if stats.get("daily_trades_date") != today:
+            stats["daily_trades_date"] = today
+            stats["daily_trades"] = 0
+        if self.spec.max_daily_trades > 0 and stats.get("daily_trades", 0) >= self.spec.max_daily_trades:
+            return False, f"Max daily trades reached ({self.spec.max_daily_trades})", "MAX_DAILY_TRADES"
+
+        side = str(getattr(order, "side", "") or "").upper()
+        is_entry = side in ("BUY", "LONG")
+        if not is_entry:
+            return True, "", ""
+
+        if self.spec.max_positions > 0:
+            try:
+                from execution_engine.positions import position_manager
+
+                positions = await position_manager.get_positions(self.spec.user_id, self.spec.broker or "paper") or []
+                open_for_symbol = [p for p in positions
+                                   if str(getattr(p, "symbol", "")).upper() == str(order.symbol).upper()
+                                   and float(getattr(p, "quantity", 0) or 0) > 0]
+                if len(open_for_symbol) >= self.spec.max_positions:
+                    return False, f"Max positions reached ({self.spec.max_positions})", "MAX_POSITIONS"
+            except Exception as e:
+                logger.warning("Position check failed (fail-open) for %s: %s", self.spec.strategy_id, e)
+
+        if self.spec.max_risk_per_trade > 0:
+            price = self._last_price or 0.0
+            notional = float(order.quantity) * price
+            if notional > self.spec.max_risk_per_trade:
+                return False, (
+                    f"Notional exposure {notional:.2f} exceeds max per trade "
+                    f"{self.spec.max_risk_per_trade:.2f}"
+                ), "MAX_EXPOSURE"
+        return True, "", ""
+
     async def _execute_orders(self, signal: Any) -> None:
         from engine.gate import execute_order
         from strategy_runtime.manager import _publish_runtime_event
 
         stats = self.record.stats
         for order in signal.orders:
+            allowed, reason, code = await self._enforce_order_limits(order)
+            if not allowed:
+                stats["orders_rejected"] += 1
+                self.record.last_error = reason[:500]
+                logger.warning("Order blocked for %s: %s (%s)", self.spec.strategy_id, reason, code)
+                await self._audit(
+                    "rejection",
+                    f"Order blocked: {reason}",
+                    level="warning",
+                    detail={"symbol": order.symbol, "code": code, "reason": reason[:300]},
+                )
+                continue
             try:
                 order.strategy_id = self.spec.strategy_id
                 order.is_paper = self.spec.is_paper
@@ -371,6 +438,8 @@ class StrategyWorker:
                 continue
             if result and result.success:
                 stats["orders_placed"] += 1
+                if stats.get("daily_trades_date") == datetime.now(UTC).date().isoformat():
+                    stats["daily_trades"] = stats.get("daily_trades", 0) + 1
                 if (result.status or "").lower() in ("filled", "complete", "traded"):
                     stats["orders_filled"] += 1
                 await self._audit(

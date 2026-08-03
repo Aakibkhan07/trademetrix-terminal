@@ -53,6 +53,7 @@ export default function StrategiesPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [running, setRunning] = useState<RuntimeEntry[]>([])
+  const [killBusy, setKillBusy] = useState('')
 
   const loadDashboard = async () => {
     try {
@@ -85,6 +86,40 @@ export default function StrategiesPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  const handleEmergencyStop = async () => {
+    if (!window.confirm('EMERGENCY STOP: halt every running strategy for your account now?')) return
+    setKillBusy('halting')
+    try {
+      await api.runtime.emergencyStop()
+      await loadDashboard()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Emergency stop failed')
+    } finally {
+      setKillBusy('')
+    }
+  }
+
+  const handleRelease = async () => {
+    if (!window.confirm('Release the emergency stop? Strategies will pause-only; resume manually.')) return
+    setKillBusy('releasing')
+    try {
+      await api.runtime.release()
+      await loadDashboard()
+    } finally {
+      setKillBusy('')
+    }
+  }
+
+  const handleRowEmergency = async (id: string) => {
+    if (!window.confirm(`Emergency stop the running strategy ${id}?`)) return
+    try {
+      await api.runtime.emergencyStop(id, 'Emergency stop from strategies dashboard')
+      await loadDashboard()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Emergency stop failed')
+    }
+  }
 
   const handleCreate = async () => {
     if (!name.trim()) return
@@ -194,14 +229,25 @@ export default function StrategiesPage() {
                 <h3 className="t-panel-title" style={{ fontSize: 15 }}>Execution Dashboard</h3>
                 <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>{running.length} running</span>
               </div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <button className="t-btn t-btn-sm t-btn-danger" onClick={handleEmergencyStop} disabled={!!killBusy} style={{ fontSize: 10 }}>
+                  {killBusy === 'halting' ? 'Halting…' : '🛑 Emergency Stop (all)'}
+                </button>
+                <button className="t-btn t-btn-sm" onClick={handleRelease} disabled={!!killBusy} style={{ fontSize: 10 }}>
+                  {killBusy === 'releasing' ? 'Releasing…' : '◆ Release Emergency Stop'}
+                </button>
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {running.map((r) => (
                   <div key={r.strategy_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
                     <span className={`t-badge ${r.health === 'ok' ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 9, flexShrink: 0 }}>
                       {r.health === 'ok' ? '● Healthy' : '● Degraded'}
                     </span>
+                    <span className={`t-badge ${r.mode === 'live' ? 't-badge-green' : 't-badge-cyan'}`} style={{ fontSize: 9, flexShrink: 0, textTransform: 'uppercase' }}>
+                      {(r.mode || 'paper')}
+                    </span>
                     <span style={{ fontSize: 12, fontWeight: 700 }}>{r.symbol || '—'}</span>
-                    <span className="t-faint" style={{ fontSize: 10 }}>{r.interval || '—'} · {r.mode || 'paper'}</span>
+                    <span className="t-faint" style={{ fontSize: 10 }}>{r.interval || '—'}</span>
                     <span style={{ flex: 1 }} />
                     <Stat label="Candles" value={r.candles} />
                     <Stat label="Signals" value={r.signals} />
@@ -212,6 +258,9 @@ export default function StrategiesPage() {
                     <span style={{ fontSize: 11, fontWeight: 700, color: (r.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
                       {(r.pnl || 0) >= 0 ? '+' : ''}{r.pnl?.toFixed(2)}
                     </span>
+                    <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleRowEmergency(r.strategy_id)} style={{ fontSize: 10 }}>
+                      Emergency
+                    </button>
                     <Link href={`/strategies/builder?id=${r.strategy_id}`} className="t-btn t-btn-sm" style={{ fontSize: 10 }}>Open</Link>
                   </div>
                 ))}

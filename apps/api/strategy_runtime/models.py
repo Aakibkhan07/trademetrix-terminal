@@ -58,13 +58,14 @@ class StrategySpec(BaseModel):
     is_paper: bool = True
     broker: str = ""
     account: str = ""
+    confirmed: bool = False  # explicit LIVE confirmation gate (Auto Trading v1.0)
     trigger: StrategyTrigger = StrategyTrigger.CANDLE_CLOSE
     cron_expression: str = ""
     warmup: bool = True
     quantity: int = 75
-    max_positions: int = 1
-    max_risk_per_trade: float = 0.0
-    max_daily_trades: int = 0
+    max_positions: int = 0  # 0 = unlimited
+    max_risk_per_trade: float = 0.0  # 0 = unlimited notional exposure per order
+    max_daily_trades: int = 0  # 0 = unlimited
     variables: dict[str, Any] = Field(default_factory=dict)
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
