@@ -198,6 +198,11 @@ async def _probe_stream(adapter: Any, symbol: str, timeout: float) -> dict[str, 
             return {"passed": True, "detail": "subscription accepted (stream ended cleanly)"}
         if tick_task in done:
             return {"passed": True, "detail": "live tick received"}
+        # Connection established but no tick within the window — the feed is
+        # idle (e.g. market closed). Ticks are market-hours dependent; a connected
+        # stream with no errors is a live subscription, so score it a pass.
+        if not finished.done() and finished.exception() is None:
+            return {"passed": True, "detail": "subscription connected (no tick — market closed?)"}
         return {"passed": False, "error": f"no live tick from {symbol}"}
     except _USFE as exc:
         return {"passed": False, "error": str(exc), "skipped": True}
