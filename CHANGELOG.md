@@ -1,3 +1,104 @@
+## v1.5.7 (2026-08-04) — POSITIONS 0.00 FIX: map fyers v3 position fields (real root cause)
+
+> Follow-up to v1.5.5/v1.5.6: the portfolio/terminal positions still showed **0.00** P&L and
+> empty averages even for *today's* real trades. Root cause was **backend**: the fyers v3
+> `/api/v3/positions` API renamed its fields — `avgBuyPrice/avgSellPrice/unrealised/realised`
+> are **null in v3**; the real data lives in `buyAvg/sellAvg/pl/realized_profit/
+> unrealized_profit/netQty`. `FyersAdapter._normalize_position` read the null v2 names → every
+> live position normalized to `quantity 0 / avg 0.0 / pnl 0.0` (proved via raw in-container
+> probe of the v3 payload, user `fa668109`). The v1.5.6 frontend guard was necessary but not
+> sufficient — this closes the loop at the source.
+
+### Fixed (`apps/api/brokers/fyers_adapter.py`)
+- **`_normalize_position`** — reads v3 fields with v2 fallbacks: `buyAvg`→`average_buy_price`,
+  `sellAvg`→`average_sell_price`, `netQty`→`quantity`; `unrealised_pnl` = `unrealized_profit`
+  (fallback `pl` for open positions), `realised_pnl` = `realized_profit` (fallback `pl` for
+  closed positions), `m2m` = `pl`. Previously all `avgBuyPrice`-style names → zeros.
+- **Exchange preserved** — `BSE:`-prefixed symbols now map to `Exchange.BSE` (was hardcoded
+  `Exchange.NSE` + prefix dropped, so BSE options lost their exchange).
+- **Product mapped** — `productType` `MARGIN` → `ProductType.NRML` (was hardcoded INTRADAY).
+- **`_parse_instrument` compact options** — fyers v3 compact symbols (`NIFTY2680424450PE` =
+  yymdd + strike, `SENSEX2680679000CE` = strike 79000, expiry 2026-08-06) now parse to
+  `OPT`/strike/expiry instead of falling to EQ. Alpha format (`NIFTY26AUG24450CE`) unchanged.
+
+### Verification
+- New tests `tests/test_broker_fyers.py`: `test_get_positions_v3_fields` (open MARGIN + closed
+  BSE position with real v3 payload → avg 116.1 / realised 2915.25 / NRML / OPT / strikes /
+  expiry) + `test_parse_instrument_compact_numeric_options` — **15 passed**; full suite
+  **864 passed, 1 xfailed** (+2).
+- Hot-deployed to prod API (`docker cp` + restart, health 200); in-container probe via
+  `_authenticate_adapter` → **5 real positions**: open `SENSEX2680679000CE` qty 20 avg 116.1
+  unrealised −192, closed `NIFTY2680424500PE` realised +2915.25, `NIFTY2680424600CE` −575.25,
+  `SENSEX2680677500PE` −884, `NIFTY2680424450PE` −1287 — matches fyers `overall`
+  (`pl_realized 169 / pl_unrealized −192`).
+- `/engine/positions` route probe → same real values (BSE exchange, NRML, OPT metadata).
+- Browser smoke on prod (puppeteer, mocked real payload shapes): open position shows **−192**
+  unrealised (not 0.00), closed shows **+2915.25** / **−575** realised, Unrealised·Realised
+  totals present, 0 console errors — **7/7 OK**. Smoke user (`tmv3*`) deleted.
+
+## v1.5.6 (2026-08-04) — PORTFOLIO 0.00 FIX: fall back to broker P&L when no live quote
+
+> Follow-up to v1.5.5: the portfolio/terminal positions still showed **0.00** P&L for symbols
+> the live quote cannot price. Root cause: the quote poll returns `last_price: 0` for symbols
+> Yahoo can't resolve (custom option formats like `SENSEX2680677500PE` / `NIFTY2680424450PE` —
+> confirmed via in-container probe: `/marketdata/quote` → `{last_price:0, close:0}`), and
+> `positionQuote` treated that as a *valid* quote → P&L computed `qty × (0 − avg) = 0.00`
+> instead of using the broker's `unrealised_pnl`. **A quote/tick is only valid when
+> `last_price > 0`.** Also hardened the Today's P&L `unrealisedPnl` memo to the same rule.
+
+### Fixed
+- **`apps/web/app/portfolio/page.tsx`** — `positionQuote` and the `unrealisedPnl` memo now
+  require `last_price > 0` before treating a tick/quote as authoritative; otherwise fall back
+  to the position's own `unrealised_pnl` / `realised_pnl`.
+- **`apps/web/app/terminal/page.tsx`** — identical guard for `positionQuote` and
+  `quoteForTicket` (terminal had the same latent bug for zero-quotable symbols).
+
+### Verification
+- In-container probe (user `fa668109`): `/engine/positions` → 5 rows all in the
+  `SENSEX2680677500PE`-style format with `quantity:0 avg:0 pnl:0`; `/marketdata/quote` returns
+  `last_price 0 / close 0` for all 5 → previously rendered as P&L 0.00.
+- Browser smoke on prod (puppeteer, mocked zero-quote positions): open position with broker
+  `unrealised_pnl=+500` shows **+500** (not 0.00), closed position shows +500 realised,
+  no fabricated `+0%`, 0 console errors — **5/5 OK**.
+- Web `tsc` + `next build` clean; deployed `.next` (BUILD_ID `wn34X_4_dOkAyST4mlg6Y`),
+  `/portfolio` + `/` 200. Smoke user (`tmzero*`) deleted.
+- API untouched (862 passed, 1 xfailed baseline).
+
+## v1.5.5 (2026-08-04) — PORTFOLIO: rich positions (open + closed today) + trade history
+
+> Beta feedback fix (allowed under feature freeze): the portfolio page only showed a minimal
+> Open Positions table (symbol/qty/avg/LTP/P&L) with no closed-positions view, no per-position
+> buy/sell detail, no change% / P&L% columns, and no trade history. Everything needed was already
+> returned by `/engine/positions` (`buy_quantity/sell_quantity/average_sell_price/realised_pnl/
+> m2m`) and `/engine/orders` (filled orders) — **frontend-only change**, same data sources the
+> terminal already used.
+> - **Positions panel** — upgraded to the terminal's rich layout: split into **Open Positions**
+>   (Symbol/Qty/Buy/LTP/**Chg%**/Unrealised P&L + pnl%) and **Closed Today** (Buy Qty/Avg Buy/
+>   Avg Sell/Realised P&L), with an Unrealised · Realised total in the panel header. Live change% /
+>   LTP come from the WS tick first, else a 5s quote poll of the position symbols (`usePolling`),
+>   else the broker's own P&L fields.
+> - **Trade History panel (new)** — the 20 most recent **executed (FILLED)** orders: Symbol/Side/
+>   Qty/Price/Time with an executed-count in the header. Recent Orders (all statuses) kept below it.
+
+### Changed
+- **`apps/web/app/portfolio/page.tsx`** — extended `Position` interface (buy/sell qty, avg sell,
+  realised pnl, m2m); added `TickData`/`usePolling` imports, `QuoteData` state, position-symbol
+  WS subscription, `refreshQuotes` + `positionQuote` helpers; split positions open/closed; new
+  Trade History table of FILLED orders.
+
+### Verification
+- Web `tsc --noEmit` clean; `next build` (`.env.production`) clean.
+- Browser smoke on prod (puppeteer, real signup, mocked `/engine/positions` + `/engine/orders`
+  via fetch override — new rows flow through the same react-query hooks): **18/18 OK** —
+  Positions (3): Open (2) header + rows `NIFTY50-INDEX`/`RELIANCE-EQ`/`NIFTY26AUGFUT`, Closed
+  Today (1), chg% column (`-0.32%`), pnl% cell, realised `+6000` on the closed row; Trade
+  History "2 executed" with BUY + SELL fills; Recent Orders PENDING + PAPER badge intact; 0
+  console errors (only the known anonymous `/auth/me` 401 filtered).
+- Deployed web `.next` tar → stopped container → `chown -R 1001` → restart: `✓ Ready`,
+  `/portfolio` + `/` 200, new BUILD_ID served. Smoke user (`tmport*`) + 4 leftover
+  `tmchgpct*` test users deleted from GoTrue.
+- API untouched (862 passed, 1 xfailed baseline unchanged).
+
 ## v1.5.4 (2026-08-04) — FEED FIX: real change% on every tick + live streaming for typed symbols
 
 > Beta feedback fix (allowed under feature freeze): the terminal's change% showed **0.00** for

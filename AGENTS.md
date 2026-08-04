@@ -3,6 +3,125 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-04 — Positions 0.00 FIX — backend root cause: fyers v3 position field mapping (v1.5.7)
+
+### What was done
+1. **The real root cause of 0.00** — v1.5.5/v1.5.6 were frontend-only; user STILL saw 0.00 and
+   "today's positions not visible". Raw in-container probe of the fyers v3 `/api/v3/positions`
+   payload (user `fa668109`) proved it: **v3 renamed the position fields** — `avgBuyPrice/
+   avgSellPrice/unrealised/realised` are **null** in v3; real data is in `buyAvg`/`sellAvg`/
+   `pl`/`realized_profit`/`unrealized_profit`/`netQty`/`ltp`/`productType:"MARGIN"`/`symbol`
+   with `NSE:`/`BSE:` prefix. `FyersAdapter._normalize_position` read the null v2 names → every
+   live position normalized to `quantity 0 / avg 0.0 / pnl 0.0`.
+2. **Fix** (`apps/api/brokers/fyers_adapter.py`): `_normalize_position` maps v3 fields with v2
+   fallbacks (`buyAvg`→avg_buy, `sellAvg`→avg_sell, `unrealized_profit`→unrealised (else `pl`
+   if netQty≠0), `realized_profit`→realised (else `pl` if netQty==0), `m2m`=`pl`);
+   `Exchange.BSE` preserved from `BSE:` prefix (was hardcoded NSE); `productType MARGIN` →
+   `ProductType.NRML` (was hardcoded INTRADAY); `_parse_instrument` gained the compact numeric
+   option format `{underlying}{yy}{m}{dd}{strike}{CE|PE}` (`NIFTY2680424450PE` → strike 24450,
+   expiry 2026-08-04; `SENSEX2680679000CE` → 79000, 2026-08-06) before the alpha-format regex.
+3. **Tests** — `tests/test_broker_fyers.py` `test_get_positions_v3_fields` (real v3 payload:
+   open BSE MARGIN + closed NSE position → avgs/realised/unrealised/m2m/product/exchange/OPT/
+   strikes/expiry) + `test_parse_instrument_compact_numeric_options`. **15 passed; suite 864
+   passed, 1 xfailed (+2).**
+4. **Deploy + probe** — `docker cp` adapter → `docker restart` → health 200. In-container probe
+   via `_load_adapter/_resolve_credentials/_authenticate_adapter` (note `_resolve_credentials`
+   takes **(broker, user_id)** — reversed args → PG 22P02 "invalid input syntax for uuid"!)
+   → 5 REAL positions (open SENSEX −192, closed NIFTY +2915.25/−575/−884/−1287) matching the
+   v3 `overall` block. `/engine/positions` route probe → same real values.
+5. **Browser smoke on prod** (puppeteer, `p0e2e/e2e-v3-fix.js`, mocked real payload shapes):
+   open position shows −192 unrealised (NOT 0.00), closed +2915.25 / −575, totals panel, 0
+   console errors — **7/7 OK**. `tmv3*` smoke user deleted (25 → 24 users).
+6. **Docs** — CHANGELOG v1.5.7 entry; this AGENTS.md entry.
+
+### Reference
+- **fyers v3 positions API is the source of truth**: `netPositions[]` with `buyAvg, sellAvg,
+  netAvg, buyQty, sellQty, netQty, qty, pl, realized_profit, unrealized_profit, ltp,
+  productType, symbol("NSE:"/"BSE:"), id ("<sym>-MARGIN")`; `overall{count_open, count_total,
+  pl_realized, pl_unrealized, pl_total}`. v2 names are null in v3 — never map them directly.
+- Probe pattern: `_load_adapter(broker)` → `_resolve_credentials(broker, user_id)` (**order:
+  broker first**) → `_authenticate_adapter(adapter, cred)` → adapter calls (raw REST via
+  `adapter._http.request(...)` needs the Authorization header set by authenticate first).
+- `decrypt_broker_credentials` works in-container (Fernet key in `/app/.env`); client_id
+  decrypts from `encrypted_api_key` (`PKL4EMD8ML-200`), token from `encrypted_access_token`.
+- User `fa668109` (test account XA24350) is the live fyers tester whose positions drove this
+  fix; token valid until 2026-08-05 00:30 UTC (watchdog re-auth flow applies).
+- Compact option decode: `NIFTY2680424450PE` = yy 26, m 8 (single digit), dd 04, strike 24450,
+  PE; `SENSEX2680679000CE` = 2026-08-06, strike 79000. yymmdd (6-digit) tried first, validated
+  (month 1–12, day 1–31), then yymdd (5-digit).
+
+## Session: 2026-08-04 — Portfolio zero-quote 0.00 fix (v1.5.6)
+
+### What was done
+1. **Follow-up to v1.5.5** — user still saw **0.00** P&L in positions. Root cause: the quote poll
+   returns `{last_price:0, close:0}` for symbols Yahoo can't resolve — the user's real symbols
+   ARE a custom option format (`SENSEX2680677500PE`, `NIFTY2680424450PE` etc., confirmed by an
+   in-container probe: `/marketdata/quote` → 0/0 for all 5; `/engine/positions` returned them
+   with `quantity:0, avg:0, pnl:0`). `positionQuote` treated the zero object as a valid quote →
+   P&L = `qty × (0 − avg)` = 0.00 instead of the broker's `unrealised_pnl`.
+2. **Fix** (`apps/web/app/portfolio/page.tsx` + `apps/web/app/terminal/page.tsx`): `positionQuote`
+   and the `unrealisedPnl` memo now require **`last_price > 0`** before using a tick/quote as
+   authoritative; otherwise fall back to the position's `unrealised_pnl`/`realised_pnl`. Terminal's
+   `quoteForTicket` got the same guard (same latent bug).
+3. **Deploy** — `tsc` + `next build` clean; `.next` tar → stopped container → `docker cp` →
+   `docker start` → `chown -R 1001` → `✓ Ready`, `/portfolio` + `/` 200, BUILD_ID
+   `wn34X_4_dOkAyST4mlg6Y` matches local.
+4. **Browser smoke on prod** (puppeteer, mocked zero-quote positions): open position with broker
+   `unrealised_pnl=+500` shows **+500**, closed shows +500 realised, no `+0%`, 0 console errors —
+   **5/5 OK**. Smoke user (`tmzero*`) deleted.
+
+### Reference
+- **Zero-quote guard rule**: never treat a quote/tick as authoritative unless `last_price > 0`.
+  This is the second place the "0.00 vs broker P&L" bug lived (first was feed `litemode` in
+  v1.5.4). Any symbol Yahoo can't parse returns 0/0 and must fall back to broker fields.
+- Probe gotcha: the user symbols aren't fyers-native either — `SENSEX2680677500PE` /
+  `NIFTY2680424500PE` (Yahoo 0/0). Real fyers positions use `NSE:NIFTY26AUG24450CE`-style.
+
+## Session: 2026-08-04 — Portfolio fix (v1.5.5): rich positions (open + closed today) + trade history
+
+### What was done
+1. **Frontend-only** (`apps/web/app/portfolio/page.tsx`) — the portfolio page only showed a
+   minimal Open Positions table (symbol/qty/avg/LTP/P&L) with no closed-positions view, no
+   buy/sell detail, no change% / P&L% columns, and no trade history. All data was already
+   returned by `/engine/positions` (`buy_quantity/sell_quantity/average_sell_price/
+   unrealised_pnl/realised_pnl/m2m` via `PortfolioPosition`) and `/engine/orders` (FILLED rows).
+   **No API change.**
+2. **Positions panel** — upgraded to the terminal's rich layout: **Open Positions**
+   (Symbol/Qty/Buy/LTP/Chg%/Unrealised P&L + pnl%) + **Closed Today** (Buy Qty/Avg Buy/Avg
+   Sell/Realised P&L), with an Unrealised · Realised total in the panel header. Live change% /
+   LTP = WS tick first (`Tick.change_pct`), else 5s `usePolling` of `GET /marketdata/quote`
+   (positions symbols are also WS-subscribed), else broker's own P&L fields. Mirrors
+   `terminal/page.tsx` `positionQuote`/`refreshQuotes` exactly.
+3. **Trade History panel (new)** — the 20 most recent **FILLED** orders: Symbol/Side/Qty/Price/
+   Time with an "N executed" header count. **Recent Orders** (all statuses) kept beside it.
+4. **Deploy** — `tsc` clear, `next build` (`.env.production` swap + restore) clear; tar `.next`
+   → VPS → **stop container → `docker cp` → `docker start` → `chown -R 1001 /app/.next`**
+   (the name form `chown nextjs:nextjs` FAILS with "unknown user/group" — use the numeric uid
+   1001; `docker exec … chown` only works while the container RUNS, do it AFTER `docker start`).
+   Verified: `✓ Ready`, `/portfolio` + `/` 200, new BUILD_ID served.
+5. **Browser smoke on prod** (puppeteer, `/tmp/tmx_portfolio_shots/`): real signup + mocked
+   `/engine/positions` + `/engine/orders` via `evaluateOnNewDocument` `window.fetch` override
+   (positions/orders never empty for a fresh user) — **18/18 OK**: Open (2) header + rows
+   NIFTY50-INDEX/RELIANCE-EQ/NIFTY26AUGFUT, Closed Today (1) with realised +6000, chg% column,
+   pnl% cell, Unrealised/Realised totals; Trade History "2 executed" with BUY + SELL; Recent
+   Orders PENDING + PAPER badge intact; 0 console errors (anonymous `/auth/me` 401 filtered).
+   Cleanup: `tmport*` smoke user + 4 leftover `tmchgpct*` deleted via GoTrue admin
+   (`SUPABASE_SERVICE_KEY` in container env, NOT `SUPABASE_SERVICE_ROLE_KEY` — the latter is
+   absent, an empty key silently 401s the users list!).
+6. **Docs** — CHANGELOG v1.5.5 entry; this AGENTS.md entry.
+
+### Reference
+- Portfolio positions derive: `openPositions = positions.filter(p => p.quantity !== 0)`,
+  `closedPositions = positions.filter(p => p.quantity === 0)`; closed rows use
+  `buy_quantity || sell_quantity` for qty.
+- Change% chain on portfolio: `positionQuote(p)` = tick `change_pct` if present → quote-poll
+  `change_pct` → undefined (fall back to `p.unrealised_pnl`).
+- GoTrue admin users list key: `SUPABASE_SERVICE_KEY` (grep the container env). Old `tmchgpct*`
+  users lingered because the v1.5.4 smoke cleanup only ran on success — always sweep
+  `tmport*/tmchgpct*/tmsmoke*` after any smoke run.
+- Web deploy chown: `docker exec -u root … chown -R 1001 /app/.next` (numeric uid — the
+  `nextjs:nextjs` name form errors "unknown user/group" in this image).
+
 ## Session: 2026-08-04 — Feed fix (v1.5.4): real change% on every tick + live streaming for typed symbols
 
 ### What was done

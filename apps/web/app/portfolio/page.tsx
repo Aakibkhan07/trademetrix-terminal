@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useMarketData } from '@/lib/use-market-data'
+import { useMarketData, type TickData } from '@/lib/use-market-data'
+import { usePolling } from '@/lib/use-polling'
 import { useOrders, usePositions } from '@/lib/queries/orders'
 import { useBrokerCredentials } from '@/lib/queries/misc'
 import { api } from '@/lib/api'
@@ -17,9 +18,14 @@ interface Order {
   created_at: string; is_paper: boolean
 }
 interface Position {
-  symbol: string; quantity: number; average_buy_price: number
-  unrealised_pnl: number; product: string; instrument_type: string
+  symbol: string; exchange: string; quantity: number
+  buy_quantity: number; sell_quantity: number
+  average_buy_price: number; average_sell_price: number
+  unrealised_pnl: number; realised_pnl: number; m2m: number
+  product: string; instrument_type: string
 }
+
+interface QuoteData { last_price: number; close: number; change_pct: number | null }
 interface Credential {
   id: string; broker: string; is_active: boolean
   token_status?: string; token_expires_at?: string; created_at: string
@@ -56,12 +62,55 @@ export default function PortfolioPage() {
   const [watchItems, setWatchItems] = useState<WatchItem[]>([])
   const [customItems, setCustomItems] = useState<WatchItem[]>([])
   const [now, setNow] = useState<Date | null>(null)
+  const [quotes, setQuotes] = useState<Record<string, QuoteData>>({})
 
   useEffect(() => { setNow(new Date()) }, [])
 
   const orders = (ordersData as { orders?: Order[] } | undefined)?.orders || []
   const positions = (positionsData as { positions?: Position[] } | undefined)?.positions || []
   const credentials = (credsData as { credentials?: Credential[] } | undefined)?.credentials || []
+
+  const tickChangePct = (t: TickData) => (typeof t.change_pct === 'number' ? t.change_pct : null)
+
+  const refreshQuotes = async () => {
+    const syms = Array.from(new Set(positions.map(p => p.symbol).filter(Boolean)))
+    if (!syms.length) return
+    try {
+      const res: any = await api.marketdata.quote(syms)
+      const arr = Array.isArray(res) ? res : [res]
+      const next: Record<string, QuoteData> = {}
+      for (const r of arr) {
+        if (!r?.symbol) continue
+        const lp = Number(r.last_price || 0)
+        const pc = Number(r.close || 0)
+        next[r.symbol] = {
+          last_price: lp,
+          close: pc,
+          change_pct: pc > 0 && lp > 0 ? ((lp - pc) / pc) * 100 : null,
+        }
+      }
+      setQuotes(prev => ({ ...prev, ...next }))
+    } catch { /* quote poll failures are non-fatal */ }
+  }
+
+  const positionQuote = (p: Position) => {
+    const t = ticks[p.symbol]
+    const q = quotes[p.symbol]
+    if (t && t.last_price > 0) {
+      const pct = tickChangePct(t)
+      if (pct !== null) return { last_price: t.last_price, change_pct: pct }
+      if (q && q.last_price > 0) return { last_price: t.last_price, change_pct: q.change_pct }
+      return { last_price: t.last_price, change_pct: null }
+    }
+    return q && q.last_price > 0 ? { last_price: q.last_price, change_pct: q.change_pct } : undefined
+  }
+
+  useEffect(() => {
+    const syms = positions.map(p => p.symbol).filter(Boolean)
+    if (syms.length) subscribe(syms)
+  }, [positions, subscribe])
+
+  usePolling(refreshQuotes, 5000)
 
   useEffect(() => {
     let cancelled = false
@@ -80,9 +129,9 @@ export default function PortfolioPage() {
   }, [subscribe])
 
   const unrealisedPnl = useMemo(() => positions.reduce((s, p) => {
-    const live = ticks[p.symbol]
-    return s + (live ? p.quantity * (live.last_price - p.average_buy_price) : p.unrealised_pnl || 0)
-  }, 0), [positions, ticks])
+    const q = positionQuote(p)
+    return s + (q ? p.quantity * (q.last_price - p.average_buy_price) : p.unrealised_pnl || 0)
+  }, 0), [positions, ticks, quotes])
 
   const realisedToday = useMemo(() => {
     const today = new Date().toDateString()
@@ -103,6 +152,16 @@ export default function PortfolioPage() {
 
   const todayPnl = unrealisedPnl + realisedToday
   const todayFills = orders.filter(o => new Date(o.created_at).toDateString() === new Date().toDateString()).length
+
+  const openPositions = positions.filter(p => p.quantity !== 0)
+  const closedPositions = positions.filter(p => p.quantity === 0)
+  const totalUnrealised = openPositions.reduce((s, p) => s + (p.unrealised_pnl || 0), 0)
+  const totalRealised = positions.reduce((s, p) => s + (p.realised_pnl || 0), 0)
+
+  const trades = orders
+    .filter(o => o.status === 'FILLED' && o.filled_quantity > 0)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 20)
 
   const watchRows = useMemo(() => {
     const customSymbols = new Set(customItems.map(i => i.symbol))
@@ -247,7 +306,127 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="t-panel" style={{ padding: 0 }}>
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Positions ({positions.length})</h3>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span className="t-faint" style={{ fontSize: 10 }}>
+                Unrealised <b style={{ color: totalUnrealised >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>{totalUnrealised >= 0 ? '+' : ''}{totalUnrealised.toFixed(0)}</b>
+                {' · '}Realised <b style={{ color: totalRealised >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>{totalRealised >= 0 ? '+' : ''}{totalRealised.toFixed(0)}</b>
+              </span>
+            </div>
+          </div>
+          {positions.length > 0 ? (
+            <div className="t-table-wrap" style={{ maxHeight: 320, overflowY: 'auto' }}>
+              {openPositions.length > 0 && (
+                <>
+                  <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Open Positions ({openPositions.length})
+                    </span>
+                  </div>
+                  <table className="t-table">
+                    <thead>
+                      <tr>
+                        <th>Symbol</th><th className="num">Qty</th><th className="num">Buy</th>
+                        <th className="num">LTP</th><th className="num">Chg%</th><th className="num">Unrealised P&L</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {openPositions.map(p => {
+                        const q = positionQuote(p)
+                        const ltp = q?.last_price || p.average_buy_price || 0
+                        const pnl = q ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
+                        const chg = q?.change_pct ?? null
+                        const base = p.quantity * p.average_buy_price
+                        const pnlPct = base !== 0 ? (pnl / base) * 100 : 0
+                        return (
+                          <tr key={p.symbol}>
+                            <td style={{ fontWeight: 600, fontSize: 12 }}>{shortSymbol(p.symbol)}</td>
+                            <td className="t-num">{p.quantity}</td>
+                            <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
+                            <td className="t-num">{ltp > 0 ? ltp.toFixed(1) : '—'}</td>
+                            <td className={`t-num ${chg !== null && chg !== undefined ? (chg >= 0 ? 't-up' : 't-down') : ''}`}>
+                              {chg !== null && chg !== undefined ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}
+                            </td>
+                            <td className={`t-num ${(pnl || 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
+                              {(pnl || 0) >= 0 ? '+' : ''}{(pnl || 0).toFixed(0)}
+                              <span className="t-faint" style={{ fontSize: 9, marginLeft: 4 }}>({(pnlPct >= 0 ? '+' : '')}{pnlPct.toFixed(1)}%)</span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </>
+              )}
+              {closedPositions.length > 0 && (
+                <>
+                  <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Closed Today ({closedPositions.length})
+                    </span>
+                  </div>
+                  <table className="t-table">
+                    <thead>
+                      <tr>
+                        <th>Symbol</th><th className="num">Buy Qty</th><th className="num">Avg Buy</th>
+                        <th className="num">Avg Sell</th><th className="num">Realised P&L</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {closedPositions.map(p => (
+                        <tr key={p.symbol}>
+                          <td style={{ fontWeight: 600, fontSize: 12 }}>{shortSymbol(p.symbol)}</td>
+                          <td className="t-num">{p.buy_quantity || p.sell_quantity || 0}</td>
+                          <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
+                          <td className="t-num">{(p.average_sell_price || 0).toFixed(1)}</td>
+                          <td className={`t-num ${(p.realised_pnl || 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
+                            {(p.realised_pnl || 0) >= 0 ? '+' : ''}{(p.realised_pnl || 0).toFixed(0)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="t-panel-body">
+              <p className="t-faint" style={{ fontSize: 12, margin: 0 }}>No positions yet — your open and closed positions will appear here.</p>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
+          <div className="t-panel" style={{ padding: 0 }}>
+            <div className="t-panel-header">
+              <h3 className="t-panel-title">Trade History</h3>
+              <span className="t-faint" style={{ fontSize: 10 }}>{trades.length} executed</span>
+            </div>
+            <div className="t-table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
+              <table className="t-table">
+                <thead>
+                  <tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Price</th><th>Time</th></tr>
+                </thead>
+                <tbody>
+                  {trades.map(o => (
+                    <tr key={o.id}>
+                      <td style={{ fontSize: 11, fontWeight: 600 }}>{shortSymbol(o.symbol)}</td>
+                      <td><span className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 700, fontSize: 10 }}>{o.side}</span></td>
+                      <td><span className="t-num">{o.filled_quantity}</span></td>
+                      <td><span className="t-num">{o.average_price ? fmt(o.average_price) : o.price ? fmt(o.price) : '-'}</span></td>
+                      <td><span className="t-faint" style={{ fontSize: 10 }}>{timeAgo(o.created_at)}</span></td>
+                    </tr>
+                  ))}
+                  {trades.length === 0 && (
+                    <tr><td colSpan={5} style={{ textAlign: 'center' }}><span className="t-faint">No trades yet</span></td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div className="t-panel" style={{ padding: 0 }}>
             <div className="t-panel-header"><h3 className="t-panel-title">Recent Orders</h3></div>
             <div className="t-table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
@@ -273,36 +452,6 @@ export default function PortfolioPage() {
                   ))}
                   {orders.length === 0 && (
                     <tr><td colSpan={6} style={{ textAlign: 'center' }}><span className="t-faint">No orders yet</span></td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="t-panel" style={{ padding: 0 }}>
-            <div className="t-panel-header"><h3 className="t-panel-title">Open Positions</h3></div>
-            <div className="t-table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
-              <table className="t-table">
-                <thead>
-                  <tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&L</th></tr>
-                </thead>
-                <tbody>
-                  {positions.map(p => {
-                    const live = ticks[p.symbol]
-                    const ltp = live?.last_price || p.average_buy_price
-                    const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
-                    return (
-                      <tr key={p.symbol}>
-                        <td style={{ fontSize: 11, fontWeight: 600 }}>{shortSymbol(p.symbol)}</td>
-                        <td><span className="t-num">{p.quantity}</span></td>
-                        <td><span className="t-num">{fmt(p.average_buy_price)}</span></td>
-                        <td><span className="t-num">{ltp ? fmt(ltp) : '-'}</span></td>
-                        <td><span className={`t-num ${pnl >= 0 ? 't-up' : 't-down'}`}>{pnl >= 0 ? '+' : '−'}₹{fmtMoney(Math.abs(pnl))}</span></td>
-                      </tr>
-                    )
-                  })}
-                  {positions.length === 0 && (
-                    <tr><td colSpan={5} style={{ textAlign: 'center' }}><span className="t-faint">No open positions</span></td></tr>
                   )}
                 </tbody>
               </table>

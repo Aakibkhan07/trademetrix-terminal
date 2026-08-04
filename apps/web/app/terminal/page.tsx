@@ -102,23 +102,23 @@ export default function TerminalPage() {
   const positionQuote = (p: Position) => {
     const t = ticks[p.symbol]
     const q = quoteFor(p.symbol)
-    if (t) {
+    if (t && t.last_price > 0) {
       const pct = tickChangePct(t)
       if (pct !== null) return { last_price: t.last_price, change_pct: pct }
-      if (q) return { last_price: t.last_price || q.last_price, change_pct: q.change_pct }
+      if (q && q.last_price > 0) return { last_price: t.last_price, change_pct: q.change_pct }
       return { last_price: t.last_price, change_pct: null }
     }
-    return q ? { last_price: q.last_price, change_pct: q.change_pct } : undefined
+    return q && q.last_price > 0 ? { last_price: q.last_price, change_pct: q.change_pct } : undefined
   }
 
   const quoteForTicket = () => {
     if (!symbol) return undefined
     const t = ticks[symbol]
     const q = quoteFor(symbol)
-    if (t) {
+    if (t && t.last_price > 0) {
       const pct = tickChangePct(t)
       if (pct !== null) return { last_price: t.last_price, change_pct: pct }
-      if (q && q.last_price > 0) return { last_price: t.last_price || q.last_price, change_pct: q.change_pct }
+      if (q && q.last_price > 0) return { last_price: t.last_price, change_pct: q.change_pct }
       return { last_price: t.last_price, change_pct: null }
     }
     return q && q.last_price > 0 ? { last_price: q.last_price, change_pct: q.change_pct } : undefined
