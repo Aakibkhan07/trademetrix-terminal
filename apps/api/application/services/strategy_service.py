@@ -10,6 +10,8 @@ from engine.strategy_compiler import compile_user_strategy, validate_user_strate
 
 logger = logging.getLogger(__name__)
 
+_CONFIG_FIELDS = ("entry_time", "overall_sl_type", "overall_sl_value", "overall_target_type", "overall_target_value")
+
 
 async def _resolve_market_data(index_symbol: str, user_id: str) -> tuple[float, dict]:
     """Fetch spot price and option chain for an index symbol, trying multiple sources."""
@@ -78,9 +80,10 @@ class StrategyService:
         )
         validate_user_strategy(strategy)
 
-        strategy_data = strategy.model_dump(exclude={"id", "legs", "created_at", "updated_at"})
+        strategy_data = strategy.model_dump(exclude={"id", "legs", "created_at", "updated_at", *_CONFIG_FIELDS})
         strategy_data["user_id"] = user.id
         strategy_data["days_of_week"] = f"{{{','.join(str(d) for d in (req.days_of_week or [1,2,3,4,5]))}}}"
+        strategy_data["config"] = {f: getattr(strategy, f) for f in _CONFIG_FIELDS if getattr(strategy, f) is not None}
 
         result = await async_supabase(lambda: supabase.table("user_strategies").insert(strategy_data).execute())
         if not result or not result.data:
@@ -119,16 +122,22 @@ class StrategyService:
 
     async def update_strategy(self, user_id: str, strategy_id: str, req: UpdateUserStrategyRequest) -> None:
         supabase = get_supabase()
-        row = await async_safe_single(supabase.table("user_strategies").select("id").eq("id", strategy_id).eq("user_id", user_id))
+        row = await async_safe_single(supabase.table("user_strategies").select("id, config").eq("id", strategy_id).eq("user_id", user_id))
         if not row:
             raise ValueError("Strategy not found")
 
         updates = {}
-        for field in ("name", "status", "strategy_type", "index_symbol", "underlying_from", "entry_time", "exit_time",
-                      "overall_sl_type", "overall_sl_value", "overall_target_type", "overall_target_value"):
+        config_updates = {}
+        for field in ("name", "status", "strategy_type", "index_symbol", "underlying_from", "exit_time"):
             val = getattr(req, field, None)
             if val is not None:
                 updates[field] = val
+        for field in _CONFIG_FIELDS:
+            val = getattr(req, field, None)
+            if val is not None:
+                config_updates[field] = val
+        if config_updates:
+            updates["config"] = {**(row.get("config") or {}), **config_updates}
         if req.days_of_week is not None:
             updates["days_of_week"] = f"{{{','.join(str(d) for d in req.days_of_week)}}}"
 
