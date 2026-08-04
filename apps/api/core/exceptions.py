@@ -37,6 +37,17 @@ class RateLimitError(AppError):
         super().__init__(message=message, code="RATE_LIMITED", status=429, details=details)
 
 
+class BrokerTokenExpiredError(AppError):
+    """The broker access token is expired/unusable and needs re-auth.
+
+    Surfaced as HTTP 401 with a structured ``BROKER_TOKEN_EXPIRED`` code so the
+    web app can prompt the user to re-authenticate instead of showing a raw 500.
+    """
+
+    def __init__(self, message: str = "Broker access token expired — re-authenticate", details: dict | None = None):
+        super().__init__(message=message, code="BROKER_TOKEN_EXPIRED", status=401, details=details)
+
+
 class BrokerError(AppError):
     def __init__(self, message: str = "Broker error", code: str = "BROKER_ERROR", status: int = 502, details: dict | None = None):
         super().__init__(message=message, code=code, status=status, details=details)

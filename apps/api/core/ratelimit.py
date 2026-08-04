@@ -10,11 +10,18 @@ from core.cache import cache
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp, requests_per_minute: int = 60):
+    def __init__(self, app: ASGIApp, requests_per_minute: int = 120):
         super().__init__(app)
         self.rpm = requests_per_minute
         self._fallback_windows: dict[str, list[float]] = defaultdict(list)
         self._last_cleanup = time.monotonic()
+
+    @staticmethod
+    def _is_budget_exempt(path: str) -> bool:
+        """Fire-and-forget client telemetry must never starve functional
+        endpoints: the 5s analytics batch alone consumes 12 of the old 60 RPM
+        budget and tripped 429s for real browser sessions."""
+        return path.startswith("/api/v1/analytics/track-batch")
 
     def _cleanup_stale_fallback(self):
         now = time.monotonic()
@@ -36,6 +43,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             remaining = self.rpm
             window_size = 60
             redis_key = f"ratelimit:{client_ip}"
+
+            if self._is_budget_exempt(request.url.path):
+                response = await call_next(request)
+                response.headers["X-RateLimit-Limit"] = str(self.rpm)
+                response.headers["X-RateLimit-Remaining"] = str(self.rpm)
+                return response
 
             count = await cache.increment(redis_key, ttl=window_size)
             if count > 0:

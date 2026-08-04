@@ -7,6 +7,8 @@ from cryptography.fernet import InvalidToken
 
 from brokers import create_broker
 from core.db import async_supabase, get_supabase
+from core.exceptions import BrokerTokenExpiredError
+from core.resilience import CircuitBreakerError
 from core.security import decrypt_broker_credentials, encrypt_broker_credentials
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,21 @@ class TokenManager:
 
     async def _refresh(self) -> None:
         creds = await self._load_credentials()
+
+        # Fast-fail when the stored token is already past expiry: retrying only
+        # wastes time and massages the circuit breaker. Surface the structured
+        # BROKER_TOKEN_EXPIRED error so the web app can prompt a re-auth.
+        expires_at = creds.get("token_expires_at") or creds.get("expiry")
+        if expires_at:
+            try:
+                expiry_dt = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+                if datetime.now(UTC) > expiry_dt:
+                    raise BrokerTokenExpiredError(
+                        f"{self.broker} access token expired {expiry_dt.isoformat()} — re-authenticate from the Brokers page",
+                    )
+            except (ValueError, TypeError):
+                logger.warning("Unparseable token_expires_at for %s: %r", self._lock_key, expires_at)
+
         adapter = create_broker(self.broker)
 
         for attempt in range(TOKEN_REFRESH_MAX_RETRIES + 1):
@@ -89,6 +106,15 @@ class TokenManager:
                     await asyncio.sleep(TOKEN_REFRESH_BASE_DELAY * (2 ** attempt))
                 else:
                     raise RuntimeError(f"Token refresh timed out for {self._lock_key} after {TOKEN_REFRESH_MAX_RETRIES} retries")
+
+            except BrokerTokenExpiredError:
+                raise
+
+            except CircuitBreakerError as e:
+                # Breaker is open because token refresh keeps failing — the
+                # token is effectively unusable. Degrade gracefully instead of
+                # a raw RuntimeError 500 on every user-facing call.
+                raise BrokerTokenExpiredError(f"Broker {self.broker} unavailable: {e}") from e
 
             except Exception as e:
                 logger.warning("Token refresh failed for %s (attempt %d/%d): %s", self._lock_key, attempt + 1, TOKEN_REFRESH_MAX_RETRIES, e)

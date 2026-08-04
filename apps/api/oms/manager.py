@@ -81,6 +81,16 @@ class OrderManager:
         self._completed: OrderedDict[str, OmniOrder] = OrderedDict()
         self._quote_cache: dict[tuple[str, str, str], tuple[float, float]] = {}
         self._quote_inflight: dict[tuple[str, str], asyncio.Task] = {}
+        self._warn_since: dict[str, float] = {}
+
+    def _log_throttled(self, fmt: str, symbol: str, *args) -> None:
+        """Rate-limit repeated warning logs per symbol (a dead token would
+        otherwise spam the same line every bracket cycle — 5542 lines/48h seen
+        in prod)."""
+        now = time.monotonic()
+        if now - self._warn_since.get(symbol, 0.0) >= 60.0:
+            self._warn_since[symbol] = now
+            logger.warning(fmt, symbol, *args)
 
     async def start(self) -> None:
         await self._recover_active_orders()
@@ -843,6 +853,18 @@ class OrderManager:
         if bracket.broker == PAPER_BROKER:
             q = market_cache.get_quote(bracket.symbol)
             if not q or not (q.get("last_price") or q.get("ltp")):
+                # Paper quotes must not depend on a live broker token: use the
+                # broker-agnostic Yahoo feed first, then the live-broker REST
+                # refresh only as a last resort (token may be expired/dead).
+                try:
+                    from providers.yahoo import fetch_quotes
+                    quotes = await fetch_quotes([bracket.symbol])
+                    if quotes and getattr(quotes[0], "last_price", 0) > 0:
+                        market_cache.put_quote(bracket.symbol, quotes[0].model_dump(mode="json"))
+                        q = market_cache.get_quote(bracket.symbol)
+                except Exception:
+                    pass
+            if not q or not (q.get("last_price") or q.get("ltp")):
                 try:
                     from brokers.token_manager import TokenManager
                     from brokers.fyers_adapter import FyersAdapter
@@ -858,7 +880,7 @@ class OrderManager:
                             market_cache.put_quote(bracket.symbol, quotes[0].model_dump(mode="json"))
                             q = market_cache.get_quote(bracket.symbol)
                 except Exception as e:
-                    logger.warning("Paper bracket quote refresh failed for %s: %s", bracket.symbol, e)
+                    self._log_throttled("Paper bracket quote refresh failed for %s: %s", bracket.symbol, e)
             if q:
                 price = float(q.get("last_price") or q.get("ltp") or 0)
         else:

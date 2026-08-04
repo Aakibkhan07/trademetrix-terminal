@@ -167,6 +167,26 @@ class TestGetPositions:
 
         assert result == []
 
+    @pytest.mark.asyncio
+    async def test_propagates_token_expired_error(self, svc, mock_supabase) -> None:
+        mock_supabase["async_safe_single"].side_effect = [None, {"broker": "fyers"}]
+        from core.exceptions import BrokerTokenExpiredError
+
+        with patch.object(
+            svc, "_get_engine", AsyncMock(side_effect=BrokerTokenExpiredError("token expired"))
+        ):
+            with pytest.raises(BrokerTokenExpiredError):
+                await svc.get_positions("u1")
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_transient_broker_error(self, svc, mock_supabase) -> None:
+        mock_supabase["async_safe_single"].side_effect = [None, {"broker": "fyers"}]
+
+        with patch.object(svc, "_get_engine", AsyncMock(side_effect=RuntimeError("broker down"))):
+            result = await svc.get_positions("u1")
+
+        assert result == []
+
 
 class TestGetFunds:
     @pytest.mark.asyncio
@@ -174,5 +194,25 @@ class TestGetFunds:
         mock_supabase["async_safe_single"].return_value = None
 
         result = await svc.get_funds("u1")
+
+        assert result == {"total_margin": 0, "used_margin": 0, "available_margin": 0}
+
+    @pytest.mark.asyncio
+    async def test_propagates_token_expired_error(self, svc, mock_supabase) -> None:
+        mock_supabase["async_safe_single"].side_effect = [None, {"broker": "fyers"}]
+        from core.exceptions import BrokerTokenExpiredError
+
+        with patch.object(
+            svc, "_get_engine", AsyncMock(side_effect=BrokerTokenExpiredError("token expired"))
+        ):
+            with pytest.raises(BrokerTokenExpiredError):
+                await svc.get_funds("u1")
+
+    @pytest.mark.asyncio
+    async def test_returns_zeros_on_transient_broker_error(self, svc, mock_supabase) -> None:
+        mock_supabase["async_safe_single"].side_effect = [None, {"broker": "fyers"}]
+
+        with patch.object(svc, "_get_engine", AsyncMock(side_effect=RuntimeError("broker down"))):
+            result = await svc.get_funds("u1")
 
         assert result == {"total_margin": 0, "used_margin": 0, "available_margin": 0}

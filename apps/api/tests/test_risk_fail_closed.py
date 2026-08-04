@@ -106,6 +106,9 @@ async def test_kill_switch_recover_with_release():
 @pytest.mark.asyncio
 async def test_kill_switch_recover_handles_error():
     ks = KillSwitch()
-    with patch("risk.kill_switch.async_safe_execute", side_effect=Exception("DB error")):
+    with (
+        patch("risk.kill_switch.cache.get_redis", return_value=None),
+        patch("risk.kill_switch.async_safe_execute", side_effect=Exception("DB error")),
+    ):
         await ks.recover()
         assert not ks._emergency_stops

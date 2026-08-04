@@ -4,7 +4,9 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from core.db import async_supabase, get_supabase
+from core.exceptions import BrokerTokenExpiredError
 from core.models import NormalizedOrder
+from core.resilience import CircuitBreakerError
 from core.safe_query import async_safe_execute, async_safe_single
 from engine.executor import ExecutionEngine
 from engine.gate import execute_order
@@ -172,7 +174,9 @@ class EngineService:
             engine = await self._get_engine(user_id, broker)
             positions = await engine.get_positions()
             return [p.model_dump() for p in positions]
-        except ValueError:
+        except BrokerTokenExpiredError:
+            raise
+        except (ValueError, RuntimeError, CircuitBreakerError):
             return []
 
     async def get_funds(self, user_id: str) -> dict:
@@ -201,7 +205,9 @@ class EngineService:
             engine = await self._get_engine(user_id, broker)
             funds = await engine.get_funds()
             return funds.model_dump()
-        except ValueError:
+        except BrokerTokenExpiredError:
+            raise
+        except (ValueError, RuntimeError, CircuitBreakerError):
             return {"total_margin": 0, "used_margin": 0, "available_margin": 0}
 
     async def get_runs(self, user_id: str) -> list[dict]:

@@ -34,10 +34,26 @@ SID_B = SID_B
 @pytest.fixture(autouse=True)
 def _clear_emergency(_runtime_clean):
     """Per-test reset of the process-wide kill-switch flags (they otherwise
-    leak between tests: once triggered, every later start would be refused)."""
-    from risk.kill_switch import kill_switch
+    leak between tests: once triggered, every later start would be refused).
+    Also clears the Redis-persisted emergency-stop keys written by trigger."""
+    import asyncio
+
+    from risk.kill_switch import EMERGENCY_REDIS_PREFIX, kill_switch
 
     kill_switch._emergency_stops.clear()
+
+    async def _clean_redis():
+        try:
+            from core.cache import cache
+            r = await cache.get_redis()
+            if r:
+                keys = await r.keys(f"{EMERGENCY_REDIS_PREFIX}*")
+                for key in keys or []:
+                    await r.delete(key)
+        except Exception:
+            pass
+
+    asyncio.run(_clean_redis())
 
 
 # -- trading-mode normalisation -------------------------------------------------

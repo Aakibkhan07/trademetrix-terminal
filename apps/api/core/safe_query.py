@@ -26,6 +26,9 @@ def safe_execute(query):
 async def async_safe_single(query_builder):
     try:
         result = await async_supabase(lambda: query_builder.maybe_single().execute())
+        if result is None:
+            logger.warning("async_safe_single: execute() returned None (no .data) — treating as no row")
+            return None
         return result.data
     except Exception as e:
         logger.warning("async_safe_single query failed: %s", e)
