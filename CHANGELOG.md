@@ -1,4 +1,16 @@
-## v1.5.0 (2026-08-04) — STRATEGY RUNTIME V1.0 (DETERMINISTIC STRATEGY EXECUTION LAYER)
+## v1.5.0 (2026-08-04) — STRATEGY RUNTIME V1.0 (DETERMINISTIC STRATEGY EXECUTION LAYER) — **BETA READY**
+
+> **Release status: `v1.5.0-beta` — TRADEMETRIX V1.5.0 BETA READY** (tag `v1.5.0-beta`).
+> Web app deployed for Auto Trading v1.0: `next build` clean (BUILD_ID `gJiJa4QYQJlUThzieN0Ff`),
+> hot-swapped into `trademetrix_web`, container healthy. Browser E2E (Playwright, prod):
+> **38/38 functional checks PASS** — 18 routes, 9 API integrations, paper lifecycle
+> (deploy/status/pause/resume/reconcile/stop), live-no-confirm **409 gate**, emergency
+> stop + release, Confirmation Wizard (client checkbox + server 409). **0 page errors,
+> 0 hydration warnings, 0 React warnings.** Reports:
+> `docs/evolution/certs/web_v1.5.0/{web_deployment_report.md, browser_smoke_report.md, browser_smoke.json}`.
+> API full suite: **832 passed, 1 skipped, 1 xfailed**.
+> Known pre-existing prod noise (not regressions): `/engine/*` CORS blocks from expired
+> Fyers token (circuit breaker open, tracked since 2026-08-01, pending re-auth).
 
 ### Added
 - **`strategy_runtime/` (new package, v1.0.0)** — first-class runtime owning the full strategy lifecycle (start → run → pause/resume → stop → restart → recover): typed `StrategySpec`/`StrategyTrigger`/`RuntimeState` (`models.py`), strict `RuntimeStateMachine` + `IllegalTransition` + `can_transition` (`state_machine.py`), per-user/per-broker `RuntimeRegistry` (`registry.py`), `RuntimeContext` + `position_memory_for()` (`context.py`), `RuntimeLifecycle` + `runtime_strategy_lifecycle` singleton (`lifecycle.py`), `StrategyRuntimeManager` + `strategy_runtime_manager` singleton (`manager.py`), `RuntimeDispatcher`/`CandleDispatcher`/`TriggerDispatcher` (`dispatchers.py`), `StrategyWorker` (run loop, candles, time-trigger fold, manual dry-run evaluate) (`workers.py`), `RuntimeRecovery` (restore + adopt + fail-open) (`recovery.py`), `RuntimeObservability` (`observability.py`), `RuntimeEvent`/`runtime_bus` (`events.py`), `StrategyStateStore` + `CheckpointStateStore` + `InMemoryStateStore` (`state_store.py`), public API + `__version__` (`__init__.py`).
