@@ -1,3 +1,36 @@
+## v1.5.2 (2026-08-04) — user_strategies JSONB PARITY FIX (FINAL CORRECTNESS DEPLOY)
+
+> The legacy `/api/v1/user-strategies` service assumed a dev-only relational schema that does
+> not exist on prod Supabase: legs live in a `legs` jsonb column and legacy scalar fields
+> (`entry_time`, `overall_*`) live inside a `config` jsonb column. List/get/create/update on
+> prod failed with PGRST200 (phantom `user_strategy_legs` join) and PGRST204 (missing columns).
+> Deployed: commits `ebcf9ff` + `19a1bbc`, hot-updated on VPS. Full suite **858 passed, 1 xfailed**.
+> Report: `docs/evolution/certs/web_v1.5.1/user_strategies_jsonb_deploy_report.md`.
+
+### Fixed
+- **strategy_service** list/create/get/update/`_row_to_strategy` read/write the prod jsonb schema
+  (`select("*")`, legs as jsonb, `entry_time`/`overall_*` folded into `config` on create and merged
+  on update); `normalize_user_strategy_row()` merges config back into the row.
+- **user_strategy_runner `_get_open_legs`** reads the jsonb legs column via the normalized row.
+- **copilot** funds context reads the live `margin_snapshot` table.
+- **Migration `20260804_01800_user_strategies_jsonb.sql`** — idempotent `ADD COLUMN IF NOT EXISTS`
+  `config`/`legs` jsonb; no-op on prod (columns already present), applied locally.
+
+### Verification
+- API E2E on prod: create → read (legs=2, config merged) → update → list → **restart** → re-read
+  persists; DB rows confirmed `config={"entry_time":"10:00"}`, legs=2.
+- Browser E2E (real prod UI session): **13/13 OK** — signup → Create → Read → Edit+Save → Reload
+  → Deploy/Start (PAPER, 2/2) → Stop (paused) → Delete; zero page errors; schema cache verified via
+  OpenAPI (legs+config present, `user_strategy_legs` absent).
+- Post-deploy logs: 0 schema-cache/PGRST errors; only pre-existing timeout-middleware and
+  yfinance/Redis noise. Health endpoints green throughout.
+
+### Notes
+- Feature freeze now in effect: only production bug fixes, security fixes, broker compatibility
+  updates, performance improvements, and beta feedback fixes are accepted.
+- Beta backlog: dashboard "User Strategies" tab targets a nonexistent `/admin/strategies/all-user`
+  endpoint (404 → empty table); no end-user UI exists for the legacy user-strategies lifecycle.
+
 ## v1.5.1 (2026-08-04) — BETA HARDENING SPRINT
 
 > Reliability/correctness hardening driven by 48h prod telemetry + browser E2E + beta

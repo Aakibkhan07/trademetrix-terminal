@@ -1,0 +1,112 @@
+{
+  "email": "jbjsonb1785827519297@example.com",
+  "results": [
+    [
+      "signup",
+      "OK",
+      "https://ai.trademetrix.tech/onboarding"
+    ],
+    [
+      "promote",
+      "OK",
+      "3ef9265c-619a-4076-b5e3-6e0019498ec8"
+    ],
+    [
+      "create",
+      "OK",
+      "{\"status\":201,\"id\":\"cc75f0a7-0d06-41fe-ba42-bfc6df6d4828\",\"message\":\"Strategy created\"}"
+    ],
+    [
+      "read_legs",
+      "OK",
+      "legs=2"
+    ],
+    [
+      "config_merged",
+      "OK",
+      "entry_time=10:00 sl=20"
+    ],
+    [
+      "edit_save",
+      "OK",
+      "{\"status\":200,\"message\":\"Strategy updated\"}"
+    ],
+    [
+      "read_after_edit",
+      "OK",
+      "JSONB Browser E2E v2 legs=2"
+    ],
+    [
+      "deploy_start",
+      "OK",
+      "results=2 all_ok=true"
+    ],
+    [
+      "status_active",
+      "OK",
+      "{\"status\":200,\"status_field\":\"active\"}"
+    ],
+    [
+      "stop",
+      "OK",
+      "{\"status\":200}"
+    ],
+    [
+      "status_paused",
+      "OK",
+      "{\"status\":200,\"status_field\":\"paused\"}"
+    ],
+    [
+      "delete",
+      "OK",
+      "{\"status\":204}"
+    ],
+    [
+      "no_page_errors",
+      "OK",
+      "clean"
+    ]
+  ],
+  "flow": {
+    "create": {
+      "status": 201,
+      "id": "cc75f0a7-0d06-41fe-ba42-bfc6df6d4828",
+      "message": "Strategy created"
+    },
+    "read1": {
+      "status": 200,
+      "legs": 2,
+      "entry_time": "10:00",
+      "sl_value": 20
+    },
+    "update": {
+      "status": 200,
+      "message": "Strategy updated"
+    },
+    "read2": {
+      "status": 200,
+      "name": "JSONB Browser E2E v2",
+      "legs": 2
+    },
+    "deploy": {
+      "status": 200,
+      "results": 2,
+      "all_ok": true
+    },
+    "after_start": {
+      "status": 200,
+      "status_field": "active"
+    },
+    "stop": {
+      "status": 200
+    },
+    "after_stop": {
+      "status": 200,
+      "status_field": "paused"
+    },
+    "delete": {
+      "status": 204
+    }
+  },
+  "consoleErrors": []
+}
