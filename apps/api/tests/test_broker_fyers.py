@@ -258,3 +258,12 @@ def test_subscribe_symbols_returns_pending_when_no_socket(adapter: FyersAdapter)
     adapter._running = True
     pending = adapter.subscribe_symbols(["NSE:NIFTY26AUGFUT"])
     assert pending == ["NSE:NIFTY26AUGFUT"]
+
+
+def test_ensure_fyers_symbol_bse_and_ws_symbol():
+    assert FyersAdapter()._ensure_fyers_symbol("SENSEX2680679000CE") == "BSE:SENSEX2680679000CE"
+    assert FyersAdapter()._ensure_fyers_symbol("NIFTY2680424450PE") == "NSE:NIFTY2680424450PE"
+    assert FyersAdapter()._ensure_fyers_symbol("BSE:SENSEX2680679000CE") == "BSE:SENSEX2680679000CE"
+    assert FyersAdapter._ws_symbol("SENSEX2680679000CE") == "BSE:SENSEX2680679000CE"
+    assert FyersAdapter._ws_symbol("NIFTY2680424450PE") == "NSE:NIFTY2680424450PE"
+    assert FyersAdapter._ws_symbol("NSE:NIFTY50-INDEX") == "NSE:NIFTY50-INDEX"

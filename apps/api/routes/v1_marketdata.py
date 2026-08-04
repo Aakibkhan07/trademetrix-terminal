@@ -275,8 +275,6 @@ async def get_quote(
     symbols: str | None = Query(None),
     current_user: UserProfile = Depends(get_current_user),
 ):
-    from providers.yahoo import fetch_quotes
-
     syms: list[str] = []
     if symbol:
         syms = [symbol]
@@ -284,10 +282,53 @@ async def get_quote(
         syms = [s.strip() for s in symbols.split(",")]
     if not syms:
         raise HTTPException(status_code=422, detail="Provide symbol or symbols parameter")
-    quotes = await fetch_quotes(syms)
+
+    quotes = await _quotes_with_broker_first(syms, current_user)
     if not quotes:
         raise HTTPException(status_code=503, detail="Quote unavailable")
     return quotes if len(quotes) > 1 else quotes[0]
+
+
+async def _quotes_with_broker_first(symbols: list[str], current_user) -> list:
+    from application.services.engine_service import EngineService
+    from core.models import Quote
+    from providers.yahoo import fetch_quotes
+
+    broker_quotes: dict[str, Quote] = {}
+    try:
+        service = EngineService()
+        broker = await service.get_active_broker(current_user.id)
+        if broker:
+            adapter = shared_socket.get_broker_adapter(broker)
+            if adapter is None:
+                engine = await service._get_engine(current_user.id, broker)
+                adapter = getattr(engine, "_adapter", None)
+            if adapter is not None and callable(getattr(adapter, "get_quotes", None)):
+                quotes = await adapter.get_quotes(symbols)
+                for q in quotes:
+                    if q.last_price and float(q.last_price) > 0:
+                        broker_quotes[q.symbol] = q
+    except Exception as e:
+        logger.warning("Broker-first quotes failed for %s: %s", current_user.id, e)
+
+    result: list[Quote] = []
+    missing: list[str] = []
+    for s in symbols:
+        q = broker_quotes.get(s)
+        if q is not None:
+            result.append(q)
+        else:
+            missing.append(s)
+
+    if missing:
+        try:
+            yahoo = await fetch_quotes(missing)
+            for q in yahoo:
+                if q.last_price and float(q.last_price) > 0:
+                    result.append(q)
+        except Exception as e:
+            logger.warning("Yahoo quote fill failed for %s: %s", missing, e)
+    return result
 
 
 @router.get("/symbols")

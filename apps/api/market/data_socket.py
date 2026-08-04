@@ -269,6 +269,9 @@ class SharedDataSocket:
         token = getattr(adapter, "_access_token", "") or ""
         return bool(token)
 
+    def get_broker_adapter(self, broker_type: str):
+        return self._broker_adapters.get(broker_type)
+
     async def add_feed_symbols(self, broker_type: str, symbols: list[str]) -> list[str]:
         if broker_type not in self._broker_feeds:
             return list(symbols)

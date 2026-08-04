@@ -76,6 +76,11 @@ class ExecutionEngine:
             return Funds(broker=self.broker)
         return await self._adapter.get_funds()
 
+    async def get_quotes(self, symbols: list[str]):
+        if not self._adapter:
+            return []
+        return await self._adapter.get_quotes(symbols)
+
     async def _log_order(self, order: NormalizedOrder) -> None:
         try:
             supabase = get_supabase()

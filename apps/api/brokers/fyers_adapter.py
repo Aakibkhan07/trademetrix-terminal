@@ -86,7 +86,8 @@ class FyersAdapter(BaseBroker, BrokerAdapterBase):
         if ":" in symbol:
             s = symbol.upper()
         else:
-            s = f"NSE:{symbol.upper()}"
+            prefix = "BSE:" if symbol.upper().startswith("SENSEX") else "NSE:"
+            s = f"{prefix}{symbol.upper()}"
         if s.endswith("-EQ"):
             s = s[:-3]
         return s
@@ -95,9 +96,10 @@ class FyersAdapter(BaseBroker, BrokerAdapterBase):
     def _ws_symbol(symbol: str) -> str:
         import re
         s = symbol.upper()
-        if not s.startswith("NSE:"):
-            s = f"NSE:{s}"
-        rest = s[4:]
+        if not (s.startswith("NSE:") or s.startswith("BSE:")):
+            prefix = "BSE:" if s.startswith("SENSEX") else "NSE:"
+            s = f"{prefix}{s}"
+        rest = s.split(":", 1)[1] if ":" in s else s
         if rest.endswith("-EQ") or rest.endswith("-INDEX") or re.search(r"\d", rest):
             return s
         return f"{s}-EQ"
@@ -927,7 +929,7 @@ class FyersAdapter(BaseBroker, BrokerAdapterBase):
         inst = self._parse_instrument(sym)
         return Quote(
             symbol=sym,
-            exchange=Exchange.NSE,
+            exchange=Exchange.BSE if str(sym).upper().startswith("BSE:") else Exchange.NSE,
             last_price=float(v.get("lp", 0)),
             open=float(v.get("open_price", 0)),
             high=float(v.get("high_price", 0)),
