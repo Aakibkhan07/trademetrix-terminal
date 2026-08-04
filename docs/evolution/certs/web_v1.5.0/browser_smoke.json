@@ -1,0 +1,716 @@
+{
+  "verdict": "DEGRADED",
+  "checks": [
+    {
+      "check": "csrf_handshake",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "route:/",
+      "ok": true,
+      "detail": "bytes=30041"
+    },
+    {
+      "check": "route:/auth",
+      "ok": true,
+      "detail": "bytes=14459"
+    },
+    {
+      "check": "route:/dashboard",
+      "ok": true,
+      "detail": "bytes=46022"
+    },
+    {
+      "check": "route:/strategies",
+      "ok": true,
+      "detail": "bytes=44216"
+    },
+    {
+      "check": "route:/strategies/builder",
+      "ok": true,
+      "detail": "bytes=47453"
+    },
+    {
+      "check": "route:/paper",
+      "ok": true,
+      "detail": "bytes=45761"
+    },
+    {
+      "check": "route:/portfolio",
+      "ok": true,
+      "detail": "bytes=57556"
+    },
+    {
+      "check": "route:/positions",
+      "ok": true,
+      "detail": "bytes=61125"
+    },
+    {
+      "check": "route:/marketdata",
+      "ok": true,
+      "detail": "bytes=98226"
+    },
+    {
+      "check": "route:/terminal",
+      "ok": true,
+      "detail": "bytes=44716"
+    },
+    {
+      "check": "route:/terminal/option-chain",
+      "ok": true,
+      "detail": "bytes=41630"
+    },
+    {
+      "check": "route:/workspace",
+      "ok": true,
+      "detail": "bytes=78773"
+    },
+    {
+      "check": "route:/backtest",
+      "ok": true,
+      "detail": "bytes=44260"
+    },
+    {
+      "check": "route:/risk",
+      "ok": true,
+      "detail": "bytes=43964"
+    },
+    {
+      "check": "route:/funds",
+      "ok": true,
+      "detail": "bytes=40576"
+    },
+    {
+      "check": "route:/settings",
+      "ok": true,
+      "detail": "bytes=46608"
+    },
+    {
+      "check": "route:/transparency",
+      "ok": true,
+      "detail": "bytes=42073"
+    },
+    {
+      "check": "route:/status",
+      "ok": true,
+      "detail": "bytes=15063"
+    },
+    {
+      "check": "api:/builder/dashboard",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "api:/runtime/health",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "api:/runtime/strategies",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "api:/runtime/accounts",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "api:/user-strategies/",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "api:/paper/status",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "api:/paper/account",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "api:/paper/positions",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "api:/paper/portfolio",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "builder:create",
+      "ok": true,
+      "detail": "http=200 id=2b44c983247f"
+    },
+    {
+      "check": "runtime:deploy(paper)",
+      "ok": true,
+      "detail": "http=200 {'strategy_id': '2b44c983247f', 'status': 'started'}"
+    },
+    {
+      "check": "runtime:status",
+      "ok": true,
+      "detail": "http=200 mode=paper status=None"
+    },
+    {
+      "check": "runtime:/pause",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "runtime:/resume",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "runtime:reconcile",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "runtime:deploy(live-no-confirm)=guard",
+      "ok": true,
+      "detail": "http=409"
+    },
+    {
+      "check": "runtime:emergency",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "runtime:emergency/release",
+      "ok": true,
+      "detail": "http=200"
+    },
+    {
+      "check": "runtime:stop",
+      "ok": true,
+      "detail": "http=200"
+    }
+  ],
+  "console_errors": [
+    "error: Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/engine/positions' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "error: Failed to load resource: net::ERR_FAILED",
+    "error: Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/engine/positions' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "error: Failed to load resource: net::ERR_FAILED",
+    "error: Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/engine/positions' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "error: Failed to load resource: net::ERR_FAILED",
+    "error: Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/engine/funds' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "error: Failed to load resource: net::ERR_FAILED",
+    "error: Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/engine/funds' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "error: Failed to load resource: net::ERR_FAILED",
+    "error: Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/engine/positions' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "error: Failed to load resource: net::ERR_FAILED",
+    "error: Failed to load resource: the server responded with a status of 503 ()",
+    "error: Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/engine/positions' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "error: Failed to load resource: net::ERR_FAILED",
+    "error: Access to fetch at 'https://api.ai.trademetrix.tech/api/v1/engine/funds' from origin 'https://ai.trademetrix.tech' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "error: Failed to load resource: net::ERR_FAILED",
+    "error: Failed to load resource: the server responded with a status of 401 ()",
+    "error: Failed to load resource: the server responded with a status of 409 ()"
+  ],
+  "page_errors": [],
+  "request_failures": [
+    "https://api.ai.trademetrix.tech/api/v1/auth/csrf :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/events/stream :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/engine/positions :: net::ERR_FAILED",
+    "https://api.ai.trademetrix.tech/api/v1/engine/positions :: net::ERR_FAILED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/engine/positions :: net::ERR_FAILED",
+    "https://api.ai.trademetrix.tech/api/v1/engine/funds :: net::ERR_FAILED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/engine/funds :: net::ERR_FAILED",
+    "https://api.ai.trademetrix.tech/api/v1/engine/positions :: net::ERR_FAILED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/engine/positions :: net::ERR_FAILED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/engine/positions :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/engine/funds :: net::ERR_FAILED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED",
+    "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch :: net::ERR_ABORTED"
+  ],
+  "api_calls": [
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/csrf",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/admin/stats",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/builder/dashboard",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/strategies/",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/builder/blocks",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/positions",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/builder/dashboard",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/trades?limit=50",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/status",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/account",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/portfolio",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/builder/strategies",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/account",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/portfolio",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/positions",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/status",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/builder/dashboard",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/trades?limit=50",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/watchlist",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/brokers/credentials",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/engine/orders",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/engine/orders",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/watchlist",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/watchlist",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTY50-INDEX&interval=15m&days=7",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/alerts/",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/engine/orders",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/market/option-chain?symbol=NIFTY",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/market/option-chain?symbol=NIFTY&expiry=06AUG",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/watchlist",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/watchlist",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/market/instruments?query=NIFTY&limit=25",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/strategies/",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/alerts/",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/engine/orders",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/engine/runs",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTY50-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/brokers/credentials",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTY50-INDEX&interval=15m&days=7",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYBANK-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTY50-INDEX&interval=15m&days=7",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=FINNIFTY-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=BSE:SENSEX-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=MIDCPNIFTY-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=INDIAVIX-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYIT-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYPHARMA-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYAUTO-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYFMCG-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/option-chain?symbol=NIFTY50-INDEX",
+      503
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYMETAL-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYREALTY-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYENERGY-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYMEDIA-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYPSUBANK-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/historical?symbol=NIFTYPVTBANK-INDEX&interval=5m&days=1",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/builder/strategies",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/risk/kill-switch",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/risk/settings",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/analytics/pnl?period=1d",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/brokers/credentials",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/strategies/assigned",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/engine/runs",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/marketdata/feed/start",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/auth/me",
+      401
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/builder/dashboard",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/health",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/strategies",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/accounts",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/user-strategies/",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/status",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/account",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/positions",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/paper/portfolio",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/builder/strategies",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/analytics/track-batch",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/deploy",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/2b44c983247f/status",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/2b44c983247f/pause",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/2b44c983247f/resume",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/2b44c983247f/reconcile",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/deploy",
+      409
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/emergency",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/emergency/release",
+      200
+    ],
+    [
+      "https://api.ai.trademetrix.tech/api/v1/runtime/2b44c983247f/stop",
+      200
+    ]
+  ]
+}
