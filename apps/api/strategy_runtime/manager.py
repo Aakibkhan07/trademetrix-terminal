@@ -384,9 +384,9 @@ class StrategyRuntimeManager:
         try:
             from execution_engine.positions import position_manager
 
-            positions = await position_manager.get_positions(user_id, broker)
+            positions = position_manager.get_positions(user_id, broker)
             open_positions = [p for p in (positions or []) if str(getattr(p, "symbol", "")).upper() == str(record.spec.symbol).upper()]
-            reconciliation["broker"] = {"open_positions": len(open_positions), "positions": open_positions}
+            reconciliation["broker_positions"] = {"open_positions": len(open_positions), "positions": open_positions}
             runtime_open = record.stats.get("orders_open", 0)
             reconciled = runtime_open == 0 and len(open_positions) >= 0
             mismatch = runtime_open > 0 != (len(open_positions) > 0)

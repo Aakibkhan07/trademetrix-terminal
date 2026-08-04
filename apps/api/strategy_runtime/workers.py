@@ -380,7 +380,7 @@ class StrategyWorker:
             try:
                 from execution_engine.positions import position_manager
 
-                positions = await position_manager.get_positions(self.spec.user_id, self.spec.broker or "paper") or []
+                positions = position_manager.get_positions(self.spec.user_id, self.spec.broker or "paper") or []
                 open_for_symbol = [p for p in positions
                                    if str(getattr(p, "symbol", "")).upper() == str(order.symbol).upper()
                                    and float(getattr(p, "quantity", 0) or 0) > 0]

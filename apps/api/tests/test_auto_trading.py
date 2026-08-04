@@ -193,7 +193,7 @@ async def test_max_positions_blocks_new_entry(_runtime_clean, monkeypatch):
         quantity = 5
         average_price = 100.0
 
-    async def _has_open_position(self, user_id, broker):
+    def _has_open_position(self, user_id, broker):
         return [_OpenPos()]
 
     monkeypatch.setattr(positions_mod, "position_manager",
