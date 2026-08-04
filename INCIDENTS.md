@@ -1,5 +1,41 @@
 # Production Incidents Log
 
+## INC-015: Kill-Switch Global Gate Silently Disabled + Emergency State Lost on Restart (2026-08-04)
+
+**Severity:** Critical  
+**Status:** Resolved (deployed 2026-08-04, commit `fd896ca`)  
+**Root Cause:** Two independent defects in `risk/kill_switch.py`:
+1. `global_kill_switch_active()` probed `risk_settings` for a row with `user_id='system'`. The column is a uuid FK, so `'system'` was always a `22P02 invalid input syntax for type uuid` (8 failures/48h observed) and the probe always returned False — the global kill switch gate was **silently disabled**. Any "enable global kill switch" action would not actually stop trading.
+2. Emergency-stop state was in-memory only. A container restart silently cleared any active emergency stop and there was no restart recovery path.
+3. `_persist_audit()` wrote to `risk_audit_log`, which did **not exist** in the prod schema (`PGRST205`, seen 3-4×/48h) — emergency-stop audit records were silently dropped.
+**Fix:**
+- Global gate reads Redis `global:kill_switch` flag (set/cleared by admin enable/disable).
+- Emergency state persisted to Redis (`kill_switch:emergency:{uid}`); `recover()` restores from Redis on startup before trading can resume.
+- `_persist_audit()` writes `risk_audit_log` with automatic fallback to the existing `audit_log` table when `risk_audit_log` is missing.
+- Idempotent migration `supabase/migrations/20260804_01600_risk_audit_log.sql` (TEXT user_id, index on `(user_id, event, created_at DESC)`) — **not yet applied to prod** (DDL access blocked); fallback keeps audit working meanwhile.
+**Files Changed:** `apps/api/risk/kill_switch.py`, `supabase/migrations/20260804_01600_risk_audit_log.sql`, `apps/api/tests/test_kill_switch_hardening.py` (7 tests), `apps/api/tests/test_risk_fail_closed.py`, `apps/api/tests/test_auto_trading.py`
+**Verification:** Prod smoke: emergency POST → `kill_switch:emergency:{uid}` set in Redis → fresh `KillSwitch().recover()` sees the stop (restart-safe) → release clears the key; global enable sets Redis flag and `global_kill_switch_active()` returns True; both cleared afterward. Post-deploy logs: 0× `invalid input syntax for type uuid: "system"`.
+
+## INC-016: Raw 500s on `/engine/positions|funds` from Expired Broker Token (2026-08-04)
+
+**Severity:** High  
+**Status:** Resolved (deployed 2026-08-04, commit `fd896ca`)  
+**Root Cause:** With an expired Fyers token, every positions/funds call produced an ASGI traceback: `RuntimeError: Token refresh failed for {uid}:fyers: CircuitBreaker[broker_fyers] is open` (43×/48h), leaking raw 500s to the web client instead of a structured error.  
+**Fix:**
+- `TokenManager` fast-fails with `BrokerTokenExpiredError` (401, code `BROKER_TOKEN_EXPIRED`) when the stored token is already past its expiry (before any broker construction), and translates an open circuit breaker during refresh into the same structured error.
+- `EngineService.get_positions/get_funds` propagate `BrokerTokenExpiredError` (→ 401 with code, so the UI can prompt broker re-auth) while still degrading transient broker failures (`RuntimeError`/`CircuitBreakerError`) to empty data instead of 500.
+**Files Changed:** `apps/api/core/exceptions.py`, `apps/api/brokers/token_manager.py`, `apps/api/application/services/engine_service.py`, `apps/api/tests/test_token_manager_hardening.py` (4 tests), `apps/api/tests/test_engine_service.py` (+4 tests)
+**Verification:** Post-deploy logs: 0× `CircuitBreaker[broker_fyers] is open` tracebacks on `/engine/*`. (Live 401 path was unit-tested only — the prod token was re-validated by the auto-refresh cron before the smoke could exercise it; positions/funds returned real 200s.)
+
+## INC-017: Paper Bracket Quote Starvation + 5542-line Log Spam (2026-08-04)
+
+**Severity:** Medium  
+**Status:** Resolved (deployed 2026-08-04, commit `fd896ca`)  
+**Root Cause:** `_bracket_quote_fetch` resolved SL/TARGET prices for paper bracket orders through the Fyers REST client exclusively. With the expired token, every 5s evaluation logged `Paper bracket quote refresh failed ... CircuitBreaker[broker_fyers] is open` (5542×/48h) and paper exits were starved of quotes.  
+**Fix:** Paper brackets now prefer the market cache, then a broker-agnostic Yahoo `fetch_quotes` (with write-back), and only fall back to the broker REST client last. Warning logging is throttled to 1/min/symbol.
+**Files Changed:** `apps/api/oms/manager.py`, `apps/api/tests/test_bracket_quote_hardening.py` (4 tests)
+**Verification:** Post-deploy logs: 0× `Paper bracket quote refresh failed` since restart.
+
 ## INC-001: CSRF Race Condition (2026-07-27)
 
 **Severity:** Critical  

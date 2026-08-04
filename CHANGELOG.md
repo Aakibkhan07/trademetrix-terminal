@@ -1,4 +1,37 @@
-## v1.5.0 (2026-08-04) — STRATEGY RUNTIME V1.0 (DETERMINISTIC STRATEGY EXECUTION LAYER) — **BETA READY**
+## v1.5.1 (2026-08-04) — BETA HARDENING SPRINT
+
+> Reliability/correctness hardening driven by 48h prod telemetry + browser E2E + beta
+> feedback. No new features. Deployed: commit `fd896ca`, API hot-updated on VPS.
+> API full suite: **858 passed, 1 xfailed** (+25 regression tests vs v1.5.0).
+> Post-deploy prod logs (30 min): **0×** `invalid input syntax for type uuid: "system"`,
+> **0×** `Paper bracket quote refresh failed`, **0×** `CircuitBreaker[broker_fyers] is open`,
+> **0×** `async_safe_single query failed: 'NoneType'`.
+> Full detail: `docs/evolution/certs/web_v1.5.0/hardening_report.md`.
+
+### Fixed
+- **Kill switch (P1):** global gate read Redis `global:kill_switch` flag (the old `risk_settings`
+  probe with `user_id='system'` always returned 22P02 and silently disabled the gate);
+  emergency-stop state persisted to Redis and restored on startup (restart-safe); audit writes
+  fall back to `audit_log` when `risk_audit_log` is missing. Migration
+  `20260804_01600_risk_audit_log.sql` added (apply to prod via SQL editor; DDL blocked from API).
+- **Broker token expiry (P1):** `TokenManager` fast-fails on an already-expired stored token and
+  maps open circuit breaker → structured `BrokerTokenExpiredError`; `/engine/positions|funds`
+  return `401 BROKER_TOKEN_EXPIRED` instead of raw 500 tracebacks.
+- **Paper bracket quotes (P2):** SL/TARGET price discovery is broker-independent for paper orders
+  (cache → Yahoo → broker REST last); per-symbol warning throttle 1/60s kills the 5542-line spam.
+- **`async_safe_single` (P2):** guards a None `execute()` result (was surfacing misleading
+  `'NoneType' object has no attribute 'data'` warnings and masking the query).
+- **Rate limiter (P3):** `/analytics/track-batch` exempt from the shared per-IP budget (5s
+  fire-and-forget batch consumed 12/60 RPM); default budget 60 → 120 RPM.
+
+### Verification
+- New tests: `test_kill_switch_hardening.py` (7), `test_token_manager_hardening.py` (4),
+  `test_safe_query_hardening.py` (3), `test_ratelimit_hardening.py` (3),
+  `test_bracket_quote_hardening.py` (4); extended `test_engine_service.py` (+4), adapted
+  `test_risk_fail_closed.py`, `test_auto_trading.py`.
+- Live prod smoke: emergency stop/release persist to Redis and restart-safe recovery sees stops;
+  global kill switch enable sets Redis flag and gates `global_kill_switch_active()`; both cleaned up.
+- Incidents: INC-015, INC-016, INC-017 added (Resolved).
 
 > **Release status: `v1.5.0-beta` — TRADEMETRIX V1.5.0 BETA READY** (tag `v1.5.0-beta`).
 > Web app deployed for Auto Trading v1.0: `next build` clean (BUILD_ID `gJiJa4QYQJlUThzieN0Ff`),

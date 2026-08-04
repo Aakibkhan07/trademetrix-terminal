@@ -5,8 +5,9 @@ Status verified 2026-08-01. Each item notes impact and mitigation. None block GA
 ## Broker
 
 1. **Fyers token expiry requires manual re-consent (EXPIRED)**
-   - Fyers access tokens last ~30 days and cannot be refreshed silently. The token for the active account expired 2026-08-01 00:30 UTC.
-   - Impact: live order placement via Fyers fails (circuit breaker opens; watchdog alerts at T-60min). Backtests and index market data continue via the Yahoo fallback.
+   - Fyers access tokens last ~30 days and cannot be refreshed silently. The token for the active account expired 2026-08-01 00:30 UTC, but was re-validated automatically (auto-refresh cron) before 2026-08-04 05:37 UTC — positions/funds return live data.
+   - Impact when it does expire: live order placement via Fyers fails (circuit breaker opens; watchdog alerts at T-60min). Backtests and index market data continue via the Yahoo fallback. Paper bracket SL/TARGET quotes no longer depend on a live token (Yahoo-first).
+   - Behavior is now graceful: `/engine/positions|funds` return a structured `401 BROKER_TOKEN_EXPIRED` (instead of raw 500s) so the UI can prompt re-auth.
    - Fix: user re-authenticates through the UI (`/v1/brokers/fyers/re-auth`). Automation (Playwright re-consent) is blocked by Cloudflare Turnstile.
 
 2. **Index spot unavailable from Fyers data API**
@@ -50,6 +51,10 @@ Status verified 2026-08-01. Each item notes impact and mitigation. None block GA
 
 13. **Yahoo fallback throttling**
     - Occasional transient throttling on Yahoo when many symbols are fetched quickly; the durable candle store caches results so retries typically succeed.
+
+14. **[Action required] `risk_audit_log` table not yet created in prod (Beta hardening, 2026-08-04)**
+    - The kill-switch emergency audit writes to `risk_audit_log`, which does not exist in the prod schema. Code falls back to the existing `audit_log` table, so audits are persisted, but the dedicated table should be created.
+    - Apply `supabase/migrations/20260804_01600_risk_audit_log.sql` via the Supabase SQL editor / psql (API has no DDL access). Until applied, one `PGRST205` warn line appears per emergency-stop audit write.
 
 ## Resolved during GA prep (kept for audit)
 
