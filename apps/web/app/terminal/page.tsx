@@ -3,13 +3,18 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
+import { usePolling } from '@/lib/use-polling'
 import { useToast } from '@/lib/use-toast'
 
 interface Position {
   symbol: string; exchange: string; quantity: number
-  average_buy_price: number; unrealised_pnl: number; m2m: number
+  buy_quantity: number; sell_quantity: number
+  average_buy_price: number; average_sell_price: number
+  unrealised_pnl: number; realised_pnl: number; m2m: number
   product: string; instrument_type: string
 }
+
+interface QuoteData { last_price: number; close: number; change_pct: number | null }
 
 interface Order {
   id: string; symbol: string; side: string; order_type: string
@@ -43,6 +48,7 @@ export default function TerminalPage() {
   const [product, setProduct] = useState<'INTRADAY' | 'NRML'>('INTRADAY')
   const [placing, setPlacing] = useState(false)
   const [orderError, setOrderError] = useState('')
+  const [quotes, setQuotes] = useState<Record<string, QuoteData>>({})
 
   const loadData = async () => {
     try {
@@ -61,10 +67,51 @@ export default function TerminalPage() {
     }
   }
 
+  const refreshQuotes = async () => {
+    const syms = Array.from(new Set([
+      ...positions.map(p => p.symbol).filter(Boolean),
+      ...(symbol ? [symbol] : []),
+    ]))
+    if (!syms.length) return
+    try {
+      const res: any = await api.marketdata.quote(syms)
+      const arr = Array.isArray(res) ? res : [res]
+      const next: Record<string, QuoteData> = {}
+      for (const r of arr) {
+        if (!r?.symbol) continue
+        const lp = Number(r.last_price || 0)
+        const pc = Number(r.close || 0)
+        next[r.symbol] = {
+          last_price: lp,
+          close: pc,
+          change_pct: pc > 0 && lp > 0 ? ((lp - pc) / pc) * 100 : null,
+        }
+      }
+      setQuotes(prev => ({ ...prev, ...next }))
+    } catch { /* quote poll failures are non-fatal */ }
+  }
+
   useEffect(() => { loadData() }, [])
   useEffect(() => { if (symbol) subscribe([symbol]) }, [symbol])
+  usePolling(refreshQuotes, 5000)
 
   const liveTick = symbol ? ticks[symbol] : null
+  const quoteFor = (sym: string): QuoteData | undefined => quotes[sym]
+  const positionQuote = (p: Position) => {
+    const t = ticks[p.symbol]
+    if (t) return { last_price: t.last_price, change_pct: t.change_pct ?? null }
+    const q = quoteFor(p.symbol)
+    return q ? { last_price: q.last_price, change_pct: q.change_pct } : undefined
+  }
+
+  const quoteForTicket = () => {
+    if (!symbol) return undefined
+    const t = ticks[symbol]
+    if (t) return { last_price: t.last_price, change_pct: t.change_pct ?? null }
+    const q = quoteFor(symbol)
+    return q && q.last_price > 0 ? { last_price: q.last_price, change_pct: q.change_pct } : undefined
+  }
+  const ticketQuote = quoteForTicket()
 
   const handleCancel = async (orderId: string) => {
     setCancelling(orderId)
@@ -93,7 +140,12 @@ export default function TerminalPage() {
     finally { setPlacing(false) }
   }
 
-  const tickPct = liveTick?.change_pct ?? null
+  const tickPct = ticketQuote?.change_pct ?? null
+
+  const openPositions = positions.filter(p => p.quantity !== 0)
+  const closedPositions = positions.filter(p => p.quantity === 0)
+  const totalUnrealised = openPositions.reduce((s, p) => s + (p.unrealised_pnl || 0), 0)
+  const totalRealised = positions.reduce((s, p) => s + (p.realised_pnl || 0), 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
@@ -185,21 +237,23 @@ export default function TerminalPage() {
               )}
 
               {/* Live Quote */}
-              {liveTick && (
+              {(ticketQuote && ticketQuote.last_price > 0) && (
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '6px 8px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)',
                   fontSize: 11,
                 }}>
                   <span style={{ fontWeight: 700, color: 'var(--text)' }}>{symbol}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>
-                    {liveTick.last_price?.toFixed(1)}
-                  </span>
-                  {tickPct !== null && (
-                    <span style={{ fontWeight: 700, color: tickPct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
-                      {tickPct >= 0 ? '+' : ''}{tickPct.toFixed(2)}%
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>
+                      {ticketQuote.last_price.toFixed(1)}
                     </span>
-                  )}
+                    {tickPct !== null && tickPct !== undefined && (
+                      <span style={{ fontWeight: 700, color: tickPct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
+                        {tickPct >= 0 ? '+' : ''}{tickPct.toFixed(2)}%
+                      </span>
+                    )}
+                  </span>
                 </div>
               )}
 
@@ -255,49 +309,107 @@ export default function TerminalPage() {
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>
                 Positions ({positions.length})
               </span>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span className="t-faint" style={{ fontSize: 10 }}>
+                  Unrealised{' '}
+                  <b style={{ color: totalUnrealised >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
+                    {totalUnrealised >= 0 ? '+' : ''}{totalUnrealised.toFixed(0)}
+                  </b>
+                  {' '}· Realised{' '}
+                  <b style={{ color: totalRealised >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
+                    {totalRealised >= 0 ? '+' : ''}{totalRealised.toFixed(0)}
+                  </b>
+                </span>
                 <button className="t-btn t-btn-xs" onClick={loadData}>Refresh</button>
               </div>
             </div>
             {positions.length > 0 ? (
               <div style={{ overflow: 'auto', flex: 1 }}>
-                <table className="t-table">
-                  <thead>
-                    <tr>
-                      <th>Symbol</th>
-                      <th className="num">Qty</th>
-                      <th className="num">Avg</th>
-                      <th className="num">P&L</th>
-                      <th>Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {positions.map((p) => {
-                      const live = ticks[p.symbol]
-                      const ltp = live?.last_price || p.average_buy_price || 0
-                      const pnl = live ? (p.quantity * (ltp - p.average_buy_price)) : p.unrealised_pnl
-                      return (
-                        <tr key={p.symbol}>
-                          <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
-                          <td className="t-num">{p.quantity}</td>
-                          <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
-                          <td className={`t-num ${(pnl || 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
-                            {(pnl || 0) >= 0 ? '+' : ''}{(pnl || 0).toFixed(0)}
-                          </td>
-                          <td>
-                            <span className={`t-badge ${p.instrument_type === 'OPT' ? 't-badge-violet' : 't-badge-cyan'}`} style={{ fontSize: 8 }}>
-                              {p.instrument_type || 'EQ'}
-                            </span>
-                          </td>
+                {openPositions.length > 0 && (
+                  <>
+                    <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Open Positions ({openPositions.length})
+                      </span>
+                    </div>
+                    <table className="t-table">
+                      <thead>
+                        <tr>
+                          <th>Symbol</th>
+                          <th className="num">Qty</th>
+                          <th className="num">Buy</th>
+                          <th className="num">LTP</th>
+                          <th className="num">Chg%</th>
+                          <th className="num">Unrealised P&L</th>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {openPositions.map((p) => {
+                          const q = positionQuote(p)
+                          const ltp = q?.last_price || p.average_buy_price || 0
+                          const pnl = q ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
+                          const chg = q?.change_pct ?? null
+                          const base = p.quantity * p.average_buy_price
+                          const pnlPct = base !== 0 ? (pnl / base) * 100 : 0
+                          return (
+                            <tr key={p.symbol}>
+                              <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
+                              <td className="t-num">{p.quantity}</td>
+                              <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
+                              <td className="t-num">{ltp > 0 ? ltp.toFixed(1) : '—'}</td>
+                              <td className={`t-num ${chg !== null && chg !== undefined ? (chg >= 0 ? 't-up' : 't-down') : ''}`}>
+                                {chg !== null && chg !== undefined ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}
+                              </td>
+                              <td className={`t-num ${(pnl || 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
+                                {(pnl || 0) >= 0 ? '+' : ''}{(pnl || 0).toFixed(0)}
+                                <span className="t-faint" style={{ fontSize: 9, marginLeft: 4 }}>
+                                  ({(pnlPct >= 0 ? '+' : '')}{pnlPct.toFixed(1)}%)
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+                {closedPositions.length > 0 && (
+                  <>
+                    <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Closed Today ({closedPositions.length})
+                      </span>
+                    </div>
+                    <table className="t-table">
+                      <thead>
+                        <tr>
+                          <th>Symbol</th>
+                          <th className="num">Buy Qty</th>
+                          <th className="num">Avg Buy</th>
+                          <th className="num">Avg Sell</th>
+                          <th className="num">Realised P&L</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {closedPositions.map((p) => (
+                          <tr key={p.symbol}>
+                            <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
+                            <td className="t-num">{p.buy_quantity || p.sell_quantity || 0}</td>
+                            <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
+                            <td className="t-num">{(p.average_sell_price || 0).toFixed(1)}</td>
+                            <td className={`t-num ${(p.realised_pnl || 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
+                              {(p.realised_pnl || 0) >= 0 ? '+' : ''}{(p.realised_pnl || 0).toFixed(0)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
               </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <p style={{ color: 'var(--text-faint)', fontSize: 11 }}>No open positions</p>
+                <p style={{ color: 'var(--text-faint)', fontSize: 11 }}>No positions yet — place an order above</p>
               </div>
             )}
           </div>

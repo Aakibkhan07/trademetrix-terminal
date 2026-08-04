@@ -1,3 +1,38 @@
+## v1.5.3 (2026-08-04) — TERMINAL UI FIX: change%, open/closed positions, buy/sell price + realised/unrealised P&L
+
+> Beta feedback fix (allowed under feature freeze): the terminal's change percentage never
+> rendered for typed symbols and position details (buy/sell price, realised/unrealised P&L,
+> closed positions) were not visible. Frontend-only fix — the backend already returns every
+> field via `/engine/positions` (`buy_quantity`, `sell_quantity`, `average_buy_price`,
+> `average_sell_price`, `unrealised_pnl`, `realised_pnl`, `m2m`). Deployed: hot `docker cp` of
+> `.next` into `trademetrix_web`. `tsc` + `next build` (`.env.production`) clean.
+
+### Fixed
+- **`apps/web/app/terminal/page.tsx`** — extended `Position` interface (buy/sell qty, avg sell,
+  realised P&L, m2m); positions split into **Open Positions** (Qty / Buy / LTP / Chg% / Unrealised
+  P&L + pnl%) and **Closed Today** (Qty / Avg Buy / Avg Sell / Realised P&L) sections; header
+  totals for Unrealised + Realised; live-tick-first, quote-poll-fallback LTP; change% column.
+- **Change% root cause**: WS tick feed only relays `subscribed_symbols` (fixed MAJOR feed), so
+  typed symbols had no `change_pct`. Now the terminal polls `GET /marketdata/quote` every 5s
+  (`usePolling`) for position + typed symbols and computes `(last−close)/close` client-side
+  (`Quote.close` = previous close). Falls back to `Tick.change_pct` when the symbol is WS-fed.
+- **`apps/web/lib/api.ts`** — added `marketdata.quote(symbols)` client method.
+
+### Verification
+- Browser smoke on prod (puppeteer, real login via API-issued `tm_session` cookie with
+  `domain=.trademetrix.tech`): 0 console/page errors; quote poll fires; change% renders for a
+  typed symbol (RELIANCE −1.96%); with mocked positions payload: **OPEN POSITIONS (2)** +
+  **CLOSED TODAY (1)** headers render with Buy 1280 / Avg Sell 3412 / Unrealised +134 /
+  Realised +84 / RELIANCE change% ~−1.9% all present in the DOM.
+- Deployment note: `.next` must be extracted with `--strip-components=1` (tar contains a `.next/`
+  prefix — a nested `.next/.next` crashed the server on BUILD_ID ENOENT; fixed via host-side
+  extraction + `docker cp` into the stopped container + `chown`, no drift vs repo after).
+
+### Notes
+- Fresh-user paper `/engine/trade` returns `RISK_REJECTED` — pre-existing backend risk behavior
+  (worker-side shared rule state), not a regression of this fix; unchanged here.
+- Test users cleaned from prod (10 GoTrue admin deletes).
+
 ## v1.5.2 (2026-08-04) — user_strategies JSONB PARITY FIX (FINAL CORRECTNESS DEPLOY)
 
 > The legacy `/api/v1/user-strategies` service assumed a dev-only relational schema that does

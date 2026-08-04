@@ -508,6 +508,7 @@ export const api = {
     stopFeed: () => request('/marketdata/feed/stop', { method: 'POST' }),
     symbols: () => request('/marketdata/symbols'),
     watchlist: () => request('/marketdata/watchlist'),
+    quote: (symbols: string[]) => request(`/marketdata/quote?symbols=${encodeURIComponent(symbols.join(','))}`),
     optionChain: (symbol: string) => request(`/marketdata/option-chain?symbol=${symbol}`),
     historical: (symbol: string, interval = '15m', days = 7) =>
       request(`/marketdata/historical?symbol=${symbol}&interval=${interval}&days=${days}`),
