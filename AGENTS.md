@@ -3,6 +3,46 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-04 — Broker-first market data: real LTP/change% for compact option symbols (v1.5.8)
+
+### What was done
+1. **Gap after v1.5.7** — P&L was real but LTP/Chg% still showed `—` for compact option
+   symbols (`SENSEX2680679000CE`, `NIFTY2680424450PE`). Root cause: `GET /marketdata/quote`
+   only called `providers.yahoo.fetch_quotes` — Yahoo can't resolve the fyers compact option
+   format → returned 0/0 → the `last_price > 0` guard in the frontend turned the cell into `—`.
+2. **Fix** — `/marketdata/quote` is now **broker-first**: resolve the user's active broker
+   (`EngineService.get_active_broker`), call the fyers adapter's `get_quotes` (REST
+   `/data/quotes`), reusing the already-running feed adapter
+   (`shared_socket.get_broker_adapter`) else the cached engine; Yahoo fills only the symbols
+   the broker didn't price. No broker → pure Yahoo (unchanged). Added
+   `ExecutionEngine.get_quotes`, `SharedDataSocket.get_broker_adapter`.
+3. **BSE prefix** — fyers BSE underlyings (SENSEX options) need `BSE:`; `_ensure_fyers_symbol`
+   and `_ws_symbol` were hardcoded to `NSE:`. Both now use `BSE:` when the symbol starts with
+   `SENSEX`; `_normalize_quote` preserves `Exchange.BSE`.
+4. **Tests** — `test_quotes_broker_first_uses_broker_and_yahoo_fill`,
+   `test_quotes_broker_first_falls_back_fully_to_yahoo` (patch the SOURCE module for
+   function-local imports: `application.services.engine_service.EngineService` +
+   `providers.yahoo.fetch_quotes`; fake `fetch_quotes` must be async), BSE-prefix asserts.
+   **867 passed, 1 xfailed.**
+5. **Deploy + probe** — 4 files hot-deployed (`docker cp` + restart, health 200). In-container
+   route probe (user `fa668109`): `SENSEX2680679000CE` → `{last:106.5, close:206.95, broker:fyers}`
+   (exactly the position LTP), `NSE:NIFTY50-INDEX` → `{24614.9 / 24774.3}`, all `broker: fyers`.
+   Pushed `eb4f7d3`.
+
+### Reference
+- `/marketdata/quote` broker-first chain: `EngineService.get_active_broker(user_id)` →
+  `shared_socket.get_broker_adapter(broker)` (running feed adapter, authenticated + rate-limited)
+  → else `EngineService._get_engine(user_id, broker)._adapter` → `adapter.get_quotes(symbols)`;
+  bridge `broker_quotes` by symbol using `q.last_price > 0`, then Yahoo for the rest.
+- Adapter function-local imports in route helpers → tests must monkeypatch the SOURCE module
+  (`application.services.engine_service.EngineService`, `providers.yahoo.fetch_quotes`), and
+  `providers.yahoo.fetch_quotes` is async (`await` the fake).
+- Frontend needs NO change: `positionQuote` computes change% from `(last_price - close) / close`,
+  requires `last_price > 0` — real broker quotes now satisfy it.
+- BSE vs NSE prefix rule: `SENSEX*` → `BSE:`, everything else → `NSE:` (`_ensure_fyers_symbol`,
+  `_ws_symbol`). Compact `SENSEX2680679000CE` is a real fyers v3 quote symbol (`/data/quotes`
+  resolves it to `{last:106.5}`); Yahoo still can't — always prefer the broker for these.
+
 ## Session: 2026-08-04 — Positions 0.00 FIX — backend root cause: fyers v3 position field mapping (v1.5.7)
 
 ### What was done

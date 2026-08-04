@@ -1,3 +1,31 @@
+## v1.5.8 (2026-08-04) — BROKER-FIRST MARKET DATA: real LTP/change% for compact option symbols
+
+> Follow-up to v1.5.7: positions now show real P&L, but LTP/Chg% still came from Yahoo only.
+> `/marketdata/quote` bypassed the broker entirely — Yahoo can't resolve the fyers compact
+> option format (`SENSEX2680679000CE`, `NIFTY2680424450PE`), so those positions showed `—`
+> instead of live prices. Market data now comes from the broker.
+
+### Changed
+- **`apps/api/routes/v1_marketdata.py`** — `GET /marketdata/quote` is now **broker-first**:
+  resolves the user's active broker and calls the adapter's `get_quotes` (fyers REST
+  `/data/quotes`; reuses the running feed adapter via `shared_socket.get_broker_adapter`, else
+  the cached `EngineService` engine). Symbols the broker can't price fall back to Yahoo
+  per-symbol. No broker → pure Yahoo (unchanged).
+- **`apps/api/brokers/fyers_adapter.py`** — `_ensure_fyers_symbol` and `_ws_symbol` now use a
+  `BSE:` prefix for SENSEX underlyings (was hardcoded `NSE:` → BSE symbols couldn't be quoted
+  or WS-subscribed); `_normalize_quote` preserves `Exchange.BSE` from the symbol prefix.
+- **`apps/api/engine/executor.py`** — `ExecutionEngine.get_quotes(symbols)` delegate.
+- **`apps/api/market/data_socket.py`** — `get_broker_adapter(broker_type)` accessor.
+
+### Verification
+- New tests: broker-first with Yahoo fill (mixed batch → fyers + yahoo quotes by symbol),
+  full Yahoo fallback (no broker data), BSE prefix in `_ensure_fyers_symbol`/`_ws_symbol`.
+  **867 passed, 1 xfailed**.
+- In-container route probe (user `fa668109`): `SENSEX2680679000CE` → `last 106.5 close 206.95
+  broker fyers` (real position LTP), `NSE:NIFTY50-INDEX` → `24614.9 / 24774.3 broker fyers`,
+  `NIFTY2680424450PE` → `0.1 / 18.35 broker fyers` (closed position — UI uses realised P&L).
+- Hot-deployed (4 files, `docker cp` + restart, health 200), pushed `eb4f7d3`.
+
 ## v1.5.7 (2026-08-04) — POSITIONS 0.00 FIX: map fyers v3 position fields (real root cause)
 
 > Follow-up to v1.5.5/v1.5.6: the portfolio/terminal positions still showed **0.00** P&L and
