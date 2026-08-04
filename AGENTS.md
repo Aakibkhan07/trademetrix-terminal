@@ -3,6 +3,64 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-04 — Backtest data + P&L honesty: real candles, correct trade attribution (v1.5.9)
+
+### What was done
+1. **Hand-check of the backtest flow found two production defects** plus one data-store gap.
+   (a) **Legacy `/run` silently synthesized candles**: `engine/backtest.fetch_historical_data`
+   called fyers directly and, when fyers failed (always from the container: WAF 403 on
+   `/data/history`, wrong-URL 404 on `/api/v3/history`, and SDK fallback dying with
+   `Permission denied: '/app/fyersApi.log'`), it returned `_synthesize_candles` fabricated
+   data — a "backtest" on junk with 0 trades / −38% returns. (b) **Short P&L was −notional**:
+   `build_trades_from_snapshots` priced EVERY entry from `average_buy_price` (0.0 for short
+   positions) → `entry_price=0` → each SELL "trade" showed `pnl = (0 − exit) × qty` ≈ the whole
+   notional (9 SELLs × 75 × ~24k ≈ −16M). (c) **Partial durable store never topped up**: the
+   loader refetched only when the store had <2 candles, so a 7-day request with a 3-day slice
+   returned the slice as-is.
+2. **Fixes** — `fetch_historical_data` routes through `backtest_historical.load` (durable →
+   broker → Yahoo; synthetic only as a logged last resort); `backtest_historical.load` is now
+   coverage-aware (`_covers_range` with a 1-trading-day tolerance for the 09:15 IST session
+   open, `_merge_candles` union by timestamp); `build_trades_from_snapshots` prices SHORT from
+   `average_sell_price` / LONG from `average_buy_price`; `BacktestBroker` now records a
+   position's `entry_time` at open and threads it through `_record_trade` (Trades show real
+   open→close times); `manager.run` prefers `broker.trades` (authoritative fill records) over
+   snapshot reconstruction and snapshots carry the candle timestamp (not wall-clock);
+   `total_fees` populated from `broker.total_costs`; fyers SDK `log_path="/tmp/"` (was `""` →
+   `/app/fyersApi.log` Errno 13).
+3. **What the −32.82% "anomaly" actually was** — a legit cost-inclusive return: net_pnl is
+   GROSS, total_fees (slippage+brokerage+STT on up to ₹18M notional) is separate, and
+   `return_pct = (end_equity − start)/start` includes both. Verified idempotent:
+   `net_pnl + total_fees = equity change` exactly at every qty (qty1: −152.75+555.47=−708.22;
+   qty75: −11456.25+21358.98=−32815.23). The "0 trades / −38%" of earlier probes were the
+   synthetic-data artifact (before this fix); trend_rider on a no-crossover window legitimately
+   yields 0 trades, and oversized qty (>capital per trade) legitimately rejects BUYs in the
+   legacy engine.
+4. **Tests** — legacy fetch uses durable store + synthetic-only-when-empty; coverage-aware
+   refetch/merge; short & long trade attribution prices (SELL entry=sell avg, exit=buy avg);
+   broker `entry_time`≠`exit_time`. **873 passed, 1 xfailed** (867 baseline + 6).
+5. **Deploy + probe** — 7 files hot-deployed (health 200). Prod: durable loader returns the
+   full 7-day/15m window (125 candles across 5 sessions, close 24178–24774, was 75/3-day);
+   manager run gives 550 candles / 9 trades with real entry→exit timestamps and full fee/gross
+   reconciliation; legacy `/run` 200 with 550 real candles analyzed. Probe scripts cleaned.
+
+### Reference
+- Backtest accounting contract: `net_pnl` = gross trade P&L; `total_fees` = all slippage +
+  brokerage + STT (both from `BacktestBroker`); `return_pct`/`end_equity` are cost-inclusive.
+  They reconcile via `net_pnl + total_fees = initial_capital − end_equity`. Never cross-check
+  `net_pnl` alone against the equity curve.
+- Trade attribution: LONG entry = `average_buy_price`, exit = `average_sell_price`; SHORT entry
+  = `average_sell_price`, exit = `average_buy_price` (per-side prices in `get_positions`). Use
+  `broker.trades` (fill-level, real open/close times) in preference to snapshot reconstruction.
+- Fyers history from the container is WAF-blocked (403) on BOTH `/data/history` and the SDK
+  (it hits the same URL); `/api/v3/history` is a 404 (wrong path). Backtests therefore run on
+  the durable store + Yahoo by design — always verify a "failed fyers fetch" didn't flip the
+  legacy path to synthetic. `fyersApi.log` write goes to `/tmp/` now (never `/app/`).
+- Durable loader: `_covers_range` uses a 1-day tolerance because intraday candles start at
+  09:15 IST, so a store that begins 03:45 UTC is "complete enough"; `_merge_candles` dedupes by
+  canonical timestamp (fetched wins).
+- Route probe with CSRF: send matching `Cookie: csrf_token=<x>` + `X-CSRF-Token: <x>` (middleware
+  compares `secrets.compare_digest`); legacy `/run` loads real candles via the durable loader.
+
 ## Session: 2026-08-04 — Broker-first market data: real LTP/change% for compact option symbols (v1.5.8)
 
 ### What was done

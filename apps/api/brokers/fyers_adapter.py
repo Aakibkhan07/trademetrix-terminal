@@ -514,7 +514,7 @@ class FyersAdapter(BaseBroker, BrokerAdapterBase):
         if not candles and self._access_token and self._client_id:
             try:
                 from fyers_apiv3 import fyersModel
-                fy = fyersModel.FyersModel(client_id=self._client_id, token=self._access_token, log_path="")
+                fy = fyersModel.FyersModel(client_id=self._client_id, token=self._access_token, log_path="/tmp/")
                 sd = {"symbol": params["symbol"], "resolution": params["resolution"], "date_format": "0",
                       "range_from": params.get("range_from", start or str(now_ts - 86400 * 60)),
                       "range_to": params.get("range_to", end or str(now_ts))}

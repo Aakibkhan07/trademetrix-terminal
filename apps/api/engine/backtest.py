@@ -172,36 +172,25 @@ class BacktestEngine:
 
 async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: str = "15m",
                                  days: int = 60, user_id: str | None = None) -> list[dict]:
-    if user_id:
-        try:
-            from core.db import async_supabase, get_supabase
-            from core.security import decrypt_broker_credentials
-            supabase = get_supabase()
-            cred = await async_supabase(lambda: supabase.table("broker_credentials").select("*").eq("user_id", user_id).eq("broker", "fyers").single().execute())
-            if cred.data:
-                row = cred.data
-                client_id = decrypt_broker_credentials(row["encrypted_api_key"])
-                raw_token = decrypt_broker_credentials(row["encrypted_access_token"])
+    """Real-candle loader: durable store first, then broker (Fyers), then Yahoo.
 
-                fyers_symbol = _map_to_fyers_symbol(symbol, exchange)
+    Synthetic candles are a last resort and are clearly logged — a backtest
+    must never silently run on fabricated data when real data exists.
+    """
+    try:
+        from backtest.historical import backtest_historical
 
-                fyers_interval = _resolve_fyers_interval(interval)
-                import time
-                now = int(time.time())
-                start_ts = str(now - days * 86400)
+        candles = await backtest_historical.load(
+            symbol=symbol, exchange=exchange, interval=interval,
+            days=days, user_id=user_id,
+        )
+        if candles:
+            logger.info("Backtest using %d real candles for %s", len(candles), symbol)
+            return candles
+    except Exception as e:
+        logger.warning("Failed to fetch real data for backtest (%s)", e)
 
-                from brokers.fyers_adapter import FyersAdapter
-                adapter = FyersAdapter()
-                await adapter.authenticate({"client_id": client_id, "access_token": raw_token})
-                candles = await adapter.get_historical(fyers_symbol, fyers_interval, start_ts, str(now))
-                if candles:
-                    logger.info("Backtest using %d real candles from Fyers for %s", len(candles), fyers_symbol)
-                    return [_candle_to_dict(c) for c in candles]
-                logger.warning("Fyers returned 0 candles for %s", fyers_symbol)
-        except Exception as e:
-            logger.warning("Failed to fetch real data from Fyers (%s)", e)
-
-    logger.warning("No broker data available — using synthetic data for backtest")
+    logger.warning("No real data available — using synthetic data for backtest")
     syn = _synthesize_candles(symbol, days, interval)
     logger.info("Generated %d synthetic candles for %s", len(syn), symbol)
     return syn
@@ -223,43 +212,6 @@ def _parse_interval_minutes(interval: str) -> int:
         return int(interval)
     except (ValueError, AttributeError):
         return 15
-
-
-def _map_to_fyers_symbol(symbol: str, exchange: str) -> str:
-    if ":" in symbol:
-        return symbol
-    mapping = {
-        "NIFTY": "NSE:NIFTY50-INDEX",
-        "BANKNIFTY": "NSE:NIFTYBANK-INDEX",
-        "FINNIFTY": "NSE:FINNIFTY-INDEX",
-        "SENSEX": "BSE:SENSEX-INDEX",
-        "MIDCPNIFTY": "NSE:MIDCPNIFTY-INDEX",
-        "NIFTY50": "NSE:NIFTY50-INDEX",
-    }
-    if symbol.upper() in mapping:
-        return mapping[symbol.upper()]
-    return f"{exchange}:{symbol}"
-
-
-def _resolve_fyers_interval(interval: str) -> str:
-    mins = _parse_interval_minutes(interval)
-    fyers_map = {1: "1", 2: "2", 3: "3", 5: "5", 10: "10", 15: "15", 20: "20", 30: "30", 60: "60",
-                  120: "120", 180: "180", 240: "240", 360: "360", 480: "480", 720: "720", 960: "960", 1440: "D"}
-    return fyers_map.get(mins, "15")
-
-
-def _candle_to_dict(c: Candle) -> dict:
-    return {
-        "symbol": c.symbol,
-        "exchange": c.exchange.value if hasattr(c.exchange, "value") else str(c.exchange),
-        "interval": c.interval,
-        "open": c.open,
-        "high": c.high,
-        "low": c.low,
-        "close": c.close,
-        "volume": c.volume,
-        "timestamp": c.timestamp.isoformat() if hasattr(c.timestamp, "isoformat") else str(c.timestamp),
-    }
 
 
 def _synthesize_candles(symbol: str, days: int = 30, interval: str = "15m") -> list[dict]:

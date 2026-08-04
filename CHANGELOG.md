@@ -1,3 +1,48 @@
+## v1.5.9 (2026-08-04) — BACKTEST DATA + P&L HONESTY: real candles, correct trade attribution
+
+> Backtest hand-check revealed two production defects, both on the legacy and manager run
+> paths: (1) `fetch_historical_data` called fyers directly and, when fyers failed (which it
+> always does from the container — WAF 403 on `/data/history`, plus a wrong-URL 404 and a
+> read-only `fyersApi.log` SDK fallback), it silently returned synthetic candles; the legacy
+> `/run` route ran on fabricated data. (2) `build_trades_from_snapshots` priced SHORT entries
+> from `average_buy_price` (0.0 for shorts) → entry ₹0 → one PnL of −1.8M per short. And the
+> durable candle store returned a partial slice whenever it had ≥2 candles (a 7-day request
+> got ~3 days) without topping up.
+
+### Changed
+- **`apps/api/engine/backtest.py`** — `fetch_historical_data` now routes through
+  `backtest_historical.load` (durable store → broker → Yahoo); synthetic candles remain only
+  as a clearly-logged last resort, never when real data exists. Removed dead
+  `_map_to_fyers_symbol`/`_resolve_fyers_interval`/`_candle_to_dict` helpers.
+- **`apps/api/backtest/historical.py`** — `load` is now **coverage-aware**: refetches +
+  merges when the stored slice doesn't span the requested window (trading-day tolerance for
+  the 09:15 IST session open), instead of returning a stale partial store.
+- **`apps/api/backtest/performance.py`** — `build_trades_from_snapshots` prices SHORT entries
+  from `average_sell_price` and LONG from `average_buy_price` (matches the new per-side
+  `get_positions`), so short P&L is correct.
+- **`apps/api/backtest/execution.py`** — `BacktestBroker` now tracks a position's `entry_time`
+  (open candle) and threads it through `_record_trade`, so Trades show real open→close times
+  instead of the close candle for both walls.
+- **`apps/api/backtest/manager.py`** — `run` builds Trades from `broker.trades` (authoritative
+  fill-level records) instead of lossy snapshot reconstruction when available; snapshots use
+  the candle timestamp, not wall-clock; `total_fees` is populated from `broker.total_costs`
+  (was dead 0.0 — return% is cost-inclusive, `net_pnl` is gross, so the gap was invisible).
+- **`apps/api/brokers/fyers_adapter.py`** — SDK history fallback writes to `/tmp/` instead of
+  `/app/fyersApi.log` (Errno 13 → SDK fallback always failed).
+
+### Verification
+- New tests: legacy fetch → durable store (no synthetic when real data exists); synthetic
+  only when the store is empty; coverage-aware refetch+merge; short/long trade attribution
+  prices; broker `entry_time`/`exit_time`. Suite **873 passed, 1 xfailed** (was 867).
+- Prod probes (user `fa668109`): durable loader now returns a full range (125 real candles for
+  a 7-day/15m window across 5 sessions, close range 24178–24774). Manager `trend_rider` on
+  `NSE:NIFTY50-INDEX` 30d/15m: 550 candles, 9 trades, real entry → exit timestamps
+  (2026-07-07 → 2026-07-10 etc.), and full reconciliation
+  `net_pnl + total_fees = equity change` (e.g. qty1: −152.75 + 555.47 = −708.22). Legacy
+  `/run` 200 with 550 real candles analyzed (0 trades on trend_rider 15m/7d is a legit
+  no-crossover window; oversized qty rejects BUYs over capital — both correct engine behavior).
+- Hot-deployed (7 files, health 200).
+
 ## v1.5.8 (2026-08-04) — BROKER-FIRST MARKET DATA: real LTP/change% for compact option symbols
 
 > Follow-up to v1.5.7: positions now show real P&L, but LTP/Chg% still came from Yahoo only.

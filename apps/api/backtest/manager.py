@@ -102,7 +102,7 @@ class BacktestManager:
                         for order in signal.orders:
                             await self._place_via_broker(broker, order, config, bt_user_id)
 
-                    snapshot = await self._collect_snapshot(broker, idx)
+                    snapshot = await self._collect_snapshot(broker, idx, str(raw.get("timestamp", "")))
                     snapshots.append(snapshot)
 
                     if idx > 0 and idx % 100 == 0:
@@ -126,7 +126,9 @@ class BacktestManager:
 
             elapsed = time.monotonic() - start_time
 
-            trades = performance_analytics.build_trades_from_snapshots(snapshots, config.symbol)
+            trades = [
+                TradeRecord(**t) for t in broker.trades
+            ] if broker.trades else performance_analytics.build_trades_from_snapshots(snapshots, config.symbol)
 
             result = performance_analytics.calculate(
                 result=result,
@@ -139,6 +141,7 @@ class BacktestManager:
             result.status = BacktestStatus.COMPLETED
             result.completed_at = datetime.now(UTC).isoformat()
             result.duration_seconds = round(elapsed, 2)
+            result.total_fees = round(getattr(broker, "total_costs", 0.0) or 0.0, 2)
 
             self._cleanup(bt_user_id, exec_mgr)
 
@@ -356,10 +359,10 @@ class BacktestManager:
             raise ValueError(f"Unknown strategy: {config.strategy_type}")
         return strategy_cls(config.strategy_params)
 
-    async def _collect_snapshot(self, broker: BacktestBroker, index: int) -> dict:
+    async def _collect_snapshot(self, broker: BacktestBroker, index: int, timestamp: str | None = None) -> dict:
         snapshot = {
             "index": index,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": timestamp or datetime.now(UTC).isoformat(),
             "equity": broker.equity(),
             "positions": [],
             "pnl": {},
@@ -460,13 +463,13 @@ class BacktestManager:
                 if signal and signal.orders:
                     for order in signal.orders:
                         await self._place_via_broker(broker, order, config, bt_user_id)
-                snapshots.append(await self._collect_snapshot(broker, idx))
+                snapshots.append(await self._collect_snapshot(broker, idx, str(raw.get("timestamp", ""))))
 
             await strategy.on_stop()
 
             if config.close_positions_on_end and candles:
                 await self._close_open_positions(broker, candles[-1])
-                snapshots.append(await self._collect_snapshot(broker, len(candles)))
+                snapshots.append(await self._collect_snapshot(broker, len(candles), str(candles[-1].get("timestamp", ""))))
 
             trades = [
                 TradeRecord(**t) for t in broker.trades
@@ -482,6 +485,7 @@ class BacktestManager:
             result.status = BacktestStatus.COMPLETED
             result.completed_at = datetime.now(UTC).isoformat()
             result.duration_seconds = 0.0
+            result.total_fees = round(getattr(broker, "total_costs", 0.0) or 0.0, 2)
 
             self._cleanup(bt_user_id, exec_mgr)
             await self._persist_run(result)

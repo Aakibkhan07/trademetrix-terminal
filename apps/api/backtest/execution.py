@@ -344,44 +344,55 @@ class BacktestBroker:
             symbol,
             {"quantity": 0, "avg_price": 0.0, "realized_pnl": 0.0, "total_cost": 0.0},
         )
+        opened_at = self._last_times.get(symbol, "")
 
         if side == "BUY":
             prev_qty = pos["quantity"]
             if prev_qty >= 0:
+                prev_time = pos.get("entry_time")
                 pos["quantity"] = prev_qty + qty
                 pos["avg_price"] = (pos["avg_price"] * prev_qty + price * qty) / max(1, prev_qty + qty)
+                pos["entry_time"] = prev_time or opened_at
             else:
                 closed = min(qty, -prev_qty)
                 pnl = (pos["avg_price"] - price) * closed
                 pos["realized_pnl"] += pnl
                 self._realized += pnl
-                self._record_trade(symbol, "SELL", pos["avg_price"], price, closed, pnl)
+                self._record_trade(symbol, "SELL", pos["avg_price"], price, closed, pnl, pos.get("entry_time") or opened_at)
                 pos["quantity"] = prev_qty + closed
                 if qty > closed:
                     pos["quantity"] = qty - closed
                     pos["avg_price"] = price
+                    pos["entry_time"] = opened_at
+                else:
+                    pos.pop("entry_time", None)
             self._cash -= traded_value + cost.total
         else:
             prev_qty = pos["quantity"]
             if prev_qty <= 0:
+                prev_time = pos.get("entry_time")
                 pos["quantity"] = prev_qty - qty
                 pos["avg_price"] = (abs(pos["avg_price"]) * abs(prev_qty) + price * qty) / max(1, abs(prev_qty) + qty)
+                pos["entry_time"] = prev_time or opened_at
             else:
                 closed = min(qty, prev_qty)
                 pnl = (price - pos["avg_price"]) * closed
                 pos["realized_pnl"] += pnl
                 self._realized += pnl
-                self._record_trade(symbol, "BUY", pos["avg_price"], price, closed, pnl)
+                self._record_trade(symbol, "BUY", pos["avg_price"], price, closed, pnl, pos.get("entry_time") or opened_at)
                 pos["quantity"] = prev_qty - closed
                 if qty > closed:
                     pos["quantity"] = -(qty - closed)
                     pos["avg_price"] = price
+                    pos["entry_time"] = opened_at
+                else:
+                    pos.pop("entry_time", None)
             self._cash += traded_value - cost.total
 
         self._last_prices[symbol] = price
 
     def _record_trade(self, symbol: str, side: str, entry: float, exit_price: float,
-                      qty: int, pnl: float) -> None:
+                      qty: int, pnl: float, entry_time: str | None = None) -> None:
         self._trades.append({
             "symbol": symbol,
             "side": side,
@@ -389,7 +400,7 @@ class BacktestBroker:
             "exit_price": round(exit_price, 4),
             "quantity": qty,
             "pnl": round(pnl, 2),
-            "entry_time": self._last_times.get(symbol, ""),
+            "entry_time": entry_time or self._last_times.get(symbol, ""),
             "exit_time": self._last_times.get(symbol, ""),
         })
 

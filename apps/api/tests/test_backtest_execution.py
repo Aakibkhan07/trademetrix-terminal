@@ -233,3 +233,25 @@ async def test_manager_run_end_to_end(monkeypatch):
     assert result.duration_seconds >= 0
     backtest_manager._history.clear()
     backtest_manager._current_run = None
+
+
+@pytest.mark.asyncio
+async def test_broker_trades_carry_open_and_close_times():
+    candles = [
+        _candle("t0", 100, 101, 99, 100),
+        _candle("t1", 101, 102, 100, 101),
+        _candle("t2", 104, 105, 103, 104),
+    ]
+    broker = BacktestBroker("backtest:test")
+    broker.update_config(BacktestExecutionConfig(initial_capital=100000.0))
+    broker.set_candles(candles)
+    await broker.on_candle(0)
+    await broker.place_order(_order("BUY", qty=10))
+    await broker.on_candle(2)
+    await broker.place_order(_order("SELL", qty=10))
+    trades = broker.trades
+    assert len(trades) == 1
+    t = trades[0]
+    assert t["entry_time"] == candles[0]["timestamp"]
+    assert t["exit_time"] == candles[2]["timestamp"]
+    assert t["entry_time"] != t["exit_time"]

@@ -57,9 +57,10 @@ class PerformanceAnalytics:
 
             qty = pos.get("quantity", 0)
             if qty != 0 and not open_trade:
+                is_short = qty < 0
                 open_trade = {
-                    "side": "BUY" if qty > 0 else "SELL",
-                    "entry_price": pos.get("average_buy_price", 0),
+                    "side": "SELL" if is_short else "BUY",
+                    "entry_price": pos.get("average_sell_price", 0) if is_short else pos.get("average_buy_price", 0),
                     "quantity": abs(qty),
                     "entry_time": snap.get("timestamp", ""),
                 }
@@ -68,7 +69,7 @@ class PerformanceAnalytics:
                     symbol=symbol,
                     side=open_trade["side"],
                     entry_price=open_trade["entry_price"],
-                    exit_price=pos.get("average_sell_price", 0) or pos.get("last_price", 0),
+                    exit_price=pos.get("average_buy_price", 0) or pos.get("average_sell_price", 0) or pos.get("last_price", 0),
                     quantity=open_trade["quantity"],
                     pnl=0.0,
                     entry_time=open_trade["entry_time"],

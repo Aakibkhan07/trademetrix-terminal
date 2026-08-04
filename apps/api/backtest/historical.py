@@ -74,12 +74,13 @@ class BacktestHistoricalData:
         stored = await self._load_from_db(symbol, exchange, interval, start_dt, end_dt)
         candles = list(stored)
 
-        if len(candles) < 2:
+        if len(candles) < 2 or not self._covers_range(candles, start_dt, end_dt):
             fetched = await self._fetch_and_store(
                 symbol=symbol, exchange=exchange, interval=interval,
                 start_dt=start_dt, end_dt=end_dt, user_id=user_id,
             )
-            candles = fetched or []
+            if fetched:
+                candles = self._merge_candles(candles, fetched)
 
         candles = self._trim_range(candles, start_dt, end_dt)
         candles.sort(key=lambda c: str(c.get("timestamp", "")))
@@ -346,6 +347,34 @@ class BacktestHistoricalData:
     def _trim_range(self, candles: list[dict], start_dt: datetime, end_dt: datetime) -> list[dict]:
         margin = timedelta(minutes=_interval_minutes(str(candles[0].get("interval", "15m"))) if candles else 15)
         return [c for c in candles if self._in_range(c, start_dt - margin, end_dt + margin)]
+
+    def _covers_range(self, candles: list[dict], start_dt: datetime, end_dt: datetime) -> bool:
+        """True when the stored slice covers the full requested window.
+
+        Trading-day tolerance: intraday candles only exist between ~09:15–15:30
+        IST, so edge candles can legitimately sit up to ~1 day inside the
+        requested boundary.
+        """
+        if not candles:
+            return False
+        try:
+            first = _normalize_ts(candles[0].get("timestamp") or candles[0].get("ts"))
+            last = _normalize_ts(candles[-1].get("timestamp") or candles[-1].get("ts"))
+        except (ValueError, TypeError, KeyError):
+            return False
+        tolerance = timedelta(days=1)
+        return first <= start_dt + tolerance and last >= end_dt - tolerance
+
+    def _merge_candles(self, stored: list[dict], fetched: list[dict]) -> list[dict]:
+        """Union stored + fetched candles by timestamp, preferring fetched on conflicts."""
+        by_ts: dict[str, dict] = {}
+        for c in stored:
+            ts = _normalize_ts(c.get("timestamp") or c.get("ts"))
+            by_ts.setdefault(ts.isoformat(), c)
+        for c in fetched:
+            ts = _normalize_ts(c.get("timestamp") or c.get("ts"))
+            by_ts[ts.isoformat()] = c
+        return sorted(by_ts.values(), key=lambda c: str(c.get("timestamp", "")))
 
     def _next_month(self, d: datetime) -> datetime:
         if d.month == 12:

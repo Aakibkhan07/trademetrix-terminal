@@ -84,19 +84,26 @@ def _row(ts, close):
 @pytest.mark.asyncio
 async def test_load_uses_db_first(monkeypatch):
     rows = [
+        _row("2026-01-01T09:15:00+00:00", 99.0),
         _row("2026-01-05T09:15:00+00:00", 100.0),
-        _row("2026-01-05T09:30:00+00:00", 101.0),
+        _row("2026-01-08T09:30:00+00:00", 101.0),
+        _row("2026-01-09T09:15:00+00:00", 102.0),
     ]
     fake = FakeSupabase(rows)
     monkeypatch.setattr("backtest.historical.get_supabase", lambda: fake)
     monkeypatch.setattr("backtest.historical.async_supabase", _passthrough)
 
+    async def fake_fetch(symbol, exchange="NSE", interval="15m", days=7, user_id=None):
+        raise AssertionError("durable data covers the range — must not fetch")
+
+    monkeypatch.setattr(historical_engine, "get_historical", fake_fetch)
+
     candles = await backtest_historical.load(
         "TST1", "NSE", "15m", start="2026-01-01", end="2026-01-10"
     )
-    assert len(candles) == 2
+    assert len(candles) == 4
     assert candles[0]["symbol"] == "TST1"
-    assert candles[0]["close"] == 100.0
+    assert candles[0]["close"] == 99.0
     assert "+00:00" in candles[0]["timestamp"]
     assert fake.calls == 1
 
@@ -135,7 +142,48 @@ async def test_load_falls_back_to_broker_and_stores(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_load_refetches_when_store_does_not_cover_range(monkeypatch):
+    rows = [
+        _row("2026-01-05T09:15:00+00:00", 100.0),
+        _row("2026-01-05T09:30:00+00:00", 101.0),
+    ]
+    fake = FakeSupabase(rows)
+    monkeypatch.setattr("backtest.historical.get_supabase", lambda: fake)
+    monkeypatch.setattr("backtest.historical.async_supabase", _passthrough)
+
+    synthetic = [
+        _candle("2026-01-01T09:15:00+00:00", 98.0, "TST4"),
+        _candle("2026-01-02T09:15:00+00:00", 99.0, "TST4"),
+        _candle("2026-01-03T09:15:00+00:00", 100.0, "TST4"),
+    ]
+
+    async def fake_fetch(symbol, exchange="NSE", interval="15m", days=7, user_id=None):
+        return synthetic
+
+    monkeypatch.setattr(historical_engine, "get_historical", fake_fetch)
+    stored = []
+
+    async def fake_store(candles, source="broker"):
+        stored.append((list(candles), source))
+
+    monkeypatch.setattr(backtest_historical, "_store", fake_store)
+
+    candles = await backtest_historical.load(
+        "TST4", "NSE", "15m", start="2026-01-01", end="2026-01-10"
+    )
+    covers = ["2026-01-01T09:15", "2026-01-02T09:15", "2026-01-03T09:15",
+              "2026-01-05T09:15", "2026-01-05T09:30"]
+    assert [str(c["timestamp"])[:16] for c in candles] == covers
+    assert len(stored) == 1
+
+
+@pytest.mark.asyncio
 async def test_load_caches_second_call(monkeypatch):
+    async def fake_fetch(symbol, exchange="NSE", interval="15m", days=7, user_id=None):
+        return []
+
+    monkeypatch.setattr(historical_engine, "get_historical", fake_fetch)
+
     rows = [_row("2026-01-05T09:15:00+00:00", 100.0)]
     fake = FakeSupabase(rows)
     monkeypatch.setattr("backtest.historical.get_supabase", lambda: fake)

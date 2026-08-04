@@ -1,6 +1,6 @@
 import pytest
 
-from engine.backtest import BacktestEngine, BacktestResult, _synthesize_candles
+from engine.backtest import BacktestEngine, BacktestResult, _synthesize_candles, fetch_historical_data
 
 
 @pytest.mark.asyncio
@@ -34,3 +34,30 @@ async def test_backtest_result_tracking():
     assert result.total_trades == 1
     assert result.winning_trades == 1
     assert result.total_pnl > 0
+
+
+@pytest.mark.asyncio
+async def test_fetch_historical_data_uses_durable_store(monkeypatch):
+    real = [
+        {"symbol": "TST", "exchange": "NSE", "interval": "15m",
+         "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1000,
+         "timestamp": "2026-01-05T09:15:00+00:00"},
+    ]
+
+    async def fake_load(symbol="", exchange="NSE", interval="15m", days=7, user_id=None):
+        return real
+
+    monkeypatch.setattr("backtest.historical.backtest_historical.load", fake_load)
+    candles = await fetch_historical_data("TST", "NSE", "15m", 7, "u1")
+    assert candles == real
+
+
+@pytest.mark.asyncio
+async def test_fetch_historical_data_falls_back_to_synthetic_only_when_empty(monkeypatch):
+    async def fake_load(symbol="", exchange="NSE", interval="15m", days=7, user_id=None):
+        return []
+
+    monkeypatch.setattr("backtest.historical.backtest_historical.load", fake_load)
+    candles = await fetch_historical_data("NIFTY", "NSE", "15m", 7, "u1")
+    assert candles
+    assert candles[0]["symbol"] == "NIFTY"

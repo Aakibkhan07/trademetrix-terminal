@@ -112,3 +112,64 @@ def test_benchmark_flat_strategy_has_zero_beta():
     assert result.benchmark_return_pct == pytest.approx(99.0)
     assert result.beta == 0.0
     assert result.excess_return_pct == pytest.approx(-99.0)
+
+
+def test_build_trades_from_snapshots_short_entry_uses_sell_price():
+    snapshots = [
+        {
+            "index": 0,
+            "timestamp": "2026-01-05T09:15:00+00:00",
+            "positions": [{
+                "symbol": "NIFTY", "quantity": -75,
+                "average_buy_price": 0.0, "average_sell_price": 24500.0,
+                "last_price": 24510.0, "unrealised_pnl": -750.0, "realised_pnl": 0.0,
+            }],
+        },
+        {
+            "index": 1,
+            "timestamp": "2026-01-05T09:30:00+00:00",
+            "positions": [{
+                "symbol": "NIFTY", "quantity": 0,
+                "average_buy_price": 24400.0, "average_sell_price": 0.0,
+                "last_price": 24400.0, "unrealised_pnl": 0.0, "realised_pnl": 7500.0,
+            }],
+        },
+    ]
+    trades = performance_analytics.build_trades_from_snapshots(snapshots, "NIFTY")
+    assert len(trades) == 1
+    t = trades[0]
+    assert t.side == "SELL"
+    assert t.entry_price == 24500.0
+    assert t.exit_price == 24400.0
+    assert t.quantity == 75
+    assert t.pnl == pytest.approx(7500.0)
+
+
+def test_build_trades_from_snapshots_long_entry_uses_buy_price():
+    snapshots = [
+        {
+            "index": 0,
+            "timestamp": "2026-01-05T09:15:00+00:00",
+            "positions": [{
+                "symbol": "NIFTY", "quantity": 75,
+                "average_buy_price": 24000.0, "average_sell_price": 0.0,
+                "last_price": 24010.0, "unrealised_pnl": 750.0, "realised_pnl": 0.0,
+            }],
+        },
+        {
+            "index": 1,
+            "timestamp": "2026-01-05T09:30:00+00:00",
+            "positions": [{
+                "symbol": "NIFTY", "quantity": 0,
+                "average_buy_price": 0.0, "average_sell_price": 24100.0,
+                "last_price": 24100.0, "unrealised_pnl": 0.0, "realised_pnl": 7500.0,
+            }],
+        },
+    ]
+    trades = performance_analytics.build_trades_from_snapshots(snapshots, "NIFTY")
+    assert len(trades) == 1
+    t = trades[0]
+    assert t.side == "BUY"
+    assert t.entry_price == 24000.0
+    assert t.exit_price == 24100.0
+    assert t.pnl == pytest.approx(7500.0)
