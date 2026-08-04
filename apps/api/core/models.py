@@ -530,3 +530,29 @@ class StrategyRating(BaseModel):
     total_trades: int = 0
     win_rate: float = 0.0
     avg_return: float = 0.0
+
+
+def normalize_user_strategy_row(row: dict) -> dict:
+    """Normalize a user_strategies DB row into UserStrategy kwargs.
+
+    The live prod schema stores legacy strategy fields under a `config` jsonb
+    column and legs as a `legs` jsonb column; this merges config back onto the
+    row so the pydantic model can be constructed from a plain select(*).
+    """
+    data = {k: v for k, v in row.items() if v is not None}
+    config = data.pop("config", None) or {}
+    if isinstance(config, dict):
+        for key in (
+            "entry_time",
+            "overall_sl_type",
+            "overall_sl_value",
+            "overall_target_type",
+            "overall_target_value",
+        ):
+            if key not in data and config.get(key) is not None:
+                data[key] = config[key]
+    if isinstance(data.get("days_of_week"), str):
+        data["days_of_week"] = [
+            int(d.strip()) for d in data["days_of_week"].strip("{}").split(",") if d.strip()
+        ]
+    return data

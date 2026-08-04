@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 from core.cache import cache
 from core.db import get_supabase
-from core.models import UserStrategy
+from core.models import UserStrategy, normalize_user_strategy_row
 from core.safe_query import async_safe_execute, async_safe_single
 from risk.leg_controls import (
     cancel_pending_reentries, handle_square_off,
@@ -122,19 +122,19 @@ class UserStrategyRunner:
 async def _get_open_legs(strategy_id: str) -> list[dict]:
     """Get open legs for a strategy from the last deploy/execution state.
 
-    Reads from user_strategy_legs joined with latest order state to
-    determine which legs still have open positions.
+    Reads the legs jsonb column from user_strategies to determine which legs
+    still have open positions.
     """
     supabase = get_supabase()
     row = await async_safe_single(
         supabase.table("user_strategies")
-        .select("*, legs:user_strategy_legs(*)")
+        .select("*")
         .eq("id", strategy_id)
     )
     if not row:
         return []
 
-    strategy = UserStrategy(**{k: v for k, v in row.items() if v is not None})
+    strategy = UserStrategy(**normalize_user_strategy_row(dict(row)))
     if not strategy.legs:
         return []
 

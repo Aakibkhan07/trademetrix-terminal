@@ -3,7 +3,7 @@ from typing import Any, cast
 
 from core.capabilities import Capabilities
 from core.db import async_supabase, get_supabase
-from core.models import CreateUserStrategyRequest, DeployStrategyRequest, UpdateUserStrategyRequest, UserProfile, UserStrategy, UserStrategyLeg
+from core.models import CreateUserStrategyRequest, DeployStrategyRequest, UpdateUserStrategyRequest, UserProfile, UserStrategy, UserStrategyLeg, normalize_user_strategy_row
 from core.safe_query import async_safe_execute, async_safe_single
 from engine.gate import execute_order
 from engine.strategy_compiler import compile_user_strategy, validate_user_strategy
@@ -52,7 +52,7 @@ async def _resolve_market_data(index_symbol: str, user_id: str) -> tuple[float, 
 class StrategyService:
     async def list_strategies(self, user_id: str, status_filter: str | None = None) -> list[dict]:
         supabase = get_supabase()
-        query = supabase.table("user_strategies").select("*, legs:user_strategy_legs(*)").eq("user_id", user_id)
+        query = supabase.table("user_strategies").select("*").eq("user_id", user_id)
         if status_filter:
             query = query.eq("status", status_filter)
         data = await async_safe_execute(query.order("created_at", desc=True))
@@ -87,16 +87,10 @@ class StrategyService:
             raise ValueError("Failed to create strategy")
 
         strategy_id = cast(dict[str, Any], result.data[0])["id"]
-        legs_to_insert = [
-            leg.model_dump(exclude={"id", "strategy_id"}, exclude_none=True) | {"strategy_id": strategy_id}
-            for leg in req.legs
-        ]
-        if legs_to_insert:
-            try:
-                await async_supabase(lambda: supabase.table("user_strategy_legs").insert(legs_to_insert).execute())
-            except Exception:
-                await async_supabase(lambda: supabase.table("user_strategies").delete().eq("id", strategy_id).execute())
-                raise ValueError("Failed to create strategy legs")
+        legs_data = [leg.model_dump(exclude_none=True) for leg in req.legs]
+        await async_supabase(
+            lambda: supabase.table("user_strategies").update({"legs": legs_data}).eq("id", strategy_id).execute()
+        )
 
         return {"id": strategy_id, "message": "Strategy created"}
 
@@ -104,12 +98,12 @@ class StrategyService:
         supabase = get_supabase()
         try:
             row = await async_safe_single(
-                supabase.table("user_strategies").select("*, legs:user_strategy_legs(*)")
+                supabase.table("user_strategies").select("*")
                 .eq("id", strategy_id).eq("user_id", user_id)
             )
             if not row:
                 rows = await async_safe_execute(
-                    supabase.table("user_strategies").select("*, legs:user_strategy_legs(*)")
+                    supabase.table("user_strategies").select("*")
                     .eq("id", strategy_id).eq("user_id", user_id).limit(1)
                 )
                 if rows and len(rows) > 0:
@@ -142,13 +136,10 @@ class StrategyService:
             await async_supabase(lambda: supabase.table("user_strategies").update(updates).eq("id", strategy_id).execute())
 
         if req.legs is not None:
-            await async_supabase(lambda: supabase.table("user_strategy_legs").delete().eq("strategy_id", strategy_id).execute())
-            legs_to_insert = [
-                leg.model_dump(exclude={"id", "strategy_id"}, exclude_none=True) | {"strategy_id": strategy_id}
-                for leg in req.legs
-            ]
-            if legs_to_insert:
-                await async_supabase(lambda: supabase.table("user_strategy_legs").insert(legs_to_insert).execute())
+            await async_supabase(
+                lambda: supabase.table("user_strategies").update({"legs": [leg.model_dump(exclude_none=True) for leg in req.legs]})
+                .eq("id", strategy_id).execute()
+            )
 
     async def delete_strategy(self, user_id: str, strategy_id: str) -> None:
         await async_supabase(lambda: get_supabase().table("user_strategies").delete().eq("id", strategy_id).eq("user_id", user_id).execute())
@@ -224,11 +215,7 @@ class StrategyService:
 
     def _row_to_strategy(self, row: dict) -> UserStrategy:
         legs_data = row.pop("legs", []) or []
-        data = {k: v for k, v in row.items() if v is not None}
-        if isinstance(data.get("days_of_week"), str):
-            data["days_of_week"] = [
-                int(d.strip()) for d in data["days_of_week"].strip("{}").split(",") if d.strip()
-            ]
+        data = normalize_user_strategy_row(row)
         strategy = UserStrategy(**data)
         parsed_legs = []
         for leg in sorted(legs_data, key=lambda x: x.get("leg_order", 0)):

@@ -115,7 +115,7 @@ INSTRUCTIONS:
         # Funds
         try:
             funds = await async_safe_single(
-                supabase.table("funds_snapshot").select("*").eq("user_id", self.user_id)
+                supabase.table("margin_snapshot").select("*").eq("user_id", self.user_id)
             )
             context["funds"] = funds or {}
         except Exception as e:
