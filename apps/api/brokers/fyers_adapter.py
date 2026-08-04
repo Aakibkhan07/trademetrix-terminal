@@ -885,17 +885,22 @@ class FyersAdapter(BaseBroker, BrokerAdapterBase):
         raw_symbol = item.get("symbol", "")
         inst = self._parse_instrument(raw_symbol)
         clean_symbol = raw_symbol.split(":")[-1]
+        net_qty = int(item.get("netQty", 0))
+        pl = float(item.get("pl") or 0)
+        unrealized = item.get("unrealized_profit")
+        realized = item.get("realized_profit")
         return Position(
             symbol=clean_symbol,
-            exchange=Exchange.NSE,
-            quantity=int(item.get("netQty", 0)),
+            exchange=Exchange.BSE if raw_symbol.upper().startswith("BSE:") else Exchange.NSE,
+            quantity=net_qty,
             buy_quantity=int(item.get("buyQty", 0)),
             sell_quantity=int(item.get("sellQty", 0)),
-            average_buy_price=float(item.get("avgBuyPrice", 0)),
-            average_sell_price=float(item.get("avgSellPrice", 0)),
-            unrealised_pnl=float(item.get("unrealised", 0)),
-            realised_pnl=float(item.get("realised", 0)),
-            product=ProductType.INTRADAY,
+            average_buy_price=float(item.get("buyAvg") if item.get("buyAvg") is not None else item.get("avgBuyPrice") or 0),
+            average_sell_price=float(item.get("sellAvg") if item.get("sellAvg") is not None else item.get("avgSellPrice") or 0),
+            unrealised_pnl=float(unrealized if unrealized is not None else (pl if net_qty != 0 else 0)),
+            realised_pnl=float(realized if realized is not None else (pl if net_qty == 0 else 0)),
+            m2m=pl,
+            product=self._rev_map_product(item.get("productType", "") or "INTRADAY"),
             broker=self.broker_name,
             instrument_type=inst["instrument_type"],
             strike_price=inst["strike_price"],
@@ -944,6 +949,28 @@ class FyersAdapter(BaseBroker, BrokerAdapterBase):
         import re
 
         clean = symbol.split(":")[-1] if ":" in symbol else symbol
+        m = re.match(r"^([A-Z]+)(\d{2})(\d{2})(\d{2})(\d+)(CE|PE)$", clean.upper())
+        if m and 1 <= int(m.group(3)) <= 12 and 1 <= int(m.group(4)) <= 31:
+            yy = int(m.group(2))
+            month_num = int(m.group(3))
+            dd = int(m.group(4))
+            return {
+                "instrument_type": InstrumentType.OPT,
+                "strike_price": float(m.group(5)),
+                "expiry_date": f"{2000 + yy}-{month_num:02d}-{dd:02d}",
+                "option_type": OptionType(m.group(6)),
+            }
+        m = re.match(r"^([A-Z]+)(\d{2})(\d)(\d{2})(\d+)(CE|PE)$", clean.upper())
+        if m and 1 <= int(m.group(3)) <= 9 and 1 <= int(m.group(4)) <= 31:
+            yy = int(m.group(2))
+            month_num = int(m.group(3))
+            dd = int(m.group(4))
+            return {
+                "instrument_type": InstrumentType.OPT,
+                "strike_price": float(m.group(5)),
+                "expiry_date": f"{2000 + yy}-{month_num:02d}-{dd:02d}",
+                "option_type": OptionType(m.group(6)),
+            }
         m = re.match(r"^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$", clean.upper())
         if m:
             yy = int(m.group(2))

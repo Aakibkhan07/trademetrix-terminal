@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from brokers.fyers_adapter import FyersAdapter
 from brokers.fyers_http import FyersResponse
-from core.models import Exchange, NormalizedOrder, OrderSide, OrderType, ProductType
+from core.models import Exchange, InstrumentType, NormalizedOrder, OptionType, OrderSide, OrderType, ProductType
 
 
 def _resp(status: int, payload: dict) -> FyersResponse:
@@ -89,6 +89,98 @@ async def test_get_positions(adapter: FyersAdapter):
 
     positions = await adapter.get_positions()
     assert len(positions) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_positions_v3_fields(adapter: FyersAdapter):
+    adapter._http.request = AsyncMock(return_value=_resp(200, {"s": "ok", "netPositions": [
+        {
+            "symbol": "NSE:NIFTY2680424450PE",
+            "id": "NSE:NIFTY2680424450PE-MARGIN",
+            "buyAvg": 15.2,
+            "buyQty": 195,
+            "sellAvg": 30.15,
+            "sellQty": 195,
+            "netAvg": 0,
+            "netQty": 0,
+            "qty": 195,
+            "pl": 2915.25,
+            "realized_profit": 2915.25,
+            "unrealized_profit": 0,
+            "ltp": 30.15,
+            "productType": "MARGIN",
+        },
+        {
+            "symbol": "BSE:SENSEX2680679000CE",
+            "id": "BSE:SENSEX2680679000CE-MARGIN",
+            "buyAvg": 116.1,
+            "buyQty": 20,
+            "sellAvg": 0,
+            "sellQty": 0,
+            "netAvg": 116.1,
+            "netQty": 20,
+            "qty": 20,
+            "pl": -191.99,
+            "realized_profit": 0,
+            "unrealized_profit": -191.99,
+            "ltp": 106.5,
+            "productType": "MARGIN",
+        },
+    ]}))
+    adapter._access_token = "test"
+    adapter._client_id = "cid"
+
+    positions = await adapter.get_positions()
+    assert len(positions) == 2
+
+    closed = positions[0]
+    assert closed.symbol == "NIFTY2680424450PE"
+    assert closed.quantity == 0
+    assert closed.average_buy_price == 15.2
+    assert closed.average_sell_price == 30.15
+    assert closed.realised_pnl == 2915.25
+    assert closed.unrealised_pnl == 0
+    assert closed.m2m == 2915.25
+    assert closed.product == ProductType.NRML
+    assert closed.instrument_type == InstrumentType.OPT
+    assert closed.strike_price == 24450
+    assert closed.expiry_date == "2026-08-04"
+    assert closed.option_type == OptionType.PE
+
+    opened = positions[1]
+    assert opened.symbol == "SENSEX2680679000CE"
+    assert opened.exchange == Exchange.BSE
+    assert opened.quantity == 20
+    assert opened.average_buy_price == 116.1
+    assert opened.unrealised_pnl == -191.99
+    assert opened.realised_pnl == 0
+    assert opened.m2m == -191.99
+    assert opened.instrument_type == InstrumentType.OPT
+    assert opened.strike_price == 79000
+    assert opened.option_type == OptionType.CE
+
+
+def test_parse_instrument_compact_numeric_options():
+    parse = FyersAdapter._parse_instrument
+    inst = parse("NSE:NIFTY2680424450PE")
+    assert inst["instrument_type"] == InstrumentType.OPT
+    assert inst["strike_price"] == 24450
+    assert inst["expiry_date"] == "2026-08-04"
+    assert inst["option_type"] == OptionType.PE
+
+    inst = parse("SENSEX2680677500PE")
+    assert inst["strike_price"] == 77500
+    assert inst["expiry_date"] == "2026-08-06"
+    assert inst["option_type"] == OptionType.PE
+
+    inst = parse("NSE:NIFTY26AUG24450CE")
+    assert inst["instrument_type"] == InstrumentType.OPT
+    assert inst["strike_price"] == 24450
+    assert inst["expiry_date"] == "2026-08"
+    assert inst["option_type"] == OptionType.CE
+
+    inst = parse("NSE:NIFTY26AUG")
+    assert inst["instrument_type"] == InstrumentType.FUT
 
 
 @pytest.mark.asyncio
