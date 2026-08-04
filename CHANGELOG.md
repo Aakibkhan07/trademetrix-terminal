@@ -1,4 +1,52 @@
+## v1.5.4 (2026-08-04) — FEED FIX: real change% on every tick + live streaming for typed symbols
+
+> Beta feedback fix (allowed under feature freeze): the terminal's change% showed **0.00** for
+> symbols with live ticks (price moved, percentage never did). Two root causes, both on the
+> backend feed path — one line of code and one wiring gap:
+> 1. **Fyers data socket ran in `litemode=True`** — the payload is stripped to just
+>    `{ltp, symbol}`. `_parse_sdk_tick` read `ch`/`chp` → always `0.0` → every relayed tick
+>    carried `change_pct: 0.0` regardless of symbol. Flipped to full mode: ticks now carry real
+>    `change`, `change_pct` (and bid/ask/oi/prev_close/open/high/low).
+> 2. **Typed symbols were never streamed** — `/feed/start` subscribes only the fixed MAJOR list,
+>    so user symbols (e.g. `NSE:NIFTY26AUGFUT`, `NSE:NIFTY26AUG25000CE`) never produced ticks and
+>    the Yahoo quote fallback returns 0/0 for futures/options. WS `subscribe` now extends the
+>    running fyers feed (`subscribe_symbols` keeps the reverse name map + subscribed list in sync;
+>    short retry loop while the SDK socket connects).
+
+### Fixed
+- **`apps/api/brokers/fyers_adapter.py`** — `litemode=False` in `FyersDataSocket` (was silently
+  stripping every field except ltp); new `subscribe_symbols()` returning still-pending symbols
+  (symmetric to the existing `unsubscribe_symbols`).
+- **`apps/api/market/data_socket.py`** — `SharedDataSocket` now registers the **inner** adapter
+  (not the `CircuitBreakerBroker` wrapper, which doesn't forward privates); new `add_feed_symbols`
+  + `feed_has_ws` (retries while a fyers socket is expected, i.e. token present).
+- **`apps/api/routes/v1_marketdata.py`** — WS `subscribe` action extends the running fyers feed
+  with the client's symbols (up to 10s, bounded).
+- **`apps/web/app/terminal/page.tsx`** — belt-and-braces: prefer the live tick's `change_pct`;
+  only fall back to the quote poll when the tick lacks change data.
+
+### Verification
+- Prod WS probe (API-minted token + `tm_session` cookie): before → `NSE:NIFTY50-INDEX`
+  `change=0.0 change_pct=0.0`; after → `change=-159.4 change_pct=-0.64`, and the user's real
+  symbol `NSE:NIFTY26AUGFUT` now streams `change=-97.1 change_pct=-0.39` (feed extension works,
+  log: `Feed fyers extended (pending=0)`).
+- Browser smoke on prod (puppeteer, real signup): typing `NSE:NIFTY50-INDEX` renders the ticket
+  quote panel `NSE:NIFTY50-INDEX 24614.9 -0.64%` — real change%, not 0.00. 6/6 OK, 0 console
+  errors (only the known anonymous `/auth/me` 401 noise filtered).
+- API regression **862 passed, 1 xfailed** (4 new fyers adapter tests). Web `tsc` + `next build`
+  clean.
+- Deployed: API hot `docker cp` (3 files) + restart, health 200; web `.next` tar
+  (`--strip-components=1`) + restart, `✓ Ready`, `/terminal` 200.
+
+### Notes
+- The Redis pub/sub `market:ticks:*` path still builds `Tick` without `change_pct` (nothing
+  writes that channel in-repo) — untouched, out of scope.
+- Yahoo fallback feeds (no fyers token) only cover the MAJOR list — futures/options need the
+  fyers feed (or broker creds), by design.
+
 ## v1.5.3 (2026-08-04) — TERMINAL UI FIX: change%, open/closed positions, buy/sell price + realised/unrealised P&L
+
+
 
 > Beta feedback fix (allowed under feature freeze): the terminal's change percentage never
 > rendered for typed symbols and position details (buy/sell price, realised/unrealised P&L,

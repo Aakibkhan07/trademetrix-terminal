@@ -3,6 +3,44 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-04 — Feed fix (v1.5.4): real change% on every tick + live streaming for typed symbols
+
+### What was done
+1. **Root cause of the persistent 0.00%** — the fyers data socket ran with `litemode=True`
+   (`brokers/fyers_adapter.py`), which strips every tick field to `{ltp, symbol}`. `_parse_sdk_tick`
+   read `ch`/`chp` → always `0.0` → every relayed WS tick carried `change_pct: 0.0` (proved with an
+   in-container probe before/after: `NSE:NIFTY50-INDEX` went from `change=0.0 change_pct=0.0` to
+   `change=-159.4 change_pct=-0.64`). Fix: `litemode=False` (full mode also gives bid/ask/oi/
+   prev_close/open/high/low).
+2. **Second gap: typed symbols never streamed** — the feed only subscribes the MAJOR list, so
+   user symbols (`NSE:NIFTY26AUGFUT`, options) never produced ticks (and Yahoo quote → 0/0).
+   WS `subscribe` now extends the running fyers feed: `FyersAdapter.subscribe_symbols()` (keeps
+   `_symbol_reverse_map` + `_subscribed_symbols` in sync, returns still-pending symbols),
+   `SharedDataSocket.add_feed_symbols()` + `feed_has_ws()`, and the route retries ≤10s while the
+   SDK socket connects. **Gotcha hit**: `create_broker()` returns a `CircuitBreakerBroker` WRAPPER
+   that does not forward private attrs (`_ws_instance`/`_subscribed_symbols`) or new methods —
+   `add_feed_symbols` silently returned pending forever. Fix: register the INNER adapter
+   (`getattr(adapter, "_inner", adapter)`). Verified live: `NSE:NIFTY26AUGFUT` streams
+   `change=-97.1 change_pct=-0.39`; log `Feed fyers extended (pending=0)`.
+3. **Frontend** (`apps/web/app/terminal/page.tsx`) — belt-and-braces only: prefer the live tick's
+   `change_pct`, fall back to the quote poll only when the tick lacks change data.
+4. **Deploy** — API hot `docker cp` (3 files) + restart (health 200); web `.next` tar
+   (`--strip-components=1`) → `docker cp` into stopped container → chown → restart (`✓ Ready`,
+   `/terminal` 200). Regression **862 passed, 1 xfailed**; web tsc + prod build clean.
+5. **Browser smoke on prod** (puppeteer, fresh signup): typed `NSE:NIFTY50-INDEX` → ticket panel
+   renders `NSE:NIFTY50-INDEX 24614.9 -0.64%` — real change%, 6/6 OK, 0 console errors (filtered
+   the known anonymous `/auth/me` 401). 4 GoTrue smoke users deleted.
+
+### Reference
+- Fyers WS auth from a script: `websockets.connect(url, additional_headers={"Cookie": "tm_session=<api-minted token>"})`
+  — the `/marketdata/ws` endpoint reads the **cookie**, not the Authorization header (403 otherwise).
+- `_stream_yahoo` already computed real change/change_pct (Yahoo fallback was never the 0.00 cause);
+  litemode was. Yahoo fallback only covers the MAJOR list.
+- Feed extension retry: route loops `add_feed_symbols` ≤10×1s; `feed_has_ws` is True when the
+  socket is up OR `_access_token` is present (socket expected soon); empty token (Yahoo mode) → no retry.
+- One-time edge: a fresh user with no broker creds gets the Yahoo fallback feed — their typed
+  futures/options still show "—" (no data source without fyers creds).
+
 ## Session: 2026-08-04 — Terminal UI fix (v1.5.3): change% for typed symbols, open/closed positions, buy/sell price + realised/unrealised P&L
 
 ### What was done
