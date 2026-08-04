@@ -29,6 +29,13 @@ Status verified 2026-08-01. Each item notes impact and mitigation. None block GA
 
 ## Infrastructure
 
+15. **Dashboard "User Strategies" admin tab is dead (404 endpoint)** *(v1.5.2 finding)*
+   - `app/dashboard/user-strategies-tab.tsx` fetches `/api/v1/admin/strategies/all-user`, which
+     does not exist in the API → the tab always renders "No user strategies found".
+   - Impact: admins cannot see user strategies in the UI (the legacy `/user-strategies` API works).
+   - Mitigation: implement the admin endpoint or remove the tab. Beta backlog item (post-freeze).
+
+
 7. **Single host, single API worker**
    - Uvicorn runs 1 worker on 1 VPS. The order queue is Redis-backed and recovered cross-process, but horizontal scaling requires multi-instance work. Monitor memory (768m limit) and CPU.
 
