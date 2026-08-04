@@ -3,6 +3,76 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-05 — Backtest Phase A: enriched TradeRecords + big-run performance + interactive charts (v1.5.10)
+
+### What was done
+1. **Phase A shipped (A1/A2/A3, roadmap approved 2026-08-05)** — additive backtest-module
+   changes only; OMS/Risk/Broker/Execution untouched; legacy `/run` payload unchanged.
+   - **A1 TradeRecord enrichment** (`backtest/models.py`, `backtest/execution.py`):
+     `TradeRecord` gained `entry_reason`/`exit_reason`/`slippage`/`charges`/`taxes`/
+     `cost_total`/`risk_amount`/`rr` (all defaulted, backward compatible).
+     `BacktestBroker._apply_fill` rewritten: opens with the signal reason, per-side entry
+     costs, proportional cost consumption on partial closes, exit-reason mapping (SL/SLM→
+     stop, LIMIT→target, MARKET/signal-reason→signal, close_on_end). `_record_trade`
+     computes per-trade slippage, charges (brokerage+exchange_tc), taxes (STT+stamp+GST+
+     SEBI), cost_total, risk_amount (resting SL trigger × qty at close; 0.0 if none) and
+     `rr = pnl/risk_amount`. `total_slippage` property added (reset everywhere).
+   - **Reason threading** (`backtest/manager.py`, `backtest/replay_engine.py`):
+     `_place_via_broker(..., reason=signal.reason)` sets `order.reason` pre-risk-check;
+     MAX loop + `_fast_run` pass `reason=signal.reason`; `close_on_end` orders carry
+     `reason="close_on_end"`; replay_engine copies `signal.reason` onto orders.
+   - **A2 performance** (`backtest/performance.py`, `routes/v1_backtest.py`):
+     `downsample_pairs` (LTTB, keeps first/last) + `max_equity_points=2000` in
+     `PerformanceAnalytics.calculate` (KPI computed BEFORE downsampling → exact);
+     `GET /backtests/{run_id}/trades?cursor&limit` pagination (limit clamped 1–2000);
+     `_result_payload` + run-v2 cap trades at `PAYLOAD_MAX_TRADES=2000` + add
+     `trades_truncated`; shared `_payload_trades`/`_payload_equity`; fixed
+     `export_backtest` signature.
+   - **A3 interactive UI** (`apps/web/app/backtest/page.tsx`): new `BacktestChart` using
+     lightweight-charts v5 (`LineSeries`, `CrosshairMode.Normal`, crosshair tooltip div,
+     `createSeriesMarkers` entry/exit markers, ResizeObserver width sync) replaces the
+     static SVG LineChart for Equity Curve + Drawdown %.
+2. **Tests** — 10 new: enriched fields (reasons incl. order-type→reason mapping, cost
+   breakdown, duration from ISO times, risk/RR from resting SL), downsample shape + KPI
+   accuracy + threshold skip, pagination route (clamp, walk, past-end next_cursor=None,
+   404 ghost). **883 passed, 1 xfailed** (was 873). Web tsc + prod build clean.
+3. **Deploy** — backend 6 files hot-deployed (`docker cp` + restart, health 200); web `.next`
+   (BUILD_ID `eD9RGNMVSSktEXMdGRkqM`) deployed via stop → `docker cp .next/. → /app/.next/`
+   → start → `chown -R 1001` → `/backtest` 200, chart chunk served.
+4. **Prod smoke (user fa668109, in-container)** — run-v3 EMA Crossover (`b41609e3550c`) on
+   `NSE:NIFTY50-INDEX` 60d/15m, `risk_enabled=false`, capital ₹10M → **57 trades**
+   (25W/32L, net −122k): every enriched key present, `cost_total == slippage+charges+taxes`
+   (e.g. 2276.13 = 0 + 1147.17 + 1128.96), `entry_reason="Bullish EMA crossover"`,
+   `exit_reason="Bearish EMA crossover"`, duration 45m; pagination total=57 len=3
+   next_cursor=3; 1026 equity points. Probes cleaned from container + VPS.
+
+### Reference
+- **Risk dry-run gotcha (pre-existing)**: `_place_via_broker` runs
+  `risk_manager.evaluate(req, dry_run=True)` when `config.risk_enabled`; backtest orders
+  get rejected (order.rejected events with `user=backtest:<run_id>`) → 0 trades. The
+  v1.5.9 "9 trades" probe and this smoke ran with risk off. UI default during Phase A is
+  risk off. Not a Phase A regression (git diff proves reason-only change).
+- Trade enrichment contract: `charges` = brokerage + exchange_tc; `taxes` = STT + stamp_duty
+  + GST + SEBI; `cost_total` = slippage + charges + taxes (all from `estimate_cost` in
+  `backtest/costs.py`); `risk_amount` = (entry − SL trigger) × qty at close, 0.0 without a
+  resting SL; `rr` = pnl/risk_amount.
+- Downsample contract: `PerformanceAnalytics.calculate` computes ratios/returns BEFORE
+  downsampling, so `end_equity`/`return_pct`/`max_drawdown_pct` reflect the FULL series even
+  when `equity_curve` is capped at `max_equity_points` (default 2000).
+- lightweight-charts v5 API: markers moved to the `createSeriesMarkers(series, markers)`
+  plugin (returns plugin api with `.detach()`); `unsubscribeCrosshairMove(handler)` needs
+  the SAME handler reference; `Time` is `UTCTimestamp | BusinessDay | string` — cast epoch
+  seconds with `as UTCTimestamp`.
+- Web deploy: tar `.next` (63MB) → scp → `docker stop trademetrix_web` → `docker cp
+  .next/. trademetrix_web:/app/.next/` (container stays stopped) → `docker start` →
+  `docker exec -u root trademetrix_web chown -R 1001 /app/.next`. Extract the tarball FIRST
+  (tar `xzf` then `cp .next/.` — the earlier mistake: `cp` before extract → "lstat no such
+  file").
+- Web domain: `ai.trademetrix.tech` (NOT app.trademetrix.tech); API `api.ai.trademetrix.tech`;
+  in-container route probes hit `http://127.0.0.1:8000` with `create_access_token` +
+  CSRF cookie.
+- Full suite command: `cd apps/api && .venv/bin/python -m pytest tests/ -q` (883 passed).
+
 ## Session: 2026-08-04 — Backtest data + P&L honesty: real candles, correct trade attribution (v1.5.9)
 
 ### What was done

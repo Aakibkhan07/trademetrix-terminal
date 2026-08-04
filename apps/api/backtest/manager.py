@@ -100,7 +100,7 @@ class BacktestManager:
                     )
                     if signal and signal.orders:
                         for order in signal.orders:
-                            await self._place_via_broker(broker, order, config, bt_user_id)
+                            await self._place_via_broker(broker, order, config, bt_user_id, reason=signal.reason)
 
                     snapshot = await self._collect_snapshot(broker, idx, str(raw.get("timestamp", "")))
                     snapshots.append(snapshot)
@@ -324,8 +324,11 @@ class BacktestManager:
 
     async def _place_via_broker(
         self, broker: BacktestBroker, order, config: BacktestConfig, bt_user_id: str,
+        reason: str = "",
     ):
         """Place an order through the backtest broker with optional risk dry-run."""
+        if reason:
+            order.reason = reason
         if config.risk_enabled:
             try:
                 req = self._order_to_request(order, bt_user_id)
@@ -401,13 +404,13 @@ class BacktestManager:
                 if qty == 0:
                     continue
                 side = "SELL" if qty > 0 else "BUY"
-                order = self._make_close_order(symbol, side, abs(qty))
+                order = self._make_close_order(symbol, side, abs(qty), reason="close_on_end")
                 order.instrument_type = last_candle.get("instrument_type", order.instrument_type)
                 await broker.place_order(order)
         except Exception as e:
             logger.debug("Close positions error: %s", e)
 
-    def _make_close_order(self, symbol: str, side: str, quantity: int):
+    def _make_close_order(self, symbol: str, side: str, quantity: int, reason: str = ""):
         from core.models import NormalizedOrder, OrderSide, OrderType, ProductType, Exchange
 
         return NormalizedOrder(
@@ -417,6 +420,7 @@ class BacktestManager:
             order_type=OrderType.MARKET,
             product=ProductType.INTRADAY,
             quantity=quantity,
+            reason=reason,
         )
 
     async def _fast_run(self, config: BacktestConfig) -> BacktestResult:
@@ -462,7 +466,7 @@ class BacktestManager:
                 signal = await strategy.on_candle(backtest_data_loader.to_candle(raw))
                 if signal and signal.orders:
                     for order in signal.orders:
-                        await self._place_via_broker(broker, order, config, bt_user_id)
+                        await self._place_via_broker(broker, order, config, bt_user_id, reason=signal.reason)
                 snapshots.append(await self._collect_snapshot(broker, idx, str(raw.get("timestamp", ""))))
 
             await strategy.on_stop()

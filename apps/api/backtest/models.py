@@ -74,7 +74,14 @@ class TradeRecord(BaseModel):
     entry_time: str
     exit_time: str
     duration_minutes: int = 0
+    entry_reason: str = ""
     exit_reason: str = "signal"
+    slippage: float = 0.0
+    charges: float = 0.0
+    taxes: float = 0.0
+    cost_total: float = 0.0
+    risk_amount: float = 0.0
+    rr: float = 0.0
 
 
 class EquityPoint(BaseModel):

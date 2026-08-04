@@ -1,8 +1,13 @@
 'use client'
 
-import { Suspense, useState, useEffect, useMemo, useCallback } from 'react'
+import { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { api, backtestExportUrl } from '@/lib/api'
+import {
+  createChart, ColorType, LineSeries, CrosshairMode, createSeriesMarkers,
+  type IChartApi, type ISeriesApi, type Time, type UTCTimestamp,
+  type SeriesMarker, type LineData, type MouseEventParams,
+} from 'lightweight-charts'
 
 const BUILTIN_STRATEGIES = [
   { id: 'trend_rider', name: 'Trend Rider' },
@@ -71,50 +76,134 @@ function fmtMoney(x: number | null | undefined): string {
   return `${sign}₹${Math.round(x).toLocaleString('en-IN')}`
 }
 
-function LineChart({ series, height = 180, color = 'var(--green)', yLabel = '' }: {
-  series: { x: string; y: number }[]; height?: number; color?: string; yLabel?: string
-}) {
-  if (series.length < 2) return null
-  const ys = series.map(p => p.y)
-  const min = Math.min(...ys); const max = Math.max(...ys)
-  const range = max - min || 1
-  const width = 600
-  const pad = { top: 14, right: 16, bottom: 22, left: 58 }
-  const cw = width - pad.left - pad.right
-  const ch = height - pad.top - pad.bottom
-  const x = (i: number) => pad.left + (i / (series.length - 1)) * cw
-  const y = (v: number) => pad.top + ch - ((v - min) / range) * ch
-  const last = series[series.length - 1]
-  const first = series[0]
-  const avg = ys.reduce((s, v) => s + v, 0) / ys.length
+const colorVar = (name: string, fallback = '#8888a0'): string =>
+  typeof window !== 'undefined' ? (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback) : fallback
 
+const mix = (hex: string, pct: number): string => {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+  const alpha = Math.round((pct / 100) * 255).toString(16).padStart(2, '0')
+  return `#${full.slice(0, 6)}${alpha}`
+}
+
+function BacktestChart({ points, height = 170, color = '#34d399', mode = 'equity', trades = [] }: {
+  points: { time: Time; value: number }[]
+  height?: number
+  color?: string
+  mode?: 'equity' | 'drawdown'
+  trades?: BTTrade[]
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || points.length < 2) return
+
+    const isEquity = mode === 'equity'
+    const chart: IChartApi = createChart(container, {
+      height,
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: colorVar('--text-sub', '#8888a0'),
+        fontSize: 10,
+        fontFamily: 'var(--font-body)',
+      },
+      grid: {
+        vertLines: { color: mix(colorVar('--violet'), 6) },
+        horzLines: { color: mix(colorVar('--violet'), 6) },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
+        horzLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
+      },
+      timeScale: {
+        borderColor: mix(colorVar('--text-inverse'), 6),
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      rightPriceScale: {
+        borderColor: mix(colorVar('--text-inverse'), 6),
+        scaleMargins: { top: 0.1, bottom: 0.15 },
+      },
+    })
+
+    const series: ISeriesApi<'Line'> = chart.addSeries(LineSeries, {
+      color,
+      lineWidth: 2,
+      priceLineVisible: true,
+      lastValueVisible: true,
+      priceFormat: {
+        type: 'custom',
+        formatter: (p: number) => isEquity
+          ? `₹${Math.round(p).toLocaleString('en-IN')}`
+          : `${p.toFixed(2)}%`,
+      },
+    })
+    series.setData(points)
+
+    let markersPlugin: ReturnType<typeof createSeriesMarkers<Time>> | null = null
+    if (isEquity && trades.length) {
+      const markers: SeriesMarker<Time>[] = []
+      const times = points.map(p => p.time as number)
+      const snap = (ts: string | undefined) => {
+        if (!ts) return undefined
+        const t = new Date(ts).getTime() / 1000
+        for (let i = times.length - 1; i >= 0; i--) {
+          if (times[i] <= t) return times[i]
+        }
+        return undefined
+      }
+      for (const tr of trades) {
+        const entryT = snap(tr.entry_time)
+        if (entryT !== undefined) markers.push({ time: entryT as UTCTimestamp, position: 'belowBar', shape: 'arrowUp', color: colorVar('--green', '#34d399'), text: 'E' })
+        const exitT = snap(tr.exit_time)
+        if (exitT !== undefined) markers.push({ time: exitT as UTCTimestamp, position: 'aboveBar', shape: 'arrowDown', color: colorVar('--red', '#f87171'), text: 'X' })
+      }
+      if (markers.length) markersPlugin = createSeriesMarkers(series, markers)
+    }
+
+    const tooltip = tooltipRef.current
+    const onCrosshairMove = (param: MouseEventParams) => {
+      if (!tooltip) return
+      if (!param.time || !param.point) { tooltip.style.display = 'none'; return }
+      const data = param.seriesData.get(series) as LineData | undefined
+      if (!data) { tooltip.style.display = 'none'; return }
+      const label = isEquity
+        ? `₹${Math.round(data.value).toLocaleString('en-IN')}`
+        : `${data.value.toFixed(2)}%`
+      tooltip.textContent = `${new Date((data.time as number) * 1000).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · ${label}`
+      tooltip.style.display = 'block'
+      const rect = container.getBoundingClientRect()
+      tooltip.style.left = `${Math.min(param.point.x + 12, rect.width - 110)}px`
+      tooltip.style.top = `${Math.max(param.point.y - 26, 2)}px`
+    }
+    chart.subscribeCrosshairMove(onCrosshairMove)
+
+    const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }))
+    ro.observe(container)
+
+    return () => {
+      chart.unsubscribeCrosshairMove(onCrosshairMove)
+      markersPlugin?.detach()
+      ro.disconnect()
+      chart.remove()
+    }
+  }, [points, height, color, mode, trades])
+
+  if (points.length < 2) return null
   return (
-    <div>
-      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto' }}>
-        {Array.from({ length: 5 }).map((_, i) => {
-          const yy = pad.top + (i / 4) * ch
-          const val = max - (range / 4) * i
-          return (
-            <g key={i}>
-              <line x1={pad.left} y1={yy} x2={width - pad.right} y2={yy} stroke="color-mix(in srgb, var(--text-inverse) 3%, transparent)" strokeWidth={1} />
-              <text x={pad.left - 5} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">
-                {Math.round(val).toLocaleString()}
-              </text>
-            </g>
-          )
-        })}
-        <line x1={pad.left} y1={y(avg)} x2={width - pad.right} y2={y(avg)} stroke="var(--amber)" strokeWidth={1} strokeDasharray="4 3" opacity={0.6} />
-        <path d={series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.y)}`).join('')}
-          fill="none" stroke={color} strokeWidth={2} />
-        <circle cx={x(series.length - 1)} cy={y(last.y)} r={3} fill={color} />
-        <text x={x(series.length - 1) - 4} y={y(last.y) - 6} textAnchor="end" fill="var(--text)" fontSize={9} fontFamily="var(--font-mono)" fontWeight={700}>
-          {Math.round(last.y).toLocaleString()}
-        </text>
-        <text x={pad.left + 2} y={y(first.y) + 10} fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">
-          {Math.round(first.y).toLocaleString()}
-        </text>
-        {yLabel && <text x={8} y={pad.top} fill="var(--text-faint)" fontSize={8} fontWeight={700}>{yLabel}</text>}
-      </svg>
+    <div style={{ position: 'relative' }}>
+      <div ref={containerRef} />
+      <div
+        ref={tooltipRef}
+        style={{
+          display: 'none', position: 'absolute', pointerEvents: 'none', zIndex: 5,
+          background: colorVar('--bg-secondary', '#1e1e2f'), color: colorVar('--text', '#eee'),
+          padding: '3px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)',
+        }}
+      />
     </div>
   )
 }
@@ -351,16 +440,20 @@ function BacktestContent() {
   }, [result])
 
   const s = result?.summary
-  const equityPoints = useMemo(() => (result?.equity_curve || []).map((p, i) => ({
-    x: p.timestamp || String(p.index ?? i),
-    y: p.equity,
-  })), [result])
+  const equityPoints = useMemo(() => (result?.equity_curve || []).map((p, i) => {
+    const t = p.timestamp ? new Date(p.timestamp).getTime() / 1000 : i
+    return { time: (Number.isFinite(t) ? t : i) as Time, value: p.equity }
+  }), [result])
 
   const drawdownSeries = useMemo(() => {
     let peak = -Infinity
     return (result?.equity_curve || []).map((p, i) => {
       if (p.equity > peak) peak = p.equity
-      return { x: p.timestamp || String(p.index ?? i), y: peak > 0 ? ((peak - p.equity) / peak) * 100 : 0 }
+      const t = p.timestamp ? new Date(p.timestamp).getTime() / 1000 : i
+      return {
+        time: (Number.isFinite(t) ? t : i) as Time,
+        value: peak > 0 ? ((peak - p.equity) / peak) * 100 : 0,
+      }
     })
   }, [result])
 
@@ -511,11 +604,11 @@ function BacktestContent() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div className="t-panel" style={{ padding: 12 }}>
                   <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Equity Curve</div>
-                  <LineChart series={equityPoints} height={170} color={s.net_pnl >= 0 ? 'var(--green)' : 'var(--red)'} />
+                  <BacktestChart points={equityPoints} height={170} color={s.net_pnl >= 0 ? colorVar('--green') : colorVar('--red')} trades={result.trades} />
                 </div>
                 <div className="t-panel" style={{ padding: 12 }}>
                   <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Drawdown %</div>
-                  <LineChart series={drawdownSeries} height={170} color="var(--red)" />
+                  <BacktestChart points={drawdownSeries} height={170} color={colorVar('--red')} mode="drawdown" />
                 </div>
               </div>
 

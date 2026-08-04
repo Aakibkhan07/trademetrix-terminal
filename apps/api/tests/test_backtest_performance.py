@@ -28,6 +28,40 @@ def _snapshots(equities):
     ]
 
 
+def test_equity_curve_downsampled_over_threshold():
+    equities = [100000.0 + i * 10.0 + (i % 3) for i in range(5000)]
+    result = performance_analytics.calculate(
+        BacktestResult(), _snapshots(equities), 100000.0, [], 5000, None,
+        max_equity_points=500,
+    )
+    assert len(result.equity_curve) <= 600  # threshold + slack
+    assert result.equity_curve[0].equity == pytest.approx(equities[0])
+    assert result.equity_curve[-1].equity == pytest.approx(equities[-1])
+    # end equity / max DD still reflect the FULL series
+    assert result.end_equity == pytest.approx(equities[-1])
+    assert result.return_pct == pytest.approx((equities[-1] - 100000.0) / 100000.0 * 100, abs=0.01)
+
+
+def test_equity_curve_untouched_below_threshold():
+    equities = [100000.0 + i for i in range(50)]
+    result = performance_analytics.calculate(
+        BacktestResult(), _snapshots(equities), 100000.0, [], 50, None,
+        max_equity_points=2000,
+    )
+    assert len(result.equity_curve) == 50
+
+
+def test_downsample_pairs_keeps_endpoints_and_shape():
+    from backtest.performance import downsample_pairs
+
+    pts = [(i, 100.0 + (i % 50)) for i in range(1000)]
+    idx = downsample_pairs(pts, threshold=100)
+    assert idx[0] == 0
+    assert idx[-1] == 999
+    assert len(idx) <= 105
+    assert idx == sorted(set(idx))
+
+
 def _candles(n=100, base=100.0, step=1.0):
     start = datetime(2026, 1, 5, 9, 15, tzinfo=UTC)
     return [

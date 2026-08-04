@@ -255,3 +255,126 @@ async def test_broker_trades_carry_open_and_close_times():
     assert t["entry_time"] == candles[0]["timestamp"]
     assert t["exit_time"] == candles[2]["timestamp"]
     assert t["entry_time"] != t["exit_time"]
+
+
+# ── A1 TradeRecord enrichment ──
+
+@pytest.mark.asyncio
+async def test_trade_contains_entry_exit_reasons_from_signal():
+    candles = [
+        _candle("t0", 100, 101, 99, 100),
+        _candle("t1", 101, 102, 100, 101),
+        _candle("t2", 104, 105, 103, 104),
+    ]
+    broker = BacktestBroker("backtest:test")
+    broker.set_candles(candles)
+    await broker.on_candle(0)
+    buy = _order("BUY", qty=10)
+    buy.reason = "EMA9 crosses above EMA21"
+    await broker.place_order(buy)
+    await broker.on_candle(2)
+    sell = _order("SELL", qty=10)
+    sell.reason = "stop_loss"
+    await broker.place_order(sell)
+    t = broker.trades[0]
+    assert t["entry_reason"] == "EMA9 crosses above EMA21"
+    assert t["exit_reason"] == "stop_loss"
+
+
+@pytest.mark.asyncio
+async def test_trade_exit_reason_from_order_type():
+    candles = [c for c in [
+        _candle("t0", 100, 101, 99, 100),
+        _candle("t1", 100, 101, 98, 99),
+        _candle("t2", 97, 98, 96, 97),
+    ]]
+    broker = BacktestBroker("backtest:test")
+    broker.set_candles(candles)
+    await broker.on_candle(0)
+    await broker.place_order(_order("BUY", qty=10))
+    await broker.on_candle(1)
+    await broker.place_order(_order("SELL", "SLM", qty=10, trigger=99))
+    assert len(broker.trades) == 1
+    assert broker.trades[0]["exit_reason"] == "stop"
+
+
+@pytest.mark.asyncio
+async def test_trade_has_cost_breakdown():
+    candles = [
+        _candle("t0", 100, 101, 99, 100),
+        _candle("t1", 101, 102, 100, 101),
+        _candle("t2", 104, 105, 103, 104),
+    ]
+    broker = BacktestBroker("backtest:test")
+    broker.update_config(BacktestExecutionConfig(initial_capital=100000.0))
+    broker.set_candles(candles)
+    await broker.on_candle(0)
+    await broker.place_order(_order("BUY", qty=10))
+    await broker.on_candle(2)
+    await broker.place_order(_order("SELL", qty=10))
+    t = broker.trades[0]
+    assert t["slippage"] == pytest.approx(0.0)
+    assert t["cost_total"] == pytest.approx(broker.total_costs, abs=0.01)
+    assert t["cost_total"] == pytest.approx(t["slippage"] + t["charges"] + t["taxes"], abs=0.01)
+    assert t["charges"] > 0 or t["taxes"] > 0
+
+
+@pytest.mark.asyncio
+async def test_trade_duration_computed_from_times():
+    t0 = "2026-01-05T10:00:00+00:00"
+    t1 = "2026-01-05T10:30:00+00:00"
+    t2 = "2026-01-05T11:00:00+00:00"
+    candles = [
+        _candle(t0, 100, 101, 99, 100),
+        _candle(t1, 101, 102, 100, 101),
+        _candle(t2, 104, 105, 103, 104),
+    ]
+    broker = BacktestBroker("backtest:test")
+    broker.set_candles(candles)
+    await broker.on_candle(0)
+    await broker.place_order(_order("BUY", qty=10))
+    await broker.on_candle(2)
+    await broker.place_order(_order("SELL", qty=10))
+    t = broker.trades[0]
+    assert t["duration_minutes"] == 60
+
+
+@pytest.mark.asyncio
+async def test_trade_record_model_accepts_enriched_fields():
+    from backtest.models import TradeRecord
+
+    trade = TradeRecord(
+        symbol="NIFTY", side="BUY", entry_price=100.0, exit_price=104.0,
+        quantity=10, pnl=40.0, entry_time="t0", exit_time="t1",
+        entry_reason="EMA cross", exit_reason="target",
+        slippage=1.0, charges=2.0, taxes=3.0, cost_total=6.0,
+        risk_amount=50.0, rr=0.8,
+    )
+    assert trade.entry_reason == "EMA cross"
+    assert trade.rr == pytest.approx(0.8)
+    from backtest.performance import performance_analytics
+    from backtest.models import BacktestResult
+    res = performance_analytics.calculate(
+        BacktestResult(), [], 100000.0, [trade], 100, None,
+    )
+    assert res.total_trades == 1
+
+
+@pytest.mark.asyncio
+async def test_trade_risk_and_rr_with_resting_sl():
+    candles = [
+        _candle("t0", 100, 101, 99, 100),
+        _candle("t1", 101, 102, 100, 101),
+        _candle("t2", 104, 105, 103, 104),
+    ]
+    broker = BacktestBroker("backtest:test")
+    broker.set_candles(candles)
+    # open long plus a resting SL at 98
+    await broker.on_candle(0)
+    await broker.place_order(_order("BUY", qty=10))
+    await broker.place_order(_order("SELL", "SLM", qty=10, trigger=98))
+    await broker.on_candle(2)
+    await broker.place_order(_order("SELL", qty=10))
+    t = broker.trades[0]
+    assert t["risk_amount"] == pytest.approx((100.0 - 98.0) * 10)
+    assert t["rr"] == pytest.approx(t["pnl"] / t["risk_amount"])

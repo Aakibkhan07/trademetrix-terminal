@@ -361,3 +361,45 @@ async def test_static_routes_precede_run_id(monkeypatch, client, auth_headers):
 
     resp = await client.get("/api/v1/backtests/candles/NIFTY/15m", headers=auth_headers)
     assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_trades_pagination(monkeypatch, client, auth_headers):
+    from routes.v1_backtest import backtest_manager
+
+    async def fake_get(run_id):
+        if run_id == "bt-ghost":
+            return None
+        return _fake_result(run_id=run_id)
+
+    monkeypatch.setattr(backtest_manager, "get_run", fake_get)
+
+    page1 = await client.get(
+        "/api/v1/backtests/bt-5-6-001/trades?cursor=0&limit=8",
+        headers=auth_headers,
+    )
+    assert page1.status_code == 200, page1.text
+    body = page1.json()
+    assert body["total_trades"] == 20
+    assert len(body["trades"]) == 8
+    assert body["next_cursor"] == 8
+
+    page3 = await client.get(
+        "/api/v1/backtests/bt-5-6-001/trades?cursor=16&limit=8",
+        headers=auth_headers,
+    )
+    body3 = page3.json()
+    assert len(body3["trades"]) == 4
+    assert body3["next_cursor"] is None
+
+    clamped = await client.get(
+        "/api/v1/backtests/bt-5-6-001/trades?cursor=0&limit=5000",
+        headers=auth_headers,
+    )
+    assert clamped.json()["limit"] == 2000
+
+    missing = await client.get(
+        "/api/v1/backtests/bt-ghost/trades",
+        headers=auth_headers,
+    )
+    assert missing.status_code == 404

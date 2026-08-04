@@ -9,6 +9,38 @@ from backtest.models import BacktestResult, EquityPoint, TradeRecord
 logger = logging.getLogger(__name__)
 
 
+def downsample_pairs(points: list[tuple], threshold: int = 2000) -> list[int]:
+    """Return downsampled indices for a list of (x, y) pairs (shape-preserving)."""
+    ys = [p[1] for p in points]
+    n = len(points)
+    if n <= threshold:
+        return list(range(n))
+    bucket_size = (n - 2) / (threshold - 2)
+    chosen = [0]
+    a = 0
+    for i in range(threshold - 2):
+        avg_range_start = int(math.floor((i + 1) * bucket_size) + 1)
+        avg_range_end = int(math.floor((i + 2) * bucket_size) + 1)
+        avg_range_end = min(avg_range_end, n)
+        if avg_range_start >= avg_range_end:
+            continue
+        avg_x = (avg_range_start + avg_range_end - 1) / 2.0
+        avg_y = sum(ys[j] for j in range(avg_range_start, avg_range_end)) / (avg_range_end - avg_range_start)
+        range_offs = int(math.floor(i * bucket_size) + 1)
+        range_to = int(math.floor((i + 1) * bucket_size) + 1)
+        next_a = range_offs
+        max_area = -1.0
+        for j in range(range_offs, min(range_to, n - 1)):
+            area = abs((ys[a] - avg_y) * (j - a) - (ys[a] - ys[j]) * (avg_x - a)) * 0.5
+            if area > max_area:
+                max_area = area
+                next_a = j
+        chosen.append(next_a)
+        a = next_a
+    chosen.append(n - 1)
+    return sorted(set(chosen))
+
+
 class PerformanceAnalytics:
     def calculate(
         self,
@@ -18,6 +50,7 @@ class PerformanceAnalytics:
         trades: list[TradeRecord],
         candles_analyzed: int,
         benchmark_candles: list[dict] | None = None,
+        max_equity_points: int = 2000,
     ) -> BacktestResult:
         result.start_equity = initial_capital
         result.candles_analyzed = candles_analyzed
@@ -29,6 +62,12 @@ class PerformanceAnalytics:
         self._compute_drawdown(result)
         self._compute_ratios(result)
         self._compute_returns(result)
+        if len(result.equity_curve) > max_equity_points:
+            idx = downsample_pairs(
+                [(i, p.equity) for i, p in enumerate(result.equity_curve)],
+                threshold=max_equity_points,
+            )
+            result.equity_curve = [result.equity_curve[i] for i in idx]
         if benchmark_candles:
             self._compute_benchmark(result, benchmark_candles)
 

@@ -163,17 +163,10 @@ async def run_backtest_v2(
                     "entry_time": t.entry_time,
                     "exit_time": t.exit_time,
                 }
-                for t in result.trades
+                for t in result.trades[:PAYLOAD_MAX_TRADES]
             ],
-            "equity_curve": [
-                {
-                    "timestamp": e.timestamp,
-                    "equity": e.equity,
-                    "drawdown": e.drawdown,
-                    "drawdown_pct": e.drawdown_pct,
-                }
-                for e in result.equity_curve
-            ],
+            "trades_truncated": len(result.trades) > PAYLOAD_MAX_TRADES,
+            "equity_curve": _payload_equity(result.equity_curve),
             "monthly_returns": result.monthly_returns,
             "duration_seconds": result.duration_seconds,
             "error": result.error,
@@ -374,7 +367,22 @@ class BacktestV3Request(BaseModel):
     cost: dict = {}
 
 
+PAYLOAD_MAX_TRADES = 2000
+
+
+def _payload_trades(trades) -> list:
+    return [t.model_dump(mode="json") for t in trades[:PAYLOAD_MAX_TRADES]]
+
+
+def _payload_equity(equity_curve) -> list:
+    out = []
+    for e in equity_curve:
+        out.append(e.model_dump(mode="json") if hasattr(e, "model_dump") else e)
+    return out
+
+
 def _result_payload(result) -> dict:
+    trades = result.trades or []
     return {
         "run_id": result.run_id,
         "status": result.status.value,
@@ -410,11 +418,9 @@ def _result_payload(result) -> dict:
             "start_equity": result.start_equity,
             "end_equity": result.end_equity,
         },
-        "trades": [t.model_dump(mode="json") for t in result.trades],
-        "equity_curve": [
-            e.model_dump(mode="json") if hasattr(e, "model_dump") else e
-            for e in result.equity_curve
-        ],
+        "trades": _payload_trades(trades),
+        "trades_truncated": len(trades) > PAYLOAD_MAX_TRADES,
+        "equity_curve": _payload_equity(result.equity_curve),
         "weekday_distribution": result.weekday_distribution,
         "hour_distribution": result.hour_distribution,
         "month_distribution": result.month_distribution,
@@ -555,6 +561,34 @@ async def export_backtest(
             headers={"Content-Disposition": f'attachment; filename="backtest-{run_id}.pdf"'},
         )
     raise HTTPException(status_code=400, detail="format must be json, csv, or pdf")
+
+
+@router.get("/{run_id}/trades")
+async def list_backtest_trades(
+    run_id: str,
+    cursor: int = 0,
+    limit: int = 500,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    """Cursor-paginated trade list for large runs (A2: keep run payload light)."""
+    run = await backtest_manager.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Backtest run not found")
+
+    limit = max(1, min(limit, 2000))
+    cursor = max(0, cursor)
+    trades = run.trades
+    total = len(trades)
+    page = trades[cursor:cursor + limit]
+    next_cursor = cursor + len(page) if cursor + len(page) < total else None
+    return {
+        "run_id": run_id,
+        "total_trades": total,
+        "cursor": cursor,
+        "limit": limit,
+        "next_cursor": next_cursor,
+        "trades": [t.model_dump(mode="json") for t in page],
+    }
 
 
 @router.post("/{run_id}/deploy-to-paper")

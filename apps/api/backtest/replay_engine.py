@@ -86,6 +86,8 @@ class ReplayEngine:
 
                     if signal and signal.orders:
                         for order in signal.orders:
+                            if order.reason is None or not order.reason:
+                                order.reason = signal.reason
                             if broker is not None:
                                 if risk_check:
                                     risk_result = await risk_manager.evaluate(

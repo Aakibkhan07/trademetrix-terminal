@@ -28,7 +28,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
-from backtest.costs import BacktestCostConfig, estimate_cost, segment_for
+from backtest.costs import BacktestCostConfig, CostEstimate, estimate_cost, segment_for
 from core.models import (
     Exchange, Funds, NormalizedOrder, OrderResult, OrderStatus,
     OrderType, Position, ProductType,
@@ -190,6 +190,7 @@ class BacktestBroker:
         self._last_prices: dict[str, float] = {}
         self._cash = self._config.initial_capital
         self._total_costs = 0.0
+        self._total_slippage = 0.0
         self._realized = 0.0
         self._order_counter = 0
         self._trades: list[dict] = []
@@ -235,6 +236,7 @@ class BacktestBroker:
         self._fill_engine._rng = random.Random(config.seed)
         self._cash = config.initial_capital
         self._total_costs = 0.0
+        self._total_slippage = 0.0
         self._realized = 0.0
 
     def get_config(self) -> BacktestExecutionConfig:
@@ -257,7 +259,7 @@ class BacktestBroker:
                 continue
             result = self._fill_engine.simulate_fill(order)
             if result.status in ("filled", "partially_filled"):
-                self._apply_fill(order, result, order_id)
+                self._apply_fill(order, result, order_id, entry)
                 entry["status"] = result.status
                 entry["fills"].append(result)
         candle = self._candle_at(index)
@@ -321,7 +323,7 @@ class BacktestBroker:
             status=result.status, filled_qty=result.quantity, avg_price=result.price,
         )
 
-    def _apply_fill(self, order: NormalizedOrder, result: FillResult, order_id: str) -> None:
+    def _apply_fill(self, order: NormalizedOrder, result: FillResult, order_id: str, entry: dict | None = None) -> None:
         symbol = order.symbol
         side = order.side.value if hasattr(order.side, "value") else str(order.side)
         qty = result.quantity
@@ -339,60 +341,184 @@ class BacktestBroker:
             slippage_value=slippage_value, config=cost_cfg,
         )
         self._total_costs += cost.total
+        self._total_slippage += cost.slippage
 
         pos = self._positions.setdefault(
             symbol,
             {"quantity": 0, "avg_price": 0.0, "realized_pnl": 0.0, "total_cost": 0.0},
         )
         opened_at = self._last_times.get(symbol, "")
+        order_reason = getattr(order, "reason", "") or ""
+        exit_reason = self._exit_reason(order, order_reason)
+        fill_costs = self._cost_split(cost)
 
         if side == "BUY":
             prev_qty = pos["quantity"]
             if prev_qty >= 0:
                 prev_time = pos.get("entry_time")
+                opening = prev_qty == 0
                 pos["quantity"] = prev_qty + qty
                 pos["avg_price"] = (pos["avg_price"] * prev_qty + price * qty) / max(1, prev_qty + qty)
                 pos["entry_time"] = prev_time or opened_at
+                pos.setdefault("entry_reason", order_reason or "signal")
+                if opening:
+                    pos["entry_costs"] = dict(fill_costs)
+                    pos["stop_price"] = self._stop_price_at_symbol(symbol)
+                else:
+                    pos["entry_costs"] = self._sum_costs(pos.get("entry_costs"), fill_costs)
+                pos.setdefault("entry_qty", 0)
+                pos["entry_qty"] += qty
             else:
                 closed = min(qty, -prev_qty)
                 pnl = (pos["avg_price"] - price) * closed
                 pos["realized_pnl"] += pnl
                 self._realized += pnl
-                self._record_trade(symbol, "SELL", pos["avg_price"], price, closed, pnl, pos.get("entry_time") or opened_at)
+                self._record_trade(
+                    symbol, "SELL", pos["avg_price"], price, closed, pnl,
+                    pos.get("entry_time") or opened_at,
+                    entry_reason=pos.get("entry_reason", "") or "",
+                    exit_reason=exit_reason,
+                    entry_costs=pos.get("entry_costs"),
+                    exit_costs=fill_costs,
+                )
+                self._consume_entry_costs(pos, closed)
                 pos["quantity"] = prev_qty + closed
                 if qty > closed:
                     pos["quantity"] = qty - closed
                     pos["avg_price"] = price
                     pos["entry_time"] = opened_at
+                    pos["entry_reason"] = order_reason or "signal"
+                    pos["entry_costs"] = dict(fill_costs)
+                    pos["entry_qty"] = qty - closed
+                    pos["stop_price"] = self._stop_price_at_symbol(symbol)
                 else:
-                    pos.pop("entry_time", None)
+                    self._clear_entry_state(pos)
             self._cash -= traded_value + cost.total
         else:
             prev_qty = pos["quantity"]
             if prev_qty <= 0:
                 prev_time = pos.get("entry_time")
+                opening = prev_time is None
                 pos["quantity"] = prev_qty - qty
                 pos["avg_price"] = (abs(pos["avg_price"]) * abs(prev_qty) + price * qty) / max(1, abs(prev_qty) + qty)
                 pos["entry_time"] = prev_time or opened_at
+                pos.setdefault("entry_reason", order_reason or "signal")
+                if opening:
+                    pos["entry_costs"] = dict(fill_costs)
+                    pos["stop_price"] = self._stop_price_at_symbol(symbol)
+                else:
+                    pos["entry_costs"] = self._sum_costs(pos.get("entry_costs"), fill_costs)
+                pos.setdefault("entry_qty", 0)
+                pos["entry_qty"] += qty
             else:
                 closed = min(qty, prev_qty)
                 pnl = (price - pos["avg_price"]) * closed
                 pos["realized_pnl"] += pnl
                 self._realized += pnl
-                self._record_trade(symbol, "BUY", pos["avg_price"], price, closed, pnl, pos.get("entry_time") or opened_at)
+                self._record_trade(
+                    symbol, "BUY", pos["avg_price"], price, closed, pnl,
+                    pos.get("entry_time") or opened_at,
+                    entry_reason=pos.get("entry_reason", "") or "",
+                    exit_reason=exit_reason,
+                    entry_costs=pos.get("entry_costs"),
+                    exit_costs=fill_costs,
+                )
+                self._consume_entry_costs(pos, closed)
                 pos["quantity"] = prev_qty - closed
                 if qty > closed:
                     pos["quantity"] = -(qty - closed)
                     pos["avg_price"] = price
                     pos["entry_time"] = opened_at
+                    pos["entry_reason"] = order_reason or "signal"
+                    pos["entry_costs"] = dict(fill_costs)
+                    pos["entry_qty"] = qty - closed
+                    pos["stop_price"] = self._stop_price_at_symbol(symbol)
                 else:
-                    pos.pop("entry_time", None)
+                    self._clear_entry_state(pos)
             self._cash += traded_value - cost.total
 
         self._last_prices[symbol] = price
 
+    def _sum_costs(self, a: dict | None, b: dict) -> dict:
+        a = a or {"slippage": 0.0, "charges": 0.0, "taxes": 0.0, "total": 0.0}
+        return {k: round(v + b.get(k, 0.0), 2) for k, v in a.items()}
+
+    def _clear_entry_state(self, pos: dict) -> None:
+        for key in ("entry_time", "entry_reason", "entry_costs", "stop_price", "entry_qty"):
+            pos.pop(key, None)
+
+    def _exit_reason(self, order: NormalizedOrder, order_reason: str) -> str:
+        if order_reason:
+            return order_reason
+        otype = order.order_type.value if hasattr(order.order_type, "value") else str(order.order_type)
+        if otype in ("SL", "SLM"):
+            return "stop"
+        if otype in ("LIMIT",):
+            return "target"
+        return "signal"
+
+    def _stop_price_at_symbol(self, symbol: str) -> float | None:
+        """Best-effort stop level: a resting SL/SL-M order on the closing side."""
+        for entry in self._orders.values():
+            order = entry.get("order")
+            if not order or order.symbol != symbol:
+                continue
+            otype = order.order_type.value if hasattr(order.order_type, "value") else str(order.order_type)
+            if otype not in ("SL", "SLM"):
+                continue
+            os_side = order.side.value if hasattr(order.side, "value") else str(order.side)
+            if os_side not in ("BUY", "SELL"):
+                continue
+            level = order.trigger_price or order.price
+            if level and level > 0:
+                return float(level)
+        return None
+
+    def _cost_split(self, cost: CostEstimate) -> dict:
+        return {
+            "slippage": round(cost.slippage, 2),
+            "charges": round(cost.brokerage + cost.exchange_tc, 2),
+            "taxes": round(cost.stt + cost.stamp_duty + cost.gst + cost.sebi, 2),
+            "total": round(cost.total, 2),
+        }
+
+    def _consume_entry_costs(self, pos: dict, closed: int) -> None:
+        """Proportionally reduce accumulated entry costs after a partial close."""
+        entry_qty = pos.get("entry_qty", 0) or 0
+        if entry_qty <= 0:
+            return
+        share = closed / entry_qty
+        costs = pos.get("entry_costs") or {}
+        pos["entry_costs"] = {
+            k: round(v * (1 - share), 2) for k, v in costs.items()
+        }
+        pos["entry_qty"] = max(0, entry_qty - closed)
+
     def _record_trade(self, symbol: str, side: str, entry: float, exit_price: float,
-                      qty: int, pnl: float, entry_time: str | None = None) -> None:
+                      qty: int, pnl: float, entry_time: str | None = None,
+                      entry_reason: str = "", exit_reason: str = "signal",
+                      entry_costs: dict | None = None, exit_costs: dict | None = None) -> None:
+        entry_costs = entry_costs or {"slippage": 0.0, "charges": 0.0, "taxes": 0.0, "total": 0.0}
+        exit_costs = exit_costs or {"slippage": 0.0, "charges": 0.0, "taxes": 0.0, "total": 0.0}
+        exit_time = self._last_times.get(symbol, "")
+        duration_minutes = 0
+        try:
+            t0 = datetime.fromisoformat(str(entry_time).replace("Z", "+00:00"))
+            t1 = datetime.fromisoformat(str(exit_time).replace("Z", "+00:00"))
+            duration_minutes = max(0, int((t1 - t0).total_seconds() // 60))
+        except (ValueError, AttributeError, TypeError):
+            pass
+        slippage = round(entry_costs.get("slippage", 0.0) + exit_costs.get("slippage", 0.0), 2)
+        charges = round(entry_costs.get("charges", 0.0) + exit_costs.get("charges", 0.0), 2)
+        taxes = round(entry_costs.get("taxes", 0.0) + exit_costs.get("taxes", 0.0), 2)
+        cost_total = round(slippage + charges + taxes, 2)
+        risk_amount = 0.0
+        stop = self._stop_price_at_symbol(symbol)
+        if stop and float(stop) != float(entry):
+            risk_amount = round(abs(float(entry) - float(stop)) * qty, 2)
+        rr = 0.0
+        if risk_amount > 0:
+            rr = round(pnl / risk_amount, 2)
         self._trades.append({
             "symbol": symbol,
             "side": side,
@@ -400,8 +526,17 @@ class BacktestBroker:
             "exit_price": round(exit_price, 4),
             "quantity": qty,
             "pnl": round(pnl, 2),
-            "entry_time": entry_time or self._last_times.get(symbol, ""),
-            "exit_time": self._last_times.get(symbol, ""),
+            "entry_time": entry_time or exit_time,
+            "exit_time": exit_time,
+            "duration_minutes": duration_minutes,
+            "entry_reason": entry_reason or "signal",
+            "exit_reason": exit_reason,
+            "slippage": slippage,
+            "charges": charges,
+            "taxes": taxes,
+            "cost_total": cost_total,
+            "risk_amount": risk_amount,
+            "rr": rr,
         })
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
@@ -490,6 +625,10 @@ class BacktestBroker:
         return self._total_costs
 
     @property
+    def total_slippage(self) -> float:
+        return self._total_slippage
+
+    @property
     def realized_pnl(self) -> float:
         return self._realized
 
@@ -508,6 +647,7 @@ class BacktestBroker:
         self._trades.clear()
         self._cash = self._config.initial_capital
         self._total_costs = 0.0
+        self._total_slippage = 0.0
         self._realized = 0.0
 
 

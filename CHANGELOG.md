@@ -1,3 +1,58 @@
+## v1.5.10 (2026-08-05) — BACKTEST ENGINE PHASE A: enriched TradeRecords, big-run performance (equity downsampling + trade pagination), interactive charts
+
+> Phase A of the institutional backtest roadmap (A/B/C). TradeRecords now carry the full
+> audit trail — entry/exit reasons, per-side slippage/charges/taxes/cost totals, risk amount
+> and R-multiple — without breaking any existing payload (all new fields defaulted). Big runs
+> (>2k trades, >2k equity points) no longer produce monolithic payloads: equity is
+> downsampled server-side (LTTB, first/last preserved) and trades are cursor-paginated. The
+> backtest UI swaps static SVG equity/drawdown for interactive `lightweight-charts` canvases
+> (crosshair tooltip + entry/exit markers).
+>
+> Constraint honored: additive changes to the backtest module only — OMS, Risk Engine, Broker
+> Layer, Execution Engine untouched; legacy `/run` payload unchanged and backward compatible.
+
+### Added
+- **`apps/api/backtest/models.py`** — `TradeRecord` extended with `entry_reason`,
+  `exit_reason`, `slippage`, `charges`, `taxes`, `cost_total`, `risk_amount`, `rr` (all
+  defaulted for backward compatibility).
+- **`apps/api/backtest/execution.py`** — `BacktestBroker._apply_fill` rewritten to open
+  records with the signal reason, split entry/exit costs per side, consume entry costs
+  proportionally on partial closes (`_consume_entry_costs`, `_clear_entry_state`), and map
+  the exit type to a reason (`_exit_reason`: SL/SLM→stop, LIMIT→target, MARKET/signal→
+  signal, close_on_end). `_record_trade` computes per-trade slippage, charges
+  (brokerage+exchange_tc), taxes (STT+stamp+GST+SEBI), cost_total, `risk_amount`
+  (from any resting SL trigger on the symbol at close), and `rr = pnl/risk_amount`.
+  Added `total_slippage` property (reset in `__init__`/`update_config`/`reset`).
+- **`apps/api/backtest/manager.py`** — `_place_via_broker` sets `order.reason` from the
+  signal reason before the risk dry-run; reason threaded through the MAX loop, `_fast_run`
+  and `close_on_end` (`_make_close_order(..., reason="close_on_end")`).
+- **`apps/api/backtest/replay_engine.py`** — copies `signal.reason` onto orders when empty.
+- **`apps/api/backtest/performance.py`** — `downsample_pairs(points, threshold=2000)` LTTB
+  (largest-triangle, keeps first/last); `PerformanceAnalytics.calculate(..., max_equity_points)`
+  downsamples `equity_curve` after computing ratios/returns (so KPIs stay exact).
+- **`apps/api/routes/v1_backtest.py`** — new `GET /backtests/{run_id}/trades?cursor&limit`
+  (cursor-paginated, limit clamped 1–2000); `_result_payload` + run-v2 cap trades at
+  `PAYLOAD_MAX_TRADES = 2000` with a `trades_truncated` flag via shared `_payload_trades`/
+  `_payload_equity` helpers; restored `export_backtest` signature.
+- **`apps/web/app/backtest/page.tsx`** — `BacktestChart` (lightweight-charts `LineSeries`,
+  `CrosshairMode` tooltip, `createSeriesMarkers` entry/exit markers) replaces the static SVG
+  charts for Equity Curve and Drawdown %.
+
+### Verification
+- New tests: enriched trade fields (entry/exit reasons, cost breakdown, duration, model),
+  risk/RR from a resting SL, `downsample_pairs` endpoint + shape preservation + full-series
+  KPI accuracy, pagination route (clamp, cursor walk, past-end, 404). Suite **883 passed,
+  1 xfailed** (was 873). Web `tsc` clean, prod build clean.
+- Prod smoke (user `fa668109`, in-container): run-v3 EMA Crossover on `NSE:NIFTY50-INDEX`
+  60d/15m, risk off → **57 trades**, all enriched keys present, cost consistency
+  (cost_total = slippage+charges+taxes), pagination `total=57 / len=3 / next_cursor=3`;
+  1026 equity points served. Backend hot-deployed (6 files, health 200); web `.next`
+  deployed (new BUILD_ID, `/backtest` 200, chart bundle served).
+- Note: backtests run with `risk_enabled=True` can yield 0 trades because the risk dry-run
+  (`risk_manager.evaluate(dry_run=True)` in `_place_via_broker`) rejects backtest orders —
+  pre-existing behavior, unrelated to Phase A. Run with risk off (as the UI's default during
+  this phase) to exercise trades.
+
 ## v1.5.9 (2026-08-04) — BACKTEST DATA + P&L HONESTY: real candles, correct trade attribution
 
 > Backtest hand-check revealed two production defects, both on the legacy and manager run
