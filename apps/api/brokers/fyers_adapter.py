@@ -122,6 +122,25 @@ class FyersAdapter(BaseBroker, BrokerAdapterBase):
             return False
         return time.time() >= self._token_expires_at - self.TOKEN_REFRESH_MARGIN_SEC
 
+    def subscribe_symbols(self, symbols: list[str]) -> list[str]:
+        ws = self._ws_instance
+        if ws is None or not self._running:
+            return list(symbols)
+        subscribed_ws = set(self._subscribed_symbols)
+        new_ws: list[str] = []
+        for s in symbols:
+            fs = self._ws_symbol(s)
+            if fs in subscribed_ws:
+                continue
+            new_ws.append(fs)
+            self._symbol_reverse_map[fs] = s
+            self._subscribed_symbols.append(fs)
+        if new_ws:
+            ws.subscribe(symbols=new_ws)
+            logger.info("Fyers WS subscribed to %d new symbols: %s", len(new_ws), new_ws)
+        subscribed_ws.update(new_ws)
+        return [s for s in symbols if self._ws_symbol(s) not in subscribed_ws]
+
     def unsubscribe_symbols(self, symbols: list[str] | None = None) -> None:
         ws = self._ws_instance
         if ws is None:
@@ -595,7 +614,7 @@ class FyersAdapter(BaseBroker, BrokerAdapterBase):
         try:
             ws = FyersDataSocket(
                 access_token=self._access_token,
-                litemode=True,
+                litemode=False,
                 write_to_file=False,
                 log_path="/tmp",
                 on_message=on_message,

@@ -96,6 +96,16 @@ async def marketdata_ws(websocket: WebSocket):
             if action == "subscribe":
                 symbols = msg.get("symbols", [])
                 subscribed_symbols.update(symbols)
+                pending = symbols
+                for _ in range(10):
+                    if not pending:
+                        break
+                    pending = await shared_socket.add_feed_symbols("fyers", pending)
+                    if not pending:
+                        break
+                    if not shared_socket.feed_has_ws("fyers"):
+                        break
+                    await asyncio.sleep(1)
                 await websocket.send_json({
                     "type": "subscribed",
                     "symbols": list(subscribed_symbols),

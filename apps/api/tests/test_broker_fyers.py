@@ -115,3 +115,54 @@ async def test_get_quotes_falls_back_to_yahoo(adapter: FyersAdapter, monkeypatch
 
     quotes = await adapter.get_quotes(["RELIANCE"])
     assert quotes == []
+
+
+def test_parse_sdk_tick_full_payload_sets_change_pct(adapter: FyersAdapter):
+    msg = {
+        "symbol": "NSE:NIFTY26AUGFUT",
+        "ltp": 24500.0,
+        "ch": -100.0,
+        "chp": -0.41,
+        "bid_price": 24499.5,
+        "ask_price": 24500.5,
+        "prev_close_price": 24600.0,
+        "volume": 1200,
+        "oi": 345000,
+    }
+    tick = adapter._parse_sdk_tick(msg)
+    assert tick is not None
+    assert tick.symbol == "NSE:NIFTY26AUGFUT"
+    assert tick.change == -100.0
+    assert tick.change_pct == -0.41
+    assert tick.bid == 24499.5
+    assert tick.ask == 24500.5
+    assert tick.oi == 345000
+
+
+def test_parse_sdk_tick_litemode_payload_zero_fill(adapter: FyersAdapter):
+    msg = {"symbol": "NSE:NIFTY50-INDEX", "ltp": 24471.4, "type": "if"}
+    tick = adapter._parse_sdk_tick(msg)
+    assert tick is not None
+    assert tick.last_price == 24471.4
+    assert tick.change_pct == 0.0
+
+
+def test_subscribe_symbols_adds_to_feed(adapter: FyersAdapter):
+    ws = MagicMock()
+    adapter._ws_instance = ws
+    adapter._running = True
+    adapter._subscribed_symbols = ["NSE:NIFTY50-INDEX"]
+    adapter._symbol_reverse_map = {"NSE:NIFTY50-INDEX": "NSE:NIFTY50-INDEX"}
+
+    pending = adapter.subscribe_symbols(["NSE:NIFTY50-INDEX", "NSE:NIFTY26AUGFUT"])
+    assert pending == []
+    ws.subscribe.assert_called_once_with(symbols=["NSE:NIFTY26AUGFUT"])
+    assert "NSE:NIFTY26AUGFUT" in adapter._subscribed_symbols
+    assert adapter._symbol_reverse_map["NSE:NIFTY26AUGFUT"] == "NSE:NIFTY26AUGFUT"
+
+
+def test_subscribe_symbols_returns_pending_when_no_socket(adapter: FyersAdapter):
+    adapter._ws_instance = None
+    adapter._running = True
+    pending = adapter.subscribe_symbols(["NSE:NIFTY26AUGFUT"])
+    assert pending == ["NSE:NIFTY26AUGFUT"]

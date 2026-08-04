@@ -28,6 +28,7 @@ class SharedDataSocket:
         self._initialized = True
         self._subscribers: dict[str, set[Callable]] = {}
         self._broker_feeds: dict[str, asyncio.Task] = {}
+        self._broker_adapters: dict[str, object] = {}
         self._running = False
         self._active_connections = 0
         self._heartbeat_task: asyncio.Task | None = None
@@ -175,6 +176,8 @@ class SharedDataSocket:
         from core.security import decrypt_broker_credentials
 
         adapter = create_broker(broker_type)
+        inner = getattr(adapter, "_inner", adapter)
+        self._broker_adapters[broker_type] = inner
         raw_token = ""
         client_id = ""
 
@@ -256,8 +259,36 @@ class SharedDataSocket:
         except Exception as e:
             logger.debug("Backfill skipped for %s: %s", broker_type, e)
 
+    def feed_has_ws(self, broker_type: str) -> bool:
+        adapter = self._broker_adapters.get(broker_type)
+        if adapter is None:
+            return False
+        ws = getattr(adapter, "_ws_instance", None)
+        if ws is not None and bool(getattr(adapter, "_running", False)):
+            return True
+        token = getattr(adapter, "_access_token", "") or ""
+        return bool(token)
+
+    async def add_feed_symbols(self, broker_type: str, symbols: list[str]) -> list[str]:
+        if broker_type not in self._broker_feeds:
+            return list(symbols)
+        adapter = self._broker_adapters.get(broker_type)
+        if adapter is None:
+            return list(symbols)
+        subscribe = getattr(adapter, "subscribe_symbols", None)
+        if not callable(subscribe):
+            return list(symbols)
+        try:
+            pending = subscribe(symbols)
+            logger.info("Feed %s extended (pending=%d)", broker_type, len(pending))
+            return pending
+        except Exception as e:
+            logger.warning("Could not extend feed %s: %s", broker_type, e)
+            return list(symbols)
+
     async def stop_broker_feed(self, broker_type: str) -> None:
         task = self._broker_feeds.pop(broker_type, None)
+        self._broker_adapters.pop(broker_type, None)
         if task:
             task.cancel()
             logger.info("Broker feed stopped for %s", broker_type)

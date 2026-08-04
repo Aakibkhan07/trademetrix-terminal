@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
-import { useMarketData } from '@/lib/use-market-data'
+import { useMarketData, type TickData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
 import { useToast } from '@/lib/use-toast'
 
@@ -97,18 +97,30 @@ export default function TerminalPage() {
 
   const liveTick = symbol ? ticks[symbol] : null
   const quoteFor = (sym: string): QuoteData | undefined => quotes[sym]
+  const tickChangePct = (t: TickData) => (typeof t.change_pct === 'number' ? t.change_pct : null)
+
   const positionQuote = (p: Position) => {
     const t = ticks[p.symbol]
-    if (t) return { last_price: t.last_price, change_pct: t.change_pct ?? null }
     const q = quoteFor(p.symbol)
+    if (t) {
+      const pct = tickChangePct(t)
+      if (pct !== null) return { last_price: t.last_price, change_pct: pct }
+      if (q) return { last_price: t.last_price || q.last_price, change_pct: q.change_pct }
+      return { last_price: t.last_price, change_pct: null }
+    }
     return q ? { last_price: q.last_price, change_pct: q.change_pct } : undefined
   }
 
   const quoteForTicket = () => {
     if (!symbol) return undefined
     const t = ticks[symbol]
-    if (t) return { last_price: t.last_price, change_pct: t.change_pct ?? null }
     const q = quoteFor(symbol)
+    if (t) {
+      const pct = tickChangePct(t)
+      if (pct !== null) return { last_price: t.last_price, change_pct: pct }
+      if (q && q.last_price > 0) return { last_price: t.last_price || q.last_price, change_pct: q.change_pct }
+      return { last_price: t.last_price, change_pct: null }
+    }
     return q && q.last_price > 0 ? { last_price: q.last_price, change_pct: q.change_pct } : undefined
   }
   const ticketQuote = quoteForTicket()
