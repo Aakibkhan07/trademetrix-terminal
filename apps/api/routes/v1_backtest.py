@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from backtest.manager import backtest_manager
@@ -605,6 +605,47 @@ async def export_backtest(
             headers={"Content-Disposition": f'attachment; filename="backtest-{run_id}.pdf"'},
         )
     raise HTTPException(status_code=400, detail="format must be json, csv, or pdf")
+
+
+@router.get("/{run_id}/share-token")
+async def share_backtest_report(
+    run_id: str,
+    request: Request,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    """Mint an HMAC token that unlocks the read-only interactive report page."""
+    from backtest.reporting import share_token
+
+    run = await backtest_manager.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Backtest run not found")
+    token = share_token(run_id)
+    return {
+        "token": token,
+        "url": f"{request.base_url}api/v1/backtests/report/{run_id}?t={token}",
+    }
+
+
+@router.get("/report/{run_id}")
+async def get_shared_report(run_id: str, t: str = ""):
+    """Public read-only interactive HTML report, gated by the HMAC share token."""
+    from datetime import datetime, timezone
+
+    from backtest.reporting import render_report_html, verify_share
+    from fastapi.responses import HTMLResponse
+
+    if not verify_share(run_id, t):
+        raise HTTPException(status_code=403, detail="Invalid or missing share token")
+    run = await backtest_manager.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Backtest run not found")
+    payload = run.model_dump(mode="json")
+    payload["risk_analytics"] = _payload_risk(run.risk_analytics)
+    html = render_report_html(payload, datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+    return HTMLResponse(
+        content=html,
+        headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"},
+    )
 
 
 @router.get("/{run_id}/trades")

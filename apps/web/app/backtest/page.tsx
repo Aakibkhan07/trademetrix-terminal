@@ -4,9 +4,9 @@ import { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'rea
 import { useSearchParams } from 'next/navigation'
 import { api, backtestExportUrl } from '@/lib/api'
 import {
-  createChart, ColorType, LineSeries, AreaSeries, CrosshairMode, createSeriesMarkers,
+  createChart, ColorType, LineSeries, AreaSeries, CandlestickSeries, CrosshairMode, createSeriesMarkers, LineStyle,
   type IChartApi, type ISeriesApi, type Time, type UTCTimestamp,
-  type SeriesMarker, type LineData, type MouseEventParams,
+  type SeriesMarker, type LineData, type MouseEventParams, type IPriceLine,
 } from 'lightweight-charts'
 
 const BUILTIN_STRATEGIES = [
@@ -32,11 +32,36 @@ const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 interface BTTrade {
   symbol: string; side: string; entry_price: number; exit_price: number
   quantity: number; pnl: number; entry_time: string; exit_time: string
+  duration_minutes?: number; entry_reason?: string; exit_reason?: string
+  slippage?: number; charges?: number; taxes?: number; cost_total?: number
+  risk_amount?: number; rr?: number
+}
+
+interface BTCandle {
+  timestamp: string; open: number; high: number; low: number; close: number; volume: number
+}
+
+interface TradeView {
+  index: number; sub: number; total: number
+  symbol: string; side: string
+  entryPrice: number; exitPrice: number; quantity: number
+  pnl: number; rr: number; riskAmount: number
+  sl: number | null; target: number | null
+  entryReason: string; exitReason: string
+  charges: number; taxes: number; slippage: number; costTotal: number; durationMinutes: number
+  entryTime: string; exitTime: string
+  riskText: string; drawdownAtEntry: number | null; capitalAtEntry: number | null
+  entryIdx: number; exitIdx: number; pnlText: string
 }
 
 interface BTResult {
   run_id: string; status: string; strategy_id: string
-  config: { strategy_type: string; symbol: string; interval: string; days: number; initial_capital: number }
+  config: {
+    strategy_type: string; symbol: string; interval: string; days: number; initial_capital: number
+    strategy_id?: string; exchange?: string; data_source?: string; risk_enabled?: boolean
+    close_positions_on_end?: boolean; slippage_pct?: number; latency_candles?: number
+    partial_fill_probability?: number; speed?: string
+  }
   summary: {
     total_trades: number; winning_trades: number; losing_trades: number; win_rate: number
     net_pnl: number; profit_factor: number; max_drawdown_pct: number; sharpe_ratio: number
@@ -108,12 +133,31 @@ const mix = (hex: string, pct: number): string => {
   return `#${full.slice(0, 6)}${alpha}`
 }
 
-function BacktestChart({ points, height = 170, color = '#34d399', mode = 'equity', trades = [] }: {
+function candleTime(ts: string, fallback: number): Time {
+  const t = new Date(ts).getTime() / 1000
+  return (Number.isFinite(t) ? t : fallback) as Time
+}
+
+function nearestCandleIdx(candles: BTCandle[], ts: string): number {
+  if (!candles.length) return 0
+  if (!ts) return 0
+  const target = new Date(ts).getTime()
+  let best = 0
+  let bestDiff = Infinity
+  for (let i = 0; i < candles.length; i++) {
+    const diff = Math.abs(new Date(candles[i].timestamp).getTime() - target)
+    if (diff < bestDiff) { bestDiff = diff; best = i }
+  }
+  return best
+}
+
+function BacktestChart({ points, height = 170, color = '#34d399', mode = 'equity', trades = [], onSelectTrade }: {
   points: { time: Time; value: number }[]
   height?: number
   color?: string
   mode?: 'equity' | 'drawdown'
   trades?: BTTrade[]
+  onSelectTrade?: (idx: number) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -165,18 +209,19 @@ function BacktestChart({ points, height = 170, color = '#34d399', mode = 'equity
     })
     series.setData(points)
 
+    const times = points.map(p => p.time as number)
+    const snap = (ts: string | undefined) => {
+      if (!ts) return undefined
+      const t = new Date(ts).getTime() / 1000
+      for (let i = times.length - 1; i >= 0; i--) {
+        if (times[i] <= t) return times[i]
+      }
+      return undefined
+    }
+
     let markersPlugin: ReturnType<typeof createSeriesMarkers<Time>> | null = null
     if (isEquity && trades.length) {
       const markers: SeriesMarker<Time>[] = []
-      const times = points.map(p => p.time as number)
-      const snap = (ts: string | undefined) => {
-        if (!ts) return undefined
-        const t = new Date(ts).getTime() / 1000
-        for (let i = times.length - 1; i >= 0; i--) {
-          if (times[i] <= t) return times[i]
-        }
-        return undefined
-      }
       for (const tr of trades) {
         const entryT = snap(tr.entry_time)
         if (entryT !== undefined) markers.push({ time: entryT as UTCTimestamp, position: 'belowBar', shape: 'arrowUp', color: colorVar('--green', '#34d399'), text: 'E' })
@@ -203,16 +248,40 @@ function BacktestChart({ points, height = 170, color = '#34d399', mode = 'equity
     }
     chart.subscribeCrosshairMove(onCrosshairMove)
 
+    let unsubClick: (() => void) | null = null
+    if (isEquity && onSelectTrade && trades.length) {
+      const clickTimes = trades.map(t => {
+        const entry = snap(t.entry_time)
+        const exit = snap(t.exit_time)
+        return { entry, exit, pnl: t.pnl }
+      }).filter(x => x.entry !== undefined)
+      const onClick = (param: MouseEventParams) => {
+        if (!param.time || !clickTimes.length) return
+        const t = param.time as number
+        let bestIdx = -1
+        let bestDiff = Infinity
+        clickTimes.forEach((c, i) => {
+          if (c.entry !== undefined && t >= c.entry && (c.exit === undefined || t <= c.exit)) { bestIdx = i; return }
+          const d = Math.min(Math.abs((c.entry as number) - t), c.exit !== undefined ? Math.abs(c.exit - t) : Infinity)
+          if (d < bestDiff) { bestDiff = d; bestIdx = i }
+        })
+        if (bestIdx >= 0) onSelectTrade(bestIdx)
+      }
+      chart.subscribeClick(onClick)
+      unsubClick = () => chart.unsubscribeClick(onClick)
+    }
+
     const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }))
     ro.observe(container)
 
     return () => {
       chart.unsubscribeCrosshairMove(onCrosshairMove)
+      unsubClick?.()
       markersPlugin?.detach()
       ro.disconnect()
       chart.remove()
     }
-  }, [points, height, color, mode, trades])
+  }, [points, height, color, mode, trades, onSelectTrade])
 
   if (points.length < 2) return null
   return (
@@ -224,6 +293,177 @@ function BacktestChart({ points, height = 170, color = '#34d399', mode = 'equity
           display: 'none', position: 'absolute', pointerEvents: 'none', zIndex: 5,
           background: colorVar('--bg-secondary', '#1e1e2f'), color: colorVar('--text', '#eee'),
           padding: '3px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)',
+        }}
+      />
+    </div>
+  )
+}
+
+function TradeChart({ candles, view, replaying, onReplayEnd }: {
+  candles: BTCandle[]
+  view: TradeView
+  replaying: boolean
+  onReplayEnd?: () => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<IChartApi | null>(null)
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const pluginRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null)
+  const priceLinesRef = useRef<IPriceLine[]>([])
+  const dataRef = useRef<{ time: Time; open: number; high: number; low: number; close: number }[]>([])
+  const viewRef = useRef<TradeView>(view)
+  const currentIdxRef = useRef<number | null>(null)
+  const [currentIdx, setCurrentIdx] = useState<number | null>(null)
+
+  useEffect(() => { viewRef.current = view }, [view])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || candles.length < 2) return
+
+    const chart: IChartApi = createChart(container, {
+      height: 280,
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: colorVar('--text-sub', '#8888a0'),
+        fontSize: 10,
+        fontFamily: 'var(--font-mono)',
+      },
+      grid: { vertLines: { color: mix(colorVar('--violet'), 6) }, horzLines: { color: mix(colorVar('--violet'), 6) } },
+      crosshair: { mode: CrosshairMode.Normal },
+      timeScale: { borderColor: mix(colorVar('--text-inverse'), 6), timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: mix(colorVar('--text-inverse'), 6), scaleMargins: { top: 0.12, bottom: 0.18 } },
+    })
+
+    const series: ISeriesApi<'Candlestick'> = chart.addSeries(CandlestickSeries, {
+      upColor: colorVar('--green', '#34d399'),
+      downColor: colorVar('--red', '#ef4444'),
+      borderUpColor: colorVar('--green', '#34d399'),
+      borderDownColor: colorVar('--red', '#ef4444'),
+      wickUpColor: colorVar('--green', '#34d399'),
+      wickDownColor: colorVar('--red', '#ef4444'),
+      priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
+    })
+
+    const data = candles.map((c, i) => ({
+      time: candleTime(c.timestamp, i), open: c.open, high: c.high, low: c.low, close: c.close,
+    }))
+    dataRef.current = data
+    series.setData(data)
+
+    const plugin = createSeriesMarkers(series, [])
+    pluginRef.current = plugin
+    chartRef.current = chart
+    seriesRef.current = series
+
+    const tooltip = tooltipRef.current
+    const onCrosshairMove = (param: MouseEventParams) => {
+      if (!tooltip) return
+      const candle = param.seriesData.get(series) as { open: number; high: number; low: number; close: number } | undefined
+      if (!param.time || !param.point || !candle) { tooltip.style.display = 'none'; return }
+      const v = viewRef.current
+      tooltip.innerHTML =
+        `<div style="font-weight:700;margin-bottom:2px">${new Date((param.time as number) * 1000).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>` +
+        `<div style="opacity:.85">O ${candle.open.toFixed(2)} · H ${candle.high.toFixed(2)} · L ${candle.low.toFixed(2)} · C ${candle.close.toFixed(2)}</div>` +
+        `<div style="opacity:.85">${v.symbol} ${v.side} ${v.quantity} @ ${v.entryPrice.toFixed(2)} → ${v.exitPrice.toFixed(2)}</div>` +
+        `<div style="margin-top:2px"><strong>P&L ${v.pnlText}</strong> · RR ${v.rr ? v.rr.toFixed(2) : '—'} · risk ₹${Math.round(v.riskAmount).toLocaleString('en-IN')}</div>` +
+        `<div style="opacity:.85">${v.entryReason} → ${v.exitReason}</div>` +
+        `<div style="opacity:.85">${v.riskText}</div>` +
+        `<div style="opacity:.85">charges ${fmtMoney(v.charges)} · taxes ${fmtMoney(v.taxes)} · slippage ${fmtMoney(v.slippage)} · cost ${fmtMoney(v.costTotal)}</div>`
+      tooltip.style.display = 'block'
+      const rect = container.getBoundingClientRect()
+      tooltip.style.left = `${Math.min(param.point.x + 14, Math.max(0, rect.width - 260))}px`
+      tooltip.style.top = `${Math.min(param.point.y + 14, Math.max(0, rect.height - 150))}px`
+    }
+    chart.subscribeCrosshairMove(onCrosshairMove)
+
+    const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }))
+    ro.observe(container)
+
+    return () => {
+      ro.disconnect()
+      chart.unsubscribeCrosshairMove(onCrosshairMove)
+      plugin.detach()
+      chart.remove()
+      chartRef.current = null
+      seriesRef.current = null
+      pluginRef.current = null
+      priceLinesRef.current = []
+    }
+  }, [candles])
+
+  useEffect(() => {
+    const chart = chartRef.current
+    const series = seriesRef.current
+    const plugin = pluginRef.current
+    if (!chart || !series || !plugin) return
+    const data = dataRef.current
+
+    priceLinesRef.current.forEach(l => series.removePriceLine(l))
+    priceLinesRef.current = []
+    if (view.sl != null) {
+      priceLinesRef.current.push(series.createPriceLine({ price: view.sl, color: '#f59e0b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }))
+    }
+    if (view.target != null) {
+      priceLinesRef.current.push(series.createPriceLine({ price: view.target, color: '#22d3ee', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TGT' }))
+    }
+
+    const markers: SeriesMarker<Time>[] = []
+    if (view.entryIdx >= 0 && data[view.entryIdx]) {
+      markers.push({ time: data[view.entryIdx].time, position: 'belowBar', color: colorVar('--green', '#34d399'), shape: 'arrowUp', text: `E ${view.side}`, size: 1 })
+    }
+    if (view.exitIdx >= 0 && data[view.exitIdx]) {
+      markers.push({ time: data[view.exitIdx].time, position: 'aboveBar', color: view.pnl >= 0 ? colorVar('--green', '#34d399') : colorVar('--red', '#ef4444'), shape: 'arrowDown', text: `X ${view.pnlText}`, size: 1 })
+    }
+    if (currentIdx != null && data[currentIdx]) {
+      markers.push({ time: data[currentIdx].time, position: 'inBar', color: '#22d3ee', shape: 'circle', text: '▶', size: 1 })
+    }
+    plugin.setMarkers(markers)
+  }, [view, currentIdx])
+
+  useEffect(() => {
+    const chart = chartRef.current
+    const data = dataRef.current
+    if (!chart || !data.length) return
+    if (view.entryIdx >= 0) {
+      const from = Math.max(0, view.entryIdx - 8)
+      const to = Math.min(data.length - 1, Math.max(view.entryIdx + 12, view.exitIdx + 12))
+      chart.timeScale().setVisibleLogicalRange({ from, to })
+    }
+  }, [view])
+
+  useEffect(() => {
+    if (!replaying) { setCurrentIdx(null); return }
+    currentIdxRef.current = view.entryIdx
+    setCurrentIdx(view.entryIdx)
+    const id = window.setInterval(() => {
+      setCurrentIdx(prev => {
+        const n = Math.min(prev == null ? view.entryIdx : prev + 1, view.exitIdx)
+        currentIdxRef.current = n
+        return n
+      })
+    }, 380)
+    return () => window.clearInterval(id)
+  }, [replaying, view])
+
+  useEffect(() => {
+    if (replaying && currentIdx != null && currentIdx >= view.exitIdx) {
+      onReplayEnd?.()
+    }
+  }, [currentIdx, replaying, view, onReplayEnd])
+
+  if (candles.length < 2) return null
+  return (
+    <div style={{ position: 'relative' }}>
+      <div ref={containerRef} />
+      <div
+        ref={tooltipRef}
+        style={{
+          display: 'none', position: 'absolute', pointerEvents: 'none', zIndex: 5,
+          background: colorVar('--bg-secondary', '#1e1e2f'), color: colorVar('--text', '#eee'),
+          border: '1px solid var(--border)', padding: '6px 8px', borderRadius: 6,
+          fontSize: 10, fontFamily: 'var(--font-mono)', width: 250, lineHeight: 1.5,
         }}
       />
     </div>
@@ -435,6 +675,13 @@ const kpiCard = (label: string, value: string, sub?: string, color?: string) => 
   </div>
 )
 
+const tiCard = (label: string, value: string, color?: string) => (
+  <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '6px 8px' }}>
+    <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+    <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: color || 'var(--text)', marginTop: 1 }}>{value}</div>
+  </div>
+)
+
 export default function BacktestPage() {
   return (
     <Suspense fallback={null}>
@@ -463,7 +710,7 @@ function BacktestContent() {
   const [result, setResult] = useState<BTResult | null>(null)
   const [error, setError] = useState('')
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'optimizer' | 'compare' | 'trades' | 'risk'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'optimizer' | 'compare' | 'trades' | 'risk' | 'report'>('overview')
 
   const [optMethod, setOptMethod] = useState('grid')
   const [optMetric, setOptMetric] = useState('sharpe_ratio')
@@ -477,9 +724,18 @@ function BacktestContent() {
   const [comparison, setComparison] = useState<Record<string, Record<string, unknown>> | null>(null)
   const [compareError, setCompareError] = useState('')
 
+  const [sharing, setSharing] = useState(false)
+  const [shareLink, setShareLink] = useState('')
+  const [shareErr, setShareErr] = useState('')
+
   const [exporting, setExporting] = useState<string | null>(null)
   const [deploying, setDeploying] = useState(false)
   const [deployMsg, setDeployMsg] = useState('')
+
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
+  const [candles, setCandles] = useState<BTCandle[] | null>(null)
+  const [candlesErr, setCandlesErr] = useState('')
+  const [replaying, setReplaying] = useState(false)
 
   useEffect(() => {
     api.builder.list().then(res => {
@@ -487,6 +743,28 @@ function BacktestContent() {
       setBuilderStrategies(items.filter(s => s.status !== 'ARCHIVED' && s.status !== 'STOPPED'))
     }).catch(() => { /* skip */ })
   }, [])
+
+  useEffect(() => {
+    if (!result) return
+    setSelectedIdx(null)
+    setReplaying(false)
+    setCandlesErr('')
+    let cancelled = false
+    setCandles(null)
+    api.backtest.candles(result.config.symbol, result.config.interval, result.config.days || 60)
+      .then((d) => {
+        if (cancelled) return
+        const data = d as { candles?: BTCandle[] } | undefined
+        setCandles(Array.isArray(data?.candles) ? data.candles : null)
+        if (!Array.isArray(data?.candles)) setCandlesErr('Candle data unavailable for this window')
+      })
+      .catch(() => {
+        if (!cancelled) { setCandles(null); setCandlesErr('Candle data unavailable for this window') }
+      })
+    return () => { cancelled = true }
+  }, [result])
+
+  useEffect(() => { setReplaying(false) }, [selectedIdx])
 
   const handleRun = useCallback(async () => {
     setRunning(true); setError(''); setResult(null); setActiveTab('overview')
@@ -582,6 +860,34 @@ function BacktestContent() {
     } finally { setExporting(null) }
   }, [result])
 
+  const mintShare = useCallback(async (): Promise<string> => {
+    if (!result) throw new Error('No backtest result')
+    const data = await api.backtest.shareToken(result.run_id)
+    return data.url
+  }, [result])
+
+  const handleShare = useCallback(async () => {
+    setSharing(true); setShareErr('')
+    try {
+      const url = await mintShare()
+      setShareLink(url)
+      await navigator.clipboard?.writeText(url)
+    } catch (err: unknown) {
+      setShareLink('')
+      setShareErr(err instanceof Error ? err.message : 'Could not create share link')
+    } finally { setSharing(false) }
+  }, [mintShare])
+
+  const handleOpenReport = useCallback(async () => {
+    setShareErr('')
+    try {
+      const url = await mintShare()
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err: unknown) {
+      setShareErr(err instanceof Error ? err.message : 'Could not open interactive report')
+    }
+  }, [mintShare])
+
   const handleDeployToPaper = useCallback(async () => {
     if (!result) return
     setDeploying(true); setDeployMsg('')
@@ -595,6 +901,47 @@ function BacktestContent() {
 
   const s = result?.summary
   const risk = result?.risk_analytics
+  const execSummary = useMemo(() => {
+    if (!result || !s) return null
+    const cfg = result.config
+    const parts = [
+      `This backtest of the ${cfg.strategy_type || 'strategy'} on ${cfg.symbol || 'NIFTY'} ${cfg.interval} over ${cfg.days} trading days (${s.candles_analyzed} candles analyzed, initial capital ${fmtMoney(s.start_equity)}) closed ${s.total_trades} trades with a net P&L of ${fmtMoney(s.net_pnl)} (${s.return_pct >= 0 ? '+' : ''}${fmt(s.return_pct)}% return), a win rate of ${fmt(s.win_rate, 1)}% and a profit factor of ${fmt(s.profit_factor)}.`,
+      `The equity curve peaked at ${fmtMoney(s.end_equity - (s.start_equity * s.max_drawdown_pct / 100))} and gave back at most ${fmt(s.max_drawdown_pct)}% at the deepest drawdown, with a Sharpe of ${fmt(s.sharpe_ratio)}, Sortino of ${fmt(s.sortino_ratio)} and Calmar of ${fmt(s.calmar_ratio)}. Expectancy was ${fmtMoney(s.expectancy)} per trade at an average risk/reward of ${fmt(s.avg_risk_reward_ratio)}.`,
+    ]
+    if (s.benchmark_return_pct) {
+      parts.push(`Against the benchmark (${s.benchmark_return_pct >= 0 ? '+' : ''}${fmt(s.benchmark_return_pct)}% return) the strategy produced ${s.alpha >= 0 ? '+' : ''}${fmt(s.alpha)}% alpha at a beta of ${fmt(s.beta)} (${s.excess_return_pct >= 0 ? '+' : ''}${fmt(s.excess_return_pct)}% excess return).`)
+    }
+    const profitable = s.net_pnl > 0
+    const consistent = s.win_rate >= 50
+    const verdict = profitable && consistent ? 'profitable and consistent (PASS)'
+      : profitable ? 'profitable but inconsistent (CAUTION)' : 'not profitable in this window (FAIL)'
+    const color = profitable && consistent ? 'var(--text-green)' : profitable ? 'var(--amber)' : 'var(--text-red)'
+    return { parts, verdict, color }
+  }, [result, s])
+
+  const factSheet = useMemo(() => {
+    if (!result || !s) return []
+    const cfg = result.config
+    return [
+      ['Strategy', cfg.strategy_type || '—'],
+      ['Strategy ID', cfg.strategy_id || '—'],
+      ['Symbol / Exchange', `${cfg.symbol || 'NIFTY'} / ${cfg.exchange || 'NSE'}`],
+      ['Interval / Window', `${cfg.interval} / ${cfg.days} days`],
+      ['Initial Capital', fmtMoney(s.start_equity)],
+      ['Data Source', cfg.data_source || 'auto'],
+      ['Risk Checks', cfg.risk_enabled ? 'Enabled' : 'Disabled'],
+      ['Close On End', cfg.close_positions_on_end ? 'Yes' : 'No'],
+      ['Slippage', `${fmt(cfg.slippage_pct ?? 0)}%`],
+      ['Latency', `${cfg.latency_candles ?? 0} candles`],
+      ['Partial Fills', `${fmt((cfg.partial_fill_probability ?? 0) * 100)}%`],
+      ['Speed', cfg.speed || '—'],
+      ['Start Equity', fmtMoney(s.start_equity)],
+      ['End Equity', fmtMoney(s.end_equity)],
+      ['Candles Analyzed', String(s.candles_analyzed)],
+      ['Run Duration', `${fmt(result.duration_seconds)}s`],
+      ['Run ID', result.run_id],
+    ] as [string, string][]
+  }, [result, s])
   const riskReasons = useMemo(() => Object.entries(risk?.rejection_reasons || {})
     .map(([label, value]) => ({ label, value }))
     .filter(d => d.value !== 0), [risk])
@@ -614,6 +961,114 @@ function BacktestContent() {
       }
     })
   }, [result])
+
+  const jumpTargets = useMemo(() => {
+    const trades = result?.trades || []
+    const eq = result?.equity_curve || []
+    let bestIdx = -1
+    let worstIdx = -1
+    let best = -Infinity
+    let worst = Infinity
+    trades.forEach((t, i) => {
+      if (t.pnl > best) { best = t.pnl; bestIdx = i }
+      if (t.pnl < worst) { worst = t.pnl; worstIdx = i }
+    })
+    let ddIdx = -1
+    if (eq.length && trades.length) {
+      let ddT = -Infinity
+      let ddTime = ''
+      for (const p of eq) {
+        const d = Number(p.drawdown_pct ?? 0)
+        if (d > ddT) { ddT = d; ddTime = p.timestamp || '' }
+      }
+      if (ddTime) {
+        const t = new Date(ddTime).getTime()
+        let nearest = -1
+        let nearestDiff = Infinity
+        for (let i = 0; i < trades.length; i++) {
+          const et = new Date(trades[i].entry_time).getTime()
+          const xt = new Date(trades[i].exit_time).getTime()
+          if (ddIdx < 0 && et <= t && t <= xt) { ddIdx = i }
+          const diff = Math.min(Math.abs(et - t), Math.abs(xt - t))
+          if (diff < nearestDiff) { nearestDiff = diff; nearest = i }
+        }
+        if (ddIdx < 0) ddIdx = nearest
+      }
+    }
+    return { bestIdx, worstIdx, ddIdx }
+  }, [result])
+
+  const selection: TradeView | null = useMemo(() => {
+    if (selectedIdx == null || !result || !result.trades[selectedIdx]) return null
+    const t = result.trades[selectedIdx]
+    const cl = candles || []
+    const riskEn = risk?.enabled
+    const riskAmt = t.risk_amount ?? 0
+    const sl = riskAmt > 0 && t.quantity > 0
+      ? (t.side === 'SELL' ? t.entry_price + riskAmt / t.quantity : t.entry_price - riskAmt / t.quantity)
+      : null
+    const target = t.exit_reason === 'target' ? t.exit_price : null
+
+    const entryIdx = nearestCandleIdx(cl, t.entry_time)
+    const exitIdx = nearestCandleIdx(cl, t.exit_time)
+
+    let ddAtEntry: number | null = null
+    let capAtEntry: number | null = null
+    if (result.equity_curve.length) {
+      const tt = new Date(t.entry_time).getTime()
+      let near = result.equity_curve[0]
+      for (const p of result.equity_curve) {
+        const pt = new Date(p.timestamp || '').getTime()
+        if (Number.isFinite(pt) && pt <= tt) near = p
+      }
+      const dd = Number(near?.drawdown_pct ?? 0)
+      if (dd > 0 || Number.isFinite(dd)) ddAtEntry = dd
+    }
+    if (riskEn && risk?.timeline?.length) {
+      const tt = new Date(t.entry_time).getTime()
+      let near = risk.timeline[0]
+      for (const p of risk.timeline) {
+        const pt = new Date(p.timestamp).getTime()
+        if (Number.isFinite(pt) && pt <= tt) near = p
+      }
+      const cap = Number(near?.capital_remaining ?? 0)
+      if (cap > 0) capAtEntry = cap
+    }
+    const riskText = riskEn
+      ? `Risk ON${ddAtEntry != null ? ` · DD at entry ${fmt(ddAtEntry)}%` : ''}${capAtEntry != null ? ` · capital ₹${Math.round(capAtEntry).toLocaleString('en-IN')}` : ''}`
+      : 'Risk OFF (no simulated checks)'
+
+    return {
+      index: selectedIdx,
+      sub: selectedIdx + 1,
+      total: result.trades.length,
+      symbol: t.symbol,
+      side: t.side,
+      entryPrice: t.entry_price,
+      exitPrice: t.exit_price,
+      quantity: t.quantity,
+      pnl: t.pnl,
+      rr: t.rr ?? 0,
+      riskAmount: riskAmt,
+      sl,
+      target,
+      entryReason: t.entry_reason || 'signal',
+      exitReason: t.exit_reason || 'signal',
+      charges: t.charges ?? 0,
+      taxes: t.taxes ?? 0,
+      slippage: t.slippage ?? 0,
+      costTotal: t.cost_total ?? 0,
+      durationMinutes: t.duration_minutes ?? 0,
+      entryTime: t.entry_time,
+      exitTime: t.exit_time,
+      riskText,
+      drawdownAtEntry: ddAtEntry,
+      capitalAtEntry: capAtEntry,
+      entryIdx,
+      exitIdx,
+      pnlText: `${t.pnl >= 0 ? '+' : ''}${Math.round(t.pnl).toLocaleString('en-IN')}`,
+    }
+  }, [selectedIdx, result, candles, risk])
 
   const weekdayBars = useMemo(() => WEEKDAYS
     .map(d => ({ label: d, value: result?.weekday_distribution?.[d] || 0 }))
@@ -635,7 +1090,7 @@ function BacktestContent() {
 
   const selectedBuilderName = builderStrategies.find(b => b.id === strategy)?.name || strategy
 
-  const tabs = ['overview', 'optimizer', 'compare', 'trades', ...(risk?.enabled ? (['risk'] as const) : [])] as Array<'overview' | 'optimizer' | 'compare' | 'trades' | 'risk'>
+  const tabs = ['overview', 'optimizer', 'compare', 'trades', ...(risk?.enabled ? (['risk'] as const) : []), 'report'] as Array<'overview' | 'optimizer' | 'compare' | 'trades' | 'risk' | 'report'>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -738,6 +1193,7 @@ function BacktestContent() {
                 {tab === 'overview' ? 'Overview'
                   : tab === 'optimizer' ? 'Optimizer'
                   : tab === 'compare' ? 'Compare Runs'
+                  : tab === 'report' ? 'Report'
                   : tab === 'risk' ? `Risk (${risk?.rejected_trades ?? 0})`
                   : `Trades (${s.total_trades})`}
               </button>
@@ -768,7 +1224,8 @@ function BacktestContent() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div className="t-panel" style={{ padding: 12 }}>
                   <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Equity Curve</div>
-                  <BacktestChart points={equityPoints} height={170} color={s.net_pnl >= 0 ? colorVar('--green') : colorVar('--red')} trades={result.trades} />
+                  <BacktestChart points={equityPoints} height={170} color={s.net_pnl >= 0 ? colorVar('--green') : colorVar('--red')} trades={result.trades} onSelectTrade={(idx) => { setSelectedIdx(idx); setActiveTab('trades') }} />
+                  <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 4 }}>Click an E/X marker to inspect that trade</div>
                 </div>
                 <div className="t-panel" style={{ padding: 12 }}>
                   <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Drawdown %</div>
@@ -988,13 +1445,118 @@ function BacktestContent() {
             </div>
           )}
 
+          {activeTab === 'report' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="t-panel" style={{ padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Professional Report</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button className="t-btn t-btn-sm" onClick={() => handleExport('pdf')} disabled={exporting !== null}>{exporting === 'pdf' ? '…' : 'Download PDF'}</button>
+                  <button className="t-btn t-btn-sm" onClick={handleOpenReport}>Interactive Report ↗</button>
+                  <button className="t-btn t-btn-sm" onClick={handleShare} disabled={sharing}>{sharing ? 'Linking…' : shareLink ? 'Share link copied' : 'Copy Share Link'}</button>
+                  <button className="t-btn t-btn-sm" onClick={() => window.print()}>Print</button>
+                </div>
+              </div>
+              {shareErr && (
+                <div style={{ background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 15%, transparent)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12 }}>{shareErr}</div>
+              )}
+
+              {execSummary && (
+                <div className="t-panel" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Executive Summary</div>
+                  <p style={{ fontSize: 12.5, lineHeight: 1.65, color: 'var(--text)', margin: 0 }}>
+                    {execSummary.parts.join(' ')}{' '}
+                    <span style={{ fontWeight: 700, color: execSummary.color }}>Verdict: the strategy is {execSummary.verdict} over this window.</span>
+                  </p>
+                </div>
+              )}
+
+              {factSheet.length > 0 && (
+                <div className="t-panel" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Strategy Fact Sheet</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '4px 18px' }}>
+                    {factSheet.map(([label, value]) => (
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0', borderBottom: '1px dashed var(--border)', fontSize: 12 }}>
+                        <span style={{ color: 'var(--text-faint)' }}>{label}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 11, overflowWrap: 'anywhere', textAlign: 'right' }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="t-panel" style={{ padding: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Compare Report</div>
+                <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 8 }}>
+                  Side-by-side report against up to 10 saved runs (comma-separated). Current run: {result.run_id}.
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 220 }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
+                    <input className="t-input" value={compareIdsText} onChange={e => setCompareIdsText(e.target.value)}
+                      placeholder={`${result.run_id}, <another run id>`} style={{ width: '100%' }} />
+                  </div>
+                  <button className="t-btn t-btn-sm t-btn-primary" onClick={handleCompare} disabled={compareRunning}>
+                    {compareRunning ? 'Comparing…' : 'Compare'}
+                  </button>
+                </div>
+                {compareError && <div style={{ color: 'var(--text-red)', fontSize: 11, marginBottom: 8 }}>{compareError}</div>}
+                {comparison && Object.keys(comparison).length > 0 && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="t-table">
+                      <thead>
+                        <tr>
+                          <th>Metric</th>
+                          {Object.keys(comparison).map(id => <th key={id} style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{id.slice(0, 8)}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {([
+                          ['total_trades', (v: any) => String(Math.round(v))],
+                          ['net_pnl', (v: any) => fmtMoney(v)],
+                          ['return_pct', (v: any) => `${v >= 0 ? '+' : ''}${fmt(v)}%`],
+                          ['win_rate', (v: any) => `${fmt(v, 1)}%`],
+                          ['profit_factor', (v: any) => fmt(v)],
+                          ['max_drawdown_pct', (v: any) => `-${fmt(v)}%`],
+                          ['sharpe_ratio', (v: any) => fmt(v)],
+                          ['sortino_ratio', (v: any) => fmt(v)],
+                          ['expectancy', (v: any) => fmtMoney(v)],
+                        ] as [string, (v: any) => string][]).map(([key, render]) => (
+                          <tr key={key}>
+                            <td style={{ fontWeight: 700, fontSize: 11 }}>{key.replace(/_/g, ' ')}</td>
+                            {Object.entries(comparison).map(([id, row]) => {
+                              const v = (row as Record<string, unknown>)[key] as number
+                              const isPnl = key === 'net_pnl'
+                              return (
+                                <td key={id} className="t-num" style={{
+                                  color: isPnl ? (v >= 0 ? 'var(--text-green)' : 'var(--text-red)') : 'var(--text)',
+                                  fontSize: 11,
+                                }}>{render(v)}</td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'trades' && s.total_trades > 0 && (
             <div className="t-panel" style={{ padding: 0 }}>
-              <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Trade Log ({s.total_trades} trades)</span>
-                <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>costs applied</span>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>costs applied</span>
+                  <button className="t-btn t-btn-sm" onClick={() => setSelectedIdx(idx => idx == null ? 0 : Math.max(0, idx - 1))}>← Prev</button>
+                  <button className="t-btn t-btn-sm" onClick={() => setSelectedIdx(idx => idx == null ? 0 : Math.min(s.total_trades - 1, idx + 1))}>Next →</button>
+                  <button className="t-btn t-btn-sm" onClick={() => setSelectedIdx(jumpTargets.ddIdx >= 0 ? jumpTargets.ddIdx : 0)}>Max Drawdown</button>
+                  <button className="t-btn t-btn-sm" onClick={() => setSelectedIdx(jumpTargets.bestIdx >= 0 ? jumpTargets.bestIdx : 0)}>Best</button>
+                  <button className="t-btn t-btn-sm" onClick={() => setSelectedIdx(jumpTargets.worstIdx >= 0 ? jumpTargets.worstIdx : 0)}>Worst</button>
+                </div>
               </div>
-              <div style={{ overflowX: 'auto', maxHeight: 480, overflowY: 'auto' }}>
+              <div style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
                 <table className="t-table">
                   <thead>
                     <tr>
@@ -1005,13 +1567,15 @@ function BacktestContent() {
                       <th className="num">Exit</th>
                       <th className="num">Qty</th>
                       <th className="num">P&L</th>
+                      <th className="num">RR</th>
                       <th>Entry</th>
                       <th>Exit</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result!.trades.map((t, idx) => (
-                      <tr key={idx}>
+                      <tr key={idx} onClick={() => setSelectedIdx(idx)}
+                        style={{ cursor: 'pointer', ...(selectedIdx === idx ? { background: 'color-mix(in srgb, var(--cyan) 8%, transparent)' } : {}) }}>
                         <td className="t-faint">{idx + 1}</td>
                         <td style={{ fontWeight: 600 }}>{t.symbol}</td>
                         <td><span className={t.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{t.side}</span></td>
@@ -1019,6 +1583,7 @@ function BacktestContent() {
                         <td className="t-num">{t.exit_price.toFixed(1)}</td>
                         <td className="t-num">{t.quantity}</td>
                         <td className={`t-num ${t.pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>{t.pnl >= 0 ? '+' : ''}{t.pnl.toFixed(0)}</td>
+                        <td className="t-num">{t.rr != null ? t.rr.toFixed(2) : '—'}</td>
                         <td className="t-faint" style={{ fontSize: 10 }}>{new Date(t.entry_time).toLocaleString()}</td>
                         <td className="t-faint" style={{ fontSize: 10 }}>{new Date(t.exit_time).toLocaleString()}</td>
                       </tr>
@@ -1026,6 +1591,58 @@ function BacktestContent() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'trades' && selection && (
+            <div className="t-panel" style={{ padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>Trade Intelligence — {selection.sub}/{selection.total}</span>
+                  <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--text-faint)' }}>{selection.symbol} · {selection.side} · {selection.quantity} qty</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="t-btn t-btn-sm t-btn-primary" onClick={() => setReplaying(r => !r)}>
+                    {replaying ? '■ Stop' : '▶ Replay from entry'}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(118px, 1fr))', gap: 8, marginBottom: 8 }}>
+                {tiCard('Entry', selection.entryPrice.toFixed(2))}
+                {tiCard('Exit', selection.exitPrice.toFixed(2))}
+                {tiCard('Qty', String(selection.quantity))}
+                {tiCard('P&L', selection.pnlText, selection.pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)')}
+                {tiCard('RR', selection.rr ? selection.rr.toFixed(2) : '—')}
+                {tiCard('Risk ₹', selection.riskAmount > 0 ? fmtMoney(selection.riskAmount) : '—')}
+                {tiCard('Duration', selection.durationMinutes > 60 ? `${Math.floor(selection.durationMinutes / 60)}h ${selection.durationMinutes % 60}m` : `${selection.durationMinutes}m`)}
+                {tiCard('Charges', fmtMoney(selection.charges))}
+                {tiCard('Taxes', fmtMoney(selection.taxes))}
+                {tiCard('Slippage', fmtMoney(selection.slippage))}
+                {tiCard('Cost total', fmtMoney(selection.costTotal))}
+                <div style={{ gridColumn: 'span 2', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '6px 8px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700 }}>Signals</div>
+                  <div style={{ fontSize: 11, color: 'var(--text)', marginTop: 1, lineHeight: 1.4 }}>
+                    {selection.entryReason} <span style={{ color: 'var(--text-faint)' }}>→</span> {selection.exitReason}
+                  </div>
+                </div>
+              </div>
+
+              {candles && candles.length >= 2 ? (
+                <>
+                  <TradeChart candles={candles} view={selection} replaying={replaying} onReplayEnd={() => setReplaying(false)} />
+                  <div style={{ display: 'flex', gap: 14, fontSize: 9, color: 'var(--text-faint)', marginTop: 6, flexWrap: 'wrap' }}>
+                    <span style={{ color: colorVar('--green', '#34d399') }}>▲ entry</span>
+                    <span style={{ color: colorVar('--red', '#ef4444') }}>▼ exit</span>
+                    {selection.sl != null && <span style={{ color: '#f59e0b' }}>-- SL {selection.sl.toFixed(2)} (derived from risk amount)</span>}
+                    {selection.target != null && <span style={{ color: '#22d3ee' }}>-- Target {selection.target.toFixed(2)} (exit reason: target)</span>}
+                    {selection.sl == null && selection.target == null && <span>no SL/Target on this trade</span>}
+                    <span>replay starts from entry candle</span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 10, color: 'var(--text-faint)', padding: 8 }}>{candlesErr || 'price chart unavailable'}</div>
+              )}
             </div>
           )}
 

@@ -559,6 +559,8 @@ export const api = {
     exportPdf: (runId: string) => request<string>(`/backtests/${runId}/export?format=pdf`),
     deployToPaper: (runId: string) =>
       request<{ status: string; mode: string; strategy_id: string }>(`/backtests/${runId}/deploy-to-paper`, { method: 'POST' }),
+    shareToken: (runId: string) =>
+      request<{ token: string; url: string }>(`/backtests/${runId}/share-token`),
     candles: (symbol: string, interval: string, days = 60) =>
       request(`/backtests/candles/${encodeURIComponent(symbol)}/${encodeURIComponent(interval)}?days=${days}`),
     corporateActions: (symbol = '') =>
