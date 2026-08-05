@@ -213,3 +213,69 @@ async def test_session_replay(monkeypatch):
         await svc.track_event(name, {}, "sess-replay", "", None)
     replay = await svc.get_session_events("sess-replay")
     assert replay["count"] == 3
+
+
+class _FakeRequest:
+    def __init__(self, events):
+        self._events = events
+
+    async def json(self):
+        return {"events": self._events}
+
+
+class _FakeAnalyticsSvc:
+    def __init__(self):
+        self.seen = None
+
+    async def track_batch(self, events):
+        self.seen = events
+        return {"ok": True, "accepted": len(events)}
+
+
+@pytest.mark.asyncio
+async def test_track_batch_route_is_auth_true_for_signed_in(monkeypatch):
+    import routes.v1_analytics as v1_analytics
+
+    class _User:
+        id = "user-1"
+
+    fake_svc = _FakeAnalyticsSvc()
+    monkeypatch.setattr(v1_analytics, "_analytics_service", fake_svc)
+
+    await v1_analytics.track_batch(_FakeRequest([
+        {"event": "session.start", "properties": {"path": "/dashboard"}, "session_id": "s1"},
+    ]), _User())
+
+    ev = fake_svc.seen[0]
+    assert ev["user_id"] == "user-1"
+    assert ev["properties"]["is_auth"] is True
+
+
+@pytest.mark.asyncio
+async def test_track_batch_route_is_auth_false_for_anonymous(monkeypatch):
+    import routes.v1_analytics as v1_analytics
+
+    fake_svc = _FakeAnalyticsSvc()
+    monkeypatch.setattr(v1_analytics, "_analytics_service", fake_svc)
+
+    await v1_analytics.track_batch(_FakeRequest([
+        {"event": "page.view", "properties": {"path": "/pricing"}, "session_id": "s2"},
+    ]), None)
+
+    ev = fake_svc.seen[0]
+    assert not ev.get("user_id")
+    assert ev["properties"]["is_auth"] is False
+
+
+@pytest.mark.asyncio
+async def test_track_batch_route_is_auth_skips_non_dict_properties(monkeypatch):
+    import routes.v1_analytics as v1_analytics
+
+    fake_svc = _FakeAnalyticsSvc()
+    monkeypatch.setattr(v1_analytics, "_analytics_service", fake_svc)
+
+    await v1_analytics.track_batch(_FakeRequest([
+        {"event": "page.view", "properties": "oops", "session_id": "s3"},
+    ]), None)
+
+    assert fake_svc.seen[0]["properties"] == "oops"

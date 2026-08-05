@@ -39,6 +39,15 @@ let flushTimer: ReturnType<typeof setInterval> | null = null
 let csrfFetched = false
 let sampled = true
 
+// Signed-in state, resolved from the auth context. Injected into every event at
+// flush time (matching the server-side user resolution) so session.start /
+// page.view / funnel events can be split signed-in vs anonymous.
+let authState: boolean | null = null
+
+export function setAnalyticsAuthState(signedIn: boolean | null): void {
+  authState = signedIn
+}
+
 export function analyticsEnabled(): boolean {
   if (!CONFIG.enabled) return false
   if (typeof navigator !== 'undefined' && navigator.doNotTrack === '1') return false
@@ -105,7 +114,7 @@ async function flush(): Promise<void> {
   if (queue.length === 0) return
   const batch = queue.splice(0, CONFIG.maxBatchSize)
   const payload = JSON.stringify({
-    events: batch.map(({ session_id, ...rest }) => ({ ...rest, session_id })),
+    events: batch.map(withAuth),
   })
   const send = async (keepalive: boolean): Promise<boolean> => {
     try {
@@ -140,6 +149,17 @@ function enqueue(event: string, properties: Record<string, unknown> = {}): void 
   if (queue.length >= CONFIG.maxBatchSize) void flush()
 }
 
+function withAuth({ session_id, ...rest }: TrackEvent): Record<string, unknown> {
+  return {
+    ...rest,
+    session_id,
+    properties: {
+      ...(rest.properties || {}),
+      ...(authState !== null ? { is_auth: authState } : {}),
+    },
+  }
+}
+
 function start(): () => void {
   if (!analyticsEnabled()) return () => {}
 
@@ -157,7 +177,7 @@ function start(): () => void {
     if (queue.length === 0) return
     const batch = queue.splice(0, CONFIG.maxBatchSize)
     const payload = JSON.stringify({
-      events: batch.map(({ session_id, ...rest }) => ({ ...rest, session_id })),
+      events: batch.map(withAuth),
     })
     const csrf = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)?.[1] || ''
     try {

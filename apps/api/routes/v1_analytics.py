@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from application.services.analytics_service import AnalyticsService
-from core.deps import get_current_user, require_admin
+from core.deps import get_current_user, get_optional_user, require_admin
 from core.models import UserProfile
 
 logger = logging.getLogger(__name__)
@@ -30,23 +30,22 @@ async def track_event(request: Request):
 
 
 @router.post("/api/v1/analytics/track-batch")
-async def track_batch(request: Request):
+async def track_batch(
+    request: Request,
+    user: UserProfile | None = Depends(get_optional_user),
+):
     """Client tracker batch ingest (session events: page views, clicks,
     scroll depth, client errors). Anonymous sessions allowed; user_id is
-    resolved server-side when the caller is authenticated."""
+    resolved server-side when the caller is authenticated (cookie or bearer)."""
     body = await request.json()
     events = body.get("events", [])
-    user_id = ""
-    try:
-        from core.deps import get_optional_user
-        user = await get_optional_user(request)
-        if user:
-            user_id = user.id
-    except Exception:
-        pass
+    user_id = user.id if user else ""
     for e in events:
         if user_id:
             e["user_id"] = user_id
+        props = e.get("properties")
+        if isinstance(props, dict):
+            props["is_auth"] = bool(user_id)
     return await _analytics_service.track_batch(events)
 
 
