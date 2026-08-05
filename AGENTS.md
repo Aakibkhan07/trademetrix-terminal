@@ -3,6 +3,28 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-05 — is_auth analytics split: DAU/bounce/funnel now separate signed-in vs anonymous (v1.6.3)
+
+### What was done
+1. **`is_auth` on every client event** — `apps/web/lib/analytics.ts` injects `is_auth` at
+   flush time (auth state from `useAuth` via new `setAnalyticsAuthState`); tracker component
+   moved INSIDE `Providers` in `app/layout.tsx` (it was outside → no auth context).
+2. **Server authority** — `routes/v1_analytics.py` `track-batch` now resolves identity via
+   `Depends(get_optional_user)` (was called manually → `credentials=None` → cookie-only,
+   bearer silently ignored) and stamps `properties.is_auth = bool(user_id)`. `get_optional_user`
+   is imported at module level (was lazy).
+3. **Verification** — 930 passed/1 xfailed (3 new route tests). Prod wire probe:
+   anonymous batch → `is_auth=false`, signed-in (`fa668109`) → `is_auth=true` + user_id in
+   `analytics_events`. API + web deployed (BUILD_ID `dyvmbDSGyGqOqcTjXxdgV`), probes cleaned.
+
+### Reference
+- W32 DAU/bounce/cohort numbers were inflated by anonymous sessions — from W33, split any
+  `analytics_events` query on `properties->>'is_auth'` (or simply `user_id IS NULL`).
+- track-batch identity: cookie `tm_session` OR bearer both work now (DI resolves `_bearer`).
+- Client `is_auth` is injected at FLUSH time (matches server-side resolution moment); an
+  event queued pre-login but flushed post-login carries `is_auth=true` — harmless for funnel
+  math, and the server override wins on signed-in batches anyway.
+
 ## Session: 2026-08-05 — Beta Launch Support W32: weekly intelligence evidence cycle + risk-audit persistence (v1.6.2, OPS-ONLY)
 
 ### What was done

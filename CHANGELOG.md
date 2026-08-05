@@ -1,3 +1,28 @@
+## v1.6.3 (2026-08-05) — Beta analytics: `is_auth` split so DAU/bounce/funnel are trustworthy (v1.6.2 follow-up)
+
+> Evidence-backed (W32 reports 06/07/08/10 — DAU/bounce/cohort numbers were inflated by
+> anonymous sessions and smoke traffic). Small, additive; no features.
+
+### Changed
+- **`apps/web/lib/analytics.ts`** — `is_auth` injected into EVERY queued event at flush time
+  (client auth state resolved via `useAuth`), so `session.start` / `page.view` / clicks all
+  carry it; unknown until auth resolves (then server truth wins anyway).
+- **`apps/web/components/analytics-tracker.tsx`** — now reads `useAuth()` and syncs
+  `setAnalyticsAuthState`; mounted INSIDE `Providers` (`app/layout.tsx`) so the context is
+  available (was rendered outside).
+- **`apps/api/routes/v1_analytics.py`** — `track-batch` resolves identity via proper FastAPI
+  DI (`Depends(get_optional_user)` — previously called manually with `credentials=None`, so
+  only the cookie branch ever ran) and sets `properties.is_auth = bool(user_id)` server-side
+  as the authoritative value.
+
+### Verification
+- Regression **930 passed, 1 xfailed** (3 new route-level tests: signed-in true, anonymous
+  false, non-dict properties untouched). Web tsc + prod build clean.
+- Prod wire probe (in-container, real HTTPS): anonymous batch → `is_auth=false` + no
+  user_id; signed-in batch (`fa668109`) → `is_auth=true` + user_id persisted. Confirmed in
+  `analytics_events`. API redeployed (health 200), web `.next` deployed (BUILD_ID
+  `dyvmbDSGyGqOqcTjXxdgV`), probe rows/files cleaned.
+
 ## v1.6.2 (2026-08-05) — BETA LAUNCH SUPPORT W32: weekly intelligence cycle + risk-audit persistence (ops-only)
 
 > Beta Launch Support week 1: evidence collection cycle established. Full W32 evidence

@@ -4,7 +4,7 @@
 | Action | Evidence source (gate: analytics / feedback / ticket / metrics / security) | Priority |
 |--------|-----------------------------------------------------------------------------|----------|
 | ✅ DONE 2026-08-05 — `20260804_01600_risk_audit_log.sql` applied to prod (table + index + PostgREST reload verified; KNOWN_ISSUES #14 closed) | metrics/logs (02-crash) + KNOWN_ISSUES #14 | P1 |
-| Track `is_auth` on page.view/session.start so DAU/bounce/funnel split signed-in vs anonymous | analytics (06/07/08/10 reports — inflated numbers) | P1 |
+| ✅ DONE 2026-08-05 — `is_auth` on every tracked event (client via auth-context + server authority in track-batch); `session.start`/`page.view` split begins W33 | analytics (06/07/08/10 reports — inflated numbers) | P1 |
 | Throttle/exempt the `/alerts/` poller from the rate limiter (610 429s/7d) | metrics (01/04 performance, top 429 path) | P2 |
 | Broker re-auth UX: token-expiry countdown + one-tap reconnect on `/brokers` | analytics (06-funnel 13% connect) + tickets (KNOWN_ISSUES #1) | P2 |
 | Downgrade `async_safe_single ... None` to DEBUG/throttle (653×/48h noise) | logs (02-crash) | P2 |
