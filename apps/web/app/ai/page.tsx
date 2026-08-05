@@ -268,11 +268,11 @@ export default function AIPage() {
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                 <span style={{ color: 'var(--cyan)', fontSize: 10, marginTop: 2 }}>⚡</span>
-                <div><strong style={{ color: 'var(--text)' }}>Commands</strong> — "Show my positions", "Square off", "Why rejected?", "P&L kya hai"</div>
+                <div><strong style={{ color: 'var(--text)' }}>Commands</strong> — “Show my positions”, “Square off”, “Why rejected?”, “P&L kya hai”</div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                 <span style={{ color: 'var(--cyan)', fontSize: 10, marginTop: 2 }}>🤖</span>
-                <div><strong style={{ color: 'var(--text)' }}>Build Strategy</strong> — "EMA crossover banao", "Bollinger Bandit strategy for BANKNIFTY" (Enterprise)</div>
+                <div><strong style={{ color: 'var(--text)' }}>Build Strategy</strong> — “EMA crossover banao”, “Bollinger Bandit strategy for BANKNIFTY” (Enterprise)</div>
               </div>
             </div>
           </div>

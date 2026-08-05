@@ -16,6 +16,7 @@ Run from tests:  tests/test_broker_certification.py
 from __future__ import annotations
 
 import asyncio
+import inspect
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -119,7 +120,10 @@ async def certify_interface(adapter: Any) -> CertificationReport:
                 report.add(f"unsupported:{method}", True, "typed error raised (feature absent)")
 
     try:
-        health_result = await adapter.health() if asyncio.iscoroutine(adapter.health()) else adapter.health()
+        health_fn = adapter.health
+        health_result = (
+            await health_fn() if inspect.iscoroutinefunction(health_fn) else health_fn()
+        )
         report.add(
             "health:shape",
             isinstance(health_result, dict) and "broker" in health_result,

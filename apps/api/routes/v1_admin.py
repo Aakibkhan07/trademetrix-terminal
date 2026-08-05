@@ -398,6 +398,14 @@ async def admin_list_strategies(
     return await _service.list_catalog_strategies()
 
 
+@router.get("/strategies/all-user")
+async def admin_list_all_user_strategies(
+    user_id: str = Query(default=""),
+    admin: UserProfile = Depends(require_admin),
+):
+    return await _service.list_all_user_strategies(user_id)
+
+
 @router.post("/strategies")
 async def admin_create_strategy(
     req: CreateStrategyRequest,

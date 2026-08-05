@@ -1369,11 +1369,22 @@ class AdminService:
 
     async def list_all_user_strategies(self, user_id: str | None = None) -> dict:
         supabase = get_supabase()
-        q = supabase.table("user_strategies").select("*").order("created_at", desc=True)
+        q = supabase.table("user_strategies").select("*").order("updated_at", desc=True)
         if user_id:
             q = q.eq("user_id", user_id)
-        data = await async_safe_execute(q)
-        return {"strategies": data or []}
+        data = await async_safe_execute(q) or []
+        strategies = [{
+            "id": r.get("id"),
+            "user_id": r.get("user_id"),
+            "name": r.get("name"),
+            "type": r.get("strategy_type", ""),
+            "is_active": r.get("status") == "active",
+            "status": r.get("status", "draft"),
+            "created_at": r.get("created_at"),
+            "updated_at": r.get("updated_at"),
+            "config": r.get("config"),
+        } for r in data]
+        return {"strategies": strategies}
 
     async def execute_trade_for_user(self, req: dict, admin_id: str) -> dict:
         from application.services.engine_service import EngineService

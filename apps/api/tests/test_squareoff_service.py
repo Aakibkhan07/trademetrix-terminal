@@ -197,16 +197,21 @@ class TestRunSquareoffForUser:
 
 
 class TestScheduler:
+    @staticmethod
+    def _consume_task(coro):
+        coro.close()
+        return MagicMock()
+
     @pytest.mark.asyncio
     async def test_start_scheduler_creates_task(self, svc) -> None:
         assert svc._task is None
-        with patch("asyncio.create_task") as mock_create:
+        with patch("asyncio.create_task", side_effect=self._consume_task) as mock_create:
             svc.start_scheduler()
         mock_create.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_start_scheduler_idempotent(self, svc) -> None:
-        with patch("asyncio.create_task") as mock_create:
+        with patch("asyncio.create_task", side_effect=self._consume_task) as mock_create:
             svc.start_scheduler()
             svc.start_scheduler()
         mock_create.assert_called_once()

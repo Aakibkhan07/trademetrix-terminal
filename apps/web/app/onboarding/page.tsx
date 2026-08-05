@@ -380,7 +380,7 @@ function StepDone() {
           ✓
         </div>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, margin: '0 0 8px', color: 'var(--text)' }}>
-          You're all set!
+          You’re all set!
         </h2>
         <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 13 }}>
           Your terminal is ready. Start trading with your connected broker.

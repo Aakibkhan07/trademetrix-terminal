@@ -220,7 +220,7 @@ export default function PortfolioPage() {
         <div className="t-grid-2" style={{ gap: 12 }}>
           <div className="t-panel">
             <div className="t-panel-body">
-              <div className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em' }}>TODAY'S P&L</div>
+              <div className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em' }}>TODAY’S P&L</div>
               <div className={`t-num ${todayPnl >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 34, fontWeight: 800, margin: '6px 0' }}>
                 {todayPnl >= 0 ? '+' : '−'}₹{fmtMoney(Math.abs(todayPnl))}
               </div>

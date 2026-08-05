@@ -661,7 +661,7 @@ function BrokersTab() {
 
       {/* All user connections */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <p className="t-sub" style={{ fontSize: 12, margin: 0 }}>All users' broker connections</p>
+        <p className="t-sub" style={{ fontSize: 12, margin: 0 }}>All users’ broker connections</p>
         <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
       </div>
       {loading && <SkeletonCard />}
@@ -1949,7 +1949,7 @@ function RiskTab() {
 
   return (
     <div>
-      <p className="t-sub" style={{ fontSize: 11, marginBottom: 12 }}>All users' risk settings &amp; controls</p>
+      <p className="t-sub" style={{ fontSize: 11, marginBottom: 12 }}>All users’ risk settings &amp; controls</p>
       {loading && <SkeletonCard />}
       {!loading && settings.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>

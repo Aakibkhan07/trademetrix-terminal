@@ -887,7 +887,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                     </div>
                     {meta?.oauth_available && (
                       <div className="t-faint" style={{ fontSize: 9, lineHeight: 1.4 }}>
-                        After saving credentials, you'll need to authorize via OAuth.
+                        After saving credentials, you’ll need to authorize via OAuth.
                       </div>
                     )}
                   </div>

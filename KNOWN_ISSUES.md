@@ -29,11 +29,13 @@ Status verified 2026-08-01. Each item notes impact and mitigation. None block GA
 
 ## Infrastructure
 
-15. **Dashboard "User Strategies" admin tab is dead (404 endpoint)** *(v1.5.2 finding)*
-   - `app/dashboard/user-strategies-tab.tsx` fetches `/api/v1/admin/strategies/all-user`, which
-     does not exist in the API → the tab always renders "No user strategies found".
-   - Impact: admins cannot see user strategies in the UI (the legacy `/user-strategies` API works).
-   - Mitigation: implement the admin endpoint or remove the tab. Beta backlog item (post-freeze).
+15. **Dashboard "User Strategies" admin tab is dead (404 endpoint)** *(v1.5.2 finding)* — **RESOLVED 2026-08-06**
+   - The tab fetched `/api/v1/admin/strategies/all-user`, which did not exist. Implemented:
+     `GET /admin/strategies/all-user` (`require_admin`, optional `?user_id=` filter) →
+     `AdminService.list_all_user_strategies` returns `{strategies:[...]}` with
+     `type`/`is_active`/`status`/`config` mapped for the UI. Service method existed but the
+     route was never registered; the mapping (strategy_type→type, status→is_active) was added.
+   - Verified: 46 admin tests pass (3 new: route registered, mapped shape, user filter).
 
 
 7. **Single host, single API worker**

@@ -387,10 +387,46 @@ class TestBroadcast:
             await svc.broadcast("unknown", "RELIANCE", "BUY", 10, 0, "NSE", "MARKET", "INTRADAY", "", True)
 
 
+@pytest.mark.asyncio
+class TestListAllUserStrategies:
+    async def test_returns_mapped_strategies(self, svc, mock_db) -> None:
+        mock_db["async_safe_execute"].return_value = [
+            {"id": "s1", "user_id": "u1", "name": "Algo A", "strategy_type": "multi_leg",
+             "status": "active", "created_at": "2026-08-01", "updated_at": "2026-08-02", "config": {"entry_time": "10:00"}},
+            {"id": "s2", "user_id": "u2", "name": "Algo B", "strategy_type": "",
+             "status": "draft", "created_at": None, "updated_at": None, "config": None},
+        ]
+        result = await svc.list_all_user_strategies()
+        assert len(result["strategies"]) == 2
+        first = result["strategies"][0]
+        assert first["type"] == "multi_leg"
+        assert first["is_active"] is True
+        assert first["status"] == "active"
+        assert first["config"] == {"entry_time": "10:00"}
+        assert result["strategies"][1]["is_active"] is False
+        assert result["strategies"][1]["status"] == "draft"
+
+    async def test_filters_by_user_id(self, svc, mock_db) -> None:
+        mock_db["async_safe_execute"].return_value = []
+        await svc.list_all_user_strategies(user_id="u1")
+        query_chain = mock_db["table"].select.return_value.order.return_value
+        query_chain.eq.assert_called_with("user_id", "u1")
+
+    async def test_no_filter_skips_eq(self, svc, mock_db) -> None:
+        mock_db["async_safe_execute"].return_value = []
+        await svc.list_all_user_strategies()
+        query_chain = mock_db["table"].select.return_value.order.return_value
+        query_chain.eq.assert_not_called()
+
+
 class TestAdminRoutes:
     def test_stats_route_registered(self):
         paths = [r.path for r in admin_router.routes if hasattr(r, "path")]
         assert "/admin/stats" in paths
+
+    def test_all_user_strategies_route_registered(self):
+        paths = [r.path for r in admin_router.routes if hasattr(r, "path")]
+        assert "/admin/strategies/all-user" in paths
 
     def test_users_route_registered(self):
         paths = [r.path for r in admin_router.routes if hasattr(r, "path")]
@@ -410,7 +446,7 @@ class TestAdminRoutes:
             "/admin/risk", "/admin/active-brokers",
             "/admin/admins", "/admin/admins/{user_id}",
             "/admin/broadcast/recipients", "/admin/broadcast", "/admin/broadcast/notify",
-            "/admin/strategies", "/admin/strategies/{key}",
+            "/admin/strategies", "/admin/strategies/all-user", "/admin/strategies/{key}",
             "/admin/execute-trade",
         }
         missing = expected - set(paths)

@@ -99,11 +99,14 @@
 
 ## INC-007: Market Watchlist Missing Component (2026-07-28)
 
-**Severity:** Medium  
-**Status:** Open  
-**Root Cause:** `/watchlist` route not registered in Next.js app router. The sidebar links to `/watchlist` but navigating there returns 404 in the client-side router.  
-**Fix Needed:** Register watchlist page in the Next.js app router at `apps/web/app/watchlist/page.tsx` or add as a dashboard tab.  
-**Verification:** Pending fix.
+**Severity:** Low  
+**Status:** Resolved (2026-08-06)  
+**Root Cause:** `/watchlist` route not registered in Next.js app router; sidebar linked to it → 404.
+**Fix:** The watchlist feature now lives in the Workspace (`components/workspace/watchlist-panel.tsx`,
+`command-palette.tsx` opens it); the standalone `/watchlist` link no longer exists in
+`app-layout.tsx` (only `/workspace` is linked). No 404-able href remains. Verified: sidebar
+href list has no `/watchlist`; `watchlist-panel` reachable via Workspace + ⌘K. Documentation
+stale — corrected here.
 
 ## INC-008: Universal Search Shows No Results (2026-07-28)
 
@@ -134,11 +137,14 @@
 
 ## INC-009: Backend /backtest Fails with "Invalid price" (2026-07-28)
 
-**Severity:** Medium  
-**Status:** Open  
-**Root Cause:** The backtest endpoint requires a price field on the order payload that the frontend doesn't send when using MARKET orders. Backend validation rejects with "Invalid price" even though market orders don't need a price.  
-**Fix Needed:** Make price validation conditional on order type, or default price to 0 for market orders.  
-**Verification:** Pending fix.
+**Severity:** Low  
+**Status:** Resolved (2026-08-06)  
+**Root Cause:** The backtest/order payload validation rejected MARKET orders with "Invalid price".
+**Fix:** `execution/validation.py` now only requires `price` for LIMIT/SL/SLM orders and
+`trigger_price` only for SL/SLM (`Price is required for LIMIT/SL/SLM orders`); MARKET orders
+pass with price omitted/0. The backtest engine was also rebuilt (v1.5.9–v1.6.1) with its own
+fill engine that prices MARKET fills directly. Verified: `execution/validation.py:46-49`.
+Documentation stale — corrected here.
 
 ## INC-013: Production CSRF Middleware Never Deployed (2026-07-29)
 
@@ -179,7 +185,9 @@ This meant the `set-cookie` header was only emitted on the very first GET /auth/
 ## INC-010: OpenAPI Schema Duplicate Content-Type (2026-07-28)
 
 **Severity:** Low  
-**Status:** Open  
-**Root Cause:** FastAPI auto-generates OpenAPI schema with "Content-Type: application/json" listed multiple times, causing Swagger UI and structured client generation to skip rendered endpoints.  
-**Fix Needed:** Deduplicate content types in OpenAPI schema generation or add a custom OpenAPI processor.  
-**Verification:** Pending fix.
+**Status:** Resolved (2026-08-06)  
+**Root Cause:** Reported FastAPI auto-generated OpenAPI schema listing `Content-Type: application/json` multiple times, breaking Swagger UI and generated clients.
+**Fix:** No fix needed — verified the current schema has **0 duplicate content-types** across all
+228 paths (regenerated locally via `app.openapi()` and scanned every response). The duplicate
+content-type was a transient/older-framework artifact. Note: `openapi_url=None` in prod
+(`main.py:267`) — the schema is only served locally anyway. Documentation stale — corrected here.

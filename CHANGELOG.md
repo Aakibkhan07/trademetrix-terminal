@@ -1,3 +1,35 @@
+## v1.6.4 (2026-08-06) — Housekeeping: dead admin endpoint fixed, lint wired, log noise swept
+
+> Health-check pass (tests/tsc/lint/prod probes). No features — aligns with the freeze.
+
+### Fixed
+- **`GET /api/v1/admin/strategies/all-user`** — the admin "User Strategies" tab always showed
+  "No user strategies found" because the route was never registered (KNOWN_ISSUES #15).
+  The existing `AdminService.list_all_user_strategies` now maps rows for the UI
+  (`type` from `strategy_type`, `is_active` from `status`), and the route is registered with
+  `require_admin` + optional `?user_id=` filter. 3 new tests.
+- **`apps/api/core/cache.py`** — replaced deprecated `setex()` with `set(..., ex=ttl)`.
+- **`apps/api/brokers/sdk/certification.py`** — `health()` probe no longer creates a discarded
+  coroutine (`asyncio.iscoroutine(adapter.health())` → `inspect.iscoroutinefunction`).
+- **`apps/api/tests/test_squareoff_service.py`** — scheduler tests close the discarded
+  `_squareoff_loop` coroutine (kills the "never awaited" RuntimeWarning).
+- **ESLint wired** — `apps/web/.eslintrc.json` (`next/core-web-vitals`) + `eslint@8` +
+  `eslint-config-next@14.1.0`; `next lint` now runs non-interactively. Fixed the 17
+  `react/no-unescaped-entities` errors (straight quotes → typographic) across
+  `ai/page.tsx`, `dashboard/admin-content.tsx`, `onboarding/page.tsx`, `portal/page.tsx`,
+  `portfolio/page.tsx`. 35 pre-existing `react-hooks/exhaustive-deps` warnings left as-is
+  (deliberate omissions; not fixing to avoid behavior changes).
+- **Docs** — INCIDENTS.md: INC-007 (watchlist, now in Workspace), INC-009 (MARKET price
+  validation, conditional since v1.5.9), INC-010 (no duplicate content-types — verified on
+  the live schema) marked Resolved with evidence. KNOWN_ISSUES #15 marked Resolved.
+
+### Verification
+- API regression **934 passed, 1 xfailed** (+4 tests; warnings 76 → 9, remaining are
+  background-poll task teardown artifacts in HTTP-flow tests, not production code).
+- Web `tsc --noEmit` clean; `next lint` 0 errors (35 warnings).
+- `git push` of the previously-unpushed v1.6.1–v1.6.3 commits (local was 4 ahead of
+  `origin/main` — a future VPS `git reset --hard origin/main` would have dropped them).
+
 ## v1.6.3 (2026-08-05) — Beta analytics: `is_auth` split so DAU/bounce/funnel are trustworthy (v1.6.2 follow-up)
 
 > Evidence-backed (W32 reports 06/07/08/10 — DAU/bounce/cohort numbers were inflated by

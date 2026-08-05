@@ -61,7 +61,7 @@ class RedisCache:
             if ttl is None:
                 await self._redis.set(key, json.dumps(value))
             else:
-                await self._redis.setex(key, ttl, json.dumps(value))
+                await self._redis.set(key, json.dumps(value), ex=ttl)
             return True
         except Exception:
             return False
