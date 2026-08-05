@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'rea
 import { useSearchParams } from 'next/navigation'
 import { api, backtestExportUrl } from '@/lib/api'
 import {
-  createChart, ColorType, LineSeries, CrosshairMode, createSeriesMarkers,
+  createChart, ColorType, LineSeries, AreaSeries, CrosshairMode, createSeriesMarkers,
   type IChartApi, type ISeriesApi, type Time, type UTCTimestamp,
   type SeriesMarker, type LineData, type MouseEventParams,
 } from 'lightweight-charts'
@@ -51,7 +51,29 @@ interface BTResult {
   hour_distribution: Record<string, number>
   month_distribution: Record<string, number>
   duration_seconds: number
+  risk_analytics?: BTRiskAnalytics
   error?: string
+}
+
+interface BTRiskRejection {
+  timestamp: string; symbol: string; side: string; quantity: number; price: number
+  rule: string; reason: string; capital_remaining: number; risk_remaining: number
+  drawdown: number; exposure: number
+}
+
+interface BTRiskTimelinePoint {
+  index: number; timestamp: string; equity: number; exposure: number
+  drawdown_pct: number; capital_remaining: number; risk_remaining: number; status?: string
+}
+
+interface BTRiskAnalytics {
+  enabled: boolean; accepted_trades: number; rejected_trades: number; halt_count: number
+  rejection_reasons: Record<string, number>
+  timeline: BTRiskTimelinePoint[]
+  capital_curve: { index: number; timestamp: string; value: number }[]
+  exposure_curve: { index: number; timestamp: string; value: number }[]
+  rejections?: BTRiskRejection[]
+  rejections_truncated?: boolean
 }
 
 interface OptimizeResult {
@@ -208,6 +230,138 @@ function BacktestChart({ points, height = 170, color = '#34d399', mode = 'equity
   )
 }
 
+function RiskChart({ timeline, height = 190 }: { timeline: BTRiskTimelinePoint[]; height?: number }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+
+  const series = useMemo(() => {
+    const toSec = (ts: string, i: number) => {
+      const t = new Date(ts).getTime() / 1000
+      return (Number.isFinite(t) && t > 0) ? t : i
+    }
+    return {
+      capital: timeline.map((p, i) => ({ time: toSec(p.timestamp, i) as Time, value: p.capital_remaining })),
+      exposure: timeline.map((p, i) => ({ time: toSec(p.timestamp, i) as Time, value: p.exposure })),
+      drawdown: timeline.map((p, i) => ({ time: toSec(p.timestamp, i) as Time, value: p.drawdown_pct ?? 0 })),
+    }
+  }, [timeline])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || timeline.length < 2) return
+
+    const chart: IChartApi = createChart(container, {
+      height,
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: colorVar('--text-sub', '#8888a0'),
+        fontSize: 10,
+        fontFamily: 'var(--font-body)',
+      },
+      grid: {
+        vertLines: { color: mix(colorVar('--violet'), 6) },
+        horzLines: { color: mix(colorVar('--violet'), 6) },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
+        horzLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
+      },
+      timeScale: {
+        borderColor: mix(colorVar('--text-inverse'), 6),
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      rightPriceScale: {
+        borderColor: mix(colorVar('--text-inverse'), 6),
+        scaleMargins: { top: 0.1, bottom: 0.15 },
+      },
+    })
+
+    const capitalSeries: ISeriesApi<'Line'> = chart.addSeries(LineSeries, {
+      color: colorVar('--green', '#34d399'),
+      lineWidth: 2,
+      priceLineVisible: false,
+      priceFormat: {
+        type: 'custom',
+        formatter: (p: number) => `₹${Math.round(p).toLocaleString('en-IN')}`,
+      },
+    })
+    capitalSeries.setData(series.capital)
+
+    const exposureSeries: ISeriesApi<'Area'> = chart.addSeries(AreaSeries, {
+      lineColor: colorVar('--cyan', '#22d3ee'),
+      topColor: mix(colorVar('--cyan', '#22d3ee'), 18),
+      bottomColor: mix(colorVar('--cyan', '#22d3ee'), 0),
+      lineWidth: 1,
+      priceLineVisible: false,
+      priceFormat: {
+        type: 'custom',
+        formatter: (p: number) => `₹${Math.round(p).toLocaleString('en-IN')} exp`,
+      },
+    })
+    exposureSeries.setData(series.exposure)
+
+    const ddSeries: ISeriesApi<'Line'> = chart.addSeries(LineSeries, {
+      color: colorVar('--red', '#ef4444'),
+      lineWidth: 1,
+      priceLineVisible: false,
+      priceFormat: {
+        type: 'custom',
+        formatter: (p: number) => `${p.toFixed(2)}% dd`,
+      },
+    })
+    ddSeries.setData(series.drawdown)
+
+    const tooltip = tooltipRef.current
+    const onCrosshairMove = (param: MouseEventParams) => {
+      if (!tooltip) return
+      if (!param.time || !param.point) { tooltip.style.display = 'none'; return }
+      const cap = param.seriesData.get(capitalSeries) as LineData | undefined
+      const exp = param.seriesData.get(exposureSeries) as LineData | undefined
+      const dd = param.seriesData.get(ddSeries) as LineData | undefined
+      if (!cap && !exp && !dd) { tooltip.style.display = 'none'; return }
+      const when = new Date(((cap?.time ?? exp?.time ?? dd?.time) as number) * 1000).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      tooltip.textContent = [
+        when,
+        `cap ₹${Math.round(cap?.value ?? 0).toLocaleString('en-IN')}`,
+        `exp ₹${Math.round(exp?.value ?? 0).toLocaleString('en-IN')}`,
+        `${(dd?.value ?? 0).toFixed(2)}% dd`,
+      ].join(' · ')
+      tooltip.style.display = 'block'
+      const rect = container.getBoundingClientRect()
+      tooltip.style.left = `${Math.min(param.point.x + 12, rect.width - 130)}px`
+      tooltip.style.top = `${Math.max(param.point.y - 26, 2)}px`
+    }
+    chart.subscribeCrosshairMove(onCrosshairMove)
+
+    const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }))
+    ro.observe(container)
+    chart.timeScale().fitContent()
+
+    return () => {
+      chart.unsubscribeCrosshairMove(onCrosshairMove)
+      ro.disconnect()
+      chart.remove()
+    }
+  }, [timeline, height, series])
+
+  if (timeline.length < 2) return null
+  return (
+    <div style={{ position: 'relative' }}>
+      <div ref={containerRef} />
+      <div
+        ref={tooltipRef}
+        style={{
+          display: 'none', position: 'absolute', pointerEvents: 'none', zIndex: 5,
+          background: colorVar('--bg-secondary', '#1e1e2f'), color: colorVar('--text', '#eee'),
+          padding: '3px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)',
+        }}
+      />
+    </div>
+  )
+}
+
 function BarChart({ data, height = 120, unit = '' }: { data: { label: string; value: number }[]; height?: number; unit?: string }) {
   if (data.length === 0) return null
   const maxVal = Math.max(...data.map(d => Math.abs(d.value)), 1)
@@ -309,7 +463,7 @@ function BacktestContent() {
   const [result, setResult] = useState<BTResult | null>(null)
   const [error, setError] = useState('')
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'optimizer' | 'compare' | 'trades'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'optimizer' | 'compare' | 'trades' | 'risk'>('overview')
 
   const [optMethod, setOptMethod] = useState('grid')
   const [optMetric, setOptMetric] = useState('sharpe_ratio')
@@ -335,7 +489,7 @@ function BacktestContent() {
   }, [])
 
   const handleRun = useCallback(async () => {
-    setRunning(true); setError(''); setResult(null)
+    setRunning(true); setError(''); setResult(null); setActiveTab('overview')
     try {
       let data: BTResult
       if (source === 'builder') {
@@ -440,6 +594,10 @@ function BacktestContent() {
   }, [result])
 
   const s = result?.summary
+  const risk = result?.risk_analytics
+  const riskReasons = useMemo(() => Object.entries(risk?.rejection_reasons || {})
+    .map(([label, value]) => ({ label, value }))
+    .filter(d => d.value !== 0), [risk])
   const equityPoints = useMemo(() => (result?.equity_curve || []).map((p, i) => {
     const t = p.timestamp ? new Date(p.timestamp).getTime() / 1000 : i
     return { time: (Number.isFinite(t) ? t : i) as Time, value: p.equity }
@@ -476,6 +634,8 @@ function BacktestContent() {
   }, [optResult, optMetric])
 
   const selectedBuilderName = builderStrategies.find(b => b.id === strategy)?.name || strategy
+
+  const tabs = ['overview', 'optimizer', 'compare', 'trades', ...(risk?.enabled ? (['risk'] as const) : [])] as Array<'overview' | 'optimizer' | 'compare' | 'trades' | 'risk'>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -573,9 +733,13 @@ function BacktestContent() {
       {s && (
         <>
           <div className="t-tabs">
-            {(['overview', 'optimizer', 'compare', 'trades'] as const).map(tab => (
+            {tabs.map(tab => (
               <button key={tab} className={`t-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
-                {tab === 'overview' ? 'Overview' : tab === 'optimizer' ? 'Optimizer' : tab === 'compare' ? 'Compare Runs' : `Trades (${s.total_trades})`}
+                {tab === 'overview' ? 'Overview'
+                  : tab === 'optimizer' ? 'Optimizer'
+                  : tab === 'compare' ? 'Compare Runs'
+                  : tab === 'risk' ? `Risk (${risk?.rejected_trades ?? 0})`
+                  : `Trades (${s.total_trades})`}
               </button>
             ))}
           </div>
@@ -869,6 +1033,83 @@ function BacktestContent() {
             <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
               <p style={{ color: 'var(--text-faint)', fontSize: 12, margin: 0 }}>No trades were generated</p>
             </div>
+          )}
+
+          {activeTab === 'risk' && risk?.enabled && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+                {kpiCard('Accepted Trades', String(risk.accepted_trades), 'passed all simulated rules')}
+                {kpiCard('Rejected Trades', String(risk.rejected_trades), `${riskReasons.length} rule(s) fired`, risk.rejected_trades > 0 ? 'var(--amber)' : 'var(--text)')}
+                {kpiCard('Circuit Halts', String(risk.halt_count), risk.halt_count > 0 ? 'trading halted after breach' : 'no daily-loss / drawdown breach', risk.halt_count > 0 ? 'var(--text-red)' : 'var(--text-green)')}
+                {kpiCard('Rejection Reasons', String(riskReasons.length), 'distinct rules engaged')}
+              </div>
+
+              {riskReasons.length > 0 && (
+                <div className="t-panel" style={{ padding: 12 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Rejections by Rule</div>
+                  <BarChart data={riskReasons} height={120} unit="orders" />
+                </div>
+              )}
+
+              <div className="t-panel" style={{ padding: 12 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Risk State Over Time</div>
+                <div style={{ display: 'flex', gap: 14, fontSize: 10, color: 'var(--text-faint)', marginBottom: 6, flexWrap: 'wrap' }}>
+                  <span style={{ color: colorVar('--green', '#34d399') }}>— capital remaining</span>
+                  <span style={{ color: colorVar('--cyan', '#22d3ee') }}>— exposure</span>
+                  <span style={{ color: colorVar('--red', '#ef4444') }}>— drawdown %</span>
+                </div>
+                <RiskChart timeline={risk.timeline} />
+              </div>
+
+              {(risk.rejections?.length ?? 0) > 0 && (
+                <div className="t-panel" style={{ padding: 0 }}>
+                  <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Rejected Orders ({risk.rejected_trades})</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+                      {risk.rejections_truncated ? `showing first ${risk.rejections!.length}` : 'all shown'} · newest last
+                    </span>
+                  </div>
+                  <div style={{ overflowX: 'auto', maxHeight: 420, overflowY: 'auto' }}>
+                    <table className="t-table">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Symbol</th>
+                          <th>Side</th>
+                          <th className="num">Qty</th>
+                          <th className="num">Price</th>
+                          <th>Rule</th>
+                          <th>Reason</th>
+                          <th className="num">Cap. Rem.</th>
+                          <th className="num">Risk Rem.</th>
+                          <th className="num">DD %</th>
+                          <th className="num">Exposure</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {risk.rejections!.map((r, idx) => (
+                          <tr key={idx}>
+                            <td className="t-faint" style={{ fontSize: 10 }}>
+                              {new Date(r.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td style={{ fontWeight: 600 }}>{r.symbol}</td>
+                            <td><span className={r.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{r.side}</span></td>
+                            <td className="t-num">{r.quantity}</td>
+                            <td className="t-num">{r.price.toFixed(2)}</td>
+                            <td><span className="t-chip active" style={{ fontSize: 9 }}>{r.rule}</span></td>
+                            <td style={{ fontSize: 11 }}>{r.reason}</td>
+                            <td className="t-num">₹{Math.round(r.capital_remaining).toLocaleString('en-IN')}</td>
+                            <td className="t-num">{r.risk_remaining < 0 ? '∞' : `₹${Math.round(r.risk_remaining).toLocaleString('en-IN')}`}</td>
+                            <td className="t-num t-down">{r.drawdown.toFixed(2)}%</td>
+                            <td className="t-num">₹{Math.round(r.exposure).toLocaleString('en-IN')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

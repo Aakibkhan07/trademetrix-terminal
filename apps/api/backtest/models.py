@@ -141,6 +141,7 @@ class RiskAnalytics(BaseModel):
     timeline: list[RiskTimelinePoint] = Field(default_factory=list)
     capital_curve: list[RiskCurvePoint] = Field(default_factory=list)
     exposure_curve: list[RiskCurvePoint] = Field(default_factory=list)
+    rejections: list[RiskRejection] = Field(default_factory=list)
 
 
 class BacktestResult(BaseModel):

@@ -1,3 +1,50 @@
+## v1.6.0 (2026-08-05) — BACKTEST ENGINE PHASE C: risk-aware backtest reports (risk analytics in the UI)
+
+> Phase C of the institutional backtest roadmap (A/B/C). **Surfaces Phase B's
+> `risk_analytics` in the Backtest Engine report UI** — a new **Risk** tab (visible only
+> when `risk_enabled=true`) shows why the simulation rejected orders and how capital/
+> exposure/drawdown evolved, so a rejected run is diagnosable at a glance. Risk-off runs
+> render byte-identical (tab hidden). No OMS / Broker Layer / Execution Engine changes.
+>
+> Wire budget: the persisted `BacktestResult.risk_analytics` stays exact (full timeline,
+> curves, per-order rejections), but the payload/`GET /{run_id}` surface now budgets it the
+> same way trades and the equity curve are budgeted — timeline/capital/exposure curves
+> LTTB-downsampled to 2000 points (first/last preserved), per-order rejections capped at
+> 200 with a `rejections_truncated` flag. `RiskAnalytics.rejections` (additive, persisted)
+> carries the full per-order rejection records (rule, reason, capital/risk remaining,
+> drawdown, exposure, timestamp/symbol/side/qty/price).
+
+### Added
+- **`apps/web/app/backtest/page.tsx`** — `RiskChart` (lightweight-charts: capital-remaining
+  line, exposure area, drawdown% line, crosshair tooltip) + **Risk tab**: KPI cards
+  (accepted / rejected / circuit halts / rules fired), "Rejections by Rule" bar chart,
+  "Risk State Over Time" chart, and a **Rejected Orders** table (time, symbol, side, qty,
+  price, rule chip, reason, capital remaining, risk remaining (`∞` when unlimited),
+  drawdown%, exposure) with truncation notice; `BTRiskAnalytics` types; conditional tab.
+- **`apps/api/routes/v1_backtest.py`** — `_payload_risk()` (LTTB downsample of
+  timeline/capital_curve/exposure_curve at `PAYLOAD_MAX_RISK_POINTS=2000`, rejection cap
+  `PAYLOAD_MAX_REJECTIONS=200` + `rejections_truncated`) applied to run-v3 `_result_payload`
+  and `GET /{run_id}` (risk-off passthrough unchanged).
+- **`apps/api/backtest/models.py`** — `RiskAnalytics.rejections: list[RiskRejection]`
+  (additive, persisted in `backtest_runs.summary`; old rows default empty).
+
+### Changed
+- **`apps/api/backtest/risk.py`** — `analytics()` now includes `rejections=list(self._rejected)`
+  (was only counts/reasons/curves).
+
+### Verification
+- **7 new tests** (`tests/test_backtest_risk_payload.py`): curve downsample >2000 (first/
+  last preserved, monotonic), passthrough below threshold, risk-off passthrough, rejection
+  cap + flag, enabled wire shape, route-level `GET /{run_id}` budget + risk-off passthrough.
+- Full suite **915 passed, 1 xfailed** (908 baseline + 7). Web `tsc` clean, prod build
+  clean (BUILD_ID `q-Eff63YJmQe0dbJva2B6`).
+- Prod smoke **25/25** (user fa668109, ema_crossover, NIFTY 5m/60d = 3101 candles): risk OFF
+  212 trades; risk ON `max_trades_per_day=3` → 3 trades, accepted 6, **418 rejections** all
+  `MAX_TRADES_PER_DAY` ("Trade count 3 exceeds daily limit 3."), halts 0; 3101-point curves
+  downsampled to exactly **2000** (first index 0 / last 3101 preserved); rejections capped
+  418→**200** with `rejections_truncated=True`; full payload fields incl. `risk_remaining
+  -1.0` NO_LIMIT sentinel; `GET /{run_id}` persisted with the same budgeted shape.
+
 ## v1.5.11 (2026-08-05) — BACKTEST ENGINE PHASE B: simulated risk engine (risk_enabled=true fixed)
 
 > Phase B of the institutional backtest roadmap (A/B/C). **Fixes the

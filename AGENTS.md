@@ -59,6 +59,60 @@ Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker sup
    `interval*60/multiplier` s per candle) or the test hangs. Monkeypatch the instance:
    `monkeypatch.setattr(replay_engine, "_apply_speed_delay", no_delay)`.
 
+## Session: 2026-08-05 — Backtest Phase C: risk-aware backtest reports — risk analytics surfaced in the UI (v1.6.0)
+
+### What was done
+1. **Phase C shipped** — Phase B's `risk_analytics` is now visible and diagnosable in the
+   Backtest Engine UI (`apps/web/app/backtest/page.tsx`): a **Risk tab** (only when
+   `risk_analytics.enabled`) with KPI cards (accepted/rejected/circuit halts/rules fired),
+   "Rejections by Rule" bar chart, a `RiskChart` (lightweight-charts — capital-remaining
+   line + exposure area + drawdown% line, crosshair tooltip), and a **Rejected Orders**
+   table (time/symbol/side/qty/price/rule chip/reason/capital rem/risk rem (`∞` when
+   `-1.0`)/drawdown%/exposure) with a truncation notice. Risk-off runs: tab hidden, rendering
+   byte-identical.
+2. **Wire budget for risk analytics** (`routes/v1_backtest.py`) — the persisted model stays
+   EXACT (full timeline/curves/rejections in `backtest_runs.summary`); `_payload_risk()`
+   budgets the wire like trades/equity: LTTB downsample of timeline/capital_curve/
+   exposure_curve to `PAYLOAD_MAX_RISK_POINTS=2000` (first/last kept) + rejection list cap
+   `PAYLOAD_MAX_REJECTIONS=200` with `rejections_truncated` flag. Applied to run-v3
+   `_result_payload` AND `GET /{run_id}` (which now returns `model_dump(mode="json")` with
+   `risk_analytics` swapped for the budgeted dict — otherwise identical). Risk-off
+   passthrough unchanged.
+3. **Per-order rejections exposed** — `RiskAnalytics.rejections: list[RiskRejection]`
+   (additive; `backtest/risk.py analytics()` includes `list(self._rejected)`; old persisted
+   rows default `[]`). Downsample helper `_payload_risk_points` reuses
+   `backtest.performance.downsample_pairs` with `value` (curves) or `equity` (timeline) as y.
+4. **Tests** — `tests/test_backtest_risk_payload.py` (7): downsample >2000 (first/last kept,
+   monotonic), passthrough <2000, risk-off passthrough, rejection cap + flag, enabled wire
+   shape, route-level GET budget + risk-off passthrough. **915 passed, 1 xfailed**
+   (908 + 7). Web `tsc` clean + prod build clean.
+5. **Deploy + prod smoke 25/25** — API 3 files hot-deployed (models.py, risk.py,
+   v1_backtest.py; health 200, in-container contract check). Web: tar `.next` (60MB,
+   BUILD_ID `q-Eff63YJmQe0dbJva2B6`) → stop → `docker cp ./. → /app/.next/` → start →
+   `chown -R 1001` → `Ready`, in-container `/backtest` 200 (port 3000 NOT host-published —
+   caddy proxies via the compose network; probe INSIDE the container) + public
+   `https://ai.trademetrix.tech/backtest` 200. Smoke (fa668109, ema_crossover, NIFTY
+   5m/60d = 3101 candles): risk OFF 212 trades; risk ON `max_trades_per_day=3` → 3 trades,
+   accepted 6, **418 rejections** all MAX_TRADES_PER_DAY, halts 0; curves downsampled
+   3101→**2000** (first 0 / last 3101); rejections capped 418→**200** + truncated flag;
+   NO_LIMIT sentinel `risk_remaining=-1.0`; GET persisted with same budgeted shape. Probes
+   + smoke strategies swept.
+
+### Reference
+- **Builder create response** returns the DSL model dump — the id is the **`id`** key
+  (NOT `strategy_id`). run-v3 takes that id.
+- **Data window cap**: 150d/15m and 120d/15m backtests FAIL with "No candle data loaded"
+  (loader window ≈ 60d/15m → 1034 candles). 60d/**5m** works (3101 candles, 212 trades).
+- **UI Risk tab contract**: `result.risk_analytics` comes from run-v3 (`api.backtest.runV3`);
+  the builtin `/run` v2 payload has NO risk_analytics key (risk UI is builder-DSL only).
+- **RiskChart gotchas**: lightweight-charts `AreaSeries` has NO `color` option (use
+  `lineColor`/`topColor`/`bottomColor`); TS `as number * 1000` parses wrong — parenthesize
+  `((x as number) * 1000)`; tabs array must be typed
+  `Array<'overview'|'optimizer'|'compare'|'trades'|'risk'>` or `setActiveTab` rejects the
+  widened `string`.
+- `_payload_risk_points` uses `p.get("value") if "value" in p else p.get("equity")` because
+  timeline points have `equity` but curve points have `value`.
+
 ## Session: 2026-08-05 — Backtest Phase A: enriched TradeRecords + big-run performance + interactive charts (v1.5.10)
 
 ### What was done

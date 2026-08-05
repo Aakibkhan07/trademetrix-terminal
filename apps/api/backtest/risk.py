@@ -261,6 +261,7 @@ class BacktestRiskSimulator:
                 RiskCurvePoint(index=p.index, timestamp=p.timestamp, value=p.exposure)
                 for p in self._timeline
             ],
+            rejections=list(self._rejected),
         )
 
     # ── internal state derivation (broker is the only source of truth) ──

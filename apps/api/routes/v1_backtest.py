@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from backtest.manager import backtest_manager
 from backtest.models import BacktestConfig, ReplaySpeed
 from backtest.optimizer import OptimizationSpec, backtest_optimizer
+from backtest.performance import downsample_pairs
 from core.deps import get_current_user, require_feature
 from core.models import UserProfile
 from engine.backtest import BacktestEngine, fetch_historical_data
@@ -344,7 +345,9 @@ async def get_backtest(
     run = await backtest_manager.get_run(run_id)
     if not run:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Backtest run not found")
-    return run
+    payload = run.model_dump(mode="json")
+    payload["risk_analytics"] = _payload_risk(run.risk_analytics)
+    return payload
 
 
 # ─── Phase 5: run-v3, compare, exports, deploy-to-paper, data endpoints ───
@@ -369,10 +372,48 @@ class BacktestV3Request(BaseModel):
 
 
 PAYLOAD_MAX_TRADES = 2000
+PAYLOAD_MAX_RISK_POINTS = 2000
+PAYLOAD_MAX_REJECTIONS = 200
 
 
 def _payload_trades(trades) -> list:
     return [t.model_dump(mode="json") for t in trades[:PAYLOAD_MAX_TRADES]]
+
+
+def _payload_risk_points(points) -> list:
+    """Wire-level LTTB downsample of risk curve/timeline points (keeps first/last).
+
+    Mirrors PerformanceAnalytics.equity_curve downsampling so multi-point risk
+    payloads stay bounded. The persisted model keeps the full series — this only
+    shapes what goes over the wire.
+    """
+    dumps = [p.model_dump(mode="json") if hasattr(p, "model_dump") else p for p in points]
+    if len(dumps) <= PAYLOAD_MAX_RISK_POINTS:
+        return dumps
+    idx = downsample_pairs(
+        [(float(p.get("index", i)), float(p.get("value") if "value" in p else p.get("equity", 0.0))) for i, p in enumerate(dumps)],
+        threshold=PAYLOAD_MAX_RISK_POINTS,
+    )
+    return [dumps[i] for i in idx]
+
+
+def _payload_risk(analytics) -> dict:
+    """Serialize risk analytics for the wire, budgeted like the equity curve.
+
+    Curve/timeline series are downsampled and the per-order rejections list is
+    capped (with a truncation flag), matching the existing trades handling.
+    Risk-off analytics pass through unchanged.
+    """
+    d = analytics.model_dump(mode="json")
+    if not d.get("enabled"):
+        return d
+    d["timeline"] = _payload_risk_points(analytics.timeline)
+    d["capital_curve"] = _payload_risk_points(analytics.capital_curve)
+    d["exposure_curve"] = _payload_risk_points(analytics.exposure_curve)
+    rejects = [r.model_dump(mode="json") for r in analytics.rejections]
+    d["rejections"] = rejects[:PAYLOAD_MAX_REJECTIONS]
+    d["rejections_truncated"] = len(rejects) > PAYLOAD_MAX_REJECTIONS
+    return d
 
 
 def _payload_equity(equity_curve) -> list:
@@ -428,7 +469,7 @@ def _result_payload(result) -> dict:
         "monthly_returns": result.monthly_returns,
         "duration_seconds": result.duration_seconds,
         "error": result.error,
-        "risk_analytics": result.risk_analytics.model_dump(mode="json"),
+        "risk_analytics": _payload_risk(result.risk_analytics),
     }
 
 
