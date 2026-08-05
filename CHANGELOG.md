@@ -1,3 +1,81 @@
+## v1.6.2 (2026-08-05) — BETA LAUNCH SUPPORT W32: weekly intelligence cycle + risk-audit persistence (ops-only)
+
+> Beta Launch Support week 1: evidence collection cycle established. Full W32 evidence
+> suite authored in `docs/weekly/2026-W32/` (01-product-health → 13-next-week-priorities)
+> from live Supabase analytics, Prometheus and container logs.
+
+### Ops fixes shipped (evidence-backed, feature freeze respected)
+- **`risk_audit_log` migration applied to prod** — `20260804_01600_risk_audit_log.sql`
+  (`CREATE TABLE IF NOT EXISTS` + index) executed on remote Supabase; PostgREST schema
+  reloaded (`NOTIFY pgrst, 'reload schema'`); `rest/v1/risk_audit_log` returns 200. Closes
+  KNOWN_ISSUES #14 [Action required]: emergency-stop audit writes no longer hit PGRST205
+  and no longer fall back to `audit_log`. Zero code changes (DDL only).
+- **Feedback store cleaned** — the 9 `E2E prod-readiness test — please ignore` rows (all
+  `prtest*` users, 2026-08-02) marked `wontfix` + notes via PostgREST PATCH, so the W33
+  feedback dashboard counts only real user reports.
+- **Known issue triage** — KNOWN_ISSUES #14 resolved; #1 (token cycle) mitigated by the
+  auto-refresh cron + INC-016; INC-015/016/017 closed (already shipped `fd896ca`).
+
+### Evidence findings (see docs/weekly/2026-W32/)
+- Backtest runs 2 → 38 (5 users), builder strategies 7 → 20, accounts 26 → 31; requests
+  50,390 → 101,600 with p95 latency *improving* (API 0.249s).
+- 0 container restarts; fyers breaker 2 → 0 OPEN; client errors 20 → 0 since the 08-03
+  chart color-parse fix (verified in current build).
+- Top open items: broker-step activation (13% connect), `/alerts/` poller 429s (610/7d),
+  `async_safe_single` None log noise (653×/48h), `strategy_runs` 22P02 schema debt.
+
+### Verification
+- Migration: table + 6 columns present, PostgREST 200 on the table, `NOTIFY` sent.
+- Feedback: 9 rows returned `wontfix` with notes from the PATCH response.
+- No API/web code changed; health 200 (no redeploy required).
+
+## v1.6.1 (2026-08-05) — BACKTEST ENGINE PHASE D: Trade Intelligence (interactive trade learning)
+> Phase D of the institutional backtest roadmap (A/B/C/D). **Transforms every completed
+> trade in `apps/web/app/backtest/page.tsx` into an interactive learning object** — click
+> any trade (trades table row or the Overview equity-curve E/X marker) and a **Trade
+> Intelligence** panel opens: a real candlestick price chart (candles from the same durable
+> store the backtest used via `GET /backtests/candles/{symbol}/{interval}?days=`) with
+> **Entry/Exit markers** and **SL/Target price lines**, a crosshair tooltip (PnL, RR, risk
+> amount, signal reasons, charges/taxes/slippage/cost, risk state incl. drawdown at entry
+> and capital remaining), **Replay from entry candle** (client-side step-through starting
+> exactly at the entry candle), and **Prev Trade / Next Trade / Jump to Max Drawdown /
+> Jump to Best / Jump to Worst**.
+>
+> **Constraints honoured** — visualization only: analytics and execution engine untouched
+> (backend **zero** diffs), no duplicate calculations (SL is a display-level inverse of the
+> persisted `risk_amount = |entry − stop| × qty`; target is honoured only when the trade
+> exited via a target/LIMIT fill — `exit_reason`), all other values read straight from the
+> existing run payload. Data limits surfaced honestly in the UI: SL line appears only when a
+> resting stop existed (`risk_amount > 0`); per-candle indicator snapshots are not persisted
+> so the signal context is shown via entry/exit reasons.
+
+### Added
+- **`apps/web/app/backtest/page.tsx`** — `TradeChart` (lightweight-charts v5:
+  `CandlestickSeries` price chart, `createSeriesMarkers` entry/exit markers + animated
+  replay cursor, `createPriceLine` dash lines for SL/Target, crosshair tooltip, viewport
+  auto-centred on the entry candle, ResizeObserver); clickable trade rows (highlight) +
+  toolbar (Prev/Next/Max Drawdown/Best/Worst); `Trade Intelligence` panel (12 detail cards
+  + signals card + chart + replay control); `BacktestChart` gained trade-click → trades tab;
+  `BTTrade` extended with the already-shipped enriched fields; `BTCandle`/`TradeView` types;
+  `candleTime`/`nearestCandleIdx` helpers. Candles fetched once per run with the run's
+  `config.days` window (`api.backtest.candles`), cached across trade selections.
+
+### Changed
+- **`apps/web/app/backtest/page.tsx`** — trades table adds RR column + selected-row
+  highlight; Overview equity chart markers are clickable ("Click an E/X marker to inspect
+  that trade").
+
+### Verification
+- Web `tsc --noEmit` clean; prod build clean (BUILD_ID `iia71_nq1kK2DYPZhdi9P`).
+- Full API regression (backend untouched): **915 passed, 1 xfailed**.
+- Deployed (`.next` swap into `trademetrix_web`, stopped-container `docker cp`, `chown -R
+  1001`); `✓ Ready`, `/backtest` 200 in-container + public, new page chunk served.
+- Prod smoke (puppeteer, fresh user, `p0e2e/e2e-trade-intel.js`): **12/12 OK** — run
+  renders → Trades tab → click row 0 opens Trade Intelligence 1/3 with real candles →
+  SL price line derived → detail cards (charges/RR/signals) → crosshair tooltip shows
+  P&L/RR/charges/risk → Replay toggles and steps from the entry candle → Best→3/3,
+  Worst→2/3, Max Drawdown→2/3, Next→3/3 → zero console/page errors. Smoke users swept.
+
 ## v1.6.0 (2026-08-05) — BACKTEST ENGINE PHASE C: risk-aware backtest reports (risk analytics in the UI)
 
 > Phase C of the institutional backtest roadmap (A/B/C). **Surfaces Phase B's

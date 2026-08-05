@@ -59,9 +59,8 @@ Status verified 2026-08-01. Each item notes impact and mitigation. None block GA
 13. **Yahoo fallback throttling**
     - Occasional transient throttling on Yahoo when many symbols are fetched quickly; the durable candle store caches results so retries typically succeed.
 
-14. **[Action required] `risk_audit_log` table not yet created in prod (Beta hardening, 2026-08-04)**
-    - The kill-switch emergency audit writes to `risk_audit_log`, which does not exist in the prod schema. Code falls back to the existing `audit_log` table, so audits are persisted, but the dedicated table should be created.
-    - Apply `supabase/migrations/20260804_01600_risk_audit_log.sql` via the Supabase SQL editor / psql (API has no DDL access). Until applied, one `PGRST205` warn line appears per emergency-stop audit write.
+14. **[Action required] `risk_audit_log` table not yet created in prod (Beta hardening, 2026-08-04)** — **RESOLVED 2026-08-05**: migration `20260804_01600_risk_audit_log.sql` applied to prod via psql (`CREATE TABLE` + index verified; PostgREST schema reloaded — `rest/v1/risk_audit_log` returns 200). Emergency-stop audits now persist to the dedicated table; the PGRST205 fallback path remains as belt-and-braces.
+   - Keep the migration idempotent and re-verify after any Supabase restore.
 
 ## Resolved during GA prep (kept for audit)
 

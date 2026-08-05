@@ -3,6 +3,112 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-05 — Beta Launch Support W32: weekly intelligence evidence cycle + risk-audit persistence (v1.6.2, OPS-ONLY)
+
+### What was done
+1. **W32 evidence suite authored** — `docs/weekly/2026-W32/` (13 reports) generated from LIVE
+   data: `infra/scripts/weekly_report.sh` (Prometheus 127.0.0.1:9090 + container logs) +
+   `analytics_report.sh` (remote Supabase `analytics_events`/`feedback_items`), run with
+   `TMX_VPS_PASSWORD`/`TMX_SUPABASE_PASSWORD` (both `Aakibkhan1@23` in password manager).
+   All Analysis/Recommendations sections authored from the data; Top-10 Issues + Next Week
+   Priorities ranked by evidence.
+2. **Fixes shipped (evidence-backed, feature freeze respected — zero code changes)**:
+   - **`risk_audit_log` migration applied to prod** (closes KNOWN_ISSUES #14 [Action
+     required]): scp `supabase/migrations/20260804_01600_risk_audit_log.sql` → VPS → psql
+     `-f` (CREATE TABLE + INDEX, idempotent) → `NOTIFY pgrst, 'reload schema'` → verified
+     `rest/v1/risk_audit_log` returns 200 via the API container (service key). Emergency
+     stops now persist to the dedicated table; no more PGRST205 on every write.
+   - **Feedback hygiene**: 9 `prtest*` rows ("E2E prod-readiness test — please ignore",
+     2026-08-02) PATCHed to `wontfix` + notes via PostgREST (`title=eq...` filter + `Prefer:
+     return=representation`). Real-user feedback list is clean for W33.
+3. **Evidence findings** (full detail in `docs/weekly/2026-W32/`):
+   - Backtest runs 2→38 (5 users), builder strategies 7→20, accounts 26→31; requests
+     101,600 (2× W31) with p95 API 0.249s (better). Zero restarts; breaker OPEN 2→0;
+     fyers creds 2 valid/2 needs_attention.
+   - 16,810 "Token refresh failed" log lines in 7d are the RESOLVED expired-token era
+     (pre-08-04); last-24h logs: 0 such lines. Remaining 24h errors: EndOfStream 10×
+     (client aborts), 22P02 7× (schema debt), risk_audit_log PGRST205 (now fixed).
+   - Top user-visible crash of the week: `Failed to parse color: color-mix(...)` from
+     lightweight-charts (20 events, 7 users, 08-01/02) — fixed in the 08-03 build; 0 since.
+   - Funnel: 73 session users → 27 click → 7 client_error → 3 backtest.run → 1
+     broker.connected. Broker step (13% of 31) is the only structural drop.
+   - 429s (785/7d) concentrate on `/api/v1/alerts/` (610) — poller rate-limited (P2).
+   - `async_safe_single ... None` = 653×/48h log noise (benign, WARNING → downgrade P2).
+   - `strategy_runs` 22P02 for builder hex ids (8×/48h, runner continues) — schema debt P3.
+4. **Docs** — CHANGELOG v1.6.2 entry; KNOWN_ISSUES #14 → RESOLVED; this AGENTS.md entry.
+   Nothing else touched (no API/web deploys; health 200 throughout).
+
+### Reference
+- Weekly report cycle: `TMX_VPS_PASSWORD=... TMX_SUPABASE_PASSWORD=... bash
+  infra/scripts/weekly_report.sh` and `analytics_report.sh` (run from repo root; both
+  overwrite `docs/weekly/$(date +%G-W%V)/`; author the Analysis sections after).
+- Evidence gate for ANY next-week action: one of analytics/feedback/ticket/metrics/security
+  — opinions alone do not enter `13-next-week-priorities.md` (see W31/W32 for the format).
+- Feedback store cleanup pattern: PostgREST PATCH with `?title=eq.<urlencoded>` +
+  `Prefer: return=representation` inside the API container (service key env vars).
+- `risk_audit_log` (6 cols: id/user_id/event/reason/triggered_by/created_at) is now in the
+  prod schema; audit fallback to `audit_log` remains as belt-and-braces.
+
+## Session: 2026-08-05 — Backtest Phase D: Trade Intelligence — click any trade → interactive price-chart learning view (v1.6.1, WEB-ONLY)
+
+### What was done
+1. **Visualization-only phase (constraints honoured)** — backend ZERO diffs: analytics and
+   execution engine untouched; no duplicate calculations; everything reuses the existing
+   run payload + the existing `GET /backtests/candles/{symbol}/{interval}?days=` endpoint
+   (same durable store the backtest consumed; fetched once per run with `config.days` and
+   cached across selections). Regression: **915 passed, 1 xfailed** (identical baseline).
+2. **Data honesty contract** (all display derivations from persisted fields):
+   - SL line = display-level inverse of persisted `risk_amount = |entry − stop| × qty` →
+     `entry ∓ risk_amount/qty` (only when `risk_amount > 0` — i.e. a resting SL existed).
+   - Target line shown ONLY when the trade exited via a LIMIT/target fill
+     (`exit_reason === 'target'`) — target prices are not persisted anywhere else.
+   - Indicator snapshots per candle are NOT persisted → the "indicator values" surface is
+     the signal context: `entry_reason` → `exit_reason`.
+   - Risk state at entry: risk ON/OFF from `risk_analytics.enabled` + drawdown% (equity
+     curve `drawdown_pct` at entry) + capital remaining (risk `timeline` `capital_remaining`).
+3. **`apps/web/app/backtest/page.tsx`** — `TradeChart` (lightweight-charts v5
+   `CandlestickSeries` + `createSeriesMarkers` (dynamic `setMarkers`) + `createPriceLine`
+   dashes for SL (#f59e0b) / Target (#22d3ee) + crosshair tooltip + viewport auto-centred
+   on the entry candle + ResizeObserver). Trades tab: clickable rows (selected highlight),
+   toolbar (← Prev / Next → / Max Drawdown / Best / Worst), `Trade Intelligence` panel
+   (12 detail cards + Signals card + chart + "▶ Replay from entry" / "■ Stop"). Overview
+   equity chart markers now clickable (`chart.subscribeClick` → nearest/overlapping trade
+   → trades tab). `BTTrade` extended with the already-shipped enriched fields
+   (rr/entry_reason/exit_reason/charges/taxes/slippage/cost_total/risk_amount/
+   duration_minutes); new `BTCandle`/`TradeView` types; `candleTime`/`nearestCandleIdx`.
+4. **Replay = client-side step-through** starting exactly at the entry candle index
+   (`setVisibleLogicalRange` from entryIdx−8; Play steps 380ms/candle, cyan circle marker,
+   stops at exit candle) — no server replay call (server replay needs risk_sim context and
+   would violate "visualization only"). "Replay starts exactly from entry candle" =
+   viewport opens on the entry candle + animation begins there.
+5. **Deploy + prod smoke 12/12** — `.next` (63MB, BUILD_ID `iia71_nq1kK2DYPZhdi9P`) →
+   `docker exec -u root rm -rf /app/.next` (while running) → stop → extract host-side →
+   `docker cp /tmp/phd_next/. → /app/.next/` → start → `chown -R 1001` → `✓ Ready`,
+   `/backtest` 200 in-container + public, new chunk served (200). Puppeteer smoke
+   (`p0e2e/e2e-trade-intel.js`, fresh user, mocked run payload exercising the FE + REAL
+   candles passthrough): run renders → click trade → Trade Intelligence 1/3 + 7 canvases →
+   SL line → detail cards → tooltip (P&L/RR/charges/risk) → replay toggles → Best 3/3,
+   Worst 2/3, Max Drawdown 2/3, Next 3/3 → zero page errors. 4 `tmti*` users swept via
+   GoTrue admin (container-env `SUPABASE_URL`+`SUPABASE_SERVICE_KEY`).
+
+### Reference
+- **TradeChart gotchas**: markers must be updated via the plugin's `setMarkers()` (not
+  re-`createSeriesMarkers`); price lines must be tracked + `removePriceLine`'d before
+  re-creating on selection change (leak otherwise); viewport centring via
+  `timeScale().setVisibleLogicalRange({from, to})` (index space, NOT timestamps); replay
+  interval must cap the step at `view.exitIdx` or the end-detection effect never fires;
+  `useEffect`-based ref updates (`viewRef.current = view`) — never write refs in render.
+- **Payload contract**: builtin `/run` (v2) trades have the base shape only; the enriched
+  per-trade fields (rr, reasons, costs) come from run-v3/`GET /{run_id}` — Trade
+  Intelligence degrades gracefully (`?? 0` / `—`) on v2 payloads.
+- **Candles endpoint** takes `days` and `user_id` (durable store) — pass the run's
+  `config.days` or the chart may show a different window than the run used; `force_refresh`
+  defaults false.
+- Jump-to-Drawdown picks the trade whose [entry, exit] window contains the max
+  `drawdown_pct` equity point (fallback: nearest entry/exit).
+- Web deploy (this phase): rm `.next` while container RUNNING (docker exec), then stop →
+  cp → start → chown -R 1001. BUILD_ID verify + in-container 200s + chunk 200.
+
 ## Session: 2026-08-05 — Backtest Phase B: simulated risk engine — `risk_enabled=true` 0-trades incident FIXED (v1.5.11)
 
 ### What was done
