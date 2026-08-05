@@ -365,6 +365,7 @@ class BacktestV3Request(BaseModel):
     partial_fill_probability: float = 0.0
     seed: int | None = None
     cost: dict = {}
+    risk: dict = {}
 
 
 PAYLOAD_MAX_TRADES = 2000
@@ -427,6 +428,7 @@ def _result_payload(result) -> dict:
         "monthly_returns": result.monthly_returns,
         "duration_seconds": result.duration_seconds,
         "error": result.error,
+        "risk_analytics": result.risk_analytics.model_dump(mode="json"),
     }
 
 
@@ -481,6 +483,7 @@ async def run_backtest_v3(
             partial_fill_probability=req.partial_fill_probability,
             seed=req.seed,
             cost=req.cost,
+            risk=req.risk,
         )
         result = await backtest_manager.run(config)
         return _result_payload(result)

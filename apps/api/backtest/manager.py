@@ -16,9 +16,8 @@ from backtest.models import (
 )
 from backtest.performance import performance_analytics
 from backtest.replay_engine import replay_engine
+from backtest.risk import BacktestRiskSimulator
 from execution.manager import ExecutionManager
-from execution.models import ExecutionRequest
-from risk.manager import risk_manager
 from risk.models import RiskDecision
 from strategies import get_strategy
 
@@ -54,6 +53,7 @@ class BacktestManager:
         bt_user_id = f"backtest:{run_id}"
         exec_mgr = ExecutionManager()
         snapshots: list[dict] = []
+        risk_sim = self._new_risk_sim(config)
 
         result = BacktestResult(
             run_id=run_id,
@@ -100,9 +100,9 @@ class BacktestManager:
                     )
                     if signal and signal.orders:
                         for order in signal.orders:
-                            await self._place_via_broker(broker, order, config, bt_user_id, reason=signal.reason)
+                            await self._place_via_broker(broker, order, config, bt_user_id, reason=signal.reason, risk_sim=risk_sim)
 
-                    snapshot = await self._collect_snapshot(broker, idx, str(raw.get("timestamp", "")))
+                    snapshot = await self._collect_snapshot(broker, idx, str(raw.get("timestamp", "")), risk_sim=risk_sim)
                     snapshots.append(snapshot)
 
                     if idx > 0 and idx % 100 == 0:
@@ -116,13 +116,14 @@ class BacktestManager:
                     broker=broker,
                     risk_check=config.risk_enabled,
                     bt_user_id=bt_user_id,
+                    risk_sim=risk_sim,
                 )
 
             await strategy.on_stop()
 
             if config.close_positions_on_end and candles:
                 await self._close_open_positions(broker, candles[-1])
-                snapshots.append(await self._collect_snapshot(broker, len(candles)))
+                snapshots.append(await self._collect_snapshot(broker, len(candles), risk_sim=risk_sim))
 
             elapsed = time.monotonic() - start_time
 
@@ -142,6 +143,8 @@ class BacktestManager:
             result.completed_at = datetime.now(UTC).isoformat()
             result.duration_seconds = round(elapsed, 2)
             result.total_fees = round(getattr(broker, "total_costs", 0.0) or 0.0, 2)
+            if risk_sim:
+                result.risk_analytics = risk_sim.analytics()
 
             self._cleanup(bt_user_id, exec_mgr)
 
@@ -322,39 +325,39 @@ class BacktestManager:
             cost_config=config.cost,
         )
 
+    def _new_risk_sim(self, config: BacktestConfig) -> BacktestRiskSimulator | None:
+        """Build the simulated risk engine for a run (None when risk off)."""
+        if not config.risk_enabled:
+            return None
+        return BacktestRiskSimulator(
+            initial_capital=config.initial_capital,
+            overrides=config.risk or {},
+        )
+
     async def _place_via_broker(
         self, broker: BacktestBroker, order, config: BacktestConfig, bt_user_id: str,
-        reason: str = "",
+        reason: str = "", risk_sim: BacktestRiskSimulator | None = None,
     ):
-        """Place an order through the backtest broker with optional risk dry-run."""
+        """Place an order through the backtest broker.
+
+        When ``risk_sim`` is present the order is gated by the SIMULATED
+        risk engine (account-state-only rules); rejected orders return None
+        and are recorded in the simulator's analytics. No live risk
+        evaluation ever runs here — backtest orders are evaluated against
+        the simulated account, never against live broker/OMS/DB state.
+        """
         if reason:
             order.reason = reason
-        if config.risk_enabled:
+        if risk_sim is not None:
             try:
-                req = self._order_to_request(order, bt_user_id)
-                risk_result = await risk_manager.evaluate(req, dry_run=True)
-                if risk_result.decision == RiskDecision.REJECTED:
+                check = risk_sim.check(broker, order)
+                if check.decision == RiskDecision.REJECTED:
                     return None
+                if check.adjusted_quantity is not None:
+                    order.quantity = check.adjusted_quantity
             except Exception as e:
-                logger.debug("Backtest risk check skipped: %s", e)
+                logger.debug("Backtest risk simulation skipped: %s", e)
         return await broker.place_order(order)
-
-    def _order_to_request(self, order, bt_user_id: str) -> ExecutionRequest:
-        return ExecutionRequest(
-            user_id=bt_user_id,
-            broker="paper",
-            symbol=order.symbol,
-            exchange=order.exchange.value if hasattr(order.exchange, "value") else "NSE",
-            side=order.side.value if hasattr(order.side, "value") else "BUY",
-            order_type=order.order_type.value if hasattr(order.order_type, "value") else "MARKET",
-            product=order.product.value if hasattr(order.product, "value") else "INTRADAY",
-            quantity=order.quantity,
-            price=order.price,
-            trigger_price=order.trigger_price,
-            strategy_id=order.strategy_id,
-            source="backtest",
-            is_paper=True,
-        )
 
     async def _setup_strategy(self, config: BacktestConfig):
         strategy_cls = get_strategy(config.strategy_type)
@@ -362,7 +365,10 @@ class BacktestManager:
             raise ValueError(f"Unknown strategy: {config.strategy_type}")
         return strategy_cls(config.strategy_params)
 
-    async def _collect_snapshot(self, broker: BacktestBroker, index: int, timestamp: str | None = None) -> dict:
+    async def _collect_snapshot(
+        self, broker: BacktestBroker, index: int, timestamp: str | None = None,
+        risk_sim: BacktestRiskSimulator | None = None,
+    ) -> dict:
         snapshot = {
             "index": index,
             "timestamp": timestamp or datetime.now(UTC).isoformat(),
@@ -392,6 +398,8 @@ class BacktestManager:
             }
         except Exception as e:
             logger.debug("Snapshot error at index %d: %s", index, e)
+        if risk_sim is not None:
+            risk_sim.snapshot(broker, index, timestamp or snapshot["timestamp"])
         return snapshot
 
     async def _close_open_positions(
@@ -430,6 +438,7 @@ class BacktestManager:
         bt_user_id = f"backtest:{run_id}"
         exec_mgr = ExecutionManager()
         snapshots: list[dict] = []
+        risk_sim = self._new_risk_sim(config)
 
         result = BacktestResult(
             run_id=run_id,
@@ -466,14 +475,14 @@ class BacktestManager:
                 signal = await strategy.on_candle(backtest_data_loader.to_candle(raw))
                 if signal and signal.orders:
                     for order in signal.orders:
-                        await self._place_via_broker(broker, order, config, bt_user_id, reason=signal.reason)
-                snapshots.append(await self._collect_snapshot(broker, idx, str(raw.get("timestamp", ""))))
+                        await self._place_via_broker(broker, order, config, bt_user_id, reason=signal.reason, risk_sim=risk_sim)
+                snapshots.append(await self._collect_snapshot(broker, idx, str(raw.get("timestamp", "")), risk_sim=risk_sim))
 
             await strategy.on_stop()
 
             if config.close_positions_on_end and candles:
                 await self._close_open_positions(broker, candles[-1])
-                snapshots.append(await self._collect_snapshot(broker, len(candles), str(candles[-1].get("timestamp", ""))))
+                snapshots.append(await self._collect_snapshot(broker, len(candles), str(candles[-1].get("timestamp", "")), risk_sim=risk_sim))
 
             trades = [
                 TradeRecord(**t) for t in broker.trades
@@ -490,6 +499,8 @@ class BacktestManager:
             result.completed_at = datetime.now(UTC).isoformat()
             result.duration_seconds = 0.0
             result.total_fees = round(getattr(broker, "total_costs", 0.0) or 0.0, 2)
+            if risk_sim:
+                result.risk_analytics = risk_sim.analytics()
 
             self._cleanup(bt_user_id, exec_mgr)
             await self._persist_run(result)

@@ -52,6 +52,7 @@ class BacktestConfig(BaseModel):
     partial_fill_probability: float = 0.0
     seed: int | None = None
     cost: dict = Field(default_factory=dict)
+    risk: dict = Field(default_factory=dict)
     candle_slice: tuple[int, int] | None = None
 
 
@@ -89,6 +90,57 @@ class EquityPoint(BaseModel):
     equity: float
     drawdown: float = 0.0
     drawdown_pct: float = 0.0
+
+
+class RiskRejection(BaseModel):
+    """A backtest order rejected by the risk simulation, with the account
+    state at the moment of rejection (mission contract)."""
+
+    timestamp: str
+    symbol: str
+    side: str
+    quantity: int
+    price: float
+    rule: str
+    reason: str
+    capital_remaining: float
+    risk_remaining: float
+    drawdown: float
+    exposure: float
+
+
+class RiskTimelinePoint(BaseModel):
+    """Per-candle risk state snapshot (risk timeline)."""
+
+    index: int
+    timestamp: str
+    equity: float
+    exposure: float
+    drawdown_pct: float
+    capital_remaining: float
+    risk_remaining: float
+    status: str = "trading"
+
+
+class RiskCurvePoint(BaseModel):
+    """Single-series risk curve point (capital / exposure curves)."""
+
+    index: int
+    timestamp: str
+    value: float
+
+
+class RiskAnalytics(BaseModel):
+    """Backtest risk simulation analytics (additive, empty when risk off)."""
+
+    enabled: bool = False
+    accepted_trades: int = 0
+    rejected_trades: int = 0
+    halt_count: int = 0
+    rejection_reasons: dict[str, int] = Field(default_factory=dict)
+    timeline: list[RiskTimelinePoint] = Field(default_factory=list)
+    capital_curve: list[RiskCurvePoint] = Field(default_factory=list)
+    exposure_curve: list[RiskCurvePoint] = Field(default_factory=list)
 
 
 class BacktestResult(BaseModel):
@@ -150,3 +202,4 @@ class BacktestResult(BaseModel):
     completed_at: str = ""
     duration_seconds: float = 0.0
     error: str = ""
+    risk_analytics: RiskAnalytics = Field(default_factory=RiskAnalytics)

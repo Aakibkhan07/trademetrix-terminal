@@ -1,3 +1,61 @@
+## v1.5.11 (2026-08-05) — BACKTEST ENGINE PHASE B: simulated risk engine (risk_enabled=true fixed)
+
+> Phase B of the institutional backtest roadmap (A/B/C). **Fixes the
+> `risk_enabled=true → 0 trades` incident**: backtest orders were being evaluated by the
+> LIVE Risk Engine dry-run, which read live state (Supabase orders queries, Redis kill
+> switch, market status) for a `backtest:<hex>` pseudo-user — fail-closed defaults
+> (`kill_switch_enabled=True`) rejected every order. Backtests now run a **simulated risk
+> engine** (`backtest/risk.py`) that reuses the shared Risk Engine vocabulary
+> (`RiskConfig` extended, `RiskDecision`, `RiskRuleType`) but evaluates orders against the
+> SIMULATED account only (BacktestBroker equity/cash/positions/realized P&L). No live
+> broker/OMS/DB/market-state access.
+>
+> Simulated rules (mirroring live semantics): position sizing (`max_risk_per_trade_pct`
+> clamps opening quantity), max capital, max exposure, max symbol exposure, max open
+> positions, max quantity, max trades/day, daily loss limit, daily profit target (warning),
+> max drawdown, circuit breaker (halts remaining orders after a daily-loss/drawdown
+> breach — simulated kill switch), kill switch + emergency stop config flags.
+> Deliberately NOT simulated: broker auth, market-open validation, trading window, live
+> margin API, broker connectivity, OMS queue state, duplicate/cooldown/rate rules.
+>
+> Every rejected order carries: reason, rule triggered, capital remaining, risk remaining,
+> drawdown, exposure. `BacktestResult.risk_analytics` (additive) exposes accepted/rejected
+> trades, rejection reasons, halt count, risk timeline, capital curve, exposure curve.
+> Configurable via new `BacktestConfig.risk` dict; capital-derived institutional defaults
+> (10% daily loss, 25% drawdown, 5× exposure, 10 open positions) guarantee risk ON never
+> zeroes a healthy run. Constraint honored: OMS / Broker Layer / Execution Engine / Public
+> APIs unchanged (one additive `BacktestBroker.last_price/last_time` accessor only); no new
+> UI, reports unchanged; legacy `/run` payload unchanged.
+
+### Added
+- **`apps/api/backtest/risk.py` (new)** — `BacktestRiskConfig(RiskConfig)` with
+  backtest-only knobs (`max_risk_per_trade_pct`, `circuit_breaker`); `BacktestRiskCheck`;
+  `BacktestRiskSimulator` (per-run, broker-only state reads): `check()` rule chain,
+  `snapshot()` per-candle risk timeline, `analytics()`, rejection records with the full
+  payload contract; `NO_LIMIT` sentinel for unlimited risk budget.
+- **`apps/api/backtest/models.py`** — `BacktestConfig.risk: dict` (rule overrides);
+  `RiskRejection`, `RiskTimelinePoint`, `RiskCurvePoint`, `RiskAnalytics` models;
+  `BacktestResult.risk_analytics` (additive, default empty).
+
+### Changed
+- **`apps/api/backtest/manager.py`** — `_place_via_broker` gates orders via
+  `BacktestRiskSimulator.check()` (with quantity clamping) instead of the live
+  `risk_manager.evaluate(dry_run=True)`; `run`/`_fast_run` build the simulator when
+  `risk_enabled` and attach `result.risk_analytics`; `_collect_snapshot` records risk
+  timeline points; replay path passes `risk_sim` through.
+- **`apps/api/backtest/replay_engine.py`** — `run(..., risk_sim=None)`: simulator path
+  replaces the live risk dry-run when provided; live `risk_manager` path kept as legacy
+  fallback for external callers.
+- **`apps/api/backtest/execution.py`** — additive `last_price(symbol)` / `last_time()`
+  accessors on `BacktestBroker` (risk sim price source).
+
+### Verification
+- **25 new tests** (`tests/test_backtest_risk_sim.py`): rule semantics, rejection payload
+  contract, sizing clamp + reducer exemption, circuit-breaker halt, kill/emergency-stop
+  config, analytics shape, risk-off parity + risk-on-never-zero + tight-limit reduction at
+  the manager level, replay-path simulator use, broker-level sized fill.
+- Full suite **908 passed, 1 xfailed** (883 baseline + 25).
+
 ## v1.5.10 (2026-08-05) — BACKTEST ENGINE PHASE A: enriched TradeRecords, big-run performance (equity downsampling + trade pagination), interactive charts
 
 > Phase A of the institutional backtest roadmap (A/B/C). TradeRecords now carry the full

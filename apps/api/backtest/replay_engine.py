@@ -58,6 +58,7 @@ class ReplayEngine:
         broker=None,
         risk_check: bool = True,
         bt_user_id: str = "",
+        risk_sim=None,
     ) -> None:
         self._stopped = False
         self._total_candles = len(raw_candles)
@@ -81,6 +82,8 @@ class ReplayEngine:
                 try:
                     if broker is not None:
                         await broker.on_candle(idx)
+                        if risk_sim is not None:
+                            risk_sim.snapshot(broker, idx, str(raw.get("timestamp", "")))
 
                     signal = await strategy.on_candle(candle)
 
@@ -89,7 +92,13 @@ class ReplayEngine:
                             if order.reason is None or not order.reason:
                                 order.reason = signal.reason
                             if broker is not None:
-                                if risk_check:
+                                if risk_sim is not None:
+                                    check = risk_sim.check(broker, order)
+                                    if check.decision == "REJECTED":
+                                        continue
+                                    if check.adjusted_quantity is not None:
+                                        order.quantity = check.adjusted_quantity
+                                elif risk_check:
                                     risk_result = await risk_manager.evaluate(
                                         self._order_to_request(order), dry_run=True,
                                     )

@@ -639,6 +639,16 @@ class BacktestBroker:
     def positions(self) -> dict[str, dict]:
         return self._positions
 
+    def last_price(self, symbol: str) -> float:
+        return float(self._last_prices.get(symbol, 0.0))
+
+    def last_time(self, symbol: str = "") -> str:
+        if symbol and symbol in self._last_times:
+            return self._last_times[symbol]
+        for ts in self._last_times.values():
+            return ts
+        return ""
+
     def reset(self) -> None:
         self._orders.clear()
         self._positions.clear()

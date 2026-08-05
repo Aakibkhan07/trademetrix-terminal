@@ -3,6 +3,62 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-05 — Backtest Phase B: simulated risk engine — `risk_enabled=true` 0-trades incident FIXED (v1.5.11)
+
+### What was done
+1. **Incident root cause (prod-log confirmed)** — with `risk_enabled=true`, backtest orders
+   ran through the LIVE Risk Engine dry-run: `_place_via_broker` → `risk_manager.evaluate(
+   req, dry_run=True)` with `user_id="backtest:<run_id>"`. Rule state lookups
+   (`risk/helpers.py`) queried the live Supabase `orders`/`positions_snapshot` tables for a
+   PG-typed `uuid` column with a `backtest:<hex>` string → `22P02` → `_load_config` fail-closed
+   defaults with `kill_switch_enabled=True` → KillSwitchRule rejected every order →
+   **0 trades** (observed `user=backtest:*` `order.rejected` events on prod).
+2. **Fix — separate LIVE RISK from BACKTEST RISK, no business-logic duplication**
+   (`backtest/risk.py`, new `BacktestRiskSimulator` + `BacktestRiskConfig(RiskConfig)`).
+   Reuses the shared Risk Engine vocabulary (`RiskConfig` extended, `RiskDecision`,
+   `RiskRuleType`) but evaluates orders against the SIMULATED account only (broker
+   equity/cash/positions/realized P&L — pure sync broker reads; no Supabase/Redis/market
+   status/broker connectivity/OMS). Rule chain mirrors live semantics (risk/rules.py):
+   KILL_SWITCH config + EMERGENCY_STOP config → DAILY_LOSS_LIMIT → DAILY_PROFIT_TARGET
+   (warning, allowed) → MAX_TRADES_PER_DAY → MAX_OPEN_POSITIONS → MAX_QUANTITY →
+   MAX_CAPITAL → MAX_EXPOSURE → MAX_SYMBOL_EXPOSURE → MAX_DRAWDOWN; a simulated CIRCUIT_
+   BREAKER halts all remaining orders after a daily-loss/drawdown breach (simulated kill
+   switch, `circuit_breaker=True`). Position sizing `max_risk_per_trade_pct` CLAMPS opening
+   quantity (reducers/close orders exempt from capacity + sizing rules). Deliberately NOT
+   simulated: broker auth, market-open, trading window, margin API, broker offline, OMS
+   queue, duplicate/cooldown/rate rules.
+3. **Rejection payload contract (every rejected order)** — `RiskRejection`:
+   reason, rule, capital remaining, risk remaining, drawdown, exposure + timestamp/symbol/
+   side/qty/price. `RiskAnalytics` (additive `BacktestResult.risk_analytics`): accepted/
+   rejected counts, `rejection_reasons` dict, halt_count, risk timeline, capital curve,
+   exposure curve.
+4. **Config** — `BacktestConfig.risk: dict` overrides; capital-derived defaults so risk ON
+   never zeroes a healthy run (max_open_positions 10, daily_loss_limit 10% of capital,
+   max_drawdown 25%, max_exposure 5× capital). risk OFF unchanged (`_place_via_broker`
+   places directly).
+5. **Wiring** — manager `run`/`_fast_run` build the simulator (`_new_risk_sim`), pass it to
+   `_place_via_broker` + `_collect_snapshot`; replay path `replay_engine.run(..., risk_sim=)`
+   (live `risk_manager` fallback kept for external callers). `BacktestBroker` gained additive
+   `last_price(symbol)` / `last_time()` accessors.
+6. **Tests** — `tests/test_backtest_risk_sim.py` (25): each rule fires with the right
+   rule-type, rejection payload fields, sizing clamp + reducer exemption, daily-loss /
+   drawdown halt → subsequent CIRCUIT_BREAKER, kill/emergency-stop config, profit-target
+   warning, analytics shape + halt, risk-off parity (`on.total_trades <= off`) + risk-on
+   never-zero + tight-limit reduction (macd_cross on 300 synthetic candles; `trend_rider`
+   makes 0 trades there — use `macd_cross`), replay-path simulator, sized broker fill.
+   Full suite **908 passed, 1 xfailed** (+25). CHANGELOG v1.5.11 entry; this AGENTS.md entry.
+
+### Reference
+- **Backtest risk gotcha**: ALWAYS gate via `BacktestRiskSimulator` (account-state-only) —
+   never `risk_manager.evaluate` with a `backtest:<hex>` user_id (uuid column `22P02` →
+   fail-closed kill switch → 0 trades). Default legal rule order: `_default_overrides(capital)`.
+- Rejection contract: `RiskRejection.risk_remaining` = `daily_loss_limit + pnl` (clamped ≥0)
+   or `NO_LIMIT` (-1.0) when `daily_loss_limit=0`; `capital_remaining` = `equity − exposure`;
+   `drawdown` pct from sim peak equity; `exposure` = Σ abs(qty)·avg_price over open positions.
+- Replay tests must no-op `replay_engine._apply_speed_delay` (1x speed sleeps
+   `interval*60/multiplier` s per candle) or the test hangs. Monkeypatch the instance:
+   `monkeypatch.setattr(replay_engine, "_apply_speed_delay", no_delay)`.
+
 ## Session: 2026-08-05 — Backtest Phase A: enriched TradeRecords + big-run performance + interactive charts (v1.5.10)
 
 ### What was done
