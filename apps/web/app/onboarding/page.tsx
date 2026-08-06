@@ -356,6 +356,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
 
 function StepDone() {
   const router = useRouter()
+  const { isAdmin } = useAuth()
   const { data: assignedData, loading, error } = useApi<{ strategies: AssignedStrategy[] }>('/strategies/assigned')
   const assigned = assignedData?.strategies || []
   const profileUpdated = useRef(false)
@@ -430,9 +431,9 @@ function StepDone() {
       <button
         className="t-btn-primary"
         style={{ width: '100%', padding: '12px 24px', fontSize: 14 }}
-        onClick={() => router.push('/dashboard')}
+        onClick={() => router.push(isAdmin ? '/dashboard' : '/live')}
       >
-        Go to Terminal
+        Open Dashboard
       </button>
     </div>
   )
@@ -498,7 +499,7 @@ export default function OnboardingPage() {
       setGuardChecked(true)
       api.auth.me().then((user) => {
         if ((user as any).onboarding_completed) {
-          router.push('/dashboard')
+          router.push((user as any).is_admin ? '/dashboard' : '/live')
         }
       }).catch(() => {})
     }

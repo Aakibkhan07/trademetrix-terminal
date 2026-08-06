@@ -37,15 +37,15 @@ export default function LandingPage() {
             fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.03em', transition: 'color 0.15s',
           }}>System Status</Link>
-          <Link href="/portfolio" style={{
+          <Link href="/live" style={{
             fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.03em', transition: 'color 0.15s',
-          }}>Client Portal</Link>
+          }}>Dashboard</Link>
           <Link href="/auth" style={{
             fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.03em', transition: 'color 0.15s',
           }}>Sign In</Link>
-          <Link href="/portfolio" style={{
+          <Link href="/live" style={{
             fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
             padding: '8px 18px', borderRadius: 6, textDecoration: 'none',
             background: 'var(--gradient-primary)',
@@ -80,12 +80,12 @@ export default function LandingPage() {
           </p>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/portfolio" style={{
+            <Link href="/live" style={{
               padding: '12px 28px', borderRadius: 8, fontSize: 13, fontWeight: 700,
               letterSpacing: '0.03em', textDecoration: 'none',
               background: 'var(--gradient-primary)',
               color: 'var(--text-inverse)', transition: 'opacity 0.15s',
-            }}>Launch Client Portal</Link>
+            }}>Launch Live Dashboard</Link>
             <Link href="/auth" style={{
               padding: '12px 28px', borderRadius: 8, fontSize: 13, fontWeight: 600,
               letterSpacing: '0.03em', textDecoration: 'none',
@@ -133,7 +133,7 @@ export default function LandingPage() {
             Create your account, connect your broker, and start trading with automated strategies.
             No credit card required.
           </p>
-          <Link href="/portfolio" style={{
+          <Link href="/live" style={{
             display: 'inline-block', padding: '10px 24px', borderRadius: 6, fontSize: 12,
             fontWeight: 700, letterSpacing: '0.03em', textDecoration: 'none',
             background: 'var(--gradient-primary)',
@@ -152,7 +152,7 @@ export default function LandingPage() {
             <div style={footerColumnTitle}>Product</div>
             <div style={footerColumn}>
               <Link href="/pricing" style={footerLink}>Pricing</Link>
-              <Link href="/portfolio" style={footerLink}>Client Portal</Link>
+              <Link href="/live" style={footerLink}>Dashboard</Link>
               <Link href="/auth" style={footerLink}>Open Terminal</Link>
             </div>
           </div>

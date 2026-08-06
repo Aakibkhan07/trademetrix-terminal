@@ -224,7 +224,12 @@ class RuntimeManager:
 
         signal = self._signal_from_result(result, config, latency_ms)
         runtime_metrics.record_signal(key)
-        await self._publish_event("SignalGenerated", strategy_id, config.user_id, signal=signal.model_dump())
+        await self._publish_event(
+            "SignalGenerated",
+            strategy_id,
+            config.user_id,
+            **self._signal_payload(config, instance, signal),
+        )
         return signal
 
     async def submit_signal(self, signal: RuntimeSignal) -> dict:
@@ -326,6 +331,33 @@ class RuntimeManager:
             product=order.product.value if hasattr(order.product, "value") else "INTRADAY",
             metadata={"latency_ms": round(latency_ms, 2)},
         )
+
+    def _signal_payload(self, config: RuntimeConfig, instance: Any, signal: RuntimeSignal) -> dict:
+        """Canonical ``SignalPayload`` fields (flat) for the ``SignalGenerated`` event.
+
+        Same shape as the canonical Strategy Runtime emitter
+        (``strategy_runtime.workers``) — one stable contract for consumers.
+        """
+        from strategy_runtime.models import SignalPayload
+
+        mode = "paper" if not config.broker or config.broker == "paper" else "live"
+        return SignalPayload(
+            signal_id=signal.signal_id,
+            strategy_id=signal.strategy_id,
+            strategy_name=getattr(instance, "name", "") or "",
+            user_id=config.user_id,
+            symbol=signal.symbol,
+            exchange=signal.exchange,
+            side=signal.side.value if hasattr(signal.side, "value") else str(signal.side),
+            quantity=signal.quantity,
+            price=signal.price,
+            sl_price=signal.sl_price,
+            target_price=signal.target_price,
+            confidence=signal.confidence,
+            reason=signal.reason,
+            mode=mode,
+            metadata=signal.metadata,
+        ).payload()
 
     async def _persist_state(self, strategy_id: str, state: StrategyState) -> None:
         try:

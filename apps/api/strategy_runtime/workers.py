@@ -243,6 +243,7 @@ class StrategyWorker:
                 return
             if signal and signal.orders:
                 self.record.stats["signals"] += 1
+                self._emit_signal(signal)
                 await self._execute_orders(signal)
 
     async def _evaluate(self, candle: Candle, execute: bool) -> None:
@@ -274,12 +275,52 @@ class StrategyWorker:
             if signal and signal.orders:
                 stats["signals"] += 1
                 if execute:
+                    self._emit_signal(signal)
                     await self._execute_orders(signal)
                 else:
                     logger.debug(
                         "Warm-up signal suppressed (no execution): %s orders=%d",
                         self.spec.strategy_id, len(signal.orders),
                     )
+
+    def _emit_signal(self, signal: Any) -> None:
+        """Publish the canonical ``SignalGenerated`` payload.
+
+        One stable shape (see ``strategy_runtime.models.SignalPayload``),
+        consumed by the per-user SSE stream and Live Dashboard. Warm-up
+        signals (``execute=False``) are never published.
+        """
+        from strategy_runtime.manager import _publish_runtime_event
+        from strategy_runtime.models import SignalPayload
+
+        order = signal.orders[0] if signal.orders else None
+        side = ""
+        if order is not None:
+            side = order.side.value if hasattr(order.side, "value") else str(order.side)
+        payload = SignalPayload(
+            strategy_id=self.spec.strategy_id,
+            strategy_name=getattr(self._strategy, "name", "") or "",
+            user_id=self.spec.user_id,
+            symbol=order.symbol if order else self.spec.symbol,
+            exchange=(
+                order.exchange.value
+                if order and hasattr(order.exchange, "value")
+                else self.spec.exchange
+            ),
+            side=side,
+            quantity=order.quantity if order else 0,
+            price=float(order.price or order.trigger_price or 0.0) if order else 0.0,
+            reason=signal.reason or "",
+            mode="live" if not self.spec.is_paper else "paper",
+            triggered_at=datetime.now(UTC).isoformat(),
+            metadata={"interval": self.spec.interval, "order_count": len(signal.orders)},
+        )
+        _publish_runtime_event(
+            "SignalGenerated",
+            self.spec.strategy_id,
+            self.spec.user_id,
+            payload=payload.payload(),
+        )
 
     async def _on_eval_error(self, e: Exception) -> None:
         self.record.stats["errors"] += 1

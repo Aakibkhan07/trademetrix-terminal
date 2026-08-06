@@ -1,6 +1,17 @@
-## v1.6.7 (2026-08-06) — Sprint-3 W6: shared UI primitives — KpiCard/Badge/Skeleton/Dialog consolidation (PRODUCTION VERIFIED)
+## v1.6.8 (2026-08-07) — Live Dashboard: unified `/live` operational cockpit + landing wiring (PRODUCTION VERIFIED)
 
-> UI-only internal reuse — pages render identically (visible-text parity pass, 12/12 routes after deploy).
+> Additive frontend feature ONLY — `apps/api` untouched this release (Phase A signal payload was shipped earlier under the v1.6.7 line). No new REST endpoints: the dashboard composes existing OMS/Engine/Paper/Runtime/Marketdata services. No redirects were removed for any existing page.
+
+### What was done
+1. **New route `/live` (`apps/web/app/live/page.tsx`)** — three-column cockpit: header (logo→`/live`, LIVE badge, Market OPEN/CLOSED chip, Stream SSE chip, Online chip, Workspace link, user name); left segmented Positions | Orders | Portfolio (live+paper positions with quote-driven change%, engine orders with cancel, portfolio summary incl. engine margins); center symbol chips (indices + your open positions) + `Chart` + Quick Trade; right rail Trading Controls (Emergency Stop w/ confirm dialog, Pause All, collapsible runtime diagnostics) + Live Signals (SignalGenerated SSE feed with filters + runtime seeds). Every widget renders Loading/Empty/Offline/Broker-disconnected/Market-closed via the shared `widget-frame`.
+2. **Shared `apps/web/components/live/` (13 files)** — types, use-live-connection, use-live-data, widget-frame, table, market-overview, positions-panel, orders-panel, use-live-feed, signal-card, live-signals, trading-controls. Built entirely on the existing design system + W6 primitives (KpiCard, SkeletonBar, Dialog, Badge/Dot/Chip) — no new CSS.
+3. **Landing wiring** — landing page CTAs/nav/footer → `/live`; app-layout Home section → single "Live Dashboard"; logo pixel + admin-route non-admin bounce → `/live`; sign-in + onboarding (CTA + completed-guard) → `/live` for non-admins, `/dashboard` for admins. Portfolio/Workspace/Backtest/etc. remain directly accessible.
+4. **Validation** — web `tsc --noEmit` 0 errors, `next lint` 0 new errors, `npm run build` clean (`.env.production` swap + restore); backend suite **963 passed, 1 xfailed** (unchanged by this release).
+5. **Deployment** — web hot-deploy (BUILD_ID `YCwC6U2jJMRugxdXVPcI1`); health 200, `/live` + `/` + `/portfolio` 200 public + in-container; **browser smoke on prod 13/13** (fresh users via GoTrue; anonymous → gate, signup → onboarding → CTA → `/live`, login → `/live`, widgets render, logo → `/live`, no page errors); smoke users swept; Redis `global:kill_switch` untouched (ENABLED, 1, TTL -1).
+
+> Monitoring after deploy: none of the dashboard/resource states reported. See AGENTS.md session entry for the reference notes on `/live` composition and the CSS-uppercase smoke gotcha.
+
+## v1.6.7 (2026-08-06) — Sprint-3 W6: shared UI primitives — KpiCard/Badge/Skeleton/Dialog consolidation (PRODUCTION VERIFIED)
 > No API, routing, or state changes. No visual redesign. Sprint 4 explicitly NOT started.
 
 ### What was done

@@ -15,9 +15,7 @@ const USER_SECTIONS = [
   {
     label: 'Home',
     items: [
-      { href: '/portfolio', label: 'Home', icon: '🏠' },
-      { href: '/portfolio', label: 'Watchlist', icon: '⭐' },
-      { href: '/portfolio', label: 'Portfolio', icon: '📊' },
+      { href: '/live', label: 'Live Dashboard', icon: '📊' },
     ],
   },
   {
@@ -26,6 +24,7 @@ const USER_SECTIONS = [
       { href: '/workspace', label: 'Trading Workspace', icon: '📈' },
       { href: '/trade', label: 'Orders', icon: '📋' },
       { href: '/positions', label: 'Positions', icon: '📍' },
+      { href: '/portfolio', label: 'Portfolio', icon: '🏠' },
       { href: '/funds', label: 'Funds', icon: '💰' },
       { href: '/paper', label: 'Paper Trading', icon: '📄' },
       { href: '/brokers', label: 'Brokers', icon: '🏦' },
@@ -148,7 +147,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!isAuthenticated) {
       router.replace('/auth')
     } else if (!isAdmin && ADMIN_ROUTE_RE.test(pathname)) {
-      router.replace('/portfolio')
+      router.replace('/live')
     }
   }, [loading, isAuthenticated, isAdmin, standalone, router, pathname])
 
@@ -269,7 +268,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           gap: 8, height: 48, boxSizing: 'border-box',
         }}>
           {!collapsed && (
-            <Link href={isAdmin ? '/dashboard' : '/portfolio'} style={{
+            <Link href={isAdmin ? '/dashboard' : '/live'} style={{
               display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flex: 1, minWidth: 0,
             }}>
               <Logo size={24} />

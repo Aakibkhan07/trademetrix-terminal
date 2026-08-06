@@ -98,3 +98,37 @@ class StrategyRuntimeStatus(BaseModel):
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+class SignalPayload(BaseModel):
+    """Canonical ``SignalGenerated`` event payload — long-term reuse contract.
+
+    Emitted on the execution event bus (event_type ``SignalGenerated``) by both
+    the canonical Strategy Runtime (``strategy_runtime.workers``) and the legacy
+    runtime (``runtime.manager``) so consumers observe ONE stable shape.
+
+    Versioning: consumers MUST key on ``signal_version`` and ignore fields they
+    do not understand. Bump ``signal_version`` on any breaking field change;
+    additive fields alone do not require a bump.
+    """
+
+    signal_version: int = 1
+    signal_id: str = ""
+    strategy_id: str = ""
+    strategy_name: str = ""
+    user_id: str = ""
+    symbol: str = ""
+    exchange: str = "NSE"
+    side: str = "HOLD"  # BUY | SELL | EXIT | REVERSE | HOLD | IGNORE
+    quantity: int = 0
+    price: float = 0.0  # entry price estimate when known, else 0.0
+    sl_price: float = 0.0  # resting stop when known, else 0.0
+    target_price: float = 0.0  # resting target when known, else 0.0
+    confidence: float = 0.0  # 0.0 = not scored
+    reason: str = ""
+    mode: str = "paper"  # paper | live
+    triggered_at: str = Field(default_factory=utc_now)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    def payload(self) -> dict[str, Any]:
+        return self.model_dump(mode="json")
