@@ -19,6 +19,8 @@ Legend: **+/-** = additive / modified · **D** = deleted · **N** = new file
 | `apps/api/core/response.py` | **+** `headers:` param on `api_response()` / `error_response()` | P1-2 |
 | `apps/api/routes/v1_admin.py` | **+** `GET /admin/users/with-brokers`, `GET|POST /admin/ip-whitelist`, `DELETE /admin/ip-whitelist/{ip_id}` (all `require_super_admin`; reuse existing `AdminService` methods incl. cache invalidation + audit) | P1-3 |
 | `apps/api/routes/v1_auth.py` | **+** `_client_ip`, `_throttle_login`, `_record_login_failure`, `_clear_login_failures`; **+** signin wiring: failed → progressive delay + lockout (429 after 5 fails / 5 min), success → counter reset; `auth_failed` / `login_locked` audit entries | P2-1 |
+| `apps/api/core/audit.py` | **FIX** `_do_insert` coerces empty `user_id` → `None` (unauth'd events have no actor; PostgREST rejects `""` → `22P02` and would silently drop throttle audit rows) | P2-1 / audit |
+| `supabase/migrations/20260807_01910_audit_log_user_id_nullable.sql` | **N** `ALTER TABLE audit_log ALTER COLUMN user_id DROP NOT NULL` (FK stays; NULL bypasses the reference for system/anonymous events) | audit |
 
 ## Backend (tests)
 
@@ -27,6 +29,7 @@ Legend: **+/-** = additive / modified · **D** = deleted · **N** = new file
 | `apps/api/tests/test_option_chain_normalize.py` | **N** 7 tests: normalization, aliases, passthrough, simulated-chain shape for all 4 index symbols, unsupported → `None`, ATM strike window, PCR/max-pain | P1-1 |
 | `apps/api/tests/test_journal_resilience.py` | **N** 5 tests: orders-first, trades fallback, orders-error→trades, schema-drift → `[]`, graceful analysis | P1-2 |
 | `apps/api/tests/test_auth_throttle.py` | **N** 4 tests: forwarded-IP extraction, socket fallback, success clears counter, progressive delay → 429 lockout | P2-1 |
+| `apps/api/tests/test_audit_null_user.py` | **N** 2 tests: empty `user_id` → `None`, non-empty preserved | audit |
 | `apps/api/tests/test_admin_service.py` | **+** route-inventory test updated for the 3 new admin routes | P1-3 |
 
 ## Frontend (web)

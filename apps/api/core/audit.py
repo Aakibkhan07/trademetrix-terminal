@@ -10,7 +10,12 @@ logger = logging.getLogger(__name__)
 def _do_insert(entry: AuditLogEntry) -> None:
     try:
         supabase = get_supabase()
-        supabase.table("audit_log").insert(entry.model_dump(mode="json")).execute()
+        data = entry.model_dump(mode="json")
+        # Unauthenticated/system events (e.g. login throttling) have no actor;
+        # user_id is a nullable UUID column — PostgREST rejects "" (22P02).
+        if not data.get("user_id"):
+            data["user_id"] = None
+        supabase.table("audit_log").insert(data).execute()
     except Exception as e:
         logger.warning("Failed to record audit entry: %s", e)
 

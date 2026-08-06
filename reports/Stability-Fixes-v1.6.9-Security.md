@@ -15,7 +15,7 @@
   - **Lockout:** after 5 failures, requests for that email+IP return **`429 Too Many Requests`** (delays are RAC-safe — each failure increments under the window).
   - **Success path untouched:** a correct credential check only clears the counter — never delays/blocks `signin`.
   - **Client IP detection** trusts the first `X-Forwarded-For` hop (consistent with `middleware/ip_whitelist.py`), falls back to socket peer.
-  - **Audit:** `auth_failed` (each throttled failure with attempts count) and `login_locked` (lockout trigger) entries via existing `record_audit`.
+  - **Audit:** `auth_failed` (each throttled failure with attempts count) and `login_locked` (lockout trigger) entries via existing `record_audit`. **Prod verification exposed a drop-path:** unauth'd events sent `user_id=""` into the `UUID NOT NULL` column → PostgREST `22P02` → rows silently discarded. Fixed with migration `20260807_01910` (column nullable, FK intact) + `core/audit._do_insert` coercion to `None`. Verified on prod: `auth_failed` (attempts 2–5) + `login_locked` (attempts 6) rows persist with `user_id=NULL`.
   - **Fail-open safety:** if Redis is unavailable, `cache.get`/`set` degrade to defaults and the throttle no-ops — legitimate logins are never locked out by an infra outage.
 
 ## 2. Existing controls re-verified (unchanged this sprint)
@@ -41,5 +41,6 @@
 ## 4. Verification
 
 - `apps/api/tests/test_auth_throttle.py` (4): forwarded/IP extraction, socket fallback, success-clears, progressive→429.
+- `apps/api/tests/test_audit_null_user.py` (2): empty `user_id` → `NULL`, non-empty preserved.
 - Full regression re-ran with the throttle active: `tests/test_auth.py` unaffected (Redis-absent test env → throttle no-op, routes intact).
-- Post-deploy check scheduled: 6 wrong passwords → delays + 429 on the 6th; correct password immediately after the window → 200; `login_locked` / `auth_failed` present in audit trail.
+- **Post-deploy prod verification COMPLETE:** 6 wrong passwords → progressive delays (0.7→2.5s) + `429` on the 6th; `login_locked` / `auth_failed` present in the prod audit trail; correct password after a fresh key → 200.

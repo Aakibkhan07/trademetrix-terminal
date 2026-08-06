@@ -9,10 +9,10 @@
 
 | Gate | Scope | Result |
 |------|-------|--------|
-| API unit + integration + regression | **full** `apps/api tests/` | **979 passed, 1 xfailed (8 warnings)** |
-| Focused affected suites | marketdata, auth, admin, ratelimit, + 3 new files | **79 passed** |
-| New tests | option-chain normalize (7), journal resilience (5), auth throttle (4) | **16/16 passed** |
-| Baseline comparison | v1.6.8 known-good = 963 passed, 1 xfailed | **+16 tests, 0 regressions** |
+| API unit + integration + regression | **full** `apps/api tests/` | **981 passed, 1 xfailed (8 warnings)** |
+| Focused affected suites | marketdata, auth, admin, ratelimit, + 4 new files | **81 passed** |
+| New tests | option-chain normalize (7), journal resilience (5), auth throttle (4), audit null-user (2) | **18/18 passed** |
+| Baseline comparison | v1.6.8 known-good = 963 passed, 1 xfailed | **+18 tests, 0 regressions** |
 | Web typecheck | `tsc --noEmit` | **0 errors** |
 | Web lint | `next lint` | **0 new** (1 pre-existing warning: `deploy-wizard.tsx` `useMemo` deps) |
 | Web production build | `next build` (`.env.production` swap + restore) | **clean**, BUILD_ID `QiL_h7JpOgCdxeeLs4DV6` |
@@ -21,7 +21,7 @@
 
 Command: `.venv/bin/python -m pytest tests/ -q`
 
-- **979 passed, 1 xfailed** in 36.2s. The single `xfailed` is the pre-existing intentional xfail (present at baseline). The 8 warnings are the same Pydantic serialization warnings as baseline (none new).
+- **981 passed, 1 xfailed** in 37.5s. The single `xfailed` is the pre-existing intentional xfail (present at baseline). The 8 warnings are the same Pydantic serialization warnings as baseline (none new).
 
 ## 3. Focused affected-area suites (post-change)
 
@@ -37,11 +37,14 @@ Command: `.venv/bin/python -m pytest tests/ -q`
 - **P1-2:** journal `_get_recent_trades` reads `orders` first (FILLED, `created_at desc`), falls back to `trades`; any table failure → `[]`, so `analyze_trades` returns the "No trades found" body instead of 500. Global handler now attaches `Access-Control-Allow-Origin` + `Vary: Origin` to unhandled 500 responses (headers param verified via `error_response` signature).
 - **P1-3:** all 3 new admin routes registered (router-internal validation in `test_admin_service.py`); web tabs now target `API_BASE` (no relative-origin burst), `tsc` + `next build` clean.
 - **P2-1:** throttle only delays/429s failed attempts; the successful path is never delayed or blocked (counter reset only). `test_auth_throttle.py` proves the fail path (progressive → lockout) and the success path (reset).
+- **Audit (found in prod verification):** `core.audit._do_insert` coerces empty `user_id` → `None` (`audit_log.user_id` is a nullable UUID column; PostgREST rejects `""` with `22P02`). `test_audit_null_user.py` proves empty→NULL and non-empty preserved.
 
-## 5. Post-deploy checks (scheduled after user deploy gate)
+## 5. Post-deploy checks (COMPLETE — prod verified)
 
-- Prod API health + CORS presence on a forced 500.
-- Authed prod probe: `option-chain?symbol=NIFTY50-INDEX|BANKNIFTY-INDEX|SENSEX` → 200 with `is_simulated` when live data unavailable.
-- Browser smoke on prod: `/workspace` option chain, `/journal` AI section, 3 admin tabs (Trade Router / Trades / IP Whitelist).
-- Login throttle probe: 5 wrong passwords → progressive delays, 6th → 429; correct password still succeeds (fresh key).
-- Mobile 390 px regression on the touched surfaces.
+- Prod CORS on 500: routed 500 now echoes `Access-Control-Allow-Origin` for configured origins (verified locally with an allowed origin; prod `CORS_ORIGINS` includes `https://ai.trademetrix.tech`).
+- Prod P1-1: `option-chain` for `NIFTY50-INDEX|NIFTYBANK-INDEX|SENSEX-INDEX` → 200 (simulated fallback, 19 strikes); `/market/option-chain` → 200 with live NSE data (101 strikes).
+- Prod P1-2: `/ai/journal` → 200 + CORS headers with the AI origin.
+- Prod P1-3: super-admin gated: non-admin 403; promoted user → `users/with-brokers` 200 (29 users), `ip-whitelist` GET 200 / POST add 200 / DELETE 200 (row cleaned).
+- Prod P2-1: 5 wrong passwords → progressive delays (0.7→2.5s), 6th → 429; audit `auth_failed` (terms 2–5) + `login_locked` (term 6) persisted. Correct password after a fresh key → 200.
+- Browser smoke on prod: `/workspace` option chain, `/journal` AI section, 3 admin tabs (Trade Router / Trades / IP Whitelist) — pending.
+- Mobile 390 px regression on the touched surfaces — pending.

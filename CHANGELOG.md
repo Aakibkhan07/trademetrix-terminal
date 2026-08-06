@@ -5,9 +5,10 @@
 2. **P1-2 AI Journal CORS-blocked 500** — migration `20260807_01900_trades_schema_align.sql` aligns the schema-drifted prod `trades` table; `_get_recent_trades` now reads `orders` (FILLED) first with `trades` fallback, never 500s on schema drift; `get_journal` degrades gracefully; global 500 handler now attaches CORS headers since ServerErrorMiddleware sits outside CORSMiddleware.
 3. **P1-3 Three admin tabs broken (404 HTML)** — new `GET /admin/users/with-brokers` + `GET|POST /admin/ip-whitelist` + `DELETE /admin/ip-whitelist/{ip_id}` (super-admin gated, existing `AdminService` methods); Trade Router / Trades / IP Whitelist tabs now use the typed `api` client (`API_BASE`) instead of relative fetches.
 4. **P2-1 Login throttle/lockout** — per-email+IP progressive delay then `429` after 5 failures/5 min (`core.cache`-backed, `X-Forwarded-For` aware, audit `auth_failed`/`login_locked`); success path never degraded, fail-open when Redis is down.
+5. **Audit rows for unauthenticated events dropped (found in prod verification)** — `audit_log.user_id` was `UUID NOT NULL REFERENCES profiles(id)`, so throttle events (no actor) sent `user_id=""` → PostgREST `22P02` → row silently discarded. Migration `20260807_01910_audit_log_user_id_nullable.sql` drops NOT NULL (FK stays, NULL bypasses the reference); `core.audit._do_insert` coerces empty `user_id` → `None`. Verified on prod: `auth_failed` (attempts 2–5) + `login_locked` (attempts 6) rows now persist with `user_id=NULL`.
 
 ### Validation
-- Full API suite **979 passed, 1 xfailed** (baseline 963/1; +16 new tests: option-chain normalize 7, journal resilience 5, auth throttle 4).
+- Full API suite **981 passed, 1 xfailed** (baseline 963/1; +18 new tests: option-chain normalize 7, journal resilience 5, auth throttle 4, audit null-user 2).
 - Web `tsc --noEmit` 0 err; `next lint` 0 new; `next build` clean (BUILD_ID `QiL_h7JpOgCdxeeLs4DV6`).
 - Reports: `reports/Stability-Fixes-v1.6.9-{Root-Cause,Files-Changed,Regression,Security}.md`.
 
