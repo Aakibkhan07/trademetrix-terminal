@@ -41,6 +41,24 @@ def downsample_pairs(points: list[tuple], threshold: int = 2000) -> list[int]:
     return sorted(set(chosen))
 
 
+def compute_sharpe_ratio(returns: list[float]) -> float:
+    """Canonical Sharpe ratio — the SINGLE definition used by every backtest path.
+
+    Sample standard deviation (n - 1), annualized by sqrt(252). The legacy
+    engine (engine/backtest.py) previously used population stdev over per-trade
+    PnL, producing values that disagreed with this canonical path; both now
+    share this function over equity-curve period returns.
+    """
+    if len(returns) < 2:
+        return 0.0
+    avg_r = sum(returns) / len(returns)
+    variance = sum((r - avg_r) ** 2 for r in returns) / (len(returns) - 1)
+    std_r = math.sqrt(variance) if variance > 0 else 0.0
+    if std_r <= 0:
+        return 0.0
+    return round((avg_r / std_r) * math.sqrt(252), 2)
+
+
 class PerformanceAnalytics:
     def calculate(
         self,
@@ -286,12 +304,8 @@ class PerformanceAnalytics:
         if len(returns) < 2:
             return
 
+        result.sharpe_ratio = compute_sharpe_ratio(returns)
         avg_r = sum(returns) / len(returns)
-        variance = sum((r - avg_r) ** 2 for r in returns) / (len(returns) - 1)
-        std_r = math.sqrt(variance) if variance > 0 else 0.0
-
-        if std_r > 0:
-            result.sharpe_ratio = round((avg_r / std_r) * math.sqrt(252), 2)
 
         neg_returns = [r for r in returns if r < 0]
         if neg_returns:

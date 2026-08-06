@@ -159,30 +159,49 @@ class TestGetRuns:
 
 
 class TestGetPositions:
+    """get_positions delegates to the canonical PositionService (W2).
+
+    The resolution path lives in application/services/position_service.py and
+    reads Paper-flag, active broker and engine state through its own module
+    imports — so these tests patch the PositionService module, not
+    engine_service.
+    """
+
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_broker(self, svc, mock_supabase) -> None:
-        mock_supabase["async_safe_single"].return_value = None
-
-        result = await svc.get_positions("u1")
+        with (
+            patch("application.services.position_service.async_safe_single", return_value=None),
+            patch("application.services.position_service.get_active_broker", return_value=None),
+        ):
+            result = await svc.get_positions("u1")
 
         assert result == []
 
     @pytest.mark.asyncio
     async def test_propagates_token_expired_error(self, svc, mock_supabase) -> None:
-        mock_supabase["async_safe_single"].side_effect = [None, {"broker": "fyers"}]
         from core.exceptions import BrokerTokenExpiredError
 
-        with patch.object(
-            svc, "_get_engine", AsyncMock(side_effect=BrokerTokenExpiredError("token expired"))
+        with (
+            patch("application.services.position_service.async_safe_single", return_value=None),
+            patch("application.services.position_service.get_active_broker", return_value="fyers"),
+            patch.object(
+                EngineService, "get_engine_for",
+                AsyncMock(side_effect=BrokerTokenExpiredError("token expired")),
+            ),
         ):
             with pytest.raises(BrokerTokenExpiredError):
                 await svc.get_positions("u1")
 
     @pytest.mark.asyncio
     async def test_returns_empty_on_transient_broker_error(self, svc, mock_supabase) -> None:
-        mock_supabase["async_safe_single"].side_effect = [None, {"broker": "fyers"}]
-
-        with patch.object(svc, "_get_engine", AsyncMock(side_effect=RuntimeError("broker down"))):
+        with (
+            patch("application.services.position_service.async_safe_single", return_value=None),
+            patch("application.services.position_service.get_active_broker", return_value="fyers"),
+            patch.object(
+                EngineService, "get_engine_for",
+                AsyncMock(side_effect=RuntimeError("broker down")),
+            ),
+        ):
             result = await svc.get_positions("u1")
 
         assert result == []

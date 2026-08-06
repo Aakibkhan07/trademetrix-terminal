@@ -570,55 +570,9 @@ class AdminService:
         return {"orders": orders, "count": len(orders)}
 
     async def list_positions(self, user_id: str = "") -> dict:
-        supabase = get_supabase()
-        query = supabase.table("positions_snapshot").select("*").order("snapshot_at", desc=True)
-        if user_id:
-            query = query.eq("user_id", user_id)
+        from application.services.position_service import position_service
 
-        data = await async_safe_execute(query) or []
-
-        seen: dict[str, dict] = {}
-        for p in data:
-            key = (p.get("user_id", ""), p.get("symbol", ""))
-            if key not in seen:
-                seen[key] = p
-
-        user_ids = list(set(p["user_id"] for p in seen.values() if p.get("user_id")))
-        profile_map = {}
-        if user_ids:
-            profiles = await async_safe_execute(
-                supabase.table("profiles").select("id, email, full_name").in_("id", user_ids)
-            ) or []
-            profile_map = {p["id"]: p for p in profiles}
-
-        positions = []
-        for p in seen.values():
-            prof = profile_map.get(p.get("user_id", ""), {})
-            positions.append({
-                "id": p.get("id", ""),
-                "user_id": p.get("user_id", ""),
-                "email": prof.get("email", ""),
-                "full_name": prof.get("full_name", ""),
-                "broker": p.get("broker", ""),
-                "symbol": p.get("symbol", ""),
-                "exchange": p.get("exchange", ""),
-                "quantity": p.get("quantity", 0),
-                "buy_quantity": p.get("buy_quantity", 0),
-                "sell_quantity": p.get("sell_quantity", 0),
-                "average_buy_price": p.get("average_buy_price", 0.0),
-                "average_sell_price": p.get("average_sell_price", 0.0),
-                "unrealised_pnl": p.get("unrealised_pnl", 0.0),
-                "realised_pnl": p.get("realised_pnl", 0.0),
-                "m2m": p.get("m2m", 0.0),
-                "product": p.get("product", ""),
-                "instrument_type": p.get("instrument_type", "EQ"),
-                "strike_price": p.get("strike_price"),
-                "expiry_date": p.get("expiry_date"),
-                "option_type": p.get("option_type", ""),
-                "snapshot_at": p.get("snapshot_at", ""),
-            })
-
-        return {"positions": positions, "count": len(positions)}
+        return await position_service.list_all_positions(user_id=user_id)
 
     async def get_audit_log(self, user_id: str = "", action: str = "", from_date: str = "", to_date: str = "", limit: int = 50, offset: int = 0) -> dict:
         supabase = get_supabase()

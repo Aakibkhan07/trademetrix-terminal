@@ -2,6 +2,7 @@ import logging
 import random
 from datetime import UTC, datetime, timedelta
 
+from backtest.performance import compute_sharpe_ratio
 from core.models import Candle, NormalizedOrder, OrderSide, OrderType
 from strategies import get_strategy
 
@@ -25,25 +26,48 @@ class BacktestResult:
         self.trades: list[dict] = []
         self.equity_curve: list[dict] = []
         self._peak = 0.0
-        self._returns: list[float] = []
         self._slippage_pct = slippage_pct
         self._brokerage_pct = brokerage_pct
         self._stt_pct = stt_pct
         self._exchange_pct = exchange_pct
 
-    def _apply_costs(self, entry_price: float, exit_price: float, quantity: int) -> tuple[float, float]:
-        trade_value_entry = entry_price * quantity
-        trade_value_exit = exit_price * quantity
-        slippage = (entry_price + exit_price) * quantity * (self._slippage_pct / 100)
-        brokerage = (trade_value_entry + trade_value_exit) * (self._brokerage_pct / 100)
-        stt = trade_value_exit * (self._stt_pct / 100)
-        exchange_fee = (trade_value_entry + trade_value_exit) * (self._exchange_pct / 100)
-        total_cost = slippage + brokerage + stt + exchange_fee
-        return total_cost, brokerage + exchange_fee
+    def _apply_costs(self, side: str, entry_price: float, exit_price: float, quantity: int) -> tuple[float, float]:
+        """Round-trip charges through the canonical cost engine (backtest.costs).
+
+        The legacy percentage knobs (slippage/brokerage/stt/exchange) map onto
+        a BacktestCostConfig so this path shares the SINGLE fee implementation
+        used by run-v2/v3 — segment rates, GST, SEBI and stamp duty included.
+        """
+        from backtest.costs import (
+            BacktestCostConfig,
+            CostSegment,
+            estimate_round_trip,
+        )
+
+        entry_value = entry_price * quantity
+        exit_value = exit_price * quantity
+        cfg = BacktestCostConfig(
+            slippage_pct=self._slippage_pct,
+            commission_pct=self._brokerage_pct,
+            commission_min=0.0,
+            stt_pct_override=self._stt_pct,
+            exchange_tc_pct_override=self._exchange_pct,
+        )
+        est = estimate_round_trip(
+            side=side,
+            entry_value=entry_value,
+            exit_value=exit_value,
+            segment=CostSegment.EQUITY_INTRADAY,
+            qty=quantity,
+            slippage_entry=entry_value * self._slippage_pct / 100,
+            slippage_exit=exit_value * self._slippage_pct / 100,
+            config=cfg,
+        )
+        return est.total, round(est.brokerage + est.exchange_tc, 2)
 
     def record_trade(self, symbol: str, side: str, entry_price: float, exit_price: float,
                      quantity: int, entry_time: str, exit_time: str):
-        costs, _ = self._apply_costs(entry_price, exit_price, quantity)
+        costs, _ = self._apply_costs(side, entry_price, exit_price, quantity)
         gross_pnl = (exit_price - entry_price) * quantity if side == "BUY" else (entry_price - exit_price) * quantity
         pnl = gross_pnl - costs
         self.total_trades += 1
@@ -56,7 +80,6 @@ class BacktestResult:
             self.avg_loss = (self.avg_loss * (self.losing_trades - 1) + abs(pnl)) / self.losing_trades if self.losing_trades > 0 else abs(pnl)
             self.largest_loss = min(self.largest_loss, pnl)
         self.total_pnl += pnl
-        self._returns.append(pnl)
         self.trades.append({
             "symbol": symbol, "side": side,
             "entry_price": entry_price, "exit_price": exit_price,
@@ -73,10 +96,18 @@ class BacktestResult:
 
     def finalize(self, initial_capital: float):
         self.win_rate = (self.winning_trades / self.total_trades * 100) if self.total_trades > 0 else 0
-        if len(self._returns) > 1:
-            avg_r = sum(self._returns) / len(self._returns)
-            std_r = (sum((r - avg_r) ** 2 for r in self._returns) / len(self._returns)) ** 0.5
-            self.sharpe_ratio = (avg_r / std_r) * (252 ** 0.5) if std_r > 0 else 0
+        # Canonical Sharpe: sample-stdev over equity-curve period returns,
+        # annualized by sqrt(252) — identical to PerformanceAnalytics.
+        self.sharpe_ratio = compute_sharpe_ratio(self._equity_returns())
+
+    def _equity_returns(self) -> list[float]:
+        returns = []
+        for i in range(1, len(self.equity_curve)):
+            prev = self.equity_curve[i - 1]["equity"]
+            curr = self.equity_curve[i]["equity"]
+            if prev > 0:
+                returns.append((curr - prev) / prev)
+        return returns
 
     def to_dict(self) -> dict:
         return {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
 import Link from 'next/link'
 import { SkeletonCard } from '@/components/skeleton'
@@ -176,9 +177,7 @@ export default function StrategiesPage() {
       )}
 
       {showCreate && (
-        <div className="t-modal-overlay" onClick={() => setShowCreate(false)}>
-          <div className="t-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 18, margin: '0 0 16px' }}>Create Strategy</h2>
+        <Dialog onClose={() => setShowCreate(false)} maxWidth={400} title={<h2 style={{ fontFamily: 'var(--font-body)', fontSize: 18, margin: '0 0 16px' }}>Create Strategy</h2>}>
             <div style={{ marginBottom: 12 }}>
               <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Name</label>
               <input className="t-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Strategy" />
@@ -211,8 +210,7 @@ export default function StrategiesPage() {
                 {creating ? 'Creating...' : 'Create Strategy'}
               </button>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {loading ? (

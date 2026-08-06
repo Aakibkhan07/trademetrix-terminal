@@ -33,6 +33,9 @@ class BacktestCostConfig(BaseModel):
     sebi_fees_enabled: bool = True
     gst_rate: float = 18.0              # % on (brokerage + exchange charges)
     sebi_fees_per_crore: float = 10.0   # ₹ per ₹1 crore traded value
+    stt_pct_override: float | None = None        # explicit STT % (legacy/paper knobs)
+    exchange_tc_pct_override: float | None = None  # explicit exchange % (legacy/paper knobs)
+    stamp_duty_pct_override: float | None = None   # explicit stamp duty % (paper knob)
 
 
 # NSE transaction charges (% of traded value) — current rates
@@ -120,24 +123,31 @@ def estimate_cost(
         brokerage = round(max(traded_value * cfg.commission_pct / 100, cfg.commission_min), 2)
 
     # ── Exchange transaction charges ──
-    exchange_tc = round(traded_value * EXCHANGE_TC_RATES[seg] / 100, 2) if cfg.exchange_charges_enabled else 0.0
+    exchange_rate = cfg.exchange_tc_pct_override if cfg.exchange_tc_pct_override is not None else EXCHANGE_TC_RATES[seg]
+    exchange_tc = round(traded_value * exchange_rate / 100, 2) if cfg.exchange_charges_enabled else 0.0
 
     # ── STT ──
     stt = 0.0
     if cfg.stt_enabled:
-        rate = STT_RATES[seg]
+        rate = cfg.stt_pct_override if cfg.stt_pct_override is not None else STT_RATES[seg]
         if seg == CostSegment.EQUITY_DELIVERY and side == "BUY":
             rate = 0.0
         elif seg == CostSegment.FUTURES and side == "BUY":
             rate = 0.0
         elif seg == CostSegment.OPTIONS and side == "BUY":
             rate = 0.0
+        elif cfg.stt_pct_override is not None and seg not in (CostSegment.EQUITY_INTRADAY,):
+            # A per-leg override expresses the caller's own STT policy; keep its
+            # buy-side seasoning matching the segment (sell-only for DEL/FUT/OPT).
+            if side == "BUY":
+                rate = 0.0
         stt = round(traded_value * rate / 100, 2)
 
     # ── Stamp duty (buy side only) ──
     stamp_duty = 0.0
     if cfg.stamp_duty_enabled and side == "BUY":
-        stamp_duty = round(traded_value * STAMP_DUTY_RATES[seg] / 100, 2)
+        stamp_rate = cfg.stamp_duty_pct_override if cfg.stamp_duty_pct_override is not None else STAMP_DUTY_RATES[seg]
+        stamp_duty = round(traded_value * stamp_rate / 100, 2)
 
     # ── GST on (brokerage + exchange charges) ──
     gst = 0.0

@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo } from 'react'
 import { useApi } from '@/lib/use-api'
+import { SkeletonBar } from '@/components/ui/skeleton'
+import { TierPill } from '@/components/ui/badge'
 
 interface StrategyInfo {
   key: string
@@ -17,57 +19,16 @@ interface ListBuiltinResponse {
 const TIERS = ['free', 'starter', 'pro', 'enterprise'] as const
 
 function TierBadge({ tier }: { tier: string }) {
-  const colors: Record<string, string> = {
-    free: 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
-    starter: 'color-mix(in srgb, var(--cyan) 15%, transparent)',
-    pro: 'color-mix(in srgb, var(--violet) 15%, transparent)',
-    enterprise: 'color-mix(in srgb, var(--red) 15%, transparent)',
-  }
-  const textColors: Record<string, string> = {
-    free: 'var(--text-faint)',
-    starter: '#22d3ee',
-    pro: '#8b5cf6',
-    enterprise: 'var(--red)',
-  }
-  const borderColors: Record<string, string> = {
-    free: 'color-mix(in srgb, var(--text-sub) 20%, transparent)',
-    starter: 'color-mix(in srgb, var(--cyan) 20%, transparent)',
-    pro: 'color-mix(in srgb, var(--violet) 20%, transparent)',
-    enterprise: 'color-mix(in srgb, var(--red) 20%, transparent)',
-  }
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
-      borderRadius: 4, fontSize: 9, fontWeight: 500,
-      background: colors[tier] || colors.free,
-      color: textColors[tier] || textColors.free,
-      border: `1px solid ${borderColors[tier] || borderColors.free}`,
-      textTransform: 'capitalize',
-    }}>
-      {tier}
-    </span>
-  )
+  return <TierPill tier={tier} freeText="var(--text-faint)" />
 }
 
 function SkeletonCard() {
   return (
     <div className="t-panel" style={{ padding: 20, height: 140 }}>
-      <div style={{
-        width: '60%', height: 14, background: 'color-mix(in srgb, var(--violet) 10%, transparent)',
-        borderRadius: 4, marginBottom: 12,
-      }} />
-      <div style={{
-        width: '90%', height: 10, background: 'color-mix(in srgb, var(--violet) 6%, transparent)',
-        borderRadius: 4, marginBottom: 8,
-      }} />
-      <div style={{
-        width: '75%', height: 10, background: 'color-mix(in srgb, var(--violet) 6%, transparent)',
-        borderRadius: 4,
-      }} />
-      <div style={{
-        width: 60, height: 20, background: 'color-mix(in srgb, var(--violet) 8%, transparent)',
-        borderRadius: 4, marginTop: 16,
-      }} />
+      <SkeletonBar w="60%" h={14} background="color-mix(in srgb, var(--violet) 10%, transparent)" style={{ marginBottom: 12 }} />
+      <SkeletonBar w="90%" h={10} background="color-mix(in srgb, var(--violet) 6%, transparent)" style={{ marginBottom: 8 }} />
+      <SkeletonBar w="75%" h={10} background="color-mix(in srgb, var(--violet) 6%, transparent)" />
+      <SkeletonBar w="60px" h={20} background="color-mix(in srgb, var(--violet) 8%, transparent)" style={{ marginTop: 16 }} />
     </div>
   )
 }

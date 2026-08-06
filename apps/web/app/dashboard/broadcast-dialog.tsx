@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { api } from '@/lib/api'
+import { Dialog } from '@/components/ui/dialog'
 
 interface BroadcastDialogProps {
   onClose: () => void
@@ -32,20 +33,18 @@ export function BroadcastDialog({ onClose }: BroadcastDialogProps) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-    }} onClick={onClose}>
-      <div className="t-panel" style={{
-        width: 500, maxWidth: '90vw', maxHeight: '85vh', overflowY: 'auto',
-        padding: 20,
-      }} onClick={e => e.stopPropagation()}>
+    <Dialog
+      onClose={onClose}
+      overlayStyle={{ zIndex: 1000, backdropFilter: 'blur(4px)' }}
+      title={
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Broadcast Notification</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 16 }}>✕</button>
         </div>
-
+      }
+      style={{ width: 500, maxWidth: '90vw', maxHeight: '85vh', overflowY: 'auto', padding: 20 }}
+      className="t-panel"
+    >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
             <label className="t-label" style={{ fontSize: 10, marginBottom: 4, display: 'block' }}>Title</label>
@@ -112,7 +111,6 @@ export function BroadcastDialog({ onClose }: BroadcastDialogProps) {
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, type IChartApi, type ISeriesApi, type CandlestickData, type Time } from 'lightweight-charts'
 import { api } from '@/lib/api'
+import { colorVar, mix, chartOptions } from '@/components/ui/chart-shell'
 
 interface ChartProps {
   symbol: string
@@ -14,16 +15,6 @@ interface ChartProps {
 type Interval = '5m' | '15m' | '1h' | '1d'
 
 const INTERVALS: Interval[] = ['5m', '15m', '1h', '1d']
-
-const colorVar = (name: string, fallback = '#8888a0'): string =>
-  typeof window !== 'undefined' ? (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback) : fallback
-
-const mix = (hex: string, pct: number): string => {
-  const h = hex.replace('#', '')
-  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
-  const alpha = Math.round((pct / 100) * 255).toString(16).padStart(2, '0')
-  return `#${full.slice(0, 6)}${alpha}`
-}
 
 export default function Chart({ symbol, height = 400, interval: controlledInterval, onIntervalChange }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -72,27 +63,7 @@ export default function Chart({ symbol, height = 400, interval: controlledInterv
   useEffect(() => {
     if (!containerRef.current) return
     const chart = createChart(containerRef.current, {
-      height,
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: colorVar('--text-sub'),
-        fontSize: 10,
-        fontFamily: 'var(--font-body)',
-      },
-      grid: {
-        vertLines: { color: mix(colorVar('--violet'), 6) },
-        horzLines: { color: mix(colorVar('--violet'), 6) },
-      },
-      crosshair: {
-        vertLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
-        horzLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
-      },
-      timeScale: {
-        borderColor: mix(colorVar('--text-inverse'), 6),
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      rightPriceScale: { borderColor: mix(colorVar('--text-inverse'), 6) },
+      ...chartOptions({ height, fontFamily: 'var(--font-body)' }),
     })
 
     const candleSeries = chart.addSeries(CandlestickSeries, {

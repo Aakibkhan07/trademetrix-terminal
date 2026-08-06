@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
@@ -309,15 +310,14 @@ function BuilderInner() {
       </div>
 
       {galleryOpen && (
-        <div className="t-modal-overlay" onClick={() => setGalleryOpen(false)}>
-          <div className="t-modal" style={{ maxWidth: 620, padding: 0 }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>New Strategy</span>
-              <button className="t-btn t-btn-sm" onClick={() => setGalleryOpen(false)}>✕</button>
-            </div>
-            <TemplateGallery onUse={startTemplate} onBlank={startBlank} onAI={() => { setGalleryOpen(false); setMode('beginner') }} />
+        <Dialog onClose={() => setGalleryOpen(false)} maxWidth={620} padding={0} title={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>New Strategy</span>
+            <button className="t-btn t-btn-sm" onClick={() => setGalleryOpen(false)}>✕</button>
           </div>
-        </div>
+        }>
+            <TemplateGallery onUse={startTemplate} onBlank={startBlank} onAI={() => { setGalleryOpen(false); setMode('beginner') }} />
+        </Dialog>
       )}
 
       {deployOpen && strategyId && (

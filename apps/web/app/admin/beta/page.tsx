@@ -5,6 +5,9 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/lib/use-toast'
 import { api } from '@/lib/api'
 import { EmptyState } from '@/components/empty-state'
+import { EmptyNote } from '@/components/ui/empty-state'
+import { KpiCard as UIKpiCard } from '@/components/ui/kpi-card'
+import { SkeletonPanel } from '@/components/ui/skeleton'
 
 type Overview = {
   dau: number
@@ -138,13 +141,7 @@ function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): { data: T | null; lo
 const fmtNum = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
 
 function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="t-panel" style={{ padding: '14px 16px', minWidth: 140 }}>
-      <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'Outfit', marginTop: 6 }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>{sub}</div>}
-    </div>
-  )
+  return <UIKpiCard label={label} value={value} sub={sub} variant="beta" />
 }
 
 function Bar({ pct, color = 'var(--violet)' }: { pct: number; color?: string }) {
@@ -191,7 +188,7 @@ function OverviewSection() {
         <div className="t-panel" style={{ padding: 16 }}>
           <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Daily Active Users (14d)</h3>
           {dauSeries.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>No tracked activity yet — the tracker starts collecting once web traffic flows.</div>
+            <EmptyNote>No tracked activity yet — the tracker starts collecting once web traffic flows.</EmptyNote>
           ) : (
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120 }}>
               {dauSeries.map(([day, n]) => (
@@ -209,7 +206,7 @@ function OverviewSection() {
         <div className="t-panel" style={{ padding: 16 }}>
           <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Most Tracked Events (15)</h3>
           {data.event_counts.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>No events yet.</div>
+            <EmptyNote>No events yet.</EmptyNote>
           ) : (
             data.event_counts.map(f => (
               <div key={f.event} style={{ marginBottom: 8 }}>
@@ -248,7 +245,7 @@ function FunnelSection() {
       {!data ? <LoadState /> : (
         <div className="t-panel" style={{ padding: 16 }}>
           {data.steps.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>No events for these steps in the window.</div>
+            <EmptyNote>No events for these steps in the window.</EmptyNote>
           ) : (
             data.steps.map((s, i) => {
               const prev = i === 0 ? data.steps[0].users : data.steps[i - 1].users
@@ -288,7 +285,7 @@ function RetentionSection() {
       {!data ? <LoadState /> : (
         <div className="t-panel" style={{ padding: 16, overflowX: 'auto' }}>
           {data.cohorts.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>No cohorts yet — needs at least one tracked session.</div>
+            <EmptyNote>No cohorts yet — needs at least one tracked session.</EmptyNote>
           ) : (
             <table className="t-table" style={{ fontSize: 10, borderCollapse: 'collapse' }}>
               <thead>
@@ -333,7 +330,7 @@ function FeaturesSection() {
   const { data } = useLoad<FeaturesRes>(() => api.get<FeaturesRes>(`/admin/analytics/features?days=${days}`), [days])
   if (!data) return <LoadState />
   if (data.features.length === 0) {
-    return <div className="t-panel" style={{ padding: 16 }}><div style={{ fontSize: 11, color: 'var(--text-faint)' }}>No events tracked yet.</div></div>
+    return <div className="t-panel" style={{ padding: 16 }}><EmptyNote>No events tracked yet.</EmptyNote></div>
   }
   const max = data.features[0].count
   return (
@@ -371,7 +368,7 @@ function SessionsSection() {
       <div className="t-panel" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: 12, fontWeight: 600 }}>Sessions (14d)</div>
         {!data || data.sessions.length === 0 ? (
-          <div style={{ padding: 20 }}><div style={{ fontSize: 11, color: 'var(--text-faint)' }}>No tracked sessions yet.</div></div>
+          <div style={{ padding: 20 }}><EmptyNote>No tracked sessions yet.</EmptyNote></div>
         ) : (
           <div style={{ maxHeight: 560, overflow: 'auto' }}>
             {data.sessions.map(s => (
@@ -400,7 +397,7 @@ function SessionsSection() {
         <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Session Replay {selected ? '' : '— select a session'}</h3>
         {replayLoading && <LoadState />}
         {!replayLoading && replay && replay.count === 0 && selected && (
-          <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>No events for this session.</div>
+          <EmptyNote>No events for this session.</EmptyNote>
         )}
         {!replayLoading && replay && replay.count > 0 && (
           <div style={{ maxHeight: 560, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -434,7 +431,7 @@ function CrashesSection() {
         </div>
       </div>
       {!data ? <LoadState /> : data.crashes.length === 0 ? (
-        <div className="t-panel" style={{ padding: 16 }}><div style={{ fontSize: 11, color: 'var(--text-faint)' }}>No crash events tracked. Total crash events: {data.total}</div></div>
+        <div className="t-panel" style={{ padding: 16 }}><EmptyNote>No crash events tracked. Total crash events: {data.total}</EmptyNote></div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {data.crashes.map(c => (
@@ -543,10 +540,5 @@ function FeedbackSection() {
 }
 
 function LoadState() {
-  return (
-    <div className="t-panel" style={{ padding: 20 }}>
-      <div style={{ height: 12, width: '40%', background: 'rgba(139,92,246,0.08)', borderRadius: 4, marginBottom: 8 }} />
-      <div style={{ height: 12, width: '65%', background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
-    </div>
-  )
+  return <SkeletonPanel />
 }

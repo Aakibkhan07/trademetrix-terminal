@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
 
 export interface DeploymentDraft {
@@ -110,18 +111,17 @@ export default function DeployWizard({
   }
 
   return (
-    <div className="t-modal-overlay" onClick={onClose}>
-      <div className="t-modal" style={{ maxWidth: 560, padding: 0 }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-          <div>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Deploy Strategy</span>
-            <span className={`t-badge ${status === 'live' ? 't-badge-green' : status === 'paper' ? 't-badge-cyan' : 't-badge-sub'}`} style={{ fontSize: 9, marginLeft: 8, textTransform: 'uppercase' }}>
-              {status}
-            </span>
-          </div>
-          <button className="t-btn t-btn-sm" onClick={onClose}>✕</button>
+    <Dialog onClose={onClose} maxWidth={560} padding={0} title={
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+        <div>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Deploy Strategy</span>
+          <span className={`t-badge ${status === 'live' ? 't-badge-green' : status === 'paper' ? 't-badge-cyan' : 't-badge-sub'}`} style={{ fontSize: 9, marginLeft: 8, textTransform: 'uppercase' }}>
+            {status}
+          </span>
         </div>
-
+        <button className="t-btn t-btn-sm" onClick={onClose}>✕</button>
+      </div>
+    }>
         <div style={{ padding: 14, maxHeight: '60vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="t-seg" style={{ alignSelf: 'flex-start' }}>
             <button className={`t-seg-btn ${draft.mode === 'paper' ? 'active' : ''}`} onClick={() => set('mode', 'paper')} style={{ fontSize: 11, padding: '0 12px' }}>
@@ -233,7 +233,6 @@ export default function DeployWizard({
             {busy ? busy : draft.mode === 'live' ? 'Deploy Live' : 'Deploy Paper'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

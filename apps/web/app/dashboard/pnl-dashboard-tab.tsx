@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useApi } from '@/lib/use-api'
 import { AdminUser } from '@/lib/api'
+import { KpiCard } from '@/components/ui/kpi-card'
 
 interface PnLSummary {
   total_realised: number
@@ -59,15 +60,7 @@ function BarChart({ data, height = 160 }: { data: { date: string; pnl: number }[
 }
 
 function StatCard({ label, value, color, prefix = '₹' }: { label: string; value: number | string; color: string; prefix?: string }) {
-  const val = typeof value === 'number' ? `${prefix}${Math.abs(value).toLocaleString()}` : String(value)
-  return (
-    <div className="t-panel" style={{ padding: '14px 16px', borderLeft: `3px solid ${color}` }}>
-      <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: typeof value === 'number' && value < 0 ? 'var(--red)' : 'var(--text)' }}>
-        {typeof value === 'number' && value < 0 ? '-' : ''}{val}
-      </div>
-    </div>
-  )
+  return <KpiCard label={label} value={value} color={color} prefix={prefix} variant="stat" />
 }
 
 export function PnLDashboardTab() {

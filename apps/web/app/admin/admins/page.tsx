@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
+import { SkeletonBar } from '@/components/ui/skeleton'
 
 const ROLES = ['super_admin', 'admin', 'support', 'analyst'] as const
 const ROLE_LABELS: Record<string, string> = {
@@ -42,7 +43,7 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 function SkeletonLine({ w }: { w: string }) {
-  return <div style={{ width: w, height: 12, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
+  return <SkeletonBar w={w} h={12} background="color-mix(in srgb, var(--violet) 8%, transparent)" />
 }
 
 export default function AdminsPage() {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/lib/use-toast'
 import { EmptyState } from '@/components/empty-state'
@@ -180,10 +181,7 @@ function ConfirmDialog({
   onConfirm: () => void; onCancel: () => void; loading?: boolean
 }) {
   return (
-    <div className="t-modal-overlay" onClick={onCancel}>
-      <div className="t-modal" onClick={e => e.stopPropagation()}
-        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-hi)', borderRadius: 'var(--radius-lg)', padding: 20, maxWidth: 420, width: '90%', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, margin: '0 0 12px' }}>{title}</h3>
+    <Dialog onClose={onCancel} maxWidth={420} title={<h3 style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, margin: '0 0 12px' }}>{title}</h3>}>
         <p style={{ fontSize: 12, color: 'var(--text-sub)', margin: '0 0 20px', lineHeight: 1.5 }}>{message}</p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="t-btn" onClick={onCancel} disabled={loading}>Cancel</button>
@@ -191,8 +189,7 @@ function ConfirmDialog({
             {loading ? 'Processing...' : confirmLabel || 'Confirm'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 

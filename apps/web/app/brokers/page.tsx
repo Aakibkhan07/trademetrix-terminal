@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { api, type BrokerMeta } from '@/lib/api'
 import { BrokerLogo } from '@/components/broker-logos'
 
@@ -238,9 +239,7 @@ export default function BrokersPage() {
       )}
 
       {showAdd && (
-        <div className="t-modal-overlay" onClick={() => setShowAdd(false)}>
-          <div className="t-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="t-modal-title">{editBroker ? `Edit ${displayName(editBroker)}` : 'Connect Broker'}</div>
+        <Dialog onClose={() => setShowAdd(false)} title={<div className="t-modal-title">{editBroker ? `Edit ${displayName(editBroker)}` : 'Connect Broker'}</div>}>
             {!editBroker && (
               <div style={{ marginBottom: 16 }}>
                 <div className="t-grid-2" style={{ gap: 8 }}>
@@ -325,8 +324,7 @@ export default function BrokersPage() {
                 {editBroker ? 'Update' : 'Connect'}
               </button>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {loading ? (

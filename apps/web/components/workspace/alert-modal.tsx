@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
 import { useToast } from '@/lib/use-toast'
 
@@ -32,9 +33,7 @@ export default function AlertModal({ item, onClose }: AlertModalProps) {
   }
 
   return (
-    <div className="t-modal-overlay" onClick={onClose}>
-      <div className="t-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 320 }}>
-        <h3 className="t-modal-title">Price Alert · {item.name}</h3>
+    <Dialog onClose={onClose} maxWidth={320} title={<h3 className="t-modal-title">Price Alert · {item.name}</h3>}>
         <div className="t-row" style={{ gap: 8, marginBottom: 10 }}>
           <div className="t-col">
             <label className="t-label">Condition</label>
@@ -55,7 +54,6 @@ export default function AlertModal({ item, onClose }: AlertModalProps) {
           </button>
           <button className="t-btn t-btn-ghost" onClick={onClose}>Cancel</button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

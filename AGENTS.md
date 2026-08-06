@@ -3,6 +3,126 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-06 — Consolidation Sprint 2 / W2: canonical PositionService — Portfolio/Paper/Engine/Admin all reuse it (v1.6.6, PRODUCTION VERIFIED)
+
+### What was done
+1. **One canonical `PositionService` (`application/services/position_service.py`)** — the single
+   position read implementation consumed by all four routers as thin adapters. Historical
+   response envelopes preserved byte-for-byte: `get_positions_with_broker` →
+   `{"positions", "broker"}` (v1_portfolio), `get_user_positions` → `{"positions": [...]}`
+   (v1_engine), `get_paper_positions` → `{"positions","count"}` open-only (v1_paper),
+   `list_all_positions` → snapshot+profiles cross-user (v1_admin). Same four data sources as
+   before: portfolio_manager (live broker / PAPER run), execution_engine position_manager
+   (paper ledger), positions_snapshot (admin).
+2. **Rewired as thin adapters** — `routes/v1_engine.py` `get_positions` →
+   `position_service.get_user_positions`; `routes/v1_paper.py` `paper_positions` →
+   `get_paper_positions`; `routes/v1_admin.py` `/admin/positions` → `list_all_positions`;
+   `routes/v1_portfolio.py` `/api/v1/positions` → `get_positions_with_broker` (502 error wrap
+   preserved) and the router header tagged **INACTIVE** (W2 consolidation note; NOT deleted —
+   holdings/funds/summary still use portfolio_manager directly).
+3. **Services delegate, public contracts kept** — `EngineService.get_positions` now delegates
+   to `position_service.get_user_positions_list` (same list return + BrokerTokenExpiredError
+   propagation + transient→[] semantics); new public `EngineService.get_engine_for` accessor
+   (wraps `_get_engine`) so PositionService reuses the shared engine cache. `AdminService.
+   list_positions` delegates to `position_service.list_all_positions` (same dict contract).
+4. **Parity suite `tests/test_position_service_parity.py` (11 tests)** — per-consumer envelope
+   checks (PAPER-run portfolio branch, live engine branch, no-broker, token-expired,
+   transient→[], broker-resolution, admin snapshot+profiles, open-only filter w/ real engine
+   injection) + delegation equals service resolution for both EngineService and AdminService.
+   `tests/test_engine_service.py::TestGetPositions` updated to the delegation contract (patches
+   PositionService module deps).
+5. **Validation** — full suite **955 passed, 1 xfailed** (944 baseline + 11, zero regressions);
+   4 route files + 2 service files import-clean.
+6. **Production gate (COMPLETE, user-approved)** — 7 files hot-deployed to the VPS
+   (`trademetrix_api`), md5-verified in-container, restart clean, health 200. **BEFORE/AFTER
+   byte-parity capture (12 endpoints, real CSRF+JWT): all statuses identical, key trees
+   identical; only diffs = `positions[].updated_at` wall-clock refresh (expected)**. Live
+   read-only (admin `17ba8349`, valid fyers): portfolio 2 positions, engine 2 positions,
+   funds 7572.78; expired-token admin (`fa668109`) → documented `401 BROKER_TOKEN_EXPIRED`
+   on engine/paper/funds, portfolio 200 empty — same BEFORE and AFTER (parity, not
+   regression). **PAPER lifecycle via real HTTP path 6/6 PASS** (place BUY 5
+   `NSE:NIFTY50-INDEX` → filled 200 avg 24653.27 (2.2–2.5s) → position visible qty 5 →
+   portfolio open=1 → trade recorded → SELL close → count=0 → realised −98.8, equity
+   500000→499901.2). Monitoring: Prometheus alerts 0, api memory 288MiB stable, 0× 5xx,
+   errors = pre-existing yfinance 404 noise only. Kill switch: was ENABLED product-wide
+   (pre-existing Redis `global:kill_switch`, TTL −1); cleared on user approval for the
+   paper demo (order placement resumed), then **re-enabled after the gate** (prod restored
+   to its pre-gate safety state). **SPRINT 2 PRODUCTION VERIFIED** — next: Sprint 3 (W6)
+   pending user approval.
+
+### Reference
+- PositionService is the ONLY position read path going forward: any new consumer calls it; never
+  reimplement portfolio_manager/position_manager/positions_snapshot reads inline. Active-broker
+  read is `risk.helpers.get_active_broker` (same query as legacy `EngineService.get_active_broker`).
+- Envelope contracts: engine `{"positions":[...]}`, portfolio `{"positions","broker"}`, paper
+  open-only `{"positions","count"}`, admin cross-user (user_id filter, latest per (user,symbol),
+  profiles join email/full_name) `{"positions","count"}`.
+- Sprint gates: Sprint 1 (W1) DONE + PRODUCTION VERIFIED → Sprint 2 (W2) DONE + PRODUCTION
+  VERIFIED → Sprint 3 (W6 shared UI components, awaiting user approval). Each sprint = full
+  validation + reports + user approval; no deletions ever.
+- Paper fill gotcha (prod gate): paper fills require a resolvable quote — a bare symbol
+  (`NIFTY`) or an expired-broker-token user yields `filled_price=0` → the engine's
+  pre-existing zero-price guard skips the trade ("Skipping trade with zero fill price") →
+  position invisible. Use a fyers-resolvable symbol (`NSE:NIFTY50-INDEX`) with a valid-token
+  user for paper E2E. Kill switch (`global:kill_switch`) is ENABLED on prod by default —
+  restore it after any demo that clears it.
+
+## Session: 2026-08-06 — Consolidation Sprint 1 / W1: canonical backtest metrics — ONE Sharpe + ONE cost model (v1.6.5, PRODUCTION VERIFIED)
+
+### What was done
+1. **Consolidation sprint context** — user-approved scope: implement ONLY W1 → W2 → W6 (in
+   that order) with per-sprint approval gates; W5 (strategy consolidation), dead-code/route
+   deletion FORBIDDEN; dead code found → tag INACTIVE + report, never remove; full validation
+   after every sprint. Audit deliverables live in the session temp dir
+   `consolidation_sprint/` (`01_duplicate_matrix.md` … `05_sprint1_w1_metrics_unification.md`).
+2. **B1 fixed (legacy `/run` Sharpe was wrong)** — `engine/backtest.py` `finalize()` computed
+   Sharpe with **population** stdev over **per-trade PnL** (unit-mismatched) while run-v2/v3
+   used sample stdev over equity period returns. New canonical
+   `backtest.performance.compute_sharpe_ratio(returns)` (sample stdev `n−1`, `√252`, `<2`
+   returns → `0.0`); `PerformanceAnalytics._compute_ratios` and the legacy engine both call
+   it now (legacy over `_equity_returns()` — same formula as run-v2/v3).
+3. **B2 fixed (legacy `/run` fees ≠ canonical)** — legacy flat 4-component math
+   (slippage+brokerage%+STT%+exchange%) replaced by routing through the ONE implementation:
+   `BacktestEngine._apply_costs` → `estimate_round_trip` (`EQUITY_INTRADAY`,
+   `commission_min=0.0`, legacy knobs → `BacktestCostConfig` overrides — the new override
+   knobs `stt_pct_override`/`exchange_tc_pct_override`/`stamp_duty_pct_override` in
+   `backtest/costs.py` keep buy-side STT seasoning for DEL/FUT/OPT). Legacy now includes
+   stamp duty + GST + SEBI → same fees as run-v2/v3 for the same trade. `paper/fill_engine`
+   `_build_fill` also routes through `estimate_cost` with `gst_enabled=False,
+   sebi_fees_enabled=False` → paper fills **byte-identical** to historical math (paper never
+   charged GST/SEBI).
+4. **Parity suite `tests/test_backtest_consolidation.py` (10 tests)** — legacy-Sharpe ==
+   canonical == PerformanceAnalytics on same equity curve; sample-vs-population guard;
+   `<2` points → 0.0; legacy cost == `estimate_round_trip`; stamp leg placement; paper fills
+   == `estimate_cost`. **Full suite 944 passed, 1 xfailed** (baseline 934/1).
+5. **Prod deploy + verification (gate required by user before Sprint 2)** — 4 files hot-deployed
+   (md5-verified in container), restart clean, health 200. In-container smoke (user fa668109,
+   real CSRF+JWT) **13/13 PASS**: `POST /backtests/run` 200 + payload keys unchanged +
+   byte-identical to `POST /backtests/` (same engine); `run-v2` 200 (sharpe −4.2, 38 trades);
+   `GET /{run_id}` fee parity 38/38 (`cost_total == slippage+charges+taxes`); JSON export 200;
+   paper fills identical (zero-fee + fee-bearing). Logs: 0 non-baseline errors / 0 5xx in
+   15min (pre-existing marketdata 503 + Yahoo noise only). Legacy 0-trade results on real
+   candles are PRE-EXISTING window/signal behavior, NOT a W1 regression — proven: git diff
+   shows 0 changed lines in order/signal paths, and a manufactured-trend run makes trades
+   with nonzero Sharpe (−0.71) and costed P&L through the new code.
+
+### Reference
+- **Sprint gates**: Sprint 1 (W1) DONE + PRODUCTION VERIFIED. Next: Sprint 2 (W2 canonical
+  PositionService — Portfolio/Paper/Engine/Admin reuse it, no route/serializer/payload
+  removal, parity tests, tag legacy `v1_portfolio` INACTIVE not delete), then Sprint 3 (W6
+  shared UI components). Each sprint = full validation (Unit/Integration/Regression/Paper/
+  Backtest/UI/Prod smoke) + reports + user approval.
+- **Canonical Sharpe contract**: `compute_sharpe_ratio` — sample stdev (n−1) over equity-
+  curve period returns, `√252`, `len<2` → 0.0. Any future backtest path MUST call it; never
+  reimplement Sharpe inline.
+- **Legacy `/run` fee contract (post-W1)**: same total as `estimate_round_trip` for the same
+  trade (incl. stamp/GST/SEBI); `_apply_costs` returns `(total, brokerage+exchange_tc)`.
+  Paper fills: `estimate_cost` with `gst_enabled=False, sebi_fees_enabled=False` (historical
+  paper behavior preserved).
+- **Prod smoke harness**: `apps/api/tests/smoke_sprint1.py` (in-container; create_access_token
+  + CSRF handshake; HTTPS to api.ai.trademetrix.tech). Cleanup pattern:
+  `docker exec -u root trademetrix_api rm -f /app/smoke_sprint1.py`.
+
 ## Session: 2026-08-05 — is_auth analytics split: DAU/bounce/funnel now separate signed-in vs anonymous (v1.6.3)
 
 ### What was done

@@ -149,35 +149,13 @@ class EngineService:
         return creds["broker"] if creds else None
 
     async def get_positions(self, user_id: str) -> list[dict]:
-        paper_run = await async_safe_single(
-            get_supabase().table("strategy_runs")
-            .select("mode, broker")
-            .eq("user_id", user_id)
-            .eq("status", "running")
-            .eq("mode", "PAPER")
-            .limit(1)
-        )
-        if paper_run:
-            from portfolio.manager import portfolio_manager
-            broker = paper_run.get("broker", "paper")
-            try:
-                await portfolio_manager.refresh(user_id, broker)
-                positions = await portfolio_manager.get_positions(user_id, broker)
-                return [p.model_dump() for p in positions]
-            except Exception:
-                return []
+        from application.services.position_service import position_service
 
-        broker = await self.get_active_broker(user_id)
-        if not broker:
-            return []
-        try:
-            engine = await self._get_engine(user_id, broker)
-            positions = await engine.get_positions()
-            return [p.model_dump() for p in positions]
-        except BrokerTokenExpiredError:
-            raise
-        except (ValueError, RuntimeError, CircuitBreakerError):
-            return []
+        return await position_service.get_user_positions_list(user_id)
+
+    async def get_engine_for(self, user_id: str, broker: str) -> ExecutionEngine:
+        """Public accessor for the cached per-user ExecutionEngine (canonical)."""
+        return await self._get_engine(user_id, broker)
 
     async def get_funds(self, user_id: str) -> dict:
         paper_run = await async_safe_single(

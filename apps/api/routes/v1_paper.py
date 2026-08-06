@@ -71,14 +71,9 @@ async def paper_account(current_user: UserProfile = Depends(get_current_user)):
 
 @router.get("/positions")
 async def paper_positions(current_user: UserProfile = Depends(get_current_user)):
-    from execution_engine import position_manager
+    from application.services.position_service import position_service
 
-    positions = position_manager.get_positions(current_user.id, broker=_BROKER)
-    positions = [p for p in positions if p.is_open]
-    return {
-        "positions": [p.model_dump(mode="json") for p in positions],
-        "count": len(positions),
-    }
+    return position_service.get_paper_positions(current_user.id)
 
 
 @router.get("/trades")

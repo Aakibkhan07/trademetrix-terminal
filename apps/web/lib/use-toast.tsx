@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { ToastItem } from '@/components/ui/toast'
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning'
 
@@ -42,30 +43,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="t-toast-container" role="status" aria-live="polite" aria-label="Notifications">
         {toasts.map(t => (
-          <ToastItem key={t.id} toast={t} onRemove={removeToast} />
+          <ToastItem key={t.id} type={t.type} message={t.message} onRemove={() => removeToast(t.id)} />
         ))}
       </div>
     </ToastContext.Provider>
-  )
-}
-
-function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) => void }) {
-  const icon = {
-    success: '✓',
-    error: '✕',
-    info: 'i',
-    warning: '!',
-  }[toast.type]
-
-  return (
-    <div
-      className={`t-toast t-toast-${toast.type}`}
-      onClick={() => onRemove(toast.id)}
-      role="alert"
-    >
-      <span className="t-toast-icon">{icon}</span>
-      <span className="t-toast-message">{toast.message}</span>
-    </div>
   )
 }
 

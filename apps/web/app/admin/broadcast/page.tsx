@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useApi } from '@/lib/use-api'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
+import { SkeletonBar } from '@/components/ui/skeleton'
 
 /* -------- Types -------- */
 
@@ -45,7 +46,7 @@ const PRODUCTS = ['INTRADAY', 'NRML']
 /* -------- Skeleton -------- */
 
 function SkeletonLine({ w, h = 12 }: { w: string; h?: number }) {
-  return <div style={{ width: w, height: h, background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
+  return <SkeletonBar w={w} h={h} background="rgba(139,92,246,0.08)" />
 }
 
 /* -------- Not authorized -------- */

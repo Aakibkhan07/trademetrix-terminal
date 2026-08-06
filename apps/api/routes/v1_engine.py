@@ -102,8 +102,9 @@ async def get_order_notes(current_user: UserProfile = Depends(get_current_user))
 
 @router.get("/positions")
 async def get_positions(current_user: UserProfile = Depends(get_current_user)):
-    positions = await _engine_service.get_positions(current_user.id)
-    return {"positions": positions}
+    from application.services.position_service import position_service
+
+    return await position_service.get_user_positions(current_user.id)
 
 
 @router.get("/funds")

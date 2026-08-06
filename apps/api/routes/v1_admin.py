@@ -290,7 +290,9 @@ async def admin_list_positions(
     user_id: str = Query(""),
     admin: UserProfile = Depends(require_admin),
 ):
-    return await _service.list_positions(user_id=user_id)
+    from application.services.position_service import position_service
+
+    return await position_service.list_all_positions(user_id=user_id)
 
 
 @router.get("/audit-log")

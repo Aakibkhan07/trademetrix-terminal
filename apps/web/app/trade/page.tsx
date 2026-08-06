@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
+import { SkeletonBar as UIbar } from '@/components/ui/skeleton'
 
 interface BrokerCred {
   id: string
@@ -36,7 +37,7 @@ function fmt(n: number) {
 }
 
 function SkeletonLine({ w, h = 12 }: { w: string; h?: number }) {
-  return <div style={{ width: w, height: h, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
+  return <UIbar w={w} h={h} background="color-mix(in srgb, var(--violet) 8%, transparent)" />
 }
 
 function SkeletonBar() {

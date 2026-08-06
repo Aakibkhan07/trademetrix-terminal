@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
 
 interface VersionEntry {
@@ -95,13 +96,12 @@ export default function VersionsDrawer({
   }
 
   return (
-    <div className="t-modal-overlay" onClick={onClose}>
-      <div className="t-modal" style={{ maxWidth: 620, padding: 0 }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Versions & History</span>
-          <button className="t-btn t-btn-sm" onClick={onClose}>✕</button>
-        </div>
-
+    <Dialog onClose={onClose} maxWidth={620} padding={0} title={
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>Versions & History</span>
+        <button className="t-btn t-btn-sm" onClick={onClose}>✕</button>
+      </div>
+    }>
         <div style={{ padding: 14, maxHeight: '60vh', overflowY: 'auto' }}>
           {busy && <p className="t-faint" style={{ fontSize: 11 }}>{busy}</p>}
           {error && <p style={{ margin: '0 0 10px', fontSize: 11, color: 'var(--red)' }}>{error}</p>}
@@ -162,7 +162,6 @@ export default function VersionsDrawer({
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

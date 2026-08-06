@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { useToast } from '@/lib/use-toast'
+import { KpiCard } from '@/components/ui/kpi-card'
+import { TierPill } from '@/components/ui/badge'
 
 interface RecentTrade {
   id: string
@@ -33,30 +35,8 @@ interface StrategyDetail {
   recent_trades: RecentTrade[]
 }
 
-const TIER_COLORS: Record<string, string> = {
-  free: 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
-  starter: 'color-mix(in srgb, var(--cyan) 15%, transparent)',
-  pro: 'color-mix(in srgb, var(--violet) 15%, transparent)',
-  enterprise: 'color-mix(in srgb, var(--red) 15%, transparent)',
-}
-
-const TIER_TEXT: Record<string, string> = {
-  free: 'var(--text-sub)',
-  starter: 'var(--cyan)',
-  pro: 'var(--violet)',
-  enterprise: 'var(--red)',
-}
-
 function MetricCard({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div style={{
-      background: 'var(--panel)', border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-md)', padding: '14px 16px',
-    }}>
-      <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: color || 'var(--text)' }}>{value}</div>
-    </div>
-  )
+  return <KpiCard label={label} value={value} color={color} variant="metric" />
 }
 
 export default function StrategyDetailPage() {
@@ -150,16 +130,7 @@ export default function StrategyDetailPage() {
               <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 20, margin: 0, color: 'var(--text)' }}>
                 {detail.name}
               </h1>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
-                borderRadius: 4, fontSize: 9, fontWeight: 500,
-                background: TIER_COLORS[detail.required_tier] || TIER_COLORS.free,
-                color: TIER_TEXT[detail.required_tier] || TIER_TEXT.free,
-                border: `1px solid ${TIER_COLORS[detail.required_tier] || TIER_COLORS.free}`,
-                textTransform: 'capitalize',
-              }}>
-                {detail.required_tier}
-              </span>
+              <TierPill tier={detail.required_tier} borderMix="15%" />
               <span className="t-badge t-badge-violet" style={{ fontSize: 9 }}>{catLabel}</span>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: 0, lineHeight: 1.5 }}>{detail.description}</p>

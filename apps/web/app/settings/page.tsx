@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/use-theme'
 import { api } from '@/lib/api'
+import { Dialog } from '@/components/ui/dialog'
 
 interface BrokerCred {
   broker: string
@@ -271,9 +272,7 @@ export default function SettingsPage() {
 
       {/* Password Change Modal */}
       {showPwModal && (
-        <div className="t-modal-overlay" onClick={() => setShowPwModal(false)}>
-          <div className="t-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <div className="t-modal-title">Change Password</div>
+        <Dialog onClose={() => setShowPwModal(false)} maxWidth={400} title={<div className="t-modal-title">Change Password</div>}>
             <div style={{ marginBottom: 12 }}>
               <label className="t-label">Current Password</label>
               <input className="t-input" type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
@@ -302,8 +301,7 @@ export default function SettingsPage() {
                 {pwSaving ? 'Saving...' : 'Change Password'}
               </button>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

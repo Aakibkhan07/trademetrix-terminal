@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { useMarketData } from '@/lib/use-market-data'
 import { useToast } from '@/lib/use-toast'
 import { api } from '@/lib/api'
@@ -443,9 +444,7 @@ export default function MarketDataPage() {
 
       {/* Add Symbol Modal */}
       {showAddModal && (
-        <div className="t-modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="t-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <h3 className="t-modal-title" style={{ marginBottom: 12 }}>Add Symbol</h3>
+        <Dialog onClose={() => setShowAddModal(false)} maxWidth={420} title={<h3 className="t-modal-title" style={{ marginBottom: 12 }}>Add Symbol</h3>}>
             <input className="t-input" placeholder="Search symbols..." value={addSearch}
               onChange={e => setAddSearch(e.target.value)} autoFocus style={{ marginBottom: 12 }} />
             <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -471,15 +470,12 @@ export default function MarketDataPage() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Alert Modal */}
       {showAlertModal && (
-        <div className="t-modal-overlay" onClick={() => setShowAlertModal(false)}>
-          <div className="t-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
-            <h3 className="t-modal-title" style={{ marginBottom: 12 }}>Set Price Alert</h3>
+        <Dialog onClose={() => setShowAlertModal(false)} maxWidth={360} title={<h3 className="t-modal-title" style={{ marginBottom: 12 }}>Set Price Alert</h3>}>
             <p style={{ fontSize: 12, marginBottom: 12 }}>
               <span style={{ fontWeight: 600 }}>{alertName}</span>
               <span className="t-faint" style={{ marginLeft: 6 }}>{alertSymbol}</span>
@@ -507,8 +503,7 @@ export default function MarketDataPage() {
                 Cancel
               </button>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Alert History */}

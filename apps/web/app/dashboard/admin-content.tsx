@@ -6,6 +6,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useApi } from '@/lib/use-api'
 import { api, AdminUser, AdminBroker, AdminOrder, AdminAuditEntry, AdminStats, AdminRiskSetting, BrokerMeta, FyersHealthResult, BuyerStrategyStatus } from '@/lib/api'
 import { BrokerLogo } from '@/components/broker-logos'
+import { SkeletonBar } from '@/components/ui/skeleton'
+import { TierPill } from '@/components/ui/badge'
 
 const BroadcastDialog = dynamic(() => import('./broadcast-dialog').then(m => ({ default: m.BroadcastDialog })), { ssr: false })
 const TradingLogsTab = dynamic(() => import('./trading-logs-tab').then(m => ({ default: m.TradingLogsTab })), { ssr: false })
@@ -44,34 +46,14 @@ interface Assignment {
 const TIERS = ['free', 'starter', 'pro', 'enterprise'] as const
 const TIER_ORDER: Record<string, number> = { free: 0, starter: 1, pro: 2, enterprise: 3 }
 
-function TierColor(tier: string) {
-  const map: Record<string, { bg: string; text: string; border: string }> = {
-    free:       { bg: 'color-mix(in srgb, var(--text-sub) 15%, transparent)', text: 'var(--text-sub)', border: 'color-mix(in srgb, var(--text-sub) 20%, transparent)' },
-    starter:    { bg: 'color-mix(in srgb, var(--cyan) 15%, transparent)',  text: 'var(--cyan)', border: 'color-mix(in srgb, var(--cyan) 20%, transparent)' },
-    pro:        { bg: 'color-mix(in srgb, var(--violet) 15%, transparent)',  text: 'var(--violet)', border: 'color-mix(in srgb, var(--violet) 20%, transparent)' },
-    enterprise: { bg: 'color-mix(in srgb, var(--red) 15%, transparent)',   text: 'var(--red)', border: 'color-mix(in srgb, var(--red) 20%, transparent)' },
-  }
-  return map[tier] || map.free
+export function TierBadge({ tier, small }: { tier: string; small?: boolean }) {
+  return <TierPill tier={tier} small={small} />
 }
 
-export function TierBadge({ tier, small }: { tier: string; small?: boolean }) {
-  const c = TierColor(tier)
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: small ? '1px 6px' : '2px 8px',
-      borderRadius: 4, fontSize: small ? 8 : 9, fontWeight: 500,
-      background: c.bg, color: c.text,
-      border: `1px solid ${c.border}`,
-      textTransform: 'capitalize',
-    }}>
-      {tier}
-    </span>
-  )
-}
+const skeletonBg = 'color-mix(in srgb, var(--violet) 8%, transparent)'
 
 function SkeletonLine({ w }: { w: string }) {
-  return <div style={{ width: w, height: 12, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
+  return <SkeletonBar w={w} h={12} background={skeletonBg} />
 }
 
 function SkeletonCard() {

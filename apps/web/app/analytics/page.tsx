@@ -5,19 +5,10 @@ import { useApi } from '@/lib/use-api'
 import { SkeletonGrid } from '@/components/skeleton'
 import { ErrorMessage } from '@/components/error-message'
 
+import { Sparkline } from '@/components/ui/sparkline'
+
 function EquityMiniChart({ values, height = 80, width = 200 }: { values: number[]; height?: number; width?: number }) {
-  if (values.length < 2) return null
-  const min = Math.min(...values); const max = Math.max(...values); const range = max - min || 1
-  const isUp = values[values.length - 1] >= values[0]
-  const color = isUp ? 'var(--green)' : 'var(--red)'
-  const x = (i: number) => (i / (values.length - 1)) * width
-  const y = (v: number) => height - ((v - min) / range) * (height - 4) - 2
-  return (
-    <svg width={width} height={height} style={{ display: 'block' }}>
-      <path d={values.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(v)}`).join('')}
-        fill="none" stroke={color} strokeWidth={1.5} />
-    </svg>
-  )
+  return <Sparkline values={values} height={height} width={width} strokeWidth={1.5} padding={2} />
 }
 
 function BarChart({ data, height = 100 }: { data: { label: string; value: number; color?: string }[]; height?: number }) {

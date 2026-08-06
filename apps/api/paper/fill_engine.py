@@ -111,12 +111,30 @@ class FillEngine:
                 net_amount=0.0,
             )
 
+        from backtest.costs import BacktestCostConfig, estimate_cost, segment_for
+
         gross_amount = quantity * price
-        commission = gross_amount * self._config.commission_pct / 100
-        exchange_charges = gross_amount * self._config.exchange_charges_pct / 100
-        stt = gross_amount * self._config.stt_pct / 100
-        stamp_duty = gross_amount * self._config.stamp_duty_pct / 100
-        total_charges = commission + exchange_charges + stt + stamp_duty
+        side = order.side.value if hasattr(order.side, "value") else str(order.side)
+        cfg = BacktestCostConfig(
+            commission_pct=self._config.commission_pct,
+            commission_min=0.0,
+            slippage_pct=self._config.slippage_pct,
+            stt_pct_override=self._config.stt_pct,
+            exchange_tc_pct_override=self._config.exchange_charges_pct,
+            stamp_duty_pct_override=self._config.stamp_duty_pct,
+            gst_enabled=False,
+            sebi_fees_enabled=False,
+        )
+        est = estimate_cost(
+            side=side,
+            traded_value=gross_amount,
+            segment=segment_for(str(getattr(order, "instrument_type", "") or "")),
+            qty=quantity,
+            price=price,
+            slippage_value=0.0,
+            config=cfg,
+        )
+        total_charges = est.total
         net_amount = gross_amount + total_charges if order.side.value == "BUY" else gross_amount - total_charges
 
         return PaperFill(
@@ -125,10 +143,10 @@ class FillEngine:
             side=order.side.value if hasattr(order.side, "value") else str(order.side),
             filled_quantity=quantity,
             filled_price=round(price, 2),
-            commission=round(commission, 2),
-            exchange_charges=round(exchange_charges, 2),
-            stt=round(stt, 2),
-            stamp_duty=round(stamp_duty, 2),
+            commission=est.brokerage,
+            exchange_charges=est.exchange_tc,
+            stt=est.stt,
+            stamp_duty=est.stamp_duty,
             net_amount=round(net_amount, 2),
         )
 

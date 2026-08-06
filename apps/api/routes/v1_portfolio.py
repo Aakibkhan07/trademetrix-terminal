@@ -21,20 +21,21 @@ def _find_broker(user_id: str, preferred: str | None) -> str | None:
         return None
 
 
+# INACTIVE (W2 consolidation): positions logic consolidated into the canonical
+# PositionService (application/services/position_service.py). Router kept for
+# backward compatibility — holdings/funds/summary below still use the legacy
+# manager directly; do NOT delete.
 @router.get("/api/v1/positions")
 async def get_positions(
     current_user: UserProfile = Depends(get_current_user),
     broker: str | None = None,
 ):
-    resolved = broker or await get_active_broker(current_user.id)
-    if not resolved:
-        return {"positions": [], "broker": None}
+    from application.services.position_service import position_service
+
     try:
-        await portfolio_manager.refresh(current_user.id, resolved)
-        positions = await portfolio_manager.get_positions(current_user.id, resolved)
-        return {"positions": [p.model_dump() for p in positions], "broker": resolved}
+        return await position_service.get_positions_with_broker(current_user.id, broker)
     except Exception as e:
-        logger.error("Failed to fetch positions for user=%s broker=%s: %s", current_user.id, resolved, e)
+        logger.error("Failed to fetch positions for user=%s broker=%s: %s", current_user.id, broker, e)
         raise HTTPException(status_code=502, detail=f"Failed to fetch positions: {e}")
 
 

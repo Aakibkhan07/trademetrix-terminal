@@ -1,3 +1,81 @@
+## v1.6.6 (2026-08-06) — Canonical PositionService: Portfolio/Paper/Engine/Admin reuse one position reader (Consolidation Sprint 2 / W2)
+
+> Internal consolidation only — no routes, endpoints, response formats, serializers or dead-code
+> changes (nothing deleted; legacy `v1_portfolio` router tagged INACTIVE, not removed). **SPRINT 2
+> PRODUCTION VERIFIED** (2026-08-06).
+
+### What was done
+1. **One canonical reader** — new `application/services/position_service.py` (`PositionService`)
+   owns every position read: `get_positions_with_broker` (portfolio), `get_user_positions` /
+   `get_user_positions_list` (engine — PAPER-run branch via portfolio_manager, else live engine),
+   `get_paper_positions` (open-only), `list_all_positions` (admin snapshot + profiles join).
+   Each consumer router became a thin adapter; the four historical envelopes are preserved
+   byte-for-byte.
+2. **Routes rewired** — `v1_engine.py` `/positions`, `v1_paper.py` `/positions`,
+   `v1_admin.py` `/admin/positions`, `v1_portfolio.py` `/api/v1/positions` all delegate to
+   `PositionService`; the v1_portfolio router is tagged **INACTIVE** (holdings/funds/summary
+   still use `portfolio_manager` directly).
+3. **Public service contracts kept** — `EngineService.get_positions` (same semantics incl.
+   `BrokerTokenExpiredError` propagation + transient-error → `[]`) and `AdminService.
+   list_positions` (same dict contract) now delegate to the canonical service; new public
+   `EngineService.get_engine_for` accessor reuses the shared engine cache.
+4. **Parity tests** — new `tests/test_position_service_parity.py` (11 tests: envelope + path
+   parity for all four consumers + service delegation equality); `TestGetPositions` in
+   `test_engine_service.py` updated to the delegation contract.
+
+### Verification
+- API regression **955 passed, 1 xfailed** (v1.6.5 944/1 → +11, zero failures); imports clean.
+- **Production gate PASSED (user-approved)** — 7 files hot-deployed (`position_service.py`,
+  `engine_service.py`, `admin_service.py`, `routes/v1_{admin,engine,paper,portfolio}.py`),
+  md5-verified in-container, restart clean, health 200.
+  - **Byte-parity**: BEFORE/AFTER capture of 12 endpoints (live, paper, admin, funds,
+    holdings, engine status) — every status identical; response key-trees identical; only
+    allowed diff = `positions[].updated_at` wall-clock refresh. Expired-token admin keeps
+    its documented `401 BROKER_TOKEN_EXPIRED`; live admin keeps 2 real positions.
+  - **Paper lifecycle (real HTTP path) 6/6**: BUY 5 `NSE:NIFTY50-INDEX` paper → filled
+    @ 24653.27 (≈2.2–2.5 s) → position visible → portfolio open=1 → trade recorded →
+    SELL 5 → position closed → realised −98.8, equity 500000 → 499901.2.
+  - **Monitoring**: 0 Prometheus alerts, api memory 288 MiB stable, 0× 5xx, error log =
+    pre-existing yfinance 404 noise only.
+  - **Kill switch**: Redis `global:kill_switch` was ENABLED pre-gate (product-wide halt);
+    cleared for the paper demo on user approval, then **re-enabled** (prod restored).
+  - Report: `07_sprint2_w2_production_verification.md`. Next: Sprint 3 (W6) on approval.
+
+## v1.6.5 (2026-08-06) — Canonical backtest metrics: ONE Sharpe + ONE cost model (Consolidation Sprint 1 / W1)
+
+> Internal consolidation only — no routes, endpoints, response formats, UI or dead-code
+> changes (consolidation-sprint constraint: nothing deleted). Deployment = 4 files hot-deployed
+> to prod (md5-verified) + restart; PRODUCTION VERIFIED.
+
+### What was done
+1. **B1 fixed — one canonical Sharpe across every backtest path.** New
+   `backtest.performance.compute_sharpe_ratio(returns)` (sample stdev `n−1`, annualized
+   `√252`, `<2` returns → `0.0`). `PerformanceAnalytics` now calls it; the **legacy `/run`
+   engine** (`engine/backtest.py`) previously used population stdev over per-trade PnL —
+   a unit-mismatched ratio diverging from run-v2/v3 — and now computes
+   `compute_sharpe_ratio` over the same equity-curve period returns as run-v2/v3. Removed the
+   now-unused per-trade `_returns` list (internal, not an API).
+- **B2 fixed — one canonical fee implementation.** Legacy `/run` cost math was a flat
+   4-component approximation (slippage+brokerage%+STT%+exchange%) that never matched the
+   segment-aware `estimate_cost` model run-v2/v3 use. `BacktestEngine._apply_costs` now routes
+   through canonical `estimate_round_trip` (`EQUITY_INTRADAY`, `commission_min=0.0`,
+   legacy knobs → `BacktestCostConfig` overrides). Same trade → identical fees on `/run`,
+   run-v2 and run-v3 (includes stamp-duty/GST/SEBI the flat math omitted). `paper/fill_engine`
+   `_build_fill` also routes through `estimate_cost` with `gst_enabled=False,
+   sebi_fees_enabled=False` to keep paper fills **byte-identical** to their historical math.
+3. **New parity suite `tests/test_backtest_consolidation.py` (10 tests)** — legacy-Sharpe ==
+   `compute_sharpe_ratio` == `PerformanceAnalytics`, sample-vs-population guard, `<2` → `0.0`,
+   legacy cost == `estimate_round_trip`, stamp-duty leg placement, paper-fill parity.
+
+### Verification
+- API regression **944 passed, 1 xfailed** (baseline 934/1 → +10, zero failures).
+- **Prod deploy + smoke (in-container, real auth) — 13/13 PASS:** `POST /backtests/run` 200,
+  payload keys unchanged, equals `POST /backtests/` exactly (sharpe/trades/pnl identical);
+  `run-v2` 200 (sharpe −4.2, 38 trades); `GET /{run_id}` fee parity **38/38**
+  (`cost_total == slippage+charges+taxes`, e.g. 2282.58 = 0.0+1150.55+1132.03); JSON export
+  200; paper fills byte-identical for zero-fee and fee-bearing configs. Logs clean (0
+  non-baseline errors, 0 5xx in 15min; only pre-existing marketdata 503s/Yahoo noise).
+
 ## v1.6.4 (2026-08-06) — Housekeeping: dead admin endpoint fixed, lint wired, log noise swept
 
 > Health-check pass (tests/tsc/lint/prod probes). No features — aligns with the freeze.

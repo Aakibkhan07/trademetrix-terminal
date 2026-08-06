@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { useMarketData } from '@/lib/use-market-data'
 import { useUIStore } from '@/lib/stores/ui-store'
 import { useToast } from '@/lib/use-toast'
@@ -269,9 +270,7 @@ export default function WatchlistPanel({ activeSymbol, onSelectSymbol, onAnalyze
       </div>
 
       {showAdd && (
-        <div className="t-modal-overlay" onClick={() => setShowAdd(false)}>
-          <div className="t-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
-            <h3 className="t-modal-title">Add to {group === 'all' ? 'Intraday' : group}</h3>
+        <Dialog onClose={() => setShowAdd(false)} maxWidth={380} title={<h3 className="t-modal-title">Add to {group === 'all' ? 'Intraday' : group}</h3>}>
             <input className="t-input" placeholder="Search…" value={addSearch} onChange={e => setAddSearch(e.target.value)} autoFocus style={{ marginBottom: 8, fontSize: 12 }} />
             <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
               {addableSymbols.slice(0, 25).map(s => (
@@ -290,8 +289,7 @@ export default function WatchlistPanel({ activeSymbol, onSelectSymbol, onAnalyze
               <input className="t-input" placeholder="Any symbol e.g. NSE:NIFTY26AUG25000CE" value={freeText} onChange={e => setFreeText(e.target.value)} style={{ flex: 1, fontSize: 11 }} />
               <button className="t-btn t-btn-primary" onClick={addFreeText} style={{ fontSize: 11 }}>Add</button>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {alertItem && (

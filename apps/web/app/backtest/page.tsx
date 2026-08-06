@@ -3,6 +3,8 @@
 import { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { api, backtestExportUrl } from '@/lib/api'
+import { KpiCard } from '@/components/ui/kpi-card'
+import { colorVar, mix, chartOptions } from '@/components/ui/chart-shell'
 import {
   createChart, ColorType, LineSeries, AreaSeries, CandlestickSeries, CrosshairMode, createSeriesMarkers, LineStyle,
   type IChartApi, type ISeriesApi, type Time, type UTCTimestamp,
@@ -123,16 +125,6 @@ function fmtMoney(x: number | null | undefined): string {
   return `${sign}₹${Math.round(x).toLocaleString('en-IN')}`
 }
 
-const colorVar = (name: string, fallback = '#8888a0'): string =>
-  typeof window !== 'undefined' ? (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback) : fallback
-
-const mix = (hex: string, pct: number): string => {
-  const h = hex.replace('#', '')
-  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
-  const alpha = Math.round((pct / 100) * 255).toString(16).padStart(2, '0')
-  return `#${full.slice(0, 6)}${alpha}`
-}
-
 function candleTime(ts: string, fallback: number): Time {
   const t = new Date(ts).getTime() / 1000
   return (Number.isFinite(t) ? t : fallback) as Time
@@ -168,31 +160,7 @@ function BacktestChart({ points, height = 170, color = '#34d399', mode = 'equity
 
     const isEquity = mode === 'equity'
     const chart: IChartApi = createChart(container, {
-      height,
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: colorVar('--text-sub', '#8888a0'),
-        fontSize: 10,
-        fontFamily: 'var(--font-body)',
-      },
-      grid: {
-        vertLines: { color: mix(colorVar('--violet'), 6) },
-        horzLines: { color: mix(colorVar('--violet'), 6) },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
-        horzLine: { color: mix(colorVar('--violet'), 30), width: 1, style: 2, labelBackgroundColor: colorVar('--bg-secondary') },
-      },
-      timeScale: {
-        borderColor: mix(colorVar('--text-inverse'), 6),
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      rightPriceScale: {
-        borderColor: mix(colorVar('--text-inverse'), 6),
-        scaleMargins: { top: 0.1, bottom: 0.15 },
-      },
+      ...chartOptions({ height, crosshairMode: CrosshairMode.Normal, rightScaleMargins: { top: 0.1, bottom: 0.15 } }),
     })
 
     const series: ISeriesApi<'Line'> = chart.addSeries(LineSeries, {
@@ -668,18 +636,11 @@ function Heatmap({ data, title }: { data: Record<string, number>; title: string 
 }
 
 const kpiCard = (label: string, value: string, sub?: string, color?: string) => (
-  <div className="t-panel" style={{ padding: 12 }}>
-    <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{label}</div>
-    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: color || 'var(--text)', marginBottom: 1 }}>{value}</div>
-    {sub && <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{sub}</div>}
-  </div>
+  <KpiCard label={label} value={value} sub={sub} color={color} />
 )
 
 const tiCard = (label: string, value: string, color?: string) => (
-  <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '6px 8px' }}>
-    <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
-    <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', color: color || 'var(--text)', marginTop: 1 }}>{value}</div>
-  </div>
+  <KpiCard label={label} value={value} color={color} variant="ti" />
 )
 
 export default function BacktestPage() {
