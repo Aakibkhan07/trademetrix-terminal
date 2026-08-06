@@ -46,5 +46,5 @@ Command: `.venv/bin/python -m pytest tests/ -q`
 - Prod P1-2: `/ai/journal` → 200 + CORS headers with the AI origin.
 - Prod P1-3: super-admin gated: non-admin 403; promoted user → `users/with-brokers` 200 (29 users), `ip-whitelist` GET 200 / POST add 200 / DELETE 200 (row cleaned).
 - Prod P2-1: 5 wrong passwords → progressive delays (0.7→2.5s), 6th → 429; audit `auth_failed` (terms 2–5) + `login_locked` (term 6) persisted. Correct password after a fresh key → 200.
-- Browser smoke on prod: `/workspace` option chain, `/journal` AI section, 3 admin tabs (Trade Router / Trades / IP Whitelist) — pending.
-- Mobile 390 px regression on the touched surfaces — pending.
+- Browser smoke on prod (puppeteer-core, Chrome, 1440×900): **9/9 PASS** — sign-in lands `/dashboard`; workspace Option Chain opens with strike rows (`NSE:NIFTY50-INDEX`); `/journal` AI journal renders without load failure; admin dashboard shows Trade Router / IP Whitelist tabs; IP Whitelist tab lists IPs + default `*` Allow-all; no page errors (only the benign anonymous `/auth/me` 401, documented).
+- Mobile 390px regression (puppeteer, iPhone-ish viewport): **6/6 PASS** — sign-in works, `/journal`, `/workspace`, `/dashboard` render with `scrollWidth=390` (no horizontal overflow), no page errors.
