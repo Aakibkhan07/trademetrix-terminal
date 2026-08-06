@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from core.db import async_supabase, get_supabase
 
@@ -56,11 +56,48 @@ Important guidelines:
             return {"analysis": "Could not generate analysis.", "stats": stats}
 
     async def _get_recent_trades(self, lookback_days: int) -> list:
+        """Return the user's recent filled trades.
+
+        The `orders` table is the canonical fill ledger (it carries the full
+        order schema incl. a `created_at` column on prod). The legacy `trades`
+        table is queried as a fallback when no filled orders exist; if that
+        table's schema drifts (missing columns), the query degrades gracefully
+        to an empty list so the journal never 500s.
+        """
+        since = (datetime.now(UTC) - timedelta(days=lookback_days)).isoformat()
         supabase = get_supabase()
-        result = await async_supabase(lambda: supabase.table("trades").select("*").eq("user_id", self.user_id).gte(
-            "created_at", datetime.now(UTC).isoformat()
-        ).limit(100).execute())
-        return result.data or []
+
+        try:
+            orders = await async_supabase(lambda: supabase.table("orders").select("*").eq("user_id", self.user_id).gte(
+                "created_at", since
+            ).eq("status", "FILLED").order("created_at", desc=True).limit(100).execute())
+            if orders.data:
+                return [
+                    {
+                        "id": o.get("id"),
+                        "symbol": o.get("symbol", ""),
+                        "side": o.get("side", ""),
+                        "quantity": o.get("filled_quantity", o.get("quantity", 0)),
+                        "price": o.get("average_price", o.get("price", 0)),
+                        "value": o.get("total_value", 0) or 0,
+                        "created_at": o.get("created_at"),
+                        "is_paper": o.get("is_paper", True),
+                        "source": "orders",
+                    }
+                    for o in orders.data
+                ]
+        except Exception as e:
+            logger.warning("AI journal: orders query failed, falling back to trades: %s", e)
+
+        try:
+            result = await async_supabase(lambda: supabase.table("trades").select("*").eq("user_id", self.user_id).gte(
+                "created_at", since
+            ).limit(100).execute())
+            if result.data:
+                return result.data
+        except Exception as e:
+            logger.warning("AI journal: trades query failed (schema drift likely): %s", e)
+        return []
 
     def _compute_stats(self, trades: list, lookback_days: int = 7) -> dict:
         total = len(trades)

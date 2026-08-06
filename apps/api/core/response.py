@@ -3,7 +3,7 @@ from typing import Any
 from fastapi.responses import JSONResponse
 
 
-def api_response(data: Any = None, message: str = "Success", status: int = 200, meta: dict | None = None) -> JSONResponse:
+def api_response(data: Any = None, message: str = "Success", status: int = 200, meta: dict | None = None, headers: dict[str, str] | None = None) -> JSONResponse:
     body: dict[str, Any] = {
         "success": True,
         "message": message,
@@ -11,10 +11,10 @@ def api_response(data: Any = None, message: str = "Success", status: int = 200, 
     }
     if meta:
         body["meta"] = meta
-    return JSONResponse(content=body, status_code=status)
+    return JSONResponse(content=body, status_code=status, headers=headers)
 
 
-def error_response(message: str, code: str = "INTERNAL_ERROR", status: int = 500, details: dict | None = None) -> JSONResponse:
+def error_response(message: str, code: str = "INTERNAL_ERROR", status: int = 500, details: dict | None = None, headers: dict[str, str] | None = None) -> JSONResponse:
     body: dict[str, Any] = {
         "success": False,
         "error": {
@@ -24,4 +24,4 @@ def error_response(message: str, code: str = "INTERNAL_ERROR", status: int = 500
     }
     if details:
         body["error"]["details"] = details
-    return JSONResponse(content=body, status_code=status)
+    return JSONResponse(content=body, status_code=status, headers=headers)

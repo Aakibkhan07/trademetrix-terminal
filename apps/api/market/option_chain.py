@@ -10,6 +10,24 @@ logger = logging.getLogger(__name__)
 STRIKE_INTERVALS: dict[str, int] = {"NIFTY": 50, "BANKNIFTY": 100, "FINNIFTY": 50, "SENSEX": 100}
 LOT_SIZES: dict[str, int] = {"NIFTY": 65, "BANKNIFTY": 30, "FINNIFTY": 60, "SENSEX": 20}
 NSE_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY"}
+SUPPORTED_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY", "SENSEX"}
+
+_INDEX_ALIASES = {
+    "NIFTY50-INDEX": "NIFTY",
+    "NIFTYBANK-INDEX": "BANKNIFTY",
+    "FINNIFTY-INDEX": "FINNIFTY",
+    "SENSEX-INDEX": "SENSEX",
+}
+
+
+def normalize_index_symbol(symbol: str) -> str:
+    """Map display symbols (e.g. 'NSE:NIFTY50-INDEX' / 'NIFTY50-INDEX')
+    to the short names the data providers understand ('NIFTY')."""
+    s = symbol.upper().strip()
+    for prefix in ("NSE:", "BSE:", "NFO:"):
+        if s.startswith(prefix):
+            s = s[len(prefix):]
+    return _INDEX_ALIASES.get(s, s)
 
 
 class OptionChainEngine:
@@ -27,6 +45,7 @@ class OptionChainEngine:
         self._initialized = True
 
     async def get_option_chain(self, symbol: str, expiry: str = "") -> dict:
+        symbol = normalize_index_symbol(symbol)
         cache_key = f"option_chain:{symbol.upper()}:{expiry}"
         cached = market_cache.get_option_chain(cache_key)
         if cached:
@@ -44,10 +63,18 @@ class OptionChainEngine:
             market_cache.put_option_chain(cache_key, data)
             return data
 
+        data = self._generate_simulated_chain(symbol.upper())
+        if data:
+            data["is_simulated"] = True
+            market_cache.put_option_chain(cache_key, data)
+            logger.info("Using simulated option chain for %s (fallback)", symbol)
+            return data
+
         logger.warning("Option chain unavailable for %s (NSE + Fyers fallback failed)", symbol)
         return {}
 
     async def get_expiries(self, symbol: str) -> list[str]:
+        symbol = normalize_index_symbol(symbol)
         cache_key = f"expiries:{symbol.upper()}"
         cached = market_cache.get_expiries(cache_key)
         if cached:
@@ -207,61 +234,61 @@ class OptionChainEngine:
             data = resp.json()
             if data.get("s") != "ok" and data.get("code") != 200:
                 return None
-                chain = data.get("data", {})
-                raw_options = chain.get("optionsChain", [])
-                raw_expiry_data = chain.get("expiryData", [])
+            chain = data.get("data", {})
+            raw_options = chain.get("optionsChain", [])
+            raw_expiry_data = chain.get("expiryData", [])
 
-                expiries = []
-                for e in raw_expiry_data:
-                    if isinstance(e, dict):
-                        date_str = e.get("date", "")
-                        try:
-                            dt = datetime.datetime.strptime(date_str, "%d-%m-%Y")
-                            expiries.append(dt.strftime("%d%b").upper())
-                        except Exception:
-                            expiries.append(date_str.replace("-", ""))
+            expiries = []
+            for e in raw_expiry_data:
+                if isinstance(e, dict):
+                    date_str = e.get("date", "")
+                    try:
+                        dt = datetime.datetime.strptime(date_str, "%d-%m-%Y")
+                        expiries.append(dt.strftime("%d%b").upper())
+                    except Exception:
+                        expiries.append(date_str.replace("-", "").upper())
 
-                by_strike: dict[int, dict[str, dict]] = {}
-                for row in raw_options:
-                    strike = row.get("strike_price", 0)
-                    if strike < 0:
-                        continue
-                    opt_type = row.get("option_type", "")
-                    if opt_type not in ("CE", "PE"):
-                        continue
-                    by_strike.setdefault(strike, {})[opt_type] = row
+            by_strike: dict[int, dict[str, dict]] = {}
+            for row in raw_options:
+                strike = row.get("strike_price", 0)
+                if strike < 0:
+                    continue
+                opt_type = row.get("option_type", "")
+                if opt_type not in ("CE", "PE"):
+                    continue
+                by_strike.setdefault(strike, {})[opt_type] = row
 
-                option_chain = []
-                for strike in sorted(by_strike):
-                    ce = by_strike[strike].get("CE", {})
-                    pe = by_strike[strike].get("PE", {})
-                    option_chain.append({
-                        "strike": strike,
-                        "call": {
-                            "ltp": ce.get("ltp", 0),
-                            "change": ce.get("ltpch", 0),
-                            "change_pct": ce.get("ltpchp", 0),
-                            "bid": ce.get("bid", 0),
-                            "ask": ce.get("ask", 0),
-                            "volume": ce.get("volume", 0),
-                            "oi": ce.get("oi", 0),
-                            "iv": ce.get("iv", 0),
-                        },
-                        "put": {
-                            "ltp": pe.get("ltp", 0),
-                            "change": pe.get("ltpch", 0),
-                            "change_pct": pe.get("ltpchp", 0),
-                            "bid": pe.get("bid", 0),
-                            "ask": pe.get("ask", 0),
-                            "volume": pe.get("volume", 0),
-                            "oi": pe.get("oi", 0),
-                            "iv": pe.get("iv", 0),
-                        },
-                    })
+            option_chain = []
+            for strike in sorted(by_strike):
+                ce = by_strike[strike].get("CE", {})
+                pe = by_strike[strike].get("PE", {})
+                option_chain.append({
+                    "strike": strike,
+                    "call": {
+                        "ltp": ce.get("ltp", 0),
+                        "change": ce.get("ltpch", 0),
+                        "change_pct": ce.get("ltpchp", 0),
+                        "bid": ce.get("bid", 0),
+                        "ask": ce.get("ask", 0),
+                        "volume": ce.get("volume", 0),
+                        "oi": ce.get("oi", 0),
+                        "iv": ce.get("iv", 0),
+                    },
+                    "put": {
+                        "ltp": pe.get("ltp", 0),
+                        "change": pe.get("ltpch", 0),
+                        "change_pct": pe.get("ltpchp", 0),
+                        "bid": pe.get("bid", 0),
+                        "ask": pe.get("ask", 0),
+                        "volume": pe.get("volume", 0),
+                        "oi": pe.get("oi", 0),
+                        "iv": pe.get("iv", 0),
+                    },
+                })
 
-                if option_chain and expiries:
-                    logger.info("Fyers option chain fetched for %s (%d strikes)", symbol, len(option_chain))
-                    return {"optionChain": option_chain, "expiries": expiries}
+            if option_chain and expiries:
+                logger.info("Fyers option chain fetched for %s (%d strikes)", symbol, len(option_chain))
+                return {"optionChain": option_chain, "expiries": expiries}
         except Exception as e:
             logger.warning("Fyers option chain fetch failed for %s: %s", symbol, e)
         return None
@@ -270,6 +297,54 @@ class OptionChainEngine:
         chain = await self._fetch_fyers_option_chain(symbol)
         if chain:
             return chain.get("expiries", [])
+        return None
+
+    def _generate_simulated_chain(self, symbol: str) -> dict | None:
+        symbol = normalize_index_symbol(symbol)
+        if symbol.upper() not in SUPPORTED_INDICES:
+            return None
+        base_prices = {"NIFTY": 24000, "BANKNIFTY": 51000, "FINNIFTY": 21000, "SENSEX": 81000}
+        base = base_prices.get(symbol.upper(), 24000)
+        strike_interval = STRIKE_INTERVALS.get(symbol.upper(), 100)
+        atm_round = round(base / strike_interval) * strike_interval
+        strikes = list(range(atm_round - 9 * strike_interval, atm_round + 10 * strike_interval, strike_interval))
+        today = datetime.datetime.now(datetime.timezone.utc)
+        expiry = today + datetime.timedelta(days=(3 - today.weekday()) % 7 + 28)
+        expiries = [expiry.strftime("%d%b").upper()]
+        option_chain = []
+        days_to_expiry = max((expiry - today).days, 1)
+        sqrt_t = (days_to_expiry / 365) ** 0.5
+
+        def _approx_greeks(is_call: bool, strike: float) -> dict:
+            moneyness = (base - strike) / strike
+            d1 = moneyness / max(sqrt_t, 0.01)
+            d2 = d1 - 0.2 * sqrt_t
+            from math import erf
+            nd1 = 0.5 * (1 + erf(d1 / 2 ** 0.5))
+            nd2 = 0.5 * (1 + erf(d2 / 2 ** 0.5))
+            delta = nd1 if is_call else nd1 - 1
+            gamma = 0.4 / max(base * 0.01, 1)
+            theta = -0.1
+            vega = base * 0.001
+            return {"delta": round(delta, 4), "gamma": round(gamma, 6), "theta": round(theta, 4), "vega": round(vega, 4)}
+
+        for strike in strikes:
+            dist = abs(strike - atm_round) / strike_interval
+            ce_iv = 14.0 + dist * 1.5
+            pe_iv = 14.0 + dist * 1.5
+            if strike >= atm_round:
+                ce_ltp = round(max(100 - dist * 15, 1), 2)
+                pe_ltp = round(max(5 - dist * 2, 0.1), 2)
+            else:
+                pe_ltp = round(max(100 - dist * 15, 1), 2)
+                ce_ltp = round(max(5 - dist * 2, 0.1), 2)
+            option_chain.append({
+                "strike": strike,
+                "call": {"ltp": ce_ltp, "change": round(ce_ltp * 0.02, 2), "change_pct": 2.0, "bid": round(ce_ltp * 0.98, 2), "ask": round(ce_ltp * 1.02, 2), "volume": int(10000 * (1 - dist * 0.08)), "oi": int(500000 * (1 - dist * 0.05)), "iv": round(ce_iv, 2), **_approx_greeks(True, strike)},
+                "put": {"ltp": pe_ltp, "change": round(pe_ltp * 0.02, 2), "change_pct": 2.0, "bid": round(pe_ltp * 0.98, 2), "ask": round(pe_ltp * 1.02, 2), "volume": int(10000 * (1 - dist * 0.08)), "oi": int(500000 * (1 - dist * 0.05)), "iv": round(pe_iv, 2), **_approx_greeks(False, strike)},
+            })
+        if option_chain and expiries:
+            return {"optionChain": option_chain, "expiries": expiries, "mock": True}
         return None
 
     def calculate_pcr(self, chain_data: dict) -> float:

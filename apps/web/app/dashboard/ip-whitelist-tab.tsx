@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { api } from '@/lib/api'
 
 interface WhitelistIP {
   id: string
@@ -20,8 +21,7 @@ export function IPWhitelistTab() {
   const load = async () => {
     setLoading(true)
     try {
-      const r = await fetch('/api/v1/admin/ip-whitelist')
-      const d = await r.json()
+      const d = await api.admin.ipWhitelist.list()
       setIps(d.ips || [])
     } catch (e) { console.error('Failed to load IP whitelist', e) }
     setLoading(false)
@@ -34,23 +34,17 @@ export function IPWhitelistTab() {
     setAdding(true)
     setMsg(null)
     try {
-      const r = await fetch('/api/v1/admin/ip-whitelist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip_address: newIP.trim(), label: newLabel.trim() }),
-      })
-      if (!r.ok) { const d = await r.json(); setMsg({ type: 'err', text: d.detail || 'Failed' }) }
-      else { setNewIP(''); setNewLabel(''); load(); setMsg({ type: 'ok', text: 'IP added' }) }
-    } catch { setMsg({ type: 'err', text: 'Failed' }) }
+      await api.admin.ipWhitelist.add({ ip_address: newIP.trim(), label: newLabel.trim() })
+      setNewIP(''); setNewLabel(''); load(); setMsg({ type: 'ok', text: 'IP added' })
+    } catch (e: any) { setMsg({ type: 'err', text: e?.message || 'Failed' }) }
     setAdding(false)
   }
 
   const removeIP = async (id: string) => {
     try {
-      const r = await fetch(`/api/v1/admin/ip-whitelist/${id}`, { method: 'DELETE' })
-      if (!r.ok) setMsg({ type: 'err', text: 'Failed to remove' })
-      else { load(); setMsg({ type: 'ok', text: 'IP removed' }) }
-    } catch { setMsg({ type: 'err', text: 'Failed' }) }
+      await api.admin.ipWhitelist.remove(id)
+      load(); setMsg({ type: 'ok', text: 'IP removed' })
+    } catch (e: any) { setMsg({ type: 'err', text: e?.message || 'Failed to remove' }) }
   }
 
   const resetToAllowAll = async () => {

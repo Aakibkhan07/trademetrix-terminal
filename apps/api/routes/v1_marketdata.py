@@ -9,6 +9,7 @@ from core.deps import get_current_user
 from core.models import Tick, UserProfile
 from core.security import decode_access_token
 from market.data_socket import shared_socket
+from market.option_chain import normalize_index_symbol, option_chain_engine
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/marketdata", tags=["marketdata"])
@@ -428,52 +429,6 @@ async def _fetch_nse_option_chain(symbol: str) -> dict | None:
     return None
 
 
-def _generate_mock_option_chain(symbol: str) -> dict | None:
-    if symbol.upper() not in NSE_INDICES:
-        return None
-    base_prices = {"NIFTY": 24000, "BANKNIFTY": 51000, "FINNIFTY": 21000}
-    base = base_prices.get(symbol.upper(), 24000)
-    strike_interval = 100 if symbol.upper() == "NIFTY" else 300 if symbol.upper() == "BANKNIFTY" else 100
-    atm_round = round(base / strike_interval) * strike_interval
-    strikes = list(range(atm_round - 9 * strike_interval, atm_round + 10 * strike_interval, strike_interval))
-    today = datetime.datetime.now(datetime.timezone.utc)
-    expiry = today + datetime.timedelta(days=(3 - today.weekday()) % 7 + 28)
-    expiries = [expiry.strftime("%d%b").upper()]
-    option_chain = []
-    for strike in strikes:
-        dist = abs(strike - atm_round) / strike_interval
-        ce_iv = 14.0 + dist * 1.5
-        pe_iv = 14.0 + dist * 1.5
-        ce_ltp = round(max(50 - dist * 25, 0.5), 2)
-        pe_ltp = round(max(50 - dist * 25, 0.5), 2)
-        if strike >= atm_round:
-            ce_ltp = round(max(100 - dist * 15, 1), 2)
-            pe_ltp = round(max(5 - dist * 2, 0.1), 2)
-        if strike <= atm_round:
-            pe_ltp = round(max(100 - dist * 15, 1), 2)
-            ce_ltp = round(max(5 - dist * 2, 0.1), 2)
-        days_to_expiry = max((expiry - today).days, 1)
-    sqrt_t = (days_to_expiry / 365) ** 0.5
-    def _approx_greeks(is_call: bool, strike: float) -> dict:
-        moneyness = (base - strike) / strike
-        d1 = moneyness / max(sqrt_t, 0.01)
-        d2 = d1 - 0.2 * sqrt_t
-        from math import erf
-        nd1 = 0.5 * (1 + erf(d1 / 2 ** 0.5))
-        nd2 = 0.5 * (1 + erf(d2 / 2 ** 0.5))
-        delta = nd1 if is_call else nd1 - 1
-        gamma = 0.4 / max(base * 0.01, 1)
-        theta = -0.1
-        vega = base * 0.001
-        return {"delta": round(delta, 4), "gamma": round(gamma, 6), "theta": round(theta, 4), "vega": round(vega, 4)}
-    option_chain.append({
-            "strike": strike,
-            "call": {"ltp": ce_ltp, "change": round(ce_ltp * 0.02, 2), "change_pct": 2.0, "bid": round(ce_ltp * 0.98, 2), "ask": round(ce_ltp * 1.02, 2), "volume": int(10000 * (1 - dist * 0.08)), "oi": int(500000 * (1 - dist * 0.05)), "iv": round(ce_iv, 2), **_approx_greeks(True, strike)},
-            "put": {"ltp": pe_ltp, "change": round(pe_ltp * 0.02, 2), "change_pct": 2.0, "bid": round(pe_ltp * 0.98, 2), "ask": round(pe_ltp * 1.02, 2), "volume": int(10000 * (1 - dist * 0.08)), "oi": int(500000 * (1 - dist * 0.05)), "iv": round(pe_iv, 2), **_approx_greeks(False, strike)},
-        })
-    return {"optionChain": option_chain, "expiries": expiries, "mock": True}
-
-
 @router.get("/option-chain")
 async def get_option_chain(
     symbol: str = Query("NIFTY"),
@@ -481,6 +436,7 @@ async def get_option_chain(
 ):
     from brokers.token_manager import TokenManager
 
+    symbol = normalize_index_symbol(symbol)
     fyers_map = {"NIFTY": "NSE:NIFTY50-INDEX", "BANKNIFTY": "NSE:NIFTYBANK-INDEX", "FINNIFTY": "NSE:FINNIFTY-INDEX", "SENSEX": "BSE:SENSEX-INDEX"}
     fyers_symbol = fyers_map.get(symbol.upper(), symbol)
 
@@ -564,7 +520,7 @@ async def get_option_chain(
     if nse_data:
         return nse_data
 
-    mock_data = _generate_mock_option_chain(symbol)
+    mock_data = option_chain_engine._generate_simulated_chain(symbol)
     if mock_data:
         logger.info("Using generated option chain for %s (dev fallback)", symbol)
         return mock_data

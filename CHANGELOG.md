@@ -1,3 +1,16 @@
+## v1.6.9 (2026-08-07) — Stability Sprint: verified P1/P2 fixes from the Product Acceptance Audit
+
+### Fixed
+1. **P1-1 Option chain 503 on index symbols** — `normalize_index_symbol()` (strips `NSE:`/`BSE:`/`NFO:`, maps `NIFTY50-INDEX`/`NIFTYBANK-INDEX`/`FINNIFTY-INDEX`/`SENSEX-INDEX` aliases) in `market/option_chain.py`; dead-code Fyers success block dedented (real chains now parse); shared `_generate_simulated_chain()` fallback (mock-flagged, `is_simulated`) replaces the buggy route-local mock so supported index families always return a chain, never 503.
+2. **P1-2 AI Journal CORS-blocked 500** — migration `20260807_01900_trades_schema_align.sql` aligns the schema-drifted prod `trades` table; `_get_recent_trades` now reads `orders` (FILLED) first with `trades` fallback, never 500s on schema drift; `get_journal` degrades gracefully; global 500 handler now attaches CORS headers since ServerErrorMiddleware sits outside CORSMiddleware.
+3. **P1-3 Three admin tabs broken (404 HTML)** — new `GET /admin/users/with-brokers` + `GET|POST /admin/ip-whitelist` + `DELETE /admin/ip-whitelist/{ip_id}` (super-admin gated, existing `AdminService` methods); Trade Router / Trades / IP Whitelist tabs now use the typed `api` client (`API_BASE`) instead of relative fetches.
+4. **P2-1 Login throttle/lockout** — per-email+IP progressive delay then `429` after 5 failures/5 min (`core.cache`-backed, `X-Forwarded-For` aware, audit `auth_failed`/`login_locked`); success path never degraded, fail-open when Redis is down.
+
+### Validation
+- Full API suite **979 passed, 1 xfailed** (baseline 963/1; +16 new tests: option-chain normalize 7, journal resilience 5, auth throttle 4).
+- Web `tsc --noEmit` 0 err; `next lint` 0 new; `next build` clean (BUILD_ID `QiL_h7JpOgCdxeeLs4DV6`).
+- Reports: `reports/Stability-Fixes-v1.6.9-{Root-Cause,Files-Changed,Regression,Security}.md`.
+
 ## v1.6.8 (2026-08-07) — Live Dashboard: unified `/live` operational cockpit + landing wiring (PRODUCTION VERIFIED)
 
 > Additive frontend feature ONLY — `apps/api` untouched this release (Phase A signal payload was shipped earlier under the v1.6.7 line). No new REST endpoints: the dashboard composes existing OMS/Engine/Paper/Runtime/Marketdata services. No redirects were removed for any existing page.

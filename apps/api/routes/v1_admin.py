@@ -434,6 +434,45 @@ async def admin_delete_strategy(
     return await _service.delete_catalog_strategy(key, admin.id)
 
 
+# ── Users with Brokers ──
+
+@router.get("/users/with-brokers")
+async def admin_users_with_brokers(
+    admin: UserProfile = Depends(require_super_admin),
+):
+    return await _service.list_users_with_brokers()
+
+
+# ── IP Whitelist ──
+
+class AddWhitelistIPRequest(BaseModel):
+    ip_address: str
+    label: str = ""
+
+
+@router.get("/ip-whitelist")
+async def admin_list_ip_whitelist(
+    admin: UserProfile = Depends(require_super_admin),
+):
+    return await _service.list_ip_whitelist()
+
+
+@router.post("/ip-whitelist")
+async def admin_add_ip_whitelist(
+    req: AddWhitelistIPRequest,
+    admin: UserProfile = Depends(require_super_admin),
+):
+    return await _service.add_ip_whitelist(req.ip_address.strip(), req.label.strip(), admin.id)
+
+
+@router.delete("/ip-whitelist/{ip_id}")
+async def admin_remove_ip_whitelist(
+    ip_id: str,
+    admin: UserProfile = Depends(require_super_admin),
+):
+    return await _service.remove_ip_whitelist(ip_id, admin.id)
+
+
 # ── Execute Trade ──
 
 @router.post("/execute-trade")

@@ -448,6 +448,8 @@ class TestAdminRoutes:
             "/admin/broadcast/recipients", "/admin/broadcast", "/admin/broadcast/notify",
             "/admin/strategies", "/admin/strategies/all-user", "/admin/strategies/{key}",
             "/admin/execute-trade",
+            "/admin/users/with-brokers",
+            "/admin/ip-whitelist", "/admin/ip-whitelist/{ip_id}",
         }
         missing = expected - set(paths)
         extra = set(paths) - expected

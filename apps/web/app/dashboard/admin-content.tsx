@@ -1413,8 +1413,9 @@ function TradesTab() {
     const indices = ['NIFTY', 'BANKNIFTY', 'FINNIFTY']
     indices.forEach(async sym => {
       try {
-        const r = await fetch(`/api/v1/market/option-chain?symbol=${encodeURIComponent(sym)}`)
-        const d = await r.json()
+        const d = await api.get<{ data?: { optionChain?: any[] }; expiry?: string; expiries?: string[] }>(
+          `/market/option-chain?symbol=${encodeURIComponent(sym)}`
+        )
         const raw = d.data?.optionChain || []
         if (raw.length) {
           const expiry = d.expiry || d.expiries?.[0] || ''
@@ -1448,8 +1449,7 @@ function TradesTab() {
       } else {
         setSearching(true)
         try {
-          const r = await fetch(`/api/v1/marketdata/instruments?query=${encodeURIComponent(query)}&limit=8`)
-          const d = await r.json()
+          const d = await api.get<{ instruments: any[] }>(`/marketdata/instruments?query=${encodeURIComponent(query)}&limit=8`)
           setResults(d.instruments || [])
           setDropdownOpen(true)
     } catch (e) { console.error('Failed to unassign', e) }
@@ -1467,30 +1467,21 @@ function TradesTab() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function getCSRF(): string {
-    const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)
-    return m ? decodeURIComponent(m[1]) : ''
-  }
-
   const buyStrike = async (symbol: string, strike: number, optionType: string, ls: number, expiry: string) => {
     if (!placeUserId) { setResultMsg({ success: false, message: 'Select a user first' }); return }
     const key = `${symbol}-${strike}-${optionType}`
     setPlacing(key)
     setResultMsg(null)
     try {
-      const r = await fetch('/api/v1/admin/execute-trade', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
-        body: JSON.stringify({
-          user_id: placeUserId, symbol, side: 'BUY', quantity: lots * ls,
-          exchange: 'NFO', instrument_type: 'OPT', option_type: optionType,
-          strike_price: strike, expiry_date: expiry.slice(0, 10),
-          order_type: 'MARKET', product: 'INTRADAY', price: 0,
-        }),
+      const d = await api.admin.executeTrade({
+        user_id: placeUserId, symbol, side: 'BUY', quantity: lots * ls,
+        exchange: 'NFO', instrument_type: 'OPT', option_type: optionType,
+        strike_price: strike, expiry_date: expiry.slice(0, 10),
+        order_type: 'MARKET', product: 'INTRADAY', price: 0,
       })
-      const d = await r.json()
-      setResultMsg({ success: d.result?.success || d.success || false, message: d.result?.message || d.message || (r.ok ? 'Sent' : d.detail || 'Failed') })
+      setResultMsg({ success: d.result?.success || false, message: d.result?.message || 'Sent' })
       setRefreshKey(k => k + 1)
-    } catch (e) { setResultMsg({ success: false, message: String(e) }) }
+    } catch (e: any) { setResultMsg({ success: false, message: e?.message || String(e) }) }
     setPlacing(null)
   }
 

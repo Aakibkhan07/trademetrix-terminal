@@ -280,6 +280,28 @@ elif not cors_origins:
 else:
     cors_creds = True
 
+
+def _cors_headers_for(request: Request) -> dict[str, str]:
+    """Return CORS response headers reflecting the request Origin.
+
+    Starlette's ServerErrorMiddleware (which serves unhandled 500 responses) runs
+    OUTSIDE CORSMiddleware, so those responses never get CORS headers. Mirror the
+    middleware's behavior here so browser-clients can still read journal 500s.
+    """
+    origin = request.headers.get("origin")
+    if not origin:
+        return {}
+    allow_origin = "*" if "*" in cors_origins else (origin if origin in cors_origins else "")
+    if not allow_origin:
+        return {}
+    headers = {
+        "Access-Control-Allow-Origin": allow_origin,
+        "Vary": "Origin",
+    }
+    if cors_creds:
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return headers
+
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -385,4 +407,5 @@ async def global_exception_handler(request: Request, exc: Exception):
         code="INTERNAL_ERROR",
         status=500,
         details={"path": str(request.url)},
+        headers=_cors_headers_for(request),
     )

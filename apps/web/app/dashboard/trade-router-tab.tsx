@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { api } from '@/lib/api'
 
 interface Broker { broker: string; active: boolean }
 interface UserWithBroker { id: string; email: string; full_name: string; brokers: Broker[]; has_broker: boolean }
@@ -24,7 +25,7 @@ export function TradeRouterTab() {
   const searchRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch('/api/v1/admin/users/with-brokers').then(async r => { try { return await r.json() } catch { return {} } }).then(d => setUsers(d.users || [])).catch(() => {})
+    api.admin.users.withBrokers().then(d => setUsers(d.users || [])).catch(() => {})
   }, [])
 
   const [chainCache, setChainCache] = useState<Record<string, { expiry: string; chain: any[] }>>({})
@@ -33,9 +34,9 @@ export function TradeRouterTab() {
     const indices = ['NIFTY', 'BANKNIFTY', 'FINNIFTY']
     indices.forEach(async sym => {
       try {
-        const r = await fetch(`/api/v1/market/option-chain?symbol=${encodeURIComponent(sym)}`)
-        const rawText = await r.text()
-        const d = rawText ? JSON.parse(rawText) : {}
+        const d = await api.get<{ data?: { optionChain?: any[] }; expiry?: string; expiries?: string[] }>(
+          `/market/option-chain?symbol=${encodeURIComponent(sym)}`
+        )
         const raw = d.data?.optionChain || []
         if (raw.length) {
           const expiry = d.expiry || d.expiries?.[0] || ''
@@ -69,9 +70,7 @@ export function TradeRouterTab() {
       } else {
         setSearching(true)
         try {
-          const r = await fetch(`/api/v1/marketdata/instruments?query=${encodeURIComponent(query)}&limit=8`)
-          const rawText = await r.text()
-          const d = rawText ? JSON.parse(rawText) : {}
+          const d = await api.get<{ instruments: any[] }>(`/marketdata/instruments?query=${encodeURIComponent(query)}&limit=8`)
           setResults(d.instruments || [])
           setDropdownOpen(true)
       } catch (e) { console.error('Failed to fetch chain cache', e) }
@@ -89,31 +88,20 @@ export function TradeRouterTab() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function getCSRF(): string {
-    const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)
-    return m ? decodeURIComponent(m[1]) : ''
-  }
-
   const buyStrike = async (symbol: string, strike: number, optionType: string, ls: number, expiry: string) => {
     if (!selectedUser) { setResultMsg({ success: false, message: 'Select a user first' }); return }
     const key = `${symbol}-${strike}-${optionType}`
     setPlacing(key)
     setResultMsg(null)
     try {
-      const r = await fetch('/api/v1/admin/execute-trade', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
-        body: JSON.stringify({
-          user_id: selectedUser, symbol, side: 'BUY', quantity: lots * ls,
-          exchange: 'NFO', instrument_type: 'OPT', option_type: optionType,
-          strike_price: strike, expiry_date: expiry.slice(0, 10),
-          order_type: 'MARKET', product: 'INTRADAY', price: 0,
-        }),
+      const d = await api.admin.executeTrade({
+        user_id: selectedUser, symbol, side: 'BUY', quantity: lots * ls,
+        exchange: 'NFO', instrument_type: 'OPT', option_type: optionType,
+        strike_price: strike, expiry_date: expiry.slice(0, 10),
+        order_type: 'MARKET', product: 'INTRADAY', price: 0,
       })
-      const rawText = await r.text()
-      let d: any = {}
-      try { d = JSON.parse(rawText) } catch { d = { detail: `Status ${r.status}: ${rawText.slice(0, 200)}` } }
-      setResultMsg({ success: d.result?.success || d.success || false, message: d.result?.message || d.message || (r.ok ? 'Sent' : d.detail || 'Failed') })
-    } catch (e) { setResultMsg({ success: false, message: String(e) }) }
+      setResultMsg({ success: d.result?.success || false, message: d.result?.message || 'Sent' })
+    } catch (e: any) { setResultMsg({ success: false, message: e?.message || String(e) }) }
     setPlacing(null)
   }
 

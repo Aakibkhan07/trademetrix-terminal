@@ -351,6 +351,13 @@ export const api = {
         request<{ subscription_tier: string; message: string; deactivated_assignments: number }>(
           `/admin/users/${userId}`, { method: 'PATCH', body: data },
         ),
+      withBrokers: () => request<{ users: { id: string; email: string; full_name: string; brokers: { broker: string; active: boolean }[]; has_broker: boolean }[] }>('/admin/users/with-brokers'),
+    },
+    ipWhitelist: {
+      list: () => request<{ ips: { id: string; ip_address: string; label: string; created_at: string }[] }>('/admin/ip-whitelist'),
+      add: (data: { ip_address: string; label: string }) =>
+        request<{ ip: { id: string; ip_address: string; label: string; created_at: string } }>('/admin/ip-whitelist', { method: 'POST', body: data }),
+      remove: (id: string) => request<{ deleted: string }>(`/admin/ip-whitelist/${id}`, { method: 'DELETE' }),
     },
     assignments: {
       list: (userId?: string) => request(userId ? `/admin/assignments?user_id=${userId}` : '/admin/assignments'),
@@ -426,7 +433,7 @@ export const api = {
       price?: number; exchange?: string; order_type?: string; product?: string;
       trigger_price?: number; instrument_type?: string;
       expiry_date?: string; strike_price?: number; option_type?: string;
-    }) => request<{ result: Record<string, unknown> }>(
+    }) => request<{ result: { success?: boolean; message?: string; [k: string]: unknown } }>(
       '/admin/execute-trade', { method: 'POST', body: data },
     ),
   },

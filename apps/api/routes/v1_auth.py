@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import UTC, datetime
 import secrets
@@ -6,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from pydantic import BaseModel
 
 from core.audit import record_audit
+from core.cache import cache
 from core.notifications import send_welcome_email
 from core.config import settings
 from core.db import async_supabase, get_supabase
@@ -28,6 +30,67 @@ COOKIE_KWARGS = dict(
     domain=settings.cookie_domain or None,
     max_age=COOKIE_MAX_AGE,
 )
+
+# ── Login throttling (P2) ──
+LOGIN_FAIL_KEY = "loginfail:{email}:{ip}"
+LOGIN_FAIL_MAX = 5
+LOGIN_FAIL_WINDOW = 300  # seconds
+LOGIN_DELAY_STEP = 0.5  # seconds, progressive
+LOGIN_DELAY_MAX = 5.0  # seconds cap
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort client IP: trust the first X-Forwarded-For hop like the IP whitelist does."""
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        first = fwd.split(",")[0].strip()
+        if first and first.lower() != "unknown":
+            return first
+    return request.client.host if request.client else "unknown"
+
+
+async def _login_fail_key(email: str, ip: str) -> str:
+    return LOGIN_FAIL_KEY.format(email=email.lower(), ip=ip)
+
+
+async def _record_login_failure(email: str, ip: str) -> int:
+    key = await _login_fail_key(email, ip)
+    count = int(await cache.get(key, 0) or 0) + 1
+    await cache.set(key, count, ttl=LOGIN_FAIL_WINDOW)
+    return count
+
+
+async def _clear_login_failures(email: str, ip: str) -> None:
+    key = await _login_fail_key(email, ip)
+    await cache.set(key, 0, ttl=LOGIN_FAIL_WINDOW)
+
+
+async def _throttle_login(request: Request, email: str, failed: bool) -> None:
+    """Progressive delay + temporary lockout on repeated signin failures.
+
+    Degrades only the failure path — a successful credential check is never
+    delayed or blocked.
+    """
+    ip = _client_ip(request)
+    if not failed:
+        await _clear_login_failures(email, ip)
+        return
+    count = await _record_login_failure(email, ip)
+    if count > LOGIN_FAIL_MAX:
+        record_audit(AuditLogEntry(
+            user_id="", action="login_locked", resource="auth",
+            details={"email": email, "ip": ip, "attempts": count},
+        ))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again in a few minutes.",
+        )
+    if count > 1:
+        record_audit(AuditLogEntry(
+            user_id="", action="auth_failed", resource="auth",
+            details={"email": email, "ip": ip, "attempts": count},
+        ))
+        await asyncio.sleep(min(LOGIN_DELAY_STEP * (count - 1), LOGIN_DELAY_MAX))
 
 
 class SignUpRequest(BaseModel):
@@ -153,7 +216,7 @@ async def signup(req: SignUpRequest, response: Response, background_tasks: Backg
 
 
 @router.post("/signin")
-async def signin(req: SignInRequest, response: Response):
+async def signin(req: SignInRequest, response: Response, request: Request):
 
     try:
         client = await get_http_client()
@@ -166,12 +229,16 @@ async def signin(req: SignInRequest, response: Response):
             json={"email": req.email, "password": req.password},
         )
         if resp.status_code != 200:
+            await _throttle_login(request, req.email, failed=True)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         token_data = resp.json()
     except HTTPException:
         raise
     except Exception as e:
+        await _throttle_login(request, req.email, failed=True)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid credentials: {str(e)}")
+
+    await _throttle_login(request, req.email, failed=False)
 
     user_id = token_data["user"]["id"]
     access_token = create_access_token(subject=user_id)

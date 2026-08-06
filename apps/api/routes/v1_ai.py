@@ -108,7 +108,11 @@ async def get_journal(
     current_user: UserProfile = Depends(get_current_user),
 ):
     journal = AIJournal(current_user.id)
-    result = await journal.analyze_trades(lookback_days=lookback_days)
+    try:
+        result = await journal.analyze_trades(lookback_days=lookback_days)
+    except Exception as e:
+        logger.warning("AI journal failed for user %s: %s", current_user.id, e)
+        result = {"analysis": "AI journal is temporarily unavailable.", "stats": {}}
     return result
 
 
