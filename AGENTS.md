@@ -3,6 +3,44 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-06 — Consolidation Sprint 3 / W6: shared UI primitives — KpiCard/Badge/Skeleton/Dialog (v1.6.7, PRODUCTION VERIFIED)
+
+### What was done
+1. **Shared primitives in `apps/web/components/ui/`** — `kpi-card.tsx` (`KpiCard`; variants
+   stat/metric/beta), `badge.tsx` (`Badge`/`Dot`/`Chip`/`OrderStatusBadge`/
+   `InstrumentTypeBadge`/`TierBadge` via `BadgeVariant`, token-backed classes
+   `t-badge`/`t-dot`/`t-chip`), `skeleton.tsx` (`SkeletonBar` + `PageLoadingSkeleton` +
+   `components/skeleton.tsx` re-export), `dialog.tsx` (`Dialog`). Existing primitives kept:
+   `empty-state.tsx` (`EmptyState`/`TableEmptyRow`/`EmptyPanel`), `sparkline.tsx`,
+   `chart-shell.tsx`, `chart-tooltip.tsx`, `drawer.tsx`, `form.tsx`, `data-table.tsx`,
+   `toast.tsx`, `loading.tsx`.
+2. **Consolidated sites** — KPI cards: `/backtest`, `/admin/beta`, `/strategies/[key]`,
+   `/dashboard` pnl tab. Skeletons: `app/{dashboard,terminal,portal}/loading.tsx` +
+   `admin/admins`, `admin/broadcast`, `strategies/catalog`, `trade` panels. Dialogs:
+   `/settings` (change password), `/account`, `/brokers`, `/strategies`, `/marketdata` (2),
+   `/terminal/builder`, `workspace/alert-modal`, `workspace/.../deploy-wizard`. Badges:
+   `/dashboard/admin-content`, `watchlist-panel`, `strategies/catalog`, `strategies/[key]`.
+3. **Zero semantic change** — no API/backend/routing/state changes; no CSS/theme/tokens edits;
+   visible-text parity pass 12/12 production routes after deploy (raw HTML deltas are webpack
+   chunk-order + buildId noise only). Dead inline helpers removed at old sites
+   (`colorVar_`, `fmtMoney2` etc. verified absent).
+4. **Validation** — `tsc --noEmit` 0 err; `npm run lint` 0 err (1 pre-existing warning in
+   `deploy-wizard.tsx`);
+5. **Deploy** — production deploy flow (`infra/production/deploy.sh`) at `origin/main`
+   `a0e5b8a`; API + web health 200; BUILD_ID served `znbojLqT0xaMuNozJJ5dw`. Reports in
+   `reports/` (5 files). **SPRINT 3 (W6) COMPLETE — production verified; STOP, no Sprint 4.**
+
+### Reference
+- Shared-UI rule: any new badge/skeleton/dialog/KPI card must reuse `apps/web/components/ui/`
+  (`BadgeVariant`, `SkeletonBar`, `Dialog`, `KpiCard`) — never reimplement inline.
+- Token-backed colors: badges/dots emit design-token values (`var(--text-green)` etc.) — do
+  not introduce hardcoded hex in new UI.
+- Production deploy without SSH key: `sshpass -p '<pw>' ssh root@187.127.185.56
+  'cd /root/trademetrix-terminal && bash infra/production/deploy.sh'` (SSH key auth is NOT set
+  up from the workstation for root@187.127.185.56; password auth + `sshpass`/`expect` works).
+  Note: `infra/deploy-prod.sh` local wrapper assumes key auth for its scp step — either set up
+  the key or run the VPS-side script directly.
+
 ## Session: 2026-08-06 — Consolidation Sprint 2 / W2: canonical PositionService — Portfolio/Paper/Engine/Admin all reuse it (v1.6.6, PRODUCTION VERIFIED)
 
 ### What was done

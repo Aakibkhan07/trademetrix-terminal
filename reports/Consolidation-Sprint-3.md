@@ -56,4 +56,4 @@ Executed per `infra/deploy-prod.sh` (web-only commit → push `origin/main` → 
 
 ## 7. STOP declaration
 
-Sprint 3 (W6) is complete. Work halts here; **Sprint 4 is not started** by instruction. Any further breakdown is out of scope.
+Sprint 3 (W6) is complete. Production verified (12/12 routes, visible-text parity pass). Work halts here; **Sprint 4 is not started** by instruction. Any further breakdown is out of scope.

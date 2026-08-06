@@ -1,4 +1,24 @@
-## v1.6.6 (2026-08-06) — Canonical PositionService: Portfolio/Paper/Engine/Admin reuse one position reader (Consolidation Sprint 2 / W2)
+## v1.6.7 (2026-08-06) — Sprint-3 W6: shared UI primitives — KpiCard/Badge/Skeleton/Dialog consolidation (PRODUCTION VERIFIED)
+
+> UI-only internal reuse — pages render identically (visible-text parity pass, 12/12 routes after deploy).
+> No API, routing, or state changes. No visual redesign. Sprint 4 explicitly NOT started.
+
+### What was done
+1. **`apps/web/components/ui/` shared primitives** — `kpi-card.tsx` (`KpiCard` stat/metric/beta),
+   `badge.tsx` (`Badge`/`Dot`/`Chip`/`OrderStatusBadge`/`InstrumentTypeBadge`/`TierBadge` via
+   `BadgeVariant`, colors → token-backed `t-badge`/`t-dot`/`t-chip` classes), `skeleton.tsx`
+   (`SkeletonBar` + `PageLoadingSkeleton`; re-exported via `components/skeleton.tsx`),
+   `dialog.tsx` (`Dialog` — single source replacing 7 inline `t-modal` sites).
+2. **Consolidation** — KPI cards (backtest/admin-beta/strategies/[key]/dashboard pnl), skeletons
+   (3 `loading.tsx` + 5 page panels), dialogs (settings/account/brokers/strategies/marketdata/
+   terminal-builder/alert-modal/deploy-wizard), badge sets (dashboard admin-content, catalog,
+   builder, watchlist) all delegate to the shared primitives; legacy shims in `components/`
+   (`empty-state.tsx`, `skeleton.tsx`) keep old import paths working.
+3. **Deploy** — web consolidated via production deploy flow (`infra/production/deploy.sh`),
+   `origin/main` at `a0e5b8a`; API + web health 200. Post-deploy: 12 public routes 200,
+   visible-text parity 12/12 (only webpack chunk-order noise in raw HTML), BUILD_ID `znbojLqT0xaMuNozJJ5dw` served.
+4. **Reports** — `reports/` (`Consolidation-Sprint-3.md`, `W6--Detailed.md`,
+   `W6-Visual-Verification.md`, `W6-Validation.md`, `W6-UI.md`).
 
 > Internal consolidation only — no routes, endpoints, response formats, serializers or dead-code
 > changes (nothing deleted; legacy `v1_portfolio` router tagged INACTIVE, not removed). **SPRINT 2
