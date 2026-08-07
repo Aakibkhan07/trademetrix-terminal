@@ -12,7 +12,16 @@ def test_normalize_strips_exchange_prefix():
 def test_normalize_index_aliases():
     assert normalize_index_symbol("NIFTYBANK-INDEX") == "BANKNIFTY"
     assert normalize_index_symbol("FINNIFTY-INDEX") == "FINNIFTY"
+    assert normalize_index_symbol("MIDCPNIFTY-INDEX") == "MIDCPNIFTY"
     assert normalize_index_symbol("SENSEX-INDEX") == "SENSEX"
+
+
+def test_midcpnifty_supported_passthrough_and_simulated():
+    assert "MIDCPNIFTY" in SUPPORTED_INDICES
+    assert normalize_index_symbol("MIDCPNIFTY") == "MIDCPNIFTY"
+    chain = option_chain_engine._generate_simulated_chain("MIDCPNIFTY-INDEX")
+    assert chain is not None
+    assert len(chain["optionChain"]) > 0
 
 
 def test_normalize_passthrough():

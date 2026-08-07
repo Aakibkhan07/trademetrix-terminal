@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import { api, backtestExportUrl } from '@/lib/api'
 import { KpiCard } from '@/components/ui/kpi-card'
 import { colorVar, mix, chartOptions } from '@/components/ui/chart-shell'
+import { INDEXES, indexMeta, groupExpiries, MONEYNESS_OPTIONS } from '@/lib/options-contracts'
+import type { IndexKey, Moneyness } from '@/lib/options-contracts'
 import {
   createChart, ColorType, LineSeries, AreaSeries, CandlestickSeries, CrosshairMode, createSeriesMarkers, LineStyle,
   type IChartApi, type ISeriesApi, type Time, type UTCTimestamp,
@@ -643,6 +645,83 @@ const tiCard = (label: string, value: string, color?: string) => (
   <KpiCard label={label} value={value} color={color} variant="ti" />
 )
 
+/** Options quick-config: pick INDEX → EXPIRY → STRIKE in trader terms; loads the
+ *  underlying index symbol into the backtest form. Candles are INDEX candles only —
+ *  this is never presented as simulated option premiums. */
+function OptionsQuickStrip({ onApply }: { onApply: (symbol: string, strikeLabel: string) => void }) {
+  const [index, setIndex] = useState<IndexKey>('NIFTY')
+  const [expiries, setExpiries] = useState<string[]>([])
+  const [expiry, setExpiry] = useState('')
+  const [spot, setSpot] = useState<number | null>(null)
+  const [moneyness, setMoneyness] = useState<Moneyness>('ATM')
+  const [loading, setLoading] = useState(false)
+  const meta = indexMeta(index)
+
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    api.marketdata.optionChain(index).then(d => {
+      if (!alive) return
+      const chain = (d as { optionChain?: { strike: number; call: { ltp: number }; put: { ltp: number } }[]; expiries?: string[] })
+      const exps = chain.expiries || []
+      setExpiries(exps)
+      if (exps.length && !exps.includes(expiry)) setExpiry(exps[0])
+      const spotRow = chain.optionChain?.length
+        ? chain.optionChain.reduce((a, b) => a.call.ltp + a.put.ltp > 0 && (a.call.ltp + a.put.ltp) <= (b.call.ltp + b.put.ltp) && b.call.ltp + b.put.ltp > 0 ? a : b, chain.optionChain[0])
+        : undefined
+      setSpot(spotRow && (spotRow.call.ltp + spotRow.put.ltp) > 0 ? spotRow.strike : null)
+    }).catch(() => { /* chain may be offline; fall back to index-only */ }).finally(() => {
+      if (alive) setLoading(false)
+    })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index])
+
+  const step = MONEYNESS_OPTIONS.find(o => o.key === moneyness)?.offsetSteps ?? 0
+  const strike = spot !== null ? spot + step * meta.strikeInterval : null
+
+  return (
+    <div style={{ background: 'color-mix(in srgb, var(--violet) 5%, transparent)', border: '1px solid color-mix(in srgb, var(--violet) 15%, transparent)', borderRadius: 'var(--radius-md)', padding: 12, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', letterSpacing: '0.08em' }}>OPTIONS QUICK-CONFIG</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>{loading ? 'loading chain…' : `${meta.key} · ${expiries.length} expiries`}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {INDEXES.map(i => (
+          <button key={i.key} className={`t-chip ${index === i.key ? 'active' : ''}`} style={{ fontSize: 10 }} onClick={() => setIndex(i.key)}>{i.name}</button>
+        ))}
+        <span style={{ width: 1, height: 18, background: 'color-mix(in srgb, var(--text-inverse) 12%, transparent)' }} />
+        {expiries.length > 0 && (
+          <>
+            {groupExpiries(expiries).all.map(e => (
+              <button key={e} className={`t-chip ${expiry === e ? 'active' : ''}`} style={{ fontSize: 10 }} onClick={() => setExpiry(e)}>{e}</button>
+            ))}
+          </>
+        )}
+        <span style={{ width: 1, height: 18, background: 'color-mix(in srgb, var(--text-inverse) 12%, transparent)' }} />
+        {MONEYNESS_OPTIONS.map(o => (
+          <button key={o.key} className={`t-chip ${moneyness === o.key ? 'active' : ''}`} style={{ fontSize: 10 }} onClick={() => setMoneyness(o.key)}>{o.label}</button>
+        ))}
+        <span style={{ width: 1, height: 18, background: 'color-mix(in srgb, var(--text-inverse) 12%, transparent)' }} />
+        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+          {strike !== null ? `${index}${expiry}${strike} CE/PE` : 'spot unavailable — using index only'}
+        </span>
+        <button
+          className="t-btn t-btn-sm"
+          style={{ marginLeft: 'auto' }}
+          onClick={() => onApply(index, strike !== null ? `${index} ${expiry} ${strike}` : `${index} ${expiry}`)}
+        >
+          Load as Symbol
+        </button>
+      </div>
+      <div style={{ marginTop: 8, fontSize: 9, color: 'var(--text-faint)' }}>
+        Options backtests run on the UNDERLYING index candles — the engine prices {indexMeta(index).name} spot, not option premiums. Contract above is the reference strike only.
+      </div>
+    </div>
+  )
+}
+
 export default function BacktestPage() {
   return (
     <Suspense fallback={null}>
@@ -1066,6 +1145,9 @@ function BacktestContent() {
           </div>
         )}
       </div>
+
+      {/* Options quick-config (underlying index candles only) */}
+      <OptionsQuickStrip onApply={(sym) => { setSymbol(sym); setSource('builtin') }} />
 
       {/* Run Form */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 12 }}>

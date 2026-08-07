@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
 import Link from 'next/link'
 import { SkeletonCard } from '@/components/skeleton'
 import { ErrorMessage } from '@/components/error-message'
+import DeployWizard from '@/components/workspace/strategy-builder/deploy-wizard'
+import { traderStatusMeta } from '@/lib/strategy-labels'
 
 interface Strategy {
   id: string
@@ -13,6 +15,17 @@ interface Strategy {
   type: string
   is_active: boolean
   created_at: string
+}
+
+interface BuilderStrategy {
+  id: string
+  name?: string
+  type?: string
+  status?: string
+  created_at?: string
+  updated_at?: string
+  deployment?: { mode?: string; broker?: string; symbol?: string }
+  template?: string
 }
 
 interface RuntimeEntry {
@@ -45,6 +58,7 @@ function Stat({ label, value, danger }: { label: string; value?: number; danger?
 
 export default function StrategiesPage() {
   const [strategies, setStrategies] = useState<Strategy[]>([])
+  const [builderStrategies, setBuilderStrategies] = useState<BuilderStrategy[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
@@ -55,38 +69,44 @@ export default function StrategiesPage() {
   const [createError, setCreateError] = useState('')
   const [running, setRunning] = useState<RuntimeEntry[]>([])
   const [killBusy, setKillBusy] = useState('')
+  const [deployTarget, setDeployTarget] = useState<BuilderStrategy | null>(null)
+  const [busyId, setBusyId] = useState('')
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     try {
       const d = await api.builder.dashboard()
       setRunning((d as { running: RuntimeEntry[] }).running || [])
     } catch {
       setRunning([])
     }
-  }
+  }, [])
 
-  useEffect(() => { loadDashboard() }, [])
+  useEffect(() => { loadDashboard() }, [loadDashboard])
 
   useEffect(() => {
     const t = setInterval(loadDashboard, 5000)
     return () => clearInterval(t)
-  }, [])
+  }, [loadDashboard])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const d = await api.strategies.list()
+      const [d, b] = await Promise.all([
+        api.strategies.list(),
+        api.builder.list().catch(() => ({ strategies: [] as BuilderStrategy[] })),
+      ])
       setStrategies((d as { strategies: Strategy[] }).strategies || [])
+      setBuilderStrategies((b as { strategies: BuilderStrategy[] }).strategies || [])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load strategies')
       setStrategies([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
   const handleEmergencyStop = async () => {
     if (!window.confirm('EMERGENCY STOP: halt every running strategy for your account now?')) return
@@ -115,7 +135,7 @@ export default function StrategiesPage() {
   const handleRowEmergency = async (id: string) => {
     if (!window.confirm(`Emergency stop the running strategy ${id}?`)) return
     try {
-      await api.runtime.emergencyStop(id, 'Emergency stop from strategies dashboard')
+      await api.runtime.emergencyStop(id, 'Emergency stop from strategies console')
       await loadDashboard()
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Emergency stop failed')
@@ -144,17 +164,41 @@ export default function StrategiesPage() {
   }
 
   const handleDelete = async (id: string) => {
-    await api.strategies.delete(id)
-    load()
+    if (!window.confirm(`Delete strategy ${id}?`)) return
+    try {
+      await api.strategies.delete(id)
+      load()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Delete failed')
+    }
+  }
+
+  const runAction = async (id: string, fn: () => Promise<unknown>, label: string) => {
+    setBusyId(id)
+    try {
+      await fn()
+      await Promise.all([load(), loadDashboard()])
+    } catch (e) {
+      window.alert(`${label} failed: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const statusOf = (s: BuilderStrategy) => {
+    const st = (s.status || '').toUpperCase()
+    const mode = s.deployment?.mode
+    const isRun = running.some(r => r.strategy_id === s.id && r.status === 'running')
+    return traderStatusMeta(isRun && !['LIVE', 'PAPER'].includes(st) ? (mode === 'live' ? 'LIVE' : 'PAPER') : st, isRun ? (mode || 'paper') : undefined)
   }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <h1 className="t-page-title">Strategies</h1>
+          <h1 className="t-page-title">Strategy Console</h1>
           <p className="t-sub" style={{ fontSize: 13 }}>
-            Create, deploy, and manage your trading strategies
+            Create, validate, deploy, and monitor — Draft → Backtested → Ready → Paper → Live
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -166,7 +210,7 @@ export default function StrategiesPage() {
         </div>
       </div>
 
-      {strategies.length === 0 && !loading && (
+      {strategies.length === 0 && builderStrategies.length === 0 && !loading && (
         <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--cyan)', fontWeight: 500 }}>No strategies yet</p>
@@ -178,39 +222,49 @@ export default function StrategiesPage() {
 
       {showCreate && (
         <Dialog onClose={() => setShowCreate(false)} maxWidth={400} title={<h2 style={{ fontFamily: 'var(--font-body)', fontSize: 18, margin: '0 0 16px' }}>Create Strategy</h2>}>
-            <div style={{ marginBottom: 12 }}>
-              <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Name</label>
-              <input className="t-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Strategy" />
+          <div style={{ marginBottom: 12 }}>
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Name</label>
+            <input className="t-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Strategy" />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Type</label>
+            <select className="t-select" value={strategyType} onChange={(e) => setStrategyType(e.target.value)}>
+              <option value="trend_rider">Trend Rider</option>
+              <option value="orb_pro">ORB Pro</option>
+              <option value="smc_sniper">SMC Sniper</option>
+              <option value="expiry_hunter">Expiry Hunter</option>
+              <option value="rsi_mean_reversion">RSI Mean Reversion</option>
+              <option value="bollinger_bandit">Bollinger Bandit</option>
+              <option value="macd_cross">MACD Crossover</option>
+              <option value="vwap_band">VWAP Band</option>
+            </select>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Symbol</label>
+            <input className="t-input" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="NIFTY" />
+          </div>
+          {createError && (
+            <div style={{ background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--red)' }}>
+              {createError}
             </div>
-            <div style={{ marginBottom: 12 }}>
-              <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Type</label>
-              <select className="t-select" value={strategyType} onChange={(e) => setStrategyType(e.target.value)}>
-                <option value="trend_rider">Trend Rider</option>
-                <option value="orb_pro">ORB Pro</option>
-                <option value="smc_sniper">SMC Sniper</option>
-                <option value="expiry_hunter">Expiry Hunter</option>
-                <option value="rsi_mean_reversion">RSI Mean Reversion</option>
-                <option value="bollinger_bandit">Bollinger Bandit</option>
-                <option value="macd_cross">MACD Crossover</option>
-                <option value="vwap_band">VWAP Band</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Symbol</label>
-              <input className="t-input" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="NIFTY" />
-            </div>
-            {createError && (
-              <div style={{ background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--red)' }}>
-                {createError}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="t-btn" onClick={() => setShowCreate(false)} disabled={creating}>Cancel</button>
-              <button className="t-btn-primary" onClick={handleCreate} disabled={creating}>
-                {creating ? 'Creating...' : 'Create Strategy'}
-              </button>
-            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="t-btn" onClick={() => setShowCreate(false)} disabled={creating}>Cancel</button>
+            <button className="t-btn-primary" onClick={handleCreate} disabled={creating}>
+              {creating ? 'Creating...' : 'Create Strategy'}
+            </button>
+          </div>
         </Dialog>
+      )}
+
+      {deployTarget && (
+        <DeployWizard
+          strategyId={deployTarget.id}
+          status={(deployTarget.status || '').toUpperCase()}
+          defaultSymbol={deployTarget.deployment?.symbol || symbol}
+          onClose={() => setDeployTarget(null)}
+          onDeployed={() => { setDeployTarget(null); load(); loadDashboard() }}
+        />
       )}
 
       {loading ? (
@@ -221,7 +275,7 @@ export default function StrategiesPage() {
         <ErrorMessage message={error} onRetry={load} />
       ) : (
         <>
-            {running.length > 0 && (
+          {running.length > 0 && (
             <div className="t-panel" style={{ padding: '18px 20px', marginBottom: 24 }}>
               <div className="t-panel-header" style={{ marginBottom: 14 }}>
                 <h3 className="t-panel-title" style={{ fontSize: 15 }}>Execution Dashboard</h3>
@@ -236,71 +290,155 @@ export default function StrategiesPage() {
                 </button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {running.map((r) => (
-                  <div key={r.strategy_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                    <span className={`t-badge ${r.health === 'ok' ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 9, flexShrink: 0 }}>
-                      {r.health === 'ok' ? '● Healthy' : '● Degraded'}
-                    </span>
-                    <span className={`t-badge ${r.mode === 'live' ? 't-badge-green' : 't-badge-cyan'}`} style={{ fontSize: 9, flexShrink: 0, textTransform: 'uppercase' }}>
-                      {(r.mode || 'paper')}
-                    </span>
-                    <span style={{ fontSize: 12, fontWeight: 700 }}>{r.symbol || '—'}</span>
-                    <span className="t-faint" style={{ fontSize: 10 }}>{r.interval || '—'}</span>
-                    <span style={{ flex: 1 }} />
-                    <Stat label="Candles" value={r.candles} />
-                    <Stat label="Signals" value={r.signals} />
-                    <Stat label="Orders" value={r.orders_placed} />
-                    <Stat label="Filled" value={r.orders_filled} />
-                    <Stat label="Rejected" value={r.orders_rejected} />
-                    <Stat label="Errors" value={r.errors} danger={!!r.errors && r.errors > 0} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: (r.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                      {(r.pnl || 0) >= 0 ? '+' : ''}{r.pnl?.toFixed(2)}
-                    </span>
-                    <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleRowEmergency(r.strategy_id)} style={{ fontSize: 10 }}>
-                      Emergency
-                    </button>
-                    <Link href={`/strategies/builder?id=${r.strategy_id}`} className="t-btn t-btn-sm" style={{ fontSize: 10 }}>Open</Link>
-                  </div>
-                ))}
+                {running.map((r) => {
+                  const meta = traderStatusMeta(r.status, r.mode)
+                  return (
+                    <div key={r.strategy_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                      <span className={`t-badge ${meta.variant === 'red' ? 't-badge-red' : meta.variant === 'amber' ? 't-badge-amber' : meta.variant === 'cyan' ? 't-badge-cyan' : 't-badge-green'}`} style={{ fontSize: 9, flexShrink: 0 }}>
+                        {meta.label}
+                      </span>
+                      <span className={`t-badge ${r.health === 'ok' ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 9, flexShrink: 0 }}>
+                        {r.health === 'ok' ? '● Healthy' : '● Degraded'}
+                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>{r.symbol || '—'}</span>
+                      <span className="t-faint" style={{ fontSize: 10 }}>{r.interval || '—'}</span>
+                      <span style={{ flex: 1 }} />
+                      <Stat label="Candles" value={r.candles} />
+                      <Stat label="Signals" value={r.signals} />
+                      <Stat label="Orders" value={r.orders_placed} />
+                      <Stat label="Filled" value={r.orders_filled} />
+                      <Stat label="Rejected" value={r.orders_rejected} />
+                      <Stat label="Errors" value={r.errors} danger={!!r.errors && r.errors > 0} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: (r.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {(r.pnl || 0) >= 0 ? '+' : ''}{r.pnl?.toFixed(2)}
+                      </span>
+                      <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleRowEmergency(r.strategy_id)} style={{ fontSize: 10 }}>
+                        Emergency
+                      </button>
+                      <Link href={`/strategies/builder?id=${r.strategy_id}`} className="t-btn t-btn-sm" style={{ fontSize: 10 }}>Open</Link>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
-            <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 15, margin: '0 0 14px', color: 'var(--text)' }}>
-            Saved Strategies ({strategies.length})
-          </h2>
-          <div className="t-grid-auto" style={{ marginBottom: 28 }}>
-            {strategies.map((s) => {
-              return (
-                <div key={s.id} className="t-panel" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ padding: '18px', flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                      <div>
-                        <h3 style={{ fontFamily: 'var(--font-body)', fontSize: 14, margin: 0 }}>{s.name}</h3>
-                        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>{s.type}</p>
-                      </div>
-                      <span className={`t-badge ${s.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
-                        {s.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>
-                      Created {new Date(s.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div style={{ borderTop: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                    <button className="t-btn t-btn-sm" onClick={() => handleToggle(s)} style={{ fontSize: 11 }}>
-                      {s.is_active ? 'Pause' : 'Start'}
-                    </button>
-                    <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleDelete(s.id)} style={{ fontSize: 11 }}>
-                      Delete
-                    </button>
-                    <Link href={`/backtest?strategy=${s.type}`} className="t-btn t-btn-sm" style={{ fontSize: 11 }}>Backtest</Link>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
 
-            <div className="t-panel" style={{ padding: '20px' }}>
+          <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 15, margin: '0 0 14px', color: 'var(--text)' }}>
+            Saved Strategies ({builderStrategies.length + strategies.length})
+          </h2>
+
+          {builderStrategies.length > 0 && (
+            <div className="t-grid-auto" style={{ marginBottom: 28 }}>
+              {builderStrategies.map((s) => {
+                const meta = statusOf(s)
+                const isRunning = running.some(r => r.strategy_id === s.id && r.status === 'running')
+                const st = (s.status || '').toUpperCase()
+                const busy = busyId === s.id
+                return (
+                  <div key={s.id} className="t-panel" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ padding: '18px', flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                        <div>
+                          <h3 style={{ fontFamily: 'var(--font-body)', fontSize: 14, margin: 0 }}>{s.name || s.id}</h3>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>
+                            {s.type || s.template || 'visual'} · v{new Date(s.updated_at || Date.now()).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span
+                          className={`t-badge ${meta.variant === 'red' ? 't-badge-red' : meta.variant === 'amber' ? 't-badge-amber' : meta.variant === 'cyan' ? 't-badge-cyan' : meta.variant === 'yellow' ? 't-badge-amber' : 't-badge-green'}`}
+                          style={{ fontSize: 9, padding: '2px 8px' }}
+                          title={meta.hint}
+                        >
+                          {meta.label}
+                        </span>
+                      </div>
+                      {s.deployment && s.deployment.symbol && (
+                        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>
+                          {s.deployment.symbol} · {s.deployment.mode || 'paper'}
+                          {s.deployment.broker ? ` · ${s.deployment.broker}` : ''}
+                        </p>
+                      )}
+                    </div>
+                    <div style={{ borderTop: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      {st === 'DRAFT' && (
+                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.validate(s.id), 'Validate')}>
+                          Validate
+                        </button>
+                      )}
+                      {st === 'VALIDATED' && (
+                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.ready(s.id), 'Mark ready')}>
+                          Mark Ready
+                        </button>
+                      )}
+                      {!['LIVE', 'PAPER', 'ARCHIVED', 'STOPPED'].includes(st) && (
+                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => setDeployTarget(s)}>
+                          Deploy
+                        </button>
+                      )}
+                      {isRunning ? (
+                        <button className="t-btn t-btn-sm t-btn-danger" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.stop(s.id), 'Stop')}>
+                          Stop
+                        </button>
+                      ) : (
+                        ['READY', 'PAPER', 'LIVE', 'STOPPED', 'VALIDATED'].includes(st) && (
+                          <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.start(s.id, s.deployment?.symbol || 'NIFTY', '15m', 'paper'), 'Start paper')}>
+                            Start Paper
+                          </button>
+                        )
+                      )}
+                      {st !== 'ARCHIVED' && (
+                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.archive(s.id), 'Archive')}>
+                          Archive
+                        </button>
+                      )}
+                      <Link href={`/strategies/builder?id=${s.id}`} className="t-btn t-btn-sm" style={{ fontSize: 11 }}>Open</Link>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {strategies.length > 0 && (
+            <>
+              <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 13, margin: '0 0 10px', color: 'var(--text-faint)' }}>
+                Legacy Strategies ({strategies.length})
+              </h2>
+              <div className="t-grid-auto" style={{ marginBottom: 28 }}>
+                {strategies.map((s) => {
+                  return (
+                    <div key={s.id} className="t-panel" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ padding: '18px', flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                          <div>
+                            <h3 style={{ fontFamily: 'var(--font-body)', fontSize: 14, margin: 0 }}>{s.name}</h3>
+                            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>{s.type}</p>
+                          </div>
+                          <span className={`t-badge ${s.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
+                            {s.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>
+                          Created {new Date(s.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div style={{ borderTop: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button className="t-btn t-btn-sm" onClick={() => handleToggle(s)} style={{ fontSize: 11 }}>
+                          {s.is_active ? 'Pause' : 'Start'}
+                        </button>
+                        <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleDelete(s.id)} style={{ fontSize: 11 }}>
+                          Delete
+                        </button>
+                        <Link href={`/backtest?strategy=${s.type}`} className="t-btn t-btn-sm" style={{ fontSize: 11 }}>Backtest</Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          <div className="t-panel" style={{ padding: '20px' }}>
             <div className="t-panel-header" style={{ marginBottom: 12 }}>
               <h3 className="t-panel-title" style={{ fontSize: 15 }}>Built-in Strategy Types</h3>
             </div>

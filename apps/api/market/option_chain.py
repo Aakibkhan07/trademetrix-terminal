@@ -7,15 +7,16 @@ from market.cache import market_cache
 
 logger = logging.getLogger(__name__)
 
-STRIKE_INTERVALS: dict[str, int] = {"NIFTY": 50, "BANKNIFTY": 100, "FINNIFTY": 50, "SENSEX": 100}
-LOT_SIZES: dict[str, int] = {"NIFTY": 65, "BANKNIFTY": 30, "FINNIFTY": 60, "SENSEX": 20}
-NSE_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY"}
-SUPPORTED_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY", "SENSEX"}
+STRIKE_INTERVALS: dict[str, int] = {"NIFTY": 50, "BANKNIFTY": 100, "FINNIFTY": 50, "MIDCPNIFTY": 25, "SENSEX": 100}
+LOT_SIZES: dict[str, int] = {"NIFTY": 65, "BANKNIFTY": 30, "FINNIFTY": 60, "MIDCPNIFTY": 75, "SENSEX": 20}
+NSE_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"}
+SUPPORTED_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX"}
 
 _INDEX_ALIASES = {
     "NIFTY50-INDEX": "NIFTY",
     "NIFTYBANK-INDEX": "BANKNIFTY",
     "FINNIFTY-INDEX": "FINNIFTY",
+    "MIDCPNIFTY-INDEX": "MIDCPNIFTY",
     "SENSEX-INDEX": "SENSEX",
 }
 
@@ -199,7 +200,7 @@ class OptionChainEngine:
         return None
 
     async def _fetch_fyers_option_chain(self, symbol: str) -> dict | None:
-        fyers_map = {"NIFTY": "NSE:NIFTY50-INDEX", "BANKNIFTY": "NSE:NIFTYBANK-INDEX", "FINNIFTY": "NSE:FINNIFTY-INDEX", "SENSEX": "BSE:SENSEX-INDEX"}
+        fyers_map = {"NIFTY": "NSE:NIFTY50-INDEX", "BANKNIFTY": "NSE:NIFTYBANK-INDEX", "FINNIFTY": "NSE:FINNIFTY-INDEX", "MIDCPNIFTY": "NSE:MIDCPNIFTY-INDEX", "SENSEX": "BSE:SENSEX-INDEX"}
         fyers_symbol = fyers_map.get(symbol.upper(), f"NSE:{symbol.upper()}")
         try:
             from core.db import async_supabase, get_supabase

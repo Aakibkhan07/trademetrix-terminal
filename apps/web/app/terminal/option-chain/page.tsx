@@ -47,7 +47,7 @@ interface ChainResponse {
 
 /* ─── Constants ─── */
 
-const SYMBOLS = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'SENSEX']
+const SYMBOLS = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'SENSEX']
 const POLL_INTERVAL = 30000
 
 function fmt(n: number) {
@@ -98,6 +98,7 @@ export default function OptionChainPage() {
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState('')
   const [oiChanges, setOiChanges] = useState<Map<number, OiChange>>(new Map())
+  const [advanced, setAdvanced] = useState(false)
 
   const prevRowsRef = useRef<OptionRow[]>([])
 
@@ -205,10 +206,16 @@ export default function OptionChainPage() {
             SIMULATED DATA
           </span>
         )}
+
+        <span style={{ flex: 1 }} />
+        <button className="t-btn t-btn-sm t-btn-ghost" style={{ fontSize: 10 }} onClick={() => setAdvanced(v => !v)}>
+          {advanced ? 'Hide advanced ▲' : 'Advanced ▼'} (OI · Vol · IV · PCR)
+        </button>
       </div>
 
-      {/* ── Analytics Panel ── */}
-      <div className="t-panel" style={{ padding: '10px 14px', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+      {/* ── Analytics Panel (advanced only) ── */}
+      {advanced && (
+        <div className="t-panel" style={{ padding: '10px 14px', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
         <div>
           <div className="t-stat-label">PCR (OI)</div>
           <div className="t-stat-value" style={{ color: pcrZone(pcr).color, fontSize: 18 }}>{pcr.toFixed(2)}</div>
@@ -240,28 +247,41 @@ export default function OptionChainPage() {
           <div className="t-stat-sub t-sub">Highest PE OI</div>
         </div>
       </div>
+      )}
 
       {/* ── Chain Table ── */}
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <table className="t-table" style={{ minWidth: 580, fontSize: 11, borderCollapse: 'collapse', width: '100%' }}>
+        <table className="t-table" style={{ minWidth: advanced ? 580 : 240, fontSize: 11, borderCollapse: 'collapse', width: '100%' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              <th colSpan={5} style={{ textAlign: 'center', padding: '6px 4px', color: 'var(--text-green)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>CALL</th>
+              <th colSpan={advanced ? 5 : 1} style={{ textAlign: 'center', padding: '6px 4px', color: 'var(--text-green)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>CALL</th>
               <th style={{ padding: '6px 8px', textAlign: 'center', position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-secondary)', borderRight: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>STRIKE</th>
-              <th colSpan={5} style={{ textAlign: 'center', padding: '6px 4px', color: 'var(--text-red)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>PUT</th>
+              <th colSpan={advanced ? 5 : 1} style={{ textAlign: 'center', padding: '6px 4px', color: 'var(--text-red)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>PUT</th>
             </tr>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              <th style={cellHeader}>OI</th>
-              <th style={cellHeader}>OI Chg</th>
-              <th style={cellHeader}>Vol</th>
-              <th style={cellHeader}>IV</th>
-              <th style={cellHeader}>LTP</th>
+              {advanced ? (
+                <>
+                  <th style={cellHeader}>OI</th>
+                  <th style={cellHeader}>OI Chg</th>
+                  <th style={cellHeader}>Vol</th>
+                  <th style={cellHeader}>IV</th>
+                  <th style={cellHeader}>LTP</th>
+                </>
+              ) : (
+                <th style={cellHeader}>LTP</th>
+              )}
               <th style={{ ...cellHeader, position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-secondary)', borderRight: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>STRIKE</th>
-              <th style={cellHeader}>LTP</th>
-              <th style={cellHeader}>IV</th>
-              <th style={cellHeader}>Vol</th>
-              <th style={cellHeader}>OI Chg</th>
-              <th style={cellHeader}>OI</th>
+              {advanced ? (
+                <>
+                  <th style={cellHeader}>LTP</th>
+                  <th style={cellHeader}>IV</th>
+                  <th style={cellHeader}>Vol</th>
+                  <th style={cellHeader}>OI Chg</th>
+                  <th style={cellHeader}>OI</th>
+                </>
+              ) : (
+                <th style={cellHeader}>LTP</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -274,14 +294,19 @@ export default function OptionChainPage() {
                     borderBottom: '1px solid var(--border)',
                     background: isAtm ? 'var(--bg-active)' : undefined,
                   }}>
-                  {/* CE side */}
-                  <td style={cellData}>{fmtInt(row.call.oi)}</td>
-                  <td style={{ ...cellData, color: oc ? buildupColor(oc.call_oi_change, row.call.change) : '' }}>
-                    {oc ? (oc.call_oi_change > 0 ? '+' : '') + fmtInt(oc.call_oi_change) : '-'}
-                  </td>
-                  <td style={cellData}>{fmtInt(row.call.volume)}</td>
-                  <td style={cellData}>{row.call.iv > 0 ? row.call.iv.toFixed(1) : '-'}</td>
-                  <td style={{ ...cellData, ...colorCell(row.call.change) }}>{row.call.ltp > 0 ? row.call.ltp.toFixed(1) : '-'}</td>
+                  {advanced ? (
+                    <>
+                      <td style={cellData}>{fmtInt(row.call.oi)}</td>
+                      <td style={{ ...cellData, color: oc ? buildupColor(oc.call_oi_change, row.call.change) : '' }}>
+                        {oc ? (oc.call_oi_change > 0 ? '+' : '') + fmtInt(oc.call_oi_change) : '-'}
+                      </td>
+                      <td style={cellData}>{fmtInt(row.call.volume)}</td>
+                      <td style={cellData}>{row.call.iv > 0 ? row.call.iv.toFixed(1) : '-'}</td>
+                      <td style={{ ...cellData, ...colorCell(row.call.change) }}>{row.call.ltp > 0 ? row.call.ltp.toFixed(1) : '-'}</td>
+                    </>
+                  ) : (
+                    <td style={{ ...cellData, ...colorCell(row.call.change) }}>{row.call.ltp > 0 ? row.call.ltp.toFixed(1) : '-'}</td>
+                  )}
                   {/* Strike (sticky) */}
                   <td style={{
                     ...cellData,
@@ -296,14 +321,19 @@ export default function OptionChainPage() {
                   }}>
                     {fmt(row.strike)}
                   </td>
-                  {/* PE side */}
-                  <td style={{ ...cellData, ...colorCell(row.put.change) }}>{row.put.ltp > 0 ? row.put.ltp.toFixed(1) : '-'}</td>
-                  <td style={cellData}>{row.put.iv > 0 ? row.put.iv.toFixed(1) : '-'}</td>
-                  <td style={cellData}>{fmtInt(row.put.volume)}</td>
-                  <td style={{ ...cellData, color: oc ? buildupColor(oc.put_oi_change, row.put.change) : '' }}>
-                    {oc ? (oc.put_oi_change > 0 ? '+' : '') + fmtInt(oc.put_oi_change) : '-'}
-                  </td>
-                  <td style={cellData}>{fmtInt(row.put.oi)}</td>
+                  {advanced ? (
+                    <>
+                      <td style={{ ...cellData, ...colorCell(row.put.change) }}>{row.put.ltp > 0 ? row.put.ltp.toFixed(1) : '-'}</td>
+                      <td style={cellData}>{row.put.iv > 0 ? row.put.iv.toFixed(1) : '-'}</td>
+                      <td style={cellData}>{fmtInt(row.put.volume)}</td>
+                      <td style={{ ...cellData, color: oc ? buildupColor(oc.put_oi_change, row.put.change) : '' }}>
+                        {oc ? (oc.put_oi_change > 0 ? '+' : '') + fmtInt(oc.put_oi_change) : '-'}
+                      </td>
+                      <td style={cellData}>{fmtInt(row.put.oi)}</td>
+                    </>
+                  ) : (
+                    <td style={{ ...cellData, ...colorCell(row.put.change) }}>{row.put.ltp > 0 ? row.put.ltp.toFixed(1) : '-'}</td>
+                  )}
                 </tr>
               )
             })}
