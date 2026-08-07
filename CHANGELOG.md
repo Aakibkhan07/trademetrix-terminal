@@ -1,3 +1,23 @@
+## v1.7.0-beta.1 (2026-08-07) — Trader Workspace: full Indian index options trading workflow (PRODUCTION VERIFIED)
+
+> Trader-centric sprint: users can pick any of the five supported index families, position an ATM/ITM/OTM strike chain, choose CE/PE, size by lots, and drive buy + the five position actions against their paper or live broker — all through the existing OMS/engine endpoints. Backend was touched ONLY for `MIDCPNIFTY` constants; no new REST contracts.
+
+### What was done
+1. **`/trade` trader workspace** — 5 index chips (NIFTY/BANKNIFTY/FINNIFTY/MIDCPNIFTY/SENSEX), ATM anchoring with moneyness steps (ATM/ATM±1=ITM/OTM, ATM±2), CE/PE toggle, strike interval grid, lots multiplier (1–4 → qty = lots × lot_size), and margin estimate — all composable from the existing `api.marketdata`/`api.engine` clients plus new helpers (`options-contracts.ts`, `strategy-labels.ts`, `trader-presets.ts`).
+2. **Option-chain workflow** — chain rows never auto-order; the BUY card is an explicit side-action with confirm that places exactly one engine trade (paper or live); row clicks are pure selection. New `components/trade/*` (index-strip, chain-panel, order-card, presets-bar, fills-ticker) + `components/positions/position-actions.tsx`.
+3. **Position actions** — `Exit`, `Partial Exit`, `Add`, `Reverse`, `Trail SL`, `Modify` on `/positions`, wired to `engine.modifyOrder` (paper+live) and engine trades; Trail SL currently re-issues via `modifyOrder` with `result.broker_order_id` (raw live-order SL-M fallback is a noted next-sprint hardening).
+4. **MIDCPNIFTY support** — `market/option_chain.py` + `routes/v1_marketdata.py` gain MIDCPNIFTY `STRIKE_INTERVALS=25` / `LOT_SIZES=75`; prod `/marketdata/option-chain` MIDCPNIFTY returns 200/19 strikes (parity with NIFTY). MD5-verified hot-deploy.
+5. **Route polish** — `/strategies`, `/backtest`, `/terminal/option-chain` rebuilt against the trader flows; `app/sitemap.ts` restored (was VPS-only / missing from deploys) so public pages are crawleable.
+
+### Validation
+- API suite **982 passed, 1 xfailed** (option-chain/midcp constant tests incl.). Web `tsc --noEmit` 0 err, `next lint` 0 new, prod build clean; BUILD_ID `skiffJrBrpDasaPxRGY-` served.
+- **Prod browser e2e 36/36** (puppeteer, fresh user, mocked chain/positions/engine + `.margin-intercept`): 5 index chips click-active; moneyness 5/5 + CE/PE; lots `+3 → 4×50=200`; margin ₹53,000; 0 orders from selection; qty-deliberate BUY = exactly 1 order; 5 position actions reachable with Partial Exit + Modify exercised through engine endpoints; no unexpected console/response errors.
+- Post-deploy health: `api`, `/live`, `/trade`, `/strategies`, `/backtest`, `/sitemap.xml` all 200; prod logs free of new errors.
+- Commits: `8896b17` (feature, 18 files +1914/−597), `36ce84c` (sitemap restore + `*.bak` ignore), `0eb92d1` (analyzer retirement). Tag `v1.7.0-beta.1` @ `8896b17`.
+
+### Ops — legacy analyzer retired
+- Pre-monorepo `analyzer/` stack (own backend + Next.js/Capacitor dashboard, 0 Caddy routes, UFW-blocked) STOPPED, archived to `/root/trademetrix-backups/analyzer-2026-08-07/` on the VPS (257,951 bytes, 203 entries, manifest verified), containers + project network removed, source tree deleted, `analyzer/` gitignored. Features superseded by `apps/api` + `apps/web`; recovery = restore tar + `docker compose -f analyzer/docker-compose.yml up -d --build`.
+
 ## v1.6.9 (2026-08-07) — Stability Sprint: verified P1/P2 fixes from the Product Acceptance Audit
 
 ### Fixed

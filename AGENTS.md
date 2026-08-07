@@ -3,6 +3,26 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-07 — Trader Workspace: full Indian index options trading workflow (v1.7.0-beta.1, PRODUCTION VERIFIED)
+
+### What was done
+1. **`/trade` trader workspace** — 5 index families selectable (NIFTY / BANKNIFTY / FINNIFTY / MIDCPNIFTY / SENSEX) driving a live option chain via the EXISTING `api.marketdata.optionChain`/`chain` clients (zero new endpoints this sprint except the backend constant additions below); ATM anchoring + moneyness steps (`mn-*`, ATM/ATM±1/ATM±2 → ITM/OTM), CE/PE toggle, strike interval grid, lots multiplier (1–4 → `qty = lots × LOT_SIZES[sym]`), margin estimate from `api.engine.marginEstimate`. New helpers `lib/options-contracts.ts`, `lib/strategy-labels.ts`, `lib/trader-presets.ts` + `components/trade/*` (index-strip, chain-panel, order-card, presets-bar, fills-ticker) + `components/positions/position-actions.tsx`.
+2. **Ordering discipline (verified by e2e)** — clicking a chain/positions row NEVER places an order; the BUY card is the ONLY order path (deliberate side button + qty). BUY submits exactly one `engine.trade` (paper/live by mode). `positions/page.tsx` connects `Exit / Partial Exit / Add / Reverse / Trail SL / Modify` (`position-actions.tsx`) to `engine.modifyOrder` (paper+live) + engine trades; `partial_exit` → `engine.trade` qty `< holding`; `modify` → `engine.modifyOrder({order_id: result.broker_order_id})` for resting orders.
+3. **MIDCPNIFTY constants** (`market/option_chain.py`, `routes/v1_marketdata.py`) — `STRIKE_INTERVALS=25`, `LOT_SIZES=75`, `supported=True`; prod option-chain for MIDCPNIFTY = 200/19 strikes (parity with NIFTY). Backend untouched otherwise.
+4. **Rebuilds** — `/strategies`, `/backtest`, `/terminal/option-chain` refreshed to trader flow; SEO route `app/sitemap.ts` restored (was VPS-only, missing from deploys → committed in `36ce84c`; `/sitemap.xml` now 200 with `<urlset>`).
+5. **Deploy + verification** — API 2 files hot-deployed (md5-verified in container); web prod build (`BUILD_ID skiffJrBrpDasaPxRGY-`) hot-deployed; `api /live /trade /strategies /backtest /sitemap.xml` all 200; API suite **982 passed, 1 xfailed**; **browser e2e on prod 36/36 PASS** (fresh GoTrue user, mocked chain/positions/engine/.margin-intercept — see reference). Remainders: no degradations; trailiage uses `modifyOrder` id so no extra endpoints.
+6. **Legacy analyzer retired (user-approved)** — archive re-verified (`gzip -t` + `tar tzf` + manifest diff = 203 entries, 257,951 B) at `/root/trademetrix-backups/analyzer-2026-08-07/`; `docker compose -f analyzer/docker-compose.yml down -v` (containers + `analyzer_analyzer` network removed; no named volumes existed); `rm -rf analyzer/`; `.gitignore` + `analyzer/`; commit `0eb92d1` `chore(cleanup): retire legacy analyzer prototype` pushed → VPS `git reset --hard origin/main`; 11 prod containers untouched; retrieval = restore tar + `docker compose up -d --build`. `analyzer-backend` images left on VPS (inert) for re-spin.
+7. **Docs** — CHANGELOG v1.7.0-beta.1 entry; this AGENTS.md entry.
+
+### Reference
+- **Trader workspace bit**: row click = SELECT only; only the position-action / order-card buttons place/modify orders; browser e2e asserted "0 orders from selection; exactly 1 after a qty-deliberate BUY".
+- **Chain contract**: the tree node (`options-contracts.ts`) maps each index to `STRIKE_INTERVAL`/`LOT_SIZE` via the marketdata chain response (`strikes[]` + `lot_size`); margin = `api.engine.marginEstimate({symbol, side, qty})`.
+- **5 index tree**: `"NIFTY:NIFTY"`, `"BANKNIFTY:NIFTYBANK-INDEX"`, `"FINNIFTY:FINNIFTY-INDEX"`, `"MIDCPNIFTY:MIDCPNIFTY-INDEX"`, `"SENSEX:SENSEX-INDEX"` (the `-INDEX` alias symbols are how `normalize_index_symbol` dedupj-canonicalizes; SENSEX keeps its own interval).
+- **Moneyness**: ATM = spot/strikes nearest; ITM = strike below (CE) / above (PE), OTM opposite; navigation via interval steps; moneyness class `mn-atm/mn-itm1/mn-itm2/mn-otm1/mn-otm2`.
+- **Deployment pattern unchanged** (built with `.env.production` swap + restore; `.next` tar → stop → `docker cp` → start → `chown -R 1001` → verify `BUILD_ID` in container == served).
+- **VPS sync after push**: `cd /root/trademetrix-terminal && git fetch origin && git reset --hard origin/main`.
+- **Retirement evergreen**: pre-monorepo folders (own server + own dashboard, sparse Caddy routes) are dead weight — archive once at `/root/trademetrix-backups/` then compose-down + `rm -rf`; tolerate `.gitignore`, keep the archive tar verified.
+
 ## Session: 2026-08-07 — Live Operational Dashboard: unified `/live` cockpit + landing wiring (v1.6.8, PRODUCTION VERIFIED)
 
 ### What was done
