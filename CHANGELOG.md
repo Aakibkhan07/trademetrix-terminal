@@ -1,3 +1,20 @@
+## v1.7.0 (2026-08-08) — Backtest Engine: real 5-year windows + curated working strategy surface (PRODUCTION VERIFIED)
+
+> Backtest engine honesty pass: the backtest surface now contains ONLY strategies that emit real trade signals from candles, the window ceiling is raised from 60 days to 5 years with correct provider period handling, and backtests can never silently run on fabricated (synthetic) candles again.
+
+### What was done
+1. **Curated backtest surface** — `/api/v1/backtests/strategies` now returns only candle-working strategies (`trend_rider`, `macd_cross`, `bollinger_bandit`, `rsi_mean_reversion`, `orb_pro`, `smc_sniper`, `intraday_momentum`, `mean_reversion_pro`, `breakout_scanner`, `arbitrage_hunter`) plus a `catalog` of their metadata. Tick-dependent (`vwap_band`, `gap_up_express`) and live-option-LTP/leg-selling strategies (`long_straddle`, `trend_rider_buyer`, `momentum_breakout_buyer`, `expiry_hunter`, `option_wheel`) stay registered for the live trader runtimes but are curated OUT of backtests (their `on_candle` can never generate a fillable trade). UI drop-down rebuilt to the same 10.
+2. **60 days → 5 years** — default backtest window raised 60d → 365d, cap 1825d (daily; intraday capped 730d with a clear 400 otherwise). All run routes (`/run`, `/run-v2`, `/run-v3`, `/optimize`, `POST /`, `/candles`) validate the window; UI `Days` input `max=730` → `max=1825` with label "Days (up to 5y daily)".
+3. **Real data only — synthetic fallback removed** — `engine/backtest.fetch_historical_data` no longer falls back to `_synthesize_candles()` fabricated candles; it raises a clear `ValueError` ("backtests never run on fabricated candles") that the routes surface as a 400. Verified the durable store path (Supabase → broker → Yahoo) is entirely real-data.
+4. **Yahoo period mapping fix** — `market/historical.py` maps windows to yfinance period tokens (`1mo`…`10y`) instead of a raw `"{N}d"` string that yfinance rejects past ~60d (the old ceiling). Backtest durable store already keyed by date-range/cache, so long windows fill from the accumulated Supabase store then gap-fill.
+
+### Validation
+- API suite **982 passed, 1 xfailed** (2 tests updated: legacy fetch now asserts the real-data error; Yahoo period token assertion updated).
+- Web `tsc --noEmit` 0 err; prod build clean (BUILD_ID `pxW63XXu953F8XA3qWM00` served).
+- Prod in-container: `NIFTY` 1d loads **1235 real candles** (2021-08-09 → 2026-08-07); v2 `macd_cross` backtest on the full 5y window: **63 trades, win rate 36.5%, net P&L ₹+208,779** on ₹10L (candles_analyzed 1235); legacy engine run over the same real window executes with the real loader; in-container smoke also confirms legacy routes run with real data only.
+- Health sweep: `api/health`, `/backtest`, `/strategies`, `/live`, `/trade`, `/positions`, `/sitemap.xml` all 200. Kill switch `global:kill_switch` = `1` untouched (this was a read/backtest-only change).
+- Commit: `edfff84` (8 files, +118/−33). Deployed: 5 API files hot-deployed (md5-verified) + web `.next`.
+
 ## v1.7.0-beta.1 (2026-08-07) — Trader Workspace: full Indian index options trading workflow (PRODUCTION VERIFIED)
 
 > Trader-centric sprint: users can pick any of the five supported index families, position an ATM/ITM/OTM strike chain, choose CE/PE, size by lots, and drive buy + the five position actions against their paper or live broker — all through the existing OMS/engine endpoints. Backend was touched ONLY for `MIDCPNIFTY` constants; no new REST contracts.
