@@ -43,6 +43,43 @@ def list_strategies() -> list[str]:
     return list(_strategy_registry.keys())
 
 
+# Strategies that genuinely produce trade signals from `on_candle` — the ONLY
+# hook the backtest engines drive. Tick-dependent (vwap_band, gap_up_express),
+# live-option-LTP buyers (long_straddle, trend_rider_buyer, momentum_breakout_buyer)
+# and leg-sellers that can never fill on a single instrument (expiry_hunter,
+# option_wheel) are curated OUT of the backtest surface (they stay registered
+# for the live trader runtimes).
+BACKTEST_CAPABLE_KEYS: list[str] = [
+    "trend_rider",
+    "macd_cross",
+    "bollinger_bandit",
+    "rsi_mean_reversion",
+    "orb_pro",
+    "smc_sniper",
+    "intraday_momentum",
+    "mean_reversion_pro",
+    "breakout_scanner",
+    "arbitrage_hunter",
+]
+
+_BACKTEST_CAPABLE_SET = frozenset(BACKTEST_CAPABLE_KEYS)
+
+# max backtest window in days (5 calendar years)
+MAX_BACKTEST_DAYS: int = 1825
+
+# intraday ranges Yahoo can actually serve — anything longer must run daily
+MAX_INTRADAY_DAYS: int = 730
+
+
+def backtest_strategies() -> list[str]:
+    """Backtest surface: only strategies that emit real trade signals from candles."""
+    return BACKTEST_CAPABLE_KEYS
+
+
+def get_backtest_catalog() -> list[StrategyInfo]:
+    return [_STRATEGY_TIERS[k] for k in BACKTEST_CAPABLE_KEYS]
+
+
 def get_strategy_catalog() -> list[StrategyInfo]:
     return [_STRATEGY_TIERS[k] for k in _strategy_registry]
 
@@ -178,10 +215,9 @@ __all__ = [
     "BuyerConfig",
     "Phase",
     "StrategyInfo",
-    "register_strategy",
-    "get_strategy",
-    "list_strategies",
-    "get_strategy_catalog",
-    "get_strategy_tier",
-    "get_strategy_category",
+    "backtest_strategies",
+    "get_backtest_catalog",
+    "BACKTEST_CAPABLE_KEYS",
+    "MAX_BACKTEST_DAYS",
+    "MAX_INTRADAY_DAYS",
 ]

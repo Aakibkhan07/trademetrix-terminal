@@ -221,10 +221,10 @@ async def fetch_historical_data(symbol: str, exchange: str = "NSE", interval: st
     except Exception as e:
         logger.warning("Failed to fetch real data for backtest (%s)", e)
 
-    logger.warning("No real data available — using synthetic data for backtest")
-    syn = _synthesize_candles(symbol, days, interval)
-    logger.info("Generated %d synthetic candles for %s", len(syn), symbol)
-    return syn
+    raise ValueError(
+        f"No real market data available for {symbol} ({interval}, {days}d) — "
+        "backtests never run on fabricated candles. Verify the symbol or retry later."
+    )
 
 
 def _parse_interval_minutes(interval: str) -> int:

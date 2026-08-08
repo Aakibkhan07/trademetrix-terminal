@@ -53,11 +53,10 @@ async def test_fetch_historical_data_uses_durable_store(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_fetch_historical_data_falls_back_to_synthetic_only_when_empty(monkeypatch):
+async def test_fetch_historical_data_raises_when_no_real_data(monkeypatch):
     async def fake_load(symbol="", exchange="NSE", interval="15m", days=7, user_id=None):
         return []
 
     monkeypatch.setattr("backtest.historical.backtest_historical.load", fake_load)
-    candles = await fetch_historical_data("NIFTY", "NSE", "15m", 7, "u1")
-    assert candles
-    assert candles[0]["symbol"] == "NIFTY"
+    with pytest.raises(ValueError, match="No real market data"):
+        await fetch_historical_data("NIFTY", "NSE", "15m", 7, "u1")

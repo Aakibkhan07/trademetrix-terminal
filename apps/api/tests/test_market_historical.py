@@ -39,7 +39,7 @@ async def test_yahoo_fallback_when_broker_fetch_fails(monkeypatch):
 
     assert len(result) == 1
     assert result[0]["symbol"] == "NSE:NIFTY50-INDEX"
-    assert called_with == {"symbol": "NSE:NIFTY50-INDEX", "interval": "15m", "period": "30d"}
+    assert called_with == {"symbol": "NSE:NIFTY50-INDEX", "interval": "15m", "period": "1mo"}
 
 
 @pytest.mark.asyncio

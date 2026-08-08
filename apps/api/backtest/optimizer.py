@@ -35,7 +35,7 @@ class OptimizationSpec(BaseModel):
     symbol: str = "NIFTY"
     exchange: str = "NSE"
     interval: str = "15m"
-    days: int = 60
+    days: int = Field(default=365, ge=1, le=1825)
     initial_capital: float = 100000.0
     method: str = "grid"           # grid | walk_forward | monte_carlo | sensitivity
     param_ranges: dict[str, list] = Field(default_factory=dict)

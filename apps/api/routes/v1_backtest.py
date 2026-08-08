@@ -1,7 +1,7 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel, Field
 
 from backtest.manager import backtest_manager
 from backtest.models import BacktestConfig, ReplaySpeed
@@ -10,10 +10,24 @@ from backtest.performance import downsample_pairs
 from core.deps import get_current_user, require_feature
 from core.models import UserProfile
 from engine.backtest import BacktestEngine, fetch_historical_data
+from strategies import MAX_BACKTEST_DAYS, MAX_INTRADAY_DAYS
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
+
+
+def _validate_window(days: int, interval: str) -> None:
+    if days > MAX_BACKTEST_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Backtest window of {days} days exceeds the {MAX_BACKTEST_DAYS}-day (5 year) limit",
+        )
+    if days > MAX_INTRADAY_DAYS and interval not in ("1d", "1D", "daily"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{interval} data is only available up to {MAX_INTRADAY_DAYS} days — use a daily interval for longer backtests.",
+        )
 
 
 class BacktestRequest(BaseModel):
@@ -21,7 +35,7 @@ class BacktestRequest(BaseModel):
     symbol: str = "NIFTY"
     exchange: str = "NSE"
     interval: str = "15m"
-    days: int = 60
+    days: int = Field(default=365, ge=1, le=MAX_BACKTEST_DAYS, description="Backtest window in days (up to 5 years)")
     initial_capital: float = 100000
     config: dict = {}
     slippage_pct: float = 0.05
@@ -35,8 +49,12 @@ class BacktestRequest(BaseModel):
 
 @router.get("/strategies")
 async def list_backtest_strategies():
-    from strategies import list_strategies
-    return {"strategies": list_strategies()}
+    from strategies import backtest_strategies, get_backtest_catalog
+
+    return {
+        "strategies": backtest_strategies(),
+        "catalog": [s.model_dump() for s in get_backtest_catalog()],
+    }
 
 
 @router.post("/run")
@@ -45,6 +63,7 @@ async def run_backtest_legacy(
     current_user: UserProfile = Depends(get_current_user),
 ):
     try:
+        _validate_window(req.days, req.interval)
         candles = await fetch_historical_data(
             symbol=req.symbol,
             exchange=req.exchange,
@@ -92,7 +111,7 @@ class BacktestV2Request(BaseModel):
     symbol: str = "NIFTY"
     exchange: str = "NSE"
     interval: str = "15m"
-    days: int = 60
+    days: int = Field(default=365, ge=1, le=MAX_BACKTEST_DAYS, description="Backtest window in days (up to 5 years)")
     initial_capital: float = 100000.0
     strategy_params: dict = {}
     speed: str = "MAX"
@@ -108,6 +127,7 @@ async def run_backtest_v2(
     current_user: UserProfile = Depends(get_current_user),
 ):
     try:
+        _validate_window(req.days, req.interval)
         speed = ReplaySpeed(req.speed.upper()) if req.speed.upper() in {s.value for s in ReplaySpeed} else ReplaySpeed.MAX
 
         config = BacktestConfig(
@@ -215,6 +235,7 @@ async def optimize_strategy(
 ):
     """Parameter optimization (grid / walk_forward / monte_carlo / sensitivity)."""
     try:
+        _validate_window(req.days, req.interval)
         result = await backtest_optimizer.run(req)
         if result.status == "FAILED":
             raise HTTPException(status_code=400, detail=result.error or "Optimization failed")
@@ -254,6 +275,7 @@ async def create_backtest(
     current_user: UserProfile = Depends(require_feature("backtest")),
 ):
     try:
+        _validate_window(req.days, req.interval)
         candles = await fetch_historical_data(
             symbol=req.symbol,
             exchange=req.exchange,
@@ -297,12 +319,13 @@ async def create_backtest(
 async def get_backtest_candles(
     symbol: str,
     interval: str,
-    days: int = 60,
+    days: int = Query(default=365, ge=1, le=MAX_BACKTEST_DAYS, description="Backtest window in days (up to 5 years)"),
     start: str = "",
     end: str = "",
     force_refresh: bool = False,
     current_user: UserProfile = Depends(get_current_user),
 ):
+    _validate_window(days, interval)
     from backtest.historical import backtest_historical
 
     candles = await backtest_historical.load(
@@ -358,7 +381,7 @@ class BacktestV3Request(BaseModel):
     symbol: str = "NIFTY"
     exchange: str = "NSE"
     interval: str = "15m"
-    days: int = 60
+    days: int = Field(default=365, ge=1, le=MAX_BACKTEST_DAYS, description="Backtest window in days (up to 5 years)")
     initial_capital: float = 100000.0
     speed: str = "MAX"
     risk_enabled: bool = True
@@ -483,6 +506,7 @@ async def run_backtest_v3(
     from builder.compiler import compile_dsl
 
     try:
+        _validate_window(req.days, req.interval)
         from application.services.analytics_service import AnalyticsService
         await AnalyticsService().record_server_event(
             current_user.id, "backtest.run",

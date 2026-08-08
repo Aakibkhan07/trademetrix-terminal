@@ -6,6 +6,30 @@ from market.cache import market_cache
 logger = logging.getLogger(__name__)
 
 
+def _yahoo_period(days: int) -> str:
+    """Map a requested window (days) to a yfinance period token.
+
+    yfinance only accepts fixed tokens (1mo/3mo/6mo/1y/2y/5y/10y/max) — a raw
+    "{N}d" string (e.g. "1825d") is invalid and empties the response, which is
+    exactly the old 60-day ceiling. Token beats raw days whenever it covers
+    the window; 10y as the hard cap.
+    """
+    d = max(1, int(days))
+    if d <= 30:
+        return "1mo"
+    if d <= 90:
+        return "3mo"
+    if d <= 180:
+        return "6mo"
+    if d <= 365:
+        return "1y"
+    if d <= 730:
+        return "2y"
+    if d <= 1825:
+        return "5y"
+    return "10y"
+
+
 class HistoricalDataEngine:
     _instance = None
 
@@ -96,7 +120,7 @@ class HistoricalDataEngine:
         try:
             from providers.yahoo import fetch_historical
 
-            period = f"{max(1, int(days))}d"
+            period = _yahoo_period(days)
             candles = await fetch_historical(self._map_symbol(symbol, exchange), interval=interval, period=period)
             if candles:
                 logger.info("Fetched %d candles from Yahoo fallback for %s", len(candles), symbol)

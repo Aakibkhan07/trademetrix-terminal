@@ -15,13 +15,15 @@ import {
 
 const BUILTIN_STRATEGIES = [
   { id: 'trend_rider', name: 'Trend Rider' },
+  { id: 'macd_cross', name: 'MACD Cross' },
+  { id: 'bollinger_bandit', name: 'Bollinger Bandit' },
+  { id: 'rsi_mean_reversion', name: 'RSI Mean Reversion' },
   { id: 'orb_pro', name: 'ORB Pro' },
   { id: 'smc_sniper', name: 'SMC Sniper' },
-  { id: 'expiry_hunter', name: 'Expiry Hunter' },
-  { id: 'rsi_mean_reversion', name: 'RSI Mean Reversion' },
-  { id: 'bollinger_bandit', name: 'Bollinger Bandit' },
-  { id: 'macd_cross', name: 'MACD Cross' },
-  { id: 'vwap_band', name: 'VWAP Band' },
+  { id: 'intraday_momentum', name: 'Intraday Momentum' },
+  { id: 'mean_reversion_pro', name: 'Mean Reversion Pro' },
+  { id: 'breakout_scanner', name: 'Breakout Scanner' },
+  { id: 'arbitrage_hunter', name: 'Arbitrage Hunter' },
 ]
 
 const INTERVALS = [
@@ -739,7 +741,7 @@ function BacktestContent() {
   const [builderStrategies, setBuilderStrategies] = useState<BuilderStrategyItem[]>([])
   const [symbol, setSymbol] = useState('NIFTY')
   const [interval, setInterval] = useState('15m')
-  const [days, setDays] = useState(60)
+  const [days, setDays] = useState(365)
   const [capital, setCapital] = useState(100000)
   const [slippage, setSlippage] = useState(0.05)
   const [latency, setLatency] = useState(0)
@@ -1186,8 +1188,8 @@ function BacktestContent() {
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Days</label>
-            <input className="t-input" type="number" value={days} onChange={e => setDays(Number(e.target.value))} min={1} max={730} />
+            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Days (up to 5y daily)</label>
+            <input className="t-input" type="number" value={days} onChange={e => setDays(Number(e.target.value))} min={1} max={1825} />
           </div>
           <div>
             <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Capital</label>
