@@ -147,7 +147,7 @@ async def test_logs_record_and_retrieve():
 @pytest.mark.asyncio
 async def test_template_categories():
     templates = await builder_manager.list_templates()
-    assert len(templates) == 10
+    assert len(templates) == 9
     for t in templates:
         assert t["category"] in ("official", "community", "private")
         assert t["category"] == "official"

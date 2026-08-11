@@ -26,7 +26,7 @@ export default function TemplateGallery({ onUse, onBlank, onAI }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span className="t-stat-label" style={{ fontSize: 10, fontWeight: 700 }}>START FROM TEMPLATE</span>
-        <span className="t-faint" style={{ fontSize: 10 }}>10 battle-tested starting points</span>
+        <span className="t-faint" style={{ fontSize: 10 }}>9 battle-tested starting points</span>
       </div>
       {error && <span style={{ color: 'var(--text-red)', fontSize: 11 }}>{error}</span>}
       {loading ? (

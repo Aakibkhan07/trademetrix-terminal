@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 from collections import defaultdict
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Callable
 
 from core.models import Candle, Exchange, NormalizedOrder, OrderSide, OrderType, ProductType, Tick
@@ -109,6 +110,7 @@ class GraphStrategy(BaseStrategy):
             "candle_index": self._candle_index,
             "params": node.params,
             "inputs": inputs,
+            "_block_type": node.block_type,
         }
 
         return _COMPUTE_FUNCTIONS.get(node.block_type, _compute_default)(ctx)
@@ -193,24 +195,37 @@ def _get_prev(series: list[float]) -> float:
 
 # ─── Compute Functions ───
 
-def _compute_sma(ctx: dict) -> float:
+def _compute_sma(ctx: dict) -> dict:
     series = _get_series(ctx, "close")
     period = int(ctx.get("params", {}).get("period", 20))
     if len(series) < period:
-        return 0.0
-    return sum(series[-period:]) / period
+        return {"value": 0.0, "series": []}
+    sma_series: list[float] = []
+    running = 0.0
+    for i, price in enumerate(series):
+        running += price
+        if i >= period:
+            running -= series[i - period]
+        if i >= period - 1:
+            sma_series.append(running / period)
+    return {"value": sma_series[-1], "series": sma_series}
 
 
-def _compute_ema(ctx: dict) -> float:
+def _compute_ema(ctx: dict) -> dict:
     series = _get_series(ctx, "close")
     period = int(ctx.get("params", {}).get("period", 20))
     if len(series) < period:
-        return _get_last(series)
+        return {"value": _get_last(series), "series": list(series)}
     multiplier = 2 / (period + 1)
+    ema_series: list[float] = []
     ema = sum(series[:period]) / period
-    for price in series[period:]:
-        ema = (price - ema) * multiplier + ema
-    return ema
+    for i, price in enumerate(series):
+        if i < period:
+            ema = sum(series[: i + 1]) / (i + 1)
+        else:
+            ema = (price - ema) * multiplier + ema
+        ema_series.append(ema)
+    return {"value": ema, "series": ema_series}
 
 
 def _compute_rsi(ctx: dict) -> dict:
@@ -252,8 +267,21 @@ def _compute_macd(ctx: dict) -> dict:
         return e
 
     macd_line = _ema(series, fast) - _ema(series, slow)
-    sig_line = _ema(series, signal)
-    return {"macd_line": macd_line, "signal_line": sig_line, "histogram": macd_line - sig_line}
+    series_macd: list[float] = []
+    for i in range(len(series)):
+        window = series[: i + 1]
+        series_macd.append(_ema(window, fast) - _ema(window, slow))
+    series_signal: list[float] = []
+    for i in range(len(series_macd)):
+        series_signal.append(_ema(series_macd[: i + 1], signal))
+    sig_line = series_signal[-1] if series_signal else 0
+    return {
+        "macd_line": macd_line,
+        "signal_line": sig_line,
+        "histogram": macd_line - sig_line,
+        "series_macd": series_macd,
+        "series_signal": series_signal,
+    }
 
 
 def _compute_bollinger(ctx: dict) -> dict:
@@ -281,12 +309,19 @@ def _compute_bollinger(ctx: dict) -> dict:
 def _compute_vwap(ctx: dict) -> dict:
     series_close = _get_series(ctx, "close")
     series_volume = _get_series(ctx, "volume")
-    if not series_close or not series_volume:
+    if not series_close:
         return {"value": 0, "deviation": 0, "deviation_pct": 0}
-    tp = sum((series_close[i] + _get_series(ctx, "high")[i] + _get_series(ctx, "low")[i]) / 3 * series_volume[i]
-             for i in range(len(series_close)) if i < len(series_volume))
-    vol = sum(series_volume)
-    vwap = tp / vol if vol else 0
+    series_high = _get_series(ctx, "high")
+    series_low = _get_series(ctx, "low")
+    n = len(series_close)
+    if n and not any(series_volume):
+        tp_sum = sum((series_close[i] + (series_high[i] if i < len(series_high) else series_close[i]) + (series_low[i] if i < len(series_low) else series_close[i])) / 3 for i in range(n))
+        vwap = tp_sum / n
+    else:
+        tp = sum((series_close[i] + series_high[i] + series_low[i]) / 3 * series_volume[i]
+                 for i in range(n) if i < len(series_volume))
+        vol = sum(series_volume)
+        vwap = tp / vol if vol else 0
     current = _get_last(series_close)
     return {"value": vwap, "deviation": current - vwap, "deviation_pct": (current - vwap) / vwap * 100 if vwap else 0}
 
@@ -356,14 +391,25 @@ def _compute_adx(ctx: dict) -> dict:
     return {"adx": 25, "plus_di": 20, "minus_di": 20}
 
 
-def _compute_cross_above(ctx: dict) -> dict:
+def _cross_series_and_target(ctx: dict) -> tuple[list[float], float]:
     inputs = ctx.get("inputs", {})
-    series_a = _get_series(ctx, "close")
-    series_b_val = inputs.get("b", 0)
-    if isinstance(series_b_val, (int, float)):
-        target = series_b_val
+    a = inputs.get("a")
+    b = inputs.get("b", 0)
+    if isinstance(a, list) and a:
+        series = a
     else:
-        target = series_b_val[-1] if isinstance(series_b_val, list) and series_b_val else 0
+        series = _get_series(ctx, "close")
+    if isinstance(b, (int, float)):
+        target = float(b)
+    elif isinstance(b, list) and b:
+        target = float(b[-1])
+    else:
+        target = 0.0
+    return series, target
+
+
+def _compute_cross_above(ctx: dict) -> dict:
+    series_a, target = _cross_series_and_target(ctx)
     if len(series_a) >= 2:
         triggered = series_a[-2] <= target and series_a[-1] > target
         return {"triggered": triggered, "crossover_value": series_a[-1]}
@@ -371,13 +417,7 @@ def _compute_cross_above(ctx: dict) -> dict:
 
 
 def _compute_cross_below(ctx: dict) -> dict:
-    series_a = _get_series(ctx, "close")
-    inputs = ctx.get("inputs", {})
-    series_b_val = inputs.get("b", 0)
-    if isinstance(series_b_val, (int, float)):
-        target = series_b_val
-    else:
-        target = series_b_val[-1] if isinstance(series_b_val, list) and series_b_val else 0
+    series_a, target = _cross_series_and_target(ctx)
     if len(series_a) >= 2:
         triggered = series_a[-2] >= target and series_a[-1] < target
         return {"triggered": triggered, "crossunder_value": series_a[-1]}
@@ -450,7 +490,7 @@ def _compute_logic_op(ctx: dict) -> bool:
     elif block_type == "logic.or":
         return bool(a) or bool(b)
     elif block_type == "logic.not":
-        return not bool(a)
+        return not bool(inputs.get("value", a))
     elif block_type == "logic.gt":
         return float(a or 0) > float(b or 0)
     elif block_type == "logic.lt":
@@ -544,6 +584,105 @@ def _compute_source_position(ctx: dict) -> dict:
         "pnl": memory.get("position_pnl", 0),
         "has_position": memory.get("position_qty", 0) != 0,
     }
+
+
+def _compute_source_candle(ctx: dict) -> dict:
+    candle = ctx.get("candle")
+    if candle is None:
+        return {"open": 0, "high": 0, "low": 0, "close": 0, "volume": 0, "oi": 0, "candle": None}
+    return {
+        "open": float(candle.open),
+        "high": float(candle.high),
+        "low": float(candle.low),
+        "close": float(candle.close),
+        "volume": float(candle.volume),
+        "oi": float(candle.oi),
+        "candle": candle,
+    }
+
+
+def _compute_source_close_history(ctx: dict) -> dict:
+    series = ctx.get("series", {})
+    max_length = int(ctx.get("params", {}).get("max_length", 500))
+    return {
+        "prices": list(series.get("close", []))[-max_length:],
+        "highs": list(series.get("high", []))[-max_length:],
+        "lows": list(series.get("low", []))[-max_length:],
+        "volumes": list(series.get("volume", []))[-max_length:],
+    }
+
+
+def _compute_breakout(ctx: dict) -> dict:
+    series_high = _get_series(ctx, "high")
+    series_low = _get_series(ctx, "low")
+    series_close = _get_series(ctx, "close")
+    lookback = int(ctx.get("params", {}).get("lookback", 20))
+    buffer_pct = float(ctx.get("params", {}).get("buffer_pct", 0.1))
+
+    if len(series_close) < lookback + 2:
+        return {"breakout": False, "breakdown": False, "level": 0}
+
+    resistance = max(series_high[-lookback - 1 : -1])
+    support = min(series_low[-lookback - 1 : -1])
+    close = series_close[-1]
+    breakout = close > resistance * (1 + buffer_pct / 100)
+    breakdown = close < support * (1 - buffer_pct / 100)
+    return {
+        "breakout": breakout,
+        "breakdown": breakdown,
+        "level": resistance if breakout else support if breakdown else 0,
+    }
+
+
+def _market_ist(candle) -> datetime:
+    from core.models import Candle
+
+    if candle is None:
+        return datetime.now(UTC)
+    ts = candle.timestamp if isinstance(candle, Candle) else getattr(candle, "timestamp", datetime.now(UTC))
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=UTC)
+    return ts.astimezone(timezone(timedelta(hours=5, minutes=30)))
+
+
+def _compute_source_market_time(ctx: dict) -> dict:
+    ist = _market_ist(ctx.get("candle"))
+    hour, minute, dow = ist.hour, ist.minute, ist.weekday()
+    open_ts = ist.replace(hour=9, minute=15, second=0, microsecond=0)
+    close_ts = ist.replace(hour=15, minute=30, second=0, microsecond=0)
+    is_open = dow < 5 and open_ts <= ist <= close_ts
+    return {
+        "session": "open" if is_open else "closed",
+        "hour": hour,
+        "minute": minute,
+        "day_of_week": dow,
+        "is_market_open": is_open,
+    }
+
+
+def _compute_day_of_week(ctx: dict) -> dict:
+    dow = _market_ist(ctx.get("candle")).weekday()
+    return {
+        "day": dow,
+        "is_monday": dow == 0,
+        "is_friday": dow == 4,
+        "is_expiry": dow == 3,
+    }
+
+
+def _compute_time_range(ctx: dict) -> dict:
+    ist = _market_ist(ctx.get("candle"))
+    params = ctx.get("params", {})
+    start = ist.replace(hour=int(params.get("start_hour", 9)), minute=int(params.get("start_min", 15)),
+                        second=0, microsecond=0)
+    end = ist.replace(hour=int(params.get("end_hour", 15)), minute=int(params.get("end_min", 30)),
+                      second=0, microsecond=0)
+    return {"in_range": start <= ist <= end}
+
+
+def _compute_constant_number(ctx: dict) -> dict:
+    value = float(ctx.get("params", {}).get("value", 0))
+    return {"value": value}
 
 
 def _compute_signal_divergence(ctx: dict) -> dict:
@@ -650,6 +789,7 @@ _COMPUTE_FUNCTIONS: dict[str, Callable] = {
     "logic.if_else": _compute_if_else,
     "signal.cross_above": _compute_cross_above,
     "signal.cross_below": _compute_cross_below,
+    "signal.breakout": _compute_breakout,
     "signal.divergence": _compute_signal_divergence,
     "order.buy": _compute_order_buy,
     "order.sell": _compute_order_sell,
@@ -659,6 +799,12 @@ _COMPUTE_FUNCTIONS: dict[str, Callable] = {
     "smc.liquidity_grab": _compute_liquidity_grab,
     "smc.fvg": _compute_fvg,
     "source.position": _compute_source_position,
+    "source.candle": _compute_source_candle,
+    "source.close_history": _compute_source_close_history,
+    "source.market_time": _compute_source_market_time,
+    "time.day_of_week": _compute_day_of_week,
+    "time.time_range": _compute_time_range,
+    "constant.number": _compute_constant_number,
     "candle.bullish": _compute_candle_bullish,
     "candle.bearish": _compute_candle_bearish,
     "candle.doji": _compute_candle_doji,

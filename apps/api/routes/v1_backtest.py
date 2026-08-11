@@ -62,40 +62,37 @@ async def run_backtest_legacy(
     req: BacktestRequest,
     current_user: UserProfile = Depends(get_current_user),
 ):
+    """Run a backtest for a built-in strategy through the modern engine.
+
+    Returns the full BTResult payload (config/summary/trades/equity_curve/
+    risk_analytics) so the UI can render every view. The legacy fee knobs map
+    onto the canonical cost config, and data loading is real-data-only.
+    """
     try:
         _validate_window(req.days, req.interval)
-        candles = await fetch_historical_data(
+
+        config = BacktestConfig(
+            strategy_type=req.strategy_type,
+            strategy_params=req.config,
             symbol=req.symbol,
             exchange=req.exchange,
             interval=req.interval,
             days=req.days,
-            user_id=current_user.id,
-        )
-
-        engine = BacktestEngine(
-            strategy_type=req.strategy_type,
-            config=req.config,
             initial_capital=req.initial_capital,
+            speed=ReplaySpeed.MAX,
+            data_source="auto",
+            risk_enabled=False,
+            close_positions_on_end=True,
             slippage_pct=req.slippage_pct,
-            brokerage_pct=req.brokerage_pct,
-            stt_pct=req.stt_pct,
-            exchange_pct=req.exchange_pct,
+            cost={
+                "commission_pct": req.brokerage_pct,
+                "stt_pct_override": req.stt_pct,
+                "exchange_tc_pct_override": req.exchange_pct,
+            },
         )
 
-        result = await engine.run(candles)
-        return {
-            "symbol": req.symbol,
-            "strategy": req.strategy_type,
-            "interval": req.interval,
-            "days": req.days,
-            "initial_capital": req.initial_capital,
-            "candles_analyzed": len(candles),
-            "slippage_pct": req.slippage_pct,
-            "brokerage_pct": req.brokerage_pct,
-            "stt_pct": req.stt_pct,
-            "exchange_pct": req.exchange_pct,
-            "results": result.to_dict(),
-        }
+        result = await backtest_manager.run(config)
+        return _result_payload(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

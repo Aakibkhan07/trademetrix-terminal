@@ -103,18 +103,20 @@ T_VWAP = _dsl(
     nodes=[
         _n("source.candle", 50, 50),
         _n("indicator.vwap", 300, 50),
-        _n("logic.gt", 500, 50),
-        _n("logic.lt", 500, 200),
+        _n("logic.lt", 500, 50),
+        _n("logic.gt", 500, 200),
+        _n("constant.number", 450, 400, {"value": -0.25}),
+        _n("constant.number", 450, 250, {"value": 0.25}),
         _n("order.sell", 700, 50, {"quantity": 75, "reason": "Price above VWAP deviation threshold"}),
         _n("order.buy", 700, 200, {"quantity": 75, "reason": "Price below VWAP deviation threshold"}),
     ],
     edges=[
         _e("n1", "deviation_pct", "n2", "a"),
+        _e("n4", "value", "n2", "b"),
         _e("n1", "deviation_pct", "n3", "a"),
-        _e("n0", "close", "n2", "b"),
-        _e("n0", "close", "n3", "b"),
-        _e("n2", "result", "n4", "condition"),
-        _e("n3", "result", "n5", "condition"),
+        _e("n5", "value", "n3", "b"),
+        _e("n2", "result", "n7", "condition"),
+        _e("n3", "result", "n6", "condition"),
     ],
     settings={"symbol": "NIFTY", "interval": "5m", "max_positions": 2},
     tags=["mean-reversion", "vwap", "intraday"],
@@ -234,24 +236,20 @@ T_SCALP = _dsl(
         _n("source.close_history", 50, 200, {"max_length": 50}),
         _n("indicator.ema", 250, 50, {"period": 5}),
         _n("indicator.ema", 250, 200, {"period": 13}),
-        _n("logic.gt", 450, 50),
-        _n("logic.lt", 450, 200),
+        _n("signal.cross_above", 450, 50),
+        _n("signal.cross_below", 450, 200),
         _n("order.buy", 650, 50, {"quantity": 150, "reason": "Scalp BUY signal"}),
         _n("order.sell", 650, 200, {"quantity": 150, "reason": "Scalp SELL signal"}),
-        _n("order.sl", 850, 100, {"sl_type": "atr", "sl_value": 1.5}),
-        _n("order.target", 850, 300, {"tp_type": "rr", "tp_value": 2}),
     ],
     edges=[
         _e("n1", "prices", "n2", "source"),
         _e("n1", "prices", "n3", "source"),
-        _e("n0", "close", "n4", "a"),
+        _e("n1", "prices", "n4", "a"),
         _e("n2", "value", "n4", "b"),
-        _e("n0", "close", "n5", "a"),
+        _e("n1", "prices", "n5", "a"),
         _e("n3", "value", "n5", "b"),
-        _e("n4", "result", "n6", "condition"),
-        _e("n5", "result", "n7", "condition"),
-        _e("n0", "close", "n8", "entry_price"),
-        _e("n0", "close", "n9", "entry_price"),
+        _e("n4", "triggered", "n6", "condition"),
+        _e("n5", "triggered", "n7", "condition"),
     ],
     settings={"symbol": "BANKNIFTY", "interval": "1m", "max_positions": 3, "max_daily_trades": 10},
     tags=["scalping", "ema", "fast"],
@@ -262,19 +260,19 @@ T_SCALP = _dsl(
 
 T_ICT = _dsl(
     name="ICT Silver Bullet",
-    desc="ICT Silver Bullet strategy. Trades the 10-11am NY window with FVG and order block confluence.",
+    desc="ICT Silver Bullet strategy. Trades the 9:15-10:15 IST window with FVG and order block confluence.",
     nodes=[
         _n("source.candle", 50, 50),
         _n("source.close_history", 50, 200, {"max_length": 100}),
-        _n("ict.silver_bullet", 300, 50),
-        _n("ict.fvg", 300, 200, {"min_gap_ticks": 2}),
+        _n("time.time_range", 300, 50, {"start_hour": 9, "start_min": 15, "end_hour": 10, "end_min": 15}),
+        _n("smc.fvg", 300, 200, {"min_gap_pct": 0.05}),
         _n("smc.order_block", 300, 350, {"lookback": 8}),
         _n("logic.and", 550, 50),
         _n("order.buy", 750, 50, {"quantity": 50, "reason": "ICT Silver Bullet BUY"}),
         _n("order.sell", 750, 200, {"quantity": 50, "reason": "ICT Silver Bullet SELL"}),
     ],
     edges=[
-        _e("n2", "is_active", "n5", "a"),
+        _e("n2", "in_range", "n5", "a"),
         _e("n3", "bullish", "n5", "b"),
         _e("n4", "bullish", "n5", "c"),
         _e("n0", "high", "n3", "high"),
@@ -290,35 +288,12 @@ T_ICT = _dsl(
 )
 
 
-# ─── Template 10: Expiry Hunter ───
-
-T_EXPIRY = _dsl(
-    name="Expiry Hunter",
-    desc="Sells options premium on expiry day. Short straddle/strangle when IV is high.",
-    nodes=[
-        _n("source.candle", 50, 50),
-        _n("source.market_time", 50, 200),
-        _n("greek.iv", 300, 50),
-        _n("time.day_of_week", 300, 200),
-        _n("time.time_range", 300, 350, {"start_hour": 10, "start_min": 0, "end_hour": 14, "end_min": 0}),
-        _n("logic.and", 550, 50),
-        _n("logic.gt", 550, 250, {}),
-        _n("order.sell", 750, 50, {"quantity": 50, "reason": "Expiry day short strangle"}),
-    ],
-    edges=[
-        _e("n2", "value", "n6", "a"),
-        _e("n3", "is_expiry", "n5", "a"),
-        _e("n4", "in_range", "n5", "b"),
-        _e("n0", "high", "n2", "high"),
-        _e("n0", "low", "n2", "low"),
-        _e("n0", "close", "n2", "close"),
-        _e("n2", "value", "n6", "b"),
-        _e("n5", "result", "n7", "condition"),
-        _e("n6", "result", "n7", "condition"),
-    ],
-    settings={"symbol": "NIFTY", "interval": "15m", "max_positions": 2},
-    tags=["options", "expiry", "theta"],
-)
+# ─── Template 10: Expiry Hunter (CURATED OUT) ───
+# Removed from STRATEGY_TEMPLATES: requires greek.iv (option implied
+# volatility), which is unavailable in the single-instrument candle runtime
+# used by backtests and graph strategies. Same curated-surface rule as the
+# legacy option-leg-seller strategies — never list what cannot fire on a
+# backtest instrument.
 
 
 STRATEGY_TEMPLATES: dict[str, StrategyDSL] = {
@@ -331,7 +306,6 @@ STRATEGY_TEMPLATES: dict[str, StrategyDSL] = {
     "macd_cross": T_MACD,
     "scalping": T_SCALP,
     "ict_silver_bullet": T_ICT,
-    "expiry_hunter": T_EXPIRY,
 }
 
 # Template marketplace categories (official = shipped with the platform;
