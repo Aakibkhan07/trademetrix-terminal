@@ -213,14 +213,13 @@ class AngelOneAdapter(BaseBroker, BrokerAdapterBase):
 
         # Canonical app symbols arrive pre-prefixed ("NSE:NIFTY50-INDEX",
         # "NFO:NIFTY26AUG24450CE", "BSE:SENSEX-INDEX") — strip the segment
-        # prefix so the token map key (f"{exch_seg}:{symbol}" from the Angel
-        # scrip master) matches, and honor the BSE segment for SENSEX.
+        # prefix and adopt its segment so the token map key
+        # (f"{exch_seg}:{symbol}" from the Angel scrip master) matches.
         bare = symbol
         for prefix in ("NSE:", "BSE:", "NFO:", "MCX:"):
             if bare.startswith(prefix):
                 bare = bare[len(prefix):]
-                if prefix == "BSE:" and exchange == "NSE":
-                    exchange = "BSE"
+                exchange = prefix[:-1]
                 break
 
         candidates = [f"{exchange}:{bare}"]
