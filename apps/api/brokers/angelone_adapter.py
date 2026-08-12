@@ -378,21 +378,47 @@ class AngelOneAdapter(BaseBroker, BrokerAdapterBase):
 
     async def get_quotes(self, symbols: list[str]) -> list[Quote]:
         client = await get_http_client()
-        results = []
+        # Resolve tokens grouped by exchange and remember the requested symbol
+        # per token so fetched rows map back to the canonical app symbol
+        # ("NSE:NIFTY50-INDEX", not the scrip-master "Nifty 50").
+        by_exchange: dict[str, list[str]] = {}
+        token_to_symbol: dict[str, str] = {}
         for sym in symbols:
-            token = await self._resolve_symbol_token(sym)
+            exch = "BSE" if sym.upper().startswith("BSE:") or sym.upper().startswith("SENSEX") else "NSE"
+            token = await self._resolve_symbol_token(sym, exch)
             if not token:
                 continue
-            payload = {"exchange": "NSE", "symboltoken": token}
-            resp = await client.post(
-                f"{self._base_url}/rest/secure/angelbroking/order/v1/getLtpData",
-                json=payload,
-                headers=self._headers(),
-                timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
-            )
+            by_exchange.setdefault(exch, []).append(token)
+            token_to_symbol[token] = sym
+
+        if not by_exchange:
+            return []
+
+        results: list[Quote] = []
+        for exch, tokens in by_exchange.items():
+            payload = {"mode": "FULL", "exchangeTokens": {exch: tokens}}
+            try:
+                resp = await client.post(
+                    f"{self._base_url}/rest/secure/angelbroking/market/v1/quote/",
+                    json=payload,
+                    headers=self._headers(),
+                    timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+                )
+            except httpx.HTTPError as e:
+                logger.warning("Angel quote call failed for %s: %s", exch, e)
+                continue
             data = self._parse_response(resp)
-            if data.get("status") and data.get("data"):
-                results.append(self._normalize_quote(data["data"]))
+            if not data.get("status"):
+                logger.warning("Angel quote rejected (%s): %s", data.get("errorcode", ""), data.get("message", ""))
+                continue
+            for item in self._ensure_list(data.get("data", {}).get("fetched")):
+                if not isinstance(item, dict):
+                    continue
+                token = str(item.get("symbolToken", ""))
+                requested = token_to_symbol.get(token)
+                if not requested:
+                    continue
+                results.append(self._normalize_quote({**item, "tradingsymbol": requested, "exchange": exch}))
         return results
 
     async def get_historical(
@@ -709,17 +735,19 @@ class AngelOneAdapter(BaseBroker, BrokerAdapterBase):
                 item = json.loads(item)
             except (json.JSONDecodeError, TypeError):
                 item = {}
-        sym = item.get("tradingsymbol", item.get("symbol", ""))
+        sym = item.get("tradingsymbol", item.get("tradingSymbol", item.get("symbol", "")))
+        exch_name = str(item.get("exchange", "NSE")).upper()
+        exchange = Exchange.BSE if exch_name == "BSE" else Exchange.NSE
         inst = self._parse_instrument(sym)
         return Quote(
             symbol=sym,
-            exchange=Exchange.NSE,
+            exchange=exchange,
             last_price=float(item.get("ltp", item.get("lastprice", 0))),
             open=float(item.get("open", 0)),
             high=float(item.get("high", 0)),
             low=float(item.get("low", 0)),
-            close=float(item.get("close", 0)),
-            volume=int(item.get("volume", 0)),
+            close=float(item.get("previousClose", item.get("close", 0))),
+            volume=int(item.get("volume", item.get("tradeVolume", 0))),
             bid=float(item.get("bid", 0)),
             ask=float(item.get("ask", 0)),
             timestamp=datetime.now(UTC),

@@ -61,6 +61,72 @@ async def test_resolve_token_unknown_symbol_returns_empty(adapter: AngelOneAdapt
 
 
 @pytest.mark.asyncio
+async def test_get_quotes_batch_full_mode(adapter: AngelOneAdapter, monkeypatch):
+    """Quotes must come from the batch market/v1/quote/ FULL endpoint (the old
+    order/v1/getLtpData per-symbol endpoint is rejected with AB4033 for this
+    account), and fetched rows must map back to the canonical app symbols."""
+    client = AsyncMock()
+    resp = MagicMock(status_code=200)
+    resp.json.return_value = {
+        "status": True,
+        "data": {
+            "fetched": [
+                {"exchange": "NSE", "tradingSymbol": "Nifty 50", "symbolToken": "99926000", "ltp": 24280.95, "open": 24472.45, "high": 24473.3, "low": 24271.25, "close": 24471.7, "tradeVolume": 0},
+                {"exchange": "NSE", "tradingSymbol": "RELIANCE-EQ", "symbolToken": "2885", "ltp": 1312.1, "open": 1323.9, "high": 1326.0, "low": 1309.2, "close": 1323.9, "tradeVolume": 3434631},
+            ]
+        },
+    }
+    client.post = AsyncMock(return_value=resp)
+    from brokers.angelone_adapter import _TOKEN_MAP, _SYMBOL_TOKEN_CACHE
+
+    monkeypatch.setattr("brokers.angelone_adapter._SYMBOL_TOKEN_CACHE", {})
+    monkeypatch.setitem(_TOKEN_MAP, "NSE:NIFTY50-INDEX", "99926000")
+    monkeypatch.setitem(_TOKEN_MAP, "NSE:RELIANCE-EQ", "2885")
+
+    with patch("brokers.angelone_adapter.get_http_client", return_value=client):
+        quotes = await adapter.get_quotes(["NSE:NIFTY50-INDEX", "NSE:RELIANCE-EQ"])
+
+    assert len(quotes) == 2
+    by_sym = {q.symbol: q for q in quotes}
+    assert by_sym["NSE:NIFTY50-INDEX"].last_price == 24280.95
+    assert by_sym["NSE:NIFTY50-INDEX"].close == 24471.7
+    assert by_sym["NSE:RELIANCE-EQ"].last_price == 1312.1
+    assert by_sym["NSE:RELIANCE-EQ"].volume == 3434631
+    call_payload = client.post.call_args.kwargs["json"]
+    assert call_payload["mode"] == "FULL"
+    assert call_payload["exchangeTokens"] == {"NSE": ["99926000", "2885"]}
+
+
+@pytest.mark.asyncio
+async def test_get_quotes_bse_sensex(adapter: AngelOneAdapter, monkeypatch):
+    client = AsyncMock()
+    resp = MagicMock(status_code=200)
+    resp.json.return_value = {
+        "status": True,
+        "data": {
+            "fetched": [
+                {"exchange": "BSE", "tradingSymbol": "SENSEX", "symbolToken": "99919000", "ltp": 81500.5},
+            ]
+        },
+    }
+    client.post = AsyncMock(return_value=resp)
+    from brokers.angelone_adapter import _TOKEN_MAP
+
+    monkeypatch.setattr("brokers.angelone_adapter._SYMBOL_TOKEN_CACHE", {})
+    monkeypatch.setitem(_TOKEN_MAP, "BSE:SENSEX-INDEX", "99919000")
+
+    with patch("brokers.angelone_adapter.get_http_client", return_value=client):
+        quotes = await adapter.get_quotes(["BSE:SENSEX-INDEX"])
+
+    assert len(quotes) == 1
+    assert quotes[0].symbol == "BSE:SENSEX-INDEX"
+    assert quotes[0].exchange == Exchange.BSE
+    assert quotes[0].last_price == 81500.5
+    call_payload = client.post.call_args.kwargs["json"]
+    assert call_payload["exchangeTokens"] == {"BSE": ["99919000"]}
+
+
+@pytest.mark.asyncio
 async def test_cancel_order_returns_status(adapter: AngelOneAdapter):
     client = AsyncMock()
     resp = MagicMock(status_code=200)
