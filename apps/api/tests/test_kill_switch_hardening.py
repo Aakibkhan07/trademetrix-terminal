@@ -24,6 +24,54 @@ async def test_global_kill_switch_reads_redis():
 
 
 @pytest.mark.asyncio
+async def test_global_kill_switch_active_for_raw_redis_int():
+    """Raw `redis-cli SET global:kill_switch 1` round-trips through
+    json.loads as the int 1 (not the string "1"). The gate must still
+    engage — a fail-open here silently disables the kill switch."""
+    ks = KillSwitch()
+    with patch("risk.kill_switch.cache.get", AsyncMock(return_value=1)):
+        assert await ks.global_kill_switch_active() is True
+
+
+@pytest.mark.asyncio
+async def test_kill_switch_rule_halts_on_raw_redis_int():
+    from risk.rules import KillSwitchRule
+
+    rule = KillSwitchRule()
+    config = MagicMock(kill_switch_enabled=False)
+    req = MagicMock()
+    with patch("risk.rules.cache.get", AsyncMock(return_value=1)):
+        result = await rule.evaluate(req, config)
+    assert result.decision.value == "REJECTED"
+    assert "Kill switch" in result.reason
+
+
+@pytest.mark.asyncio
+async def test_risk_guard_halts_on_raw_redis_int():
+    from risk.riskguard import RiskGuard
+
+    guard = RiskGuard("u1")
+    order = MagicMock(is_paper=True)
+    with (
+        patch("core.cache.cache.get", AsyncMock(return_value=1)),
+        patch("risk.riskguard.RiskSettings", MagicMock()),
+    ):
+        outcome = await guard.check_order(order)
+    assert outcome["allowed"] is False
+    assert "GLOBAL_KILL_SWITCH" in outcome["reason"]
+
+
+@pytest.mark.asyncio
+async def test_admin_kill_switch_reads_raw_redis_int():
+    from application.services.admin_service import AdminService
+
+    svc = AdminService()
+    with patch("application.services.admin_service.cache.get", AsyncMock(return_value=1)):
+        status = await svc.get_kill_switch()
+    assert status["kill_switch"] is True
+
+
+@pytest.mark.asyncio
 async def test_trigger_persists_emergency_state_to_redis():
     ks = KillSwitch()
     fake_r = AsyncMock()

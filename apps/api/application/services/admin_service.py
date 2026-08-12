@@ -452,7 +452,7 @@ class AdminService:
     async def get_kill_switch(self) -> dict:
         from core.cache import cache
         status = await cache.get("global:kill_switch")
-        return {"kill_switch": status == "1"}
+        return {"kill_switch": str(status) == "1"}
 
     async def enable_kill_switch(self) -> dict:
         from core.cache import cache

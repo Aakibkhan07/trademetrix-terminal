@@ -134,7 +134,7 @@ class KillSwitch:
         # never match (uuid FK column) and silently disabled the gate.
         try:
             val = await cache.get(GLOBAL_KILL_SWITCH_KEY)
-            return val == "1"
+            return str(val) == "1"
         except Exception:
             return False
 

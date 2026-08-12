@@ -354,7 +354,7 @@ async def deploy_builder_strategy(
     dsl = await builder_manager.get(strategy_id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
-    if dsl.status not in (StrategyStatus.READY, StrategyStatus.PUBLISHED, StrategyStatus.VALIDATED, StrategyStatus.DRAFT):
+    if dsl.status not in (StrategyStatus.READY, StrategyStatus.PUBLISHED, StrategyStatus.VALIDATED, StrategyStatus.DRAFT, StrategyStatus.PAPER, StrategyStatus.STOPPED):
         raise HTTPException(status_code=400, detail=f"Strategy is {dsl.status}; validate and mark ready before deploying")
 
     _, validation = compile_dsl(dsl)

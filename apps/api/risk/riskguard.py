@@ -18,7 +18,7 @@ class RiskGuard:
         # Global kill switch check
         from core.cache import cache
         global_kill = await cache.get("global:kill_switch")
-        if global_kill == "1":
+        if str(global_kill) == "1":
             return {"allowed": False, "reason": "GLOBAL_KILL_SWITCH: All trading halted by admin"}
 
         settings = await self._load_settings(order.strategy_id)

@@ -30,7 +30,7 @@ class KillSwitchRule(RiskRule):
     async def evaluate(self, req: ExecutionRequest, config: RiskConfig) -> RiskRuleResult:
         start = time.monotonic()
         global_kill = await cache.get("global:kill_switch")
-        if global_kill == "1" or config.kill_switch_enabled:
+        if str(global_kill) == "1" or config.kill_switch_enabled:
             return RiskRuleResult(
                 rule=self.rule_type, decision=RiskDecision.REJECTED,
                 reason="Kill switch is active. All trading halted.",
