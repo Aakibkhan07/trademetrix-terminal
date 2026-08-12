@@ -178,6 +178,15 @@ async def start_market_feed(current_user: UserProfile = Depends(get_current_user
     broker_type = "fyers"
 
     try:
+        from application.services.engine_service import EngineService
+
+        active_broker = await EngineService().get_active_broker(current_user.id)
+        if active_broker:
+            broker_type = active_broker
+    except Exception as e:
+        logger.warning("Could not resolve active broker for feed (%s), defaulting to fyers", e)
+
+    try:
         await shared_socket.start_broker_feed(
             user_id=current_user.id,
             broker_type=broker_type,

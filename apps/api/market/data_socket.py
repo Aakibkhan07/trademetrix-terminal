@@ -35,6 +35,7 @@ class SharedDataSocket:
         self._last_tick_time: dict[str, int] = {}
         self._total_ticks = 0
         self._gap_ticks = 0
+        self._feed_extra: dict = {}
 
     @property
     def active_connections(self) -> int:
@@ -188,14 +189,17 @@ class SharedDataSocket:
                 row = cred.data
                 raw_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
                 client_id = decrypt_broker_credentials(row["encrypted_api_key"]) if row.get("encrypted_api_key") else ""
+                secret_key = decrypt_broker_credentials(row["encrypted_secret_key"]) if row.get("encrypted_secret_key") else ""
+                self._feed_extra = dict(row.get("additional_params") or {})
         except Exception as e:
             logger.warning("Could not load broker credentials (%s), will use Yahoo Finance fallback", e)
 
         try:
             await adapter.authenticate({
                 "client_id": client_id or "",
-                "secret_key": "",
+                "secret_key": secret_key or "",
                 "access_token": raw_token,
+                **getattr(self, "_feed_extra", {}),
             })
         except Exception as e:
             logger.warning("Broker auth failed (%s), Yahoo Finance fallback will be used", e)

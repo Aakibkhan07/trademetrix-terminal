@@ -97,7 +97,11 @@ class AngelOneAdapter(BaseBroker, BrokerAdapterBase):
         access_token = credentials.get("access_token", "")
         feed_token = credentials.get("feed_token", "")
 
-        if access_token:
+        # Fast path: stored access token is usable AND either a feed token is
+        # already available or there is no way to do a full login (no TOTP
+        # secret). Otherwise fall through to loginByPassword — the fresh login
+        # yields a valid JWT + feedToken (required by the SmartAPI WebSocket).
+        if access_token and (feed_token or not credentials.get("totp_secret")):
             self._jwt = access_token
             self._auth_token = access_token
             self._feed_token = feed_token
