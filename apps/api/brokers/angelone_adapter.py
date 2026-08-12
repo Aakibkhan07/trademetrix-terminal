@@ -387,7 +387,8 @@ class AngelOneAdapter(BaseBroker, BrokerAdapterBase):
         by_exchange: dict[str, list[str]] = {}
         token_to_symbol: dict[str, str] = {}
         for sym in symbols:
-            exch = "BSE" if sym.upper().startswith("BSE:") or sym.upper().startswith("SENSEX") else "NSE"
+            upper = sym.upper()
+            exch = "NFO" if upper.startswith("NFO:") else "BSE" if upper.startswith("BSE:") or upper.startswith("SENSEX") else "MCX" if upper.startswith("MCX:") else "NSE"
             token = await self._resolve_symbol_token(sym, exch)
             if not token:
                 continue

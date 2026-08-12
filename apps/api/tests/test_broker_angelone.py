@@ -127,6 +127,41 @@ async def test_get_quotes_bse_sensex(adapter: AngelOneAdapter, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_get_quotes_nfo_uses_nfo_segment(adapter: AngelOneAdapter, monkeypatch):
+    """NFO futures/options tokens must be quoted under the NFO exchange bucket —
+    grouping them under NSE makes Angel drop the rows (route returned
+    'Quote unavailable' for NFO symbols before this fix)."""
+    client = AsyncMock()
+    resp = MagicMock(status_code=200)
+    resp.json.return_value = {
+        "status": True,
+        "data": {
+            "fetched": [
+                {"exchange": "NFO", "tradingSymbol": "BANKNIFTY25AUG2646000CE", "symbolToken": "58702", "ltp": 11533.75, "close": 11890.0, "opnInterest": 22080},
+                {"exchange": "NFO", "tradingSymbol": "BANKNIFTY25AUG26FUT", "symbolToken": "58067", "ltp": 52100.0, "close": 52300.0},
+            ]
+        },
+    }
+    client.post = AsyncMock(return_value=resp)
+    from brokers.angelone_adapter import _TOKEN_MAP
+
+    monkeypatch.setattr("brokers.angelone_adapter._SYMBOL_TOKEN_CACHE", {})
+    monkeypatch.setitem(_TOKEN_MAP, "NFO:BANKNIFTY25AUG2646000CE", "58702")
+    monkeypatch.setitem(_TOKEN_MAP, "NFO:BANKNIFTY25AUG26FUT", "58067")
+
+    with patch("brokers.angelone_adapter.get_http_client", return_value=client):
+        quotes = await adapter.get_quotes(["NFO:BANKNIFTY25AUG2646000CE", "NFO:BANKNIFTY25AUG26FUT"])
+
+    assert len(quotes) == 2
+    by_sym = {q.symbol: q for q in quotes}
+    assert by_sym["NFO:BANKNIFTY25AUG2646000CE"].last_price == 11533.75
+    assert by_sym["NFO:BANKNIFTY25AUG26FUT"].last_price == 52100.0
+    call_payload = client.post.call_args.kwargs["json"]
+    assert call_payload["exchangeTokens"] == {"NFO": ["58702", "58067"]}
+
+
+
+@pytest.mark.asyncio
 async def test_cancel_order_returns_status(adapter: AngelOneAdapter):
     client = AsyncMock()
     resp = MagicMock(status_code=200)
