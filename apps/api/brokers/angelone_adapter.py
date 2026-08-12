@@ -207,9 +207,21 @@ class AngelOneAdapter(BaseBroker, BrokerAdapterBase):
         if not _TOKEN_MAP:
             _load_token_map()
 
-        candidates = [f"{exchange}:{symbol}"]
-        if exchange == "NSE" and not symbol.endswith("-EQ"):
-            candidates.insert(0, f"NSE:{symbol}-EQ")
+        # Canonical app symbols arrive pre-prefixed ("NSE:NIFTY50-INDEX",
+        # "NFO:NIFTY26AUG24450CE", "BSE:SENSEX-INDEX") — strip the segment
+        # prefix so the token map key (f"{exch_seg}:{symbol}" from the Angel
+        # scrip master) matches, and honor the BSE segment for SENSEX.
+        bare = symbol
+        for prefix in ("NSE:", "BSE:", "NFO:", "MCX:"):
+            if bare.startswith(prefix):
+                bare = bare[len(prefix):]
+                if prefix == "BSE:" and exchange == "NSE":
+                    exchange = "BSE"
+                break
+
+        candidates = [f"{exchange}:{bare}"]
+        if exchange == "NSE" and not bare.endswith("-EQ"):
+            candidates.insert(0, f"NSE:{bare}-EQ")
 
         token = ""
         for key in candidates:

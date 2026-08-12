@@ -44,6 +44,23 @@ async def test_place_order(adapter: AngelOneAdapter, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_resolve_token_strips_segment_prefix(adapter: AngelOneAdapter, monkeypatch):
+    """Canonical app symbols ("NSE:NIFTY50-INDEX") must resolve against the
+    scrip-master key ("NSE:NIFTY50-INDEX") — not a doubled "NSE:NSE:..." key."""
+    from brokers.angelone_adapter import _TOKEN_MAP
+
+    monkeypatch.setitem(_TOKEN_MAP, "NSE:NIFTY50-INDEX", "99926001")
+    token = await adapter._resolve_symbol_token("NSE:NIFTY50-INDEX", "NSE")
+    assert token == "99926001"
+
+
+@pytest.mark.asyncio
+async def test_resolve_token_unknown_symbol_returns_empty(adapter: AngelOneAdapter):
+    token = await adapter._resolve_symbol_token("NSE:UNKNOWN-SYMBOL", "NSE")
+    assert token == ""
+
+
+@pytest.mark.asyncio
 async def test_cancel_order_returns_status(adapter: AngelOneAdapter):
     client = AsyncMock()
     resp = MagicMock(status_code=200)
