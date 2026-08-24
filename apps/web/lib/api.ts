@@ -281,6 +281,8 @@ export const api = {
       request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signup', { method: 'POST', body: data }),
     signin: (data: { email: string; password: string }) =>
       request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signin', { method: 'POST', body: data }),
+    exchangeOAuth: (data: { access_token: string }) =>
+      request<{ access_token: string; user?: { id?: string; email: string; full_name?: string; subscription_tier?: string; is_admin?: boolean } }>('/auth/google', { method: 'POST', body: data }),
     signout: () => request('/auth/signout', { method: 'POST' }),
     me: () => request<{ id: string; email: string; full_name?: string; phone?: string; subscription_tier?: string; is_admin?: boolean; onboarding_completed?: boolean; created_at?: string }>('/auth/me'),
     sendOTP: (data: { email: string; phone?: string }) =>

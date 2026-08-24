@@ -113,7 +113,7 @@ const ADMIN_SECTIONS = [
   },
 ]
 
-const STANDALONE_PAGES = ['/', '/auth', '/onboarding', '/status']
+const STANDALONE_PAGES = ['/', '/auth', '/auth/callback', '/onboarding', '/status']
 const STANDALONE_PREFIXES = ['/portal']
 const ADMIN_ROUTE_RE = /^\/admin(\/|$)|\/dashboard(\/|$)/
 

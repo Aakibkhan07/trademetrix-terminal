@@ -122,6 +122,12 @@ class AuthResponse(BaseModel):
     access_token: str
 
 
+class OAuthExchangeRequest(BaseModel):
+    """Supabase GoTrue session tokens from an OAuth redirect (fragment params)."""
+
+    access_token: str
+
+
 def _set_session_cookie(response: Response, token: str):
     response.set_cookie(key=COOKIE_NAME, value=token, **COOKIE_KWARGS)
 
@@ -269,6 +275,89 @@ async def signin(req: SignInRequest, response: Response, request: Request):
     ))
 
     return AuthResponse(user=user, access_token=access_token)
+
+
+@router.post("/google")
+async def google_auth(req: OAuthExchangeRequest, response: Response):
+    """Exchange a Supabase GoTrue session created via Google OAuth for an API session.
+
+    Flow: user clicks "Continue with Google" → Supabase GoTrue
+    `/auth/v1/authorize?provider=google` → Google consent → GoTrue redirects back to
+    /auth/callback with tokens in the URL fragment → this endpoint verifies the
+    GoTrue access_token against GoTrue, requires a `google` identity, finds-or-creates
+    the profile, and mints the app's own session (cookie + JWT) like /signin.
+    """
+    try:
+        client = await get_http_client()
+        resp = await client.get(
+            f"{settings.supabase_url}/auth/v1/user",
+            headers={
+                "apikey": settings.supabase_anon_key,
+                "Authorization": f"Bearer {req.access_token}",
+            },
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired OAuth session")
+        user_data = resp.json()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to verify OAuth session: {e}")
+
+    identities = user_data.get("identities") or []
+    providers = {i.get("provider") for i in identities}
+    if "google" not in providers:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Session is not linked to a Google identity")
+
+    user_id = user_data["id"]
+    email = user_data.get("email") or ""
+    meta = user_data.get("user_metadata") or {}
+    full_name = (meta.get("full_name") or meta.get("name") or "").strip()
+
+    # find-or-create profile (Google users skip the normal signup route)
+    profile_row = None
+    try:
+        client = await get_http_client()
+        resp = await client.get(
+            f"{settings.supabase_url}/rest/v1/profiles?id=eq.{user_id}&select=*",
+            headers={
+                "apikey": settings.supabase_service_key,
+                "Authorization": f"Bearer {settings.supabase_service_key}",
+            },
+        )
+        if resp.status_code == 200 and resp.json():
+            profile_row = resp.json()[0]
+        elif resp.status_code == 200:
+            await client.post(
+                f"{settings.supabase_url}/rest/v1/profiles",
+                headers={
+                    "apikey": settings.supabase_service_key,
+                    "Authorization": f"Bearer {settings.supabase_service_key}",
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=merge-duplicates",
+                },
+                json={"id": user_id, "full_name": full_name, "email": email, "created_at": datetime.now(UTC).isoformat()},
+            )
+    except Exception as e:
+        logger.warning("OAuth profile lookup/create failed for %s: %s", user_id, e)
+
+    if profile_row:
+        user = UserProfile(**profile_row)
+    else:
+        user = UserProfile(id=user_id, email=email, full_name=full_name)
+
+    api_token = create_access_token(subject=user_id)
+    _set_session_cookie(response, api_token)
+
+    record_audit(AuditLogEntry(
+        user_id=user_id,
+        action="signin",
+        resource="auth",
+        resource_id="google",
+        ip_address="",
+    ))
+
+    return AuthResponse(user=user, access_token=api_token)
 
 
 @router.post("/signout")
