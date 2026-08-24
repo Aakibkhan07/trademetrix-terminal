@@ -57,6 +57,7 @@ from routes.v1_referrals import router as referrals_router
 from routes.v1_broker_webhook import router as broker_webhook_router
 from routes.v1_orders import router as orders_router
 from routes.v1_portfolio import router as portfolio_router
+from routes.v1_notifications import router as notifications_router
 from routes.v1_strategy_runtime import router as strategy_runtime_router
 
 logger = logging.getLogger(__name__)
@@ -144,6 +145,19 @@ async def _start_watchdog():
     logger.info("Token watchdog started")
 
 
+async def _start_telegram():
+    """Telegram link poller + execution-event → Telegram forwarder (no-op when unconfigured)."""
+    from core.telegram import on_execution_event, telegram_gateway
+    from execution.event_bus import execution_event_bus
+
+    await telegram_gateway.start_polling()
+    for event_type in ("OrderCompleted", "OrderRejected", "OrderFailed", "OrderCancelled",
+                       "PositionOpened", "PositionClosed", "StrategyStarted", "StrategyStopped",
+                       "RuntimeError"):
+        execution_event_bus.subscribe(event_type, on_execution_event)
+    logger.info("Telegram alerts wired (%s)", "configured" if telegram_gateway.configured else "not configured")
+
+
 async def _start_webhook_retry():
     from execution.webhook_retry import retry_webhook_worker
     asyncio.ensure_future(retry_webhook_worker())
@@ -190,6 +204,7 @@ async def lifespan(app: FastAPI):
     _background_tasks.append(asyncio.ensure_future(_startup_recovery()))
     _background_tasks.append(asyncio.ensure_future(_start_watchdog()))
     _background_tasks.append(asyncio.ensure_future(_start_webhook_retry()))
+    _background_tasks.append(asyncio.ensure_future(_start_telegram()))
     from market.symbol_master import symbol_master
     await symbol_master.start_auto_sync()
     from oms.manager import order_manager
@@ -358,6 +373,7 @@ app.include_router(backtest_router, prefix="/api/v1")
 app.include_router(otp_router, prefix="/api/v1")
 app.include_router(tradingview_router, prefix="/api/v1")
 app.include_router(alerts_router, prefix="/api/v1")
+app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(builder_router, prefix="/api/v1")
 app.include_router(strategy_runtime_router, prefix="/api/v1")

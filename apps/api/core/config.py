@@ -64,6 +64,7 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    telegram_bot_username: str = ""  # e.g. "TradeMetrixAlertsBot" — for deep links; auto-fetched via getMe when empty
 
     request_timeout_seconds: int = 60
     max_request_size_bytes: int = 102400

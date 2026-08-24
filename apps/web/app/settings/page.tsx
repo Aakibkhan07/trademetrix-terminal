@@ -19,6 +19,14 @@ interface AssignedStrategy {
   required_tier: string
 }
 
+interface TelegramStatus {
+  configured: boolean
+  linked: boolean
+  chat_id_masked?: string
+  username?: string
+  linked_at?: string
+}
+
 const TIER_COLORS: Record<string, string> = {
   free: 't-badge-sub',
   starter: 't-badge-cyan',
@@ -40,6 +48,9 @@ export default function SettingsPage() {
   const [strategies, setStrategies] = useState<AssignedStrategy[]>([])
   const [loading, setLoading] = useState(true)
   const [showPwModal, setShowPwModal] = useState(false)
+  const [tgStatus, setTgStatus] = useState<TelegramStatus | null>(null)
+  const [tgBusy, setTgBusy] = useState(false)
+  const [tgMsg, setTgMsg] = useState('')
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
@@ -61,11 +72,52 @@ export default function SettingsPage() {
       setStrategies((s as { strategies: AssignedStrategy[] }).strategies || [])
       if (errs.length > 0) setLoadError(`Could not load: ${errs.join(', ')}`)
     }).finally(() => { if (mountedRef.current) setLoading(false) })
+    api.notifications.telegramStatus().then((s) => {
+      if (mountedRef.current) setTgStatus(s)
+    }).catch(() => {})
     return () => { mountedRef.current = false }
   }, [])
 
   const connectedCount = creds.filter(c => c.is_active).length
   const totalBrokers = creds.length
+
+  const handleTelegramConnect = async () => {
+    setTgMsg('')
+    setTgBusy(true)
+    try {
+      const { url } = await api.notifications.telegramLink()
+      window.open(url, '_blank', 'noopener')
+      // poll until the user completes /start in Telegram (up to ~100s)
+      for (let i = 0; i < 33; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        const s = await api.notifications.telegramStatus().catch(() => null)
+        if (!s) continue
+        setTgStatus(s)
+        if (s.linked) {
+          setTgMsg('Telegram connected! Order and risk alerts will arrive in your chat.')
+          break
+        }
+      }
+      if (tgStatus && !tgStatus.linked) setTgMsg('Not linked yet — click Connect again to get a fresh link.')
+    } catch (e: any) {
+      setTgMsg(e?.message || 'Could not start Telegram linking')
+    } finally {
+      setTgBusy(false)
+    }
+  }
+
+  const handleTelegramUnlink = async () => {
+    setTgBusy(true)
+    try {
+      await api.notifications.telegramUnlink()
+      setTgStatus((s) => (s ? { ...s, linked: false, chat_id_masked: undefined, username: undefined } : s))
+      setTgMsg('Telegram disconnected.')
+    } catch (e: any) {
+      setTgMsg(e?.message || 'Failed to disconnect')
+    } finally {
+      setTgBusy(false)
+    }
+  }
 
   const handleChangePassword = async () => {
     setPwMsg('')
@@ -267,6 +319,52 @@ export default function SettingsPage() {
               Change Password
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Telegram Alerts */}
+      <div className="t-panel" style={{ padding: 0 }}>
+        <div className="t-panel-header">
+          <h3 className="t-panel-title">Telegram Alerts</h3>
+          {tgStatus?.linked && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+              background: 'color-mix(in srgb, var(--green) 12%, transparent)', color: 'var(--green)',
+            }}>CONNECTED</span>
+          )}
+        </div>
+        <div className="t-panel-body">
+          <p className="t-faint" style={{ margin: '0 0 12px', fontSize: 12 }}>
+            Get instant order fills, rejections, strategy events and risk alerts in your Telegram.
+          </p>
+          {tgStatus && !tgStatus.configured ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>Telegram alerts are being set up — check back soon.</span>
+            </div>
+          ) : (
+            <div className="t-row" style={{ gap: 8, alignItems: 'center' }}>
+              {tgStatus?.linked ? (
+                <>
+                  <span style={{ fontSize: 12 }}>Chat {tgStatus.chat_id_masked}{tgStatus.username ? ` (@${tgStatus.username})` : ''}</span>
+                  <button className="t-btn t-btn-sm" onClick={handleTelegramUnlink} disabled={tgBusy}>
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <button className="t-btn t-btn-sm t-btn-primary" onClick={handleTelegramConnect} disabled={tgBusy}>
+                  {tgBusy ? 'Waiting for /start…' : 'Connect Telegram'}
+                </button>
+              )}
+            </div>
+          )}
+          {!tgStatus?.linked && tgBusy && (
+            <p className="t-faint" style={{ margin: '8px 0 0', fontSize: 11 }}>
+              A Telegram window opened — press <b>START</b> in the bot to finish linking. This page updates automatically.
+            </p>
+          )}
+          {tgMsg && (
+            <p style={{ margin: '8px 0 0', fontSize: 11, color: tgStatus?.linked ? 'var(--green)' : 'var(--text-sub)' }}>{tgMsg}</p>
+          )}
         </div>
       </div>
 

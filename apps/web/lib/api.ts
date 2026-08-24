@@ -297,6 +297,15 @@ export const api = {
       request<{ message: string }>('/auth/forgot-password', { method: 'POST', body: data }),
   },
 
+  notifications: {
+    telegramStatus: () =>
+      request<{ configured: boolean; linked: boolean; chat_id_masked?: string; username?: string; linked_at?: string }>('/notifications/telegram/status'),
+    telegramLink: () =>
+      request<{ url: string; expires_in_seconds: number }>('/notifications/telegram/link', { method: 'POST' }),
+    telegramUnlink: () =>
+      request<{ unlinked: boolean }>('/notifications/telegram/link', { method: 'DELETE' }),
+  },
+
   subscriptions: {
     plans: () => request<{ plans: { id: string; name: string; tier: string; price: number; features: string[]; most_popular: boolean }[] }>('/subscriptions/plans/'),
     create: (plan: string) => request<{ subscription_id: string; short_url: string; tier: string; key_id: string }>('/subscriptions/create/', { method: 'POST', body: { plan } }),
