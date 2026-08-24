@@ -59,7 +59,7 @@ export default function GoLivePage() {
     if (step === 0) return !!broker
     if (step === 1) return !!strategyId
     if (step === 2) return mode === 'PAPER' || liveConfirm.trim().toUpperCase() === 'LIVE'
-    return false
+    return true
   }
 
   const createFromCatalog = async (a: AssignedStrategy) => {
