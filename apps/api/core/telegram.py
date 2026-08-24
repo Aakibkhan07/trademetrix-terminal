@@ -61,13 +61,13 @@ class TelegramGateway:
     def _api_url(self, method: str) -> str:
         return f"https://api.telegram.org/bot{settings.telegram_bot_token}/{method}"
 
-    async def _call(self, method: str, payload: dict) -> dict | None:
+    async def _call(self, method: str, payload: dict, timeout: float = _SEND_TIMEOUT) -> dict | None:
         if not self.configured:
             return None
         try:
             import httpx
 
-            async with httpx.AsyncClient(timeout=_SEND_TIMEOUT) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.post(self._api_url(method), json=payload)
                 data = resp.json()
                 if not data.get("ok"):
@@ -231,7 +231,7 @@ class TelegramGateway:
         while self._running:
             try:
                 payload = {"timeout": 25, "offset": self._poll_offset, "allowed_updates": ["message"]}
-                data = await self._call("getUpdates", payload)
+                data = await self._call("getUpdates", payload, timeout=35.0)
                 if data and data.get("ok"):
                     for update in data.get("result", []):
                         self._poll_offset = max(self._poll_offset, update["update_id"] + 1)
