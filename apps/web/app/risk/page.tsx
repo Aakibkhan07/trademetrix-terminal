@@ -11,6 +11,7 @@ export default function RiskPage() {
   const [limits, setLimits] = useState({
     max_daily_loss: 0, max_drawdown: 0, max_open_positions: 10,
   })
+  const [usage, setUsage] = useState<{ openPositions: number; filledToday: number } | null>(null)
   const [editing, setEditing] = useState(false)
   const [editValues, setEditValues] = useState(limits)
 
@@ -24,6 +25,22 @@ export default function RiskPage() {
       if (s?.max_open_positions != null) setLimits(prev => ({ ...prev, max_open_positions: s.max_open_positions }))
     } catch (e) { console.error('Failed to load risk settings:', e) }
     finally { setLoading(false) }
+    // live usage vs guardrails (fail-open display, never blocks the page)
+    try {
+      const [pos, ords] = await Promise.all([
+        api.engine.positions().catch(() => ({ positions: [] })),
+        api.engine.orders().catch(() => ({ orders: [] })),
+      ])
+      const positions = ((pos as { positions?: unknown[] }).positions || [])
+      const openNow = positions.filter((p: any) => Number(p.quantity) !== 0).length
+      const today = new Date().toISOString().slice(0, 10)
+      const orders = ((ords as { orders?: any[] }).orders || [])
+      const filledToday = orders.filter(o =>
+        o?.status && ['FILLED', 'PARTIALLY_FILLED'].includes(String(o.status).toUpperCase()) &&
+        String(o.created_at || o.updated_at || '').slice(0, 10) === today
+      ).length
+      setUsage({ openPositions: openNow, filledToday })
+    } catch { /* keep null */ }
   }
 
   useEffect(() => { load() }, [])
@@ -115,6 +132,60 @@ export default function RiskPage() {
             ⚠ Kill switch is ACTIVE — all order placement is blocked
           </div>
         )}
+      </div>
+
+      {/* Guardrails — live usage vs limits */}
+      <div className="t-panel" style={{ padding: 0 }}>
+        <div style={{
+          padding: '8px 12px', borderBottom: '1px solid var(--border)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Guardrails · Live Status</span>
+          <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>auto-enforced on every order</span>
+        </div>
+        <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {([
+            {
+              label: 'Open positions', used: usage?.openPositions ?? null, cap: limits.max_open_positions,
+              fmt: (u: number) => `${u} / ${limits.max_open_positions}`,
+            },
+            {
+              label: 'Trades filled today', used: usage?.filledToday ?? null, cap: limits.max_daily_loss ? undefined : undefined,
+              fmt: (u: number) => `${u}`,
+            },
+          ] as const).map(row => {
+            const over = row.used != null && row.cap != null && row.used > row.cap
+            return (
+              <div key={row.label}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 11 }}>{row.label}</span>
+                  <span style={{
+                    fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                    color: over ? 'var(--red)' : 'var(--text)',
+                  }}>
+                    {row.used == null ? '—' : row.fmt(row.used)}
+                    {row.cap != null && row.used != null ? ` / cap ${row.cap}` : ''}
+                  </span>
+                </div>
+                {row.cap != null && row.used != null && (
+                  <div style={{ height: 4, borderRadius: 2, background: 'var(--bg-tertiary)' }}>
+                    <div style={{
+                      height: 4, borderRadius: 2, width: `${Math.min(100, (row.used / Math.max(1, row.cap)) * 100)}%`,
+                      background: over ? 'var(--red)' : 'var(--green)',
+                    }} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          <div style={{
+            padding: '8px 10px', background: 'color-mix(in srgb, var(--violet) 6%, transparent)',
+            borderRadius: 'var(--radius-sm)', fontSize: 11, color: 'var(--text-sub)',
+          }}>
+            🛡️ Every order passes the risk gate before reaching your broker: kill switch → daily loss → drawdown halt →
+            position &amp; exposure caps. Breaches halt trading automatically — plus the one-tap emergency stop above.
+          </div>
+        </div>
       </div>
 
       {/* Risk Limits */}
