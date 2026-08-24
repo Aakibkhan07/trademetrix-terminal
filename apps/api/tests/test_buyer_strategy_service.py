@@ -109,28 +109,22 @@ class TestBacktest:
         mock_engine.run.assert_awaited_once_with(candles)
 
     @pytest.mark.asyncio
-    async def test_falls_back_to_simulated_data_on_fetch_failure(self, svc) -> None:
-        mock_results = {"total_trades": 3, "final_capital": 95000.0}
+    async def test_raises_on_fetch_failure_never_simulates(self, svc) -> None:
+        """v1.7.2 real-data contract: a data gap must surface as ValueError
+        (route → 400), never fall back to fabricated candles."""
 
         with (
             patch("application.services.buyer_strategy_service.BUYER_KEYS", {"valid_key": "SomeStrategy"}),
             patch("application.services.buyer_strategy_service.get_strategy"),
             patch("application.services.buyer_strategy_service.fetch_historical_data", new_callable=AsyncMock) as mock_fetch,
-            patch("application.services.buyer_strategy_service.BuyerBacktestEngine") as mock_engine_cls,
         ):
             mock_fetch.side_effect = Exception("API error")
-            mock_engine = MagicMock()
-            mock_engine.run = AsyncMock(return_value=mock_results)
-            mock_engine_cls.return_value = mock_engine
 
-            result = await svc.backtest(
-                "u1", "valid_key", "NIFTY", "NSE", "5min", 5, 100000.0, {}
-            )
-
-        assert result["symbol"] == "NIFTY"
-        assert result["strategy"] == "valid_key"
-        assert result["total_trades"] == 3
-        mock_engine.run.assert_awaited_once()
+            with pytest.raises(ValueError, match="No real market data"):
+                await svc.backtest(
+                    "u1", "valid_key", "NIFTY", "NSE", "5min", 5, 100000.0, {}
+                )
+        mock_fetch.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_raises_on_unknown_key(self, svc) -> None:

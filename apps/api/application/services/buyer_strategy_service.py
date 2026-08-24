@@ -98,12 +98,15 @@ class BuyerStrategyService:
                 days=days,
                 user_id=user_id,
             )
+        except ValueError:
+            # Real-data honesty contract (v1.7.0): never backtest on fabricated
+            # candles — surface the data gap to the caller (route → 400).
+            raise
         except Exception as e:
-            logger.warning("Fyers data fetch failed (%s), using simulated data", e)
-            candles = self._generate_simulated_candles(symbol, days, interval)
+            raise ValueError(f"No real market data available for {symbol}: {e}") from e
 
         if not candles:
-            candles = self._generate_simulated_candles(symbol, days, interval)
+            raise ValueError(f"No real market data available for {symbol} ({interval}, {days}d)")
 
         engine = BuyerBacktestEngine(strategy_key, merged_config, initial_capital)
         results = await engine.run(cast(list, candles))
@@ -115,43 +118,6 @@ class BuyerStrategyService:
             "days": days,
             **results,
         }
-
-    @staticmethod
-    def _generate_simulated_candles(symbol: str, days: int, interval: str) -> list[dict]:
-        import random
-        from datetime import datetime, timedelta, timezone
-
-        mins = BuyerStrategyService._parse_interval_minutes(interval)
-        count = days * 375 // mins
-        base = 22000.0 if symbol.upper().endswith("SENSEX") else 19500.0
-        candles = []
-        now = datetime.now(timezone.utc)
-        price = base
-
-        for i in range(count):
-            ts = now - timedelta(minutes=(count - i) * mins)
-            if ts.weekday() >= 5:
-                continue
-            if ts.hour < 9 or ts.hour >= 15 or (ts.hour == 15 and ts.minute > 15):
-                continue
-            change = price * random.gauss(0, 0.003)
-            o = price
-            h = o + abs(change) * random.uniform(1.0, 1.5) + random.random() * 20
-            l_val = o - abs(change) * random.uniform(1.0, 1.5) - random.random() * 20
-            c = o + change
-            price = c
-            candles.append({
-                "symbol": symbol,
-                "exchange": "NSE",
-                "interval": interval,
-                "open": round(o, 2),
-                "high": round(h, 2),
-                "low": round(l_val, 2),
-                "close": round(c, 2),
-                "volume": int(random.uniform(50000, 500000)),
-                "timestamp": ts.isoformat(),
-            })
-        return candles
 
     @staticmethod
     def _parse_interval_minutes(interval: str) -> int:

@@ -43,11 +43,10 @@ async def test_yahoo_fallback_when_broker_fetch_fails(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_no_yahoo_fallback_for_unsupported_symbol(monkeypatch):
-    from core.models import Exchange
-
-    class FakeRow:
-        data = None
+async def test_yahoo_fallback_degrades_for_unknown_symbol(monkeypatch):
+    """v1.7.2: the gate is permissive (mapped symbols pass), so unknown
+    symbols attempt Yahoo but degrade to an empty list without raising.
+    Bare canonical index symbols (the chart widgets' format) MUST fetch."""
 
     class FakeQuery:
         def select(self, *a, **k):
@@ -60,6 +59,8 @@ async def test_no_yahoo_fallback_for_unsupported_symbol(monkeypatch):
             return self
 
         async def execute(self):
+            class FakeRow:
+                data = None
             return FakeRow()
 
     monkeypatch.setattr("core.db.async_supabase", lambda fn: fn())
@@ -72,7 +73,7 @@ async def test_no_yahoo_fallback_for_unsupported_symbol(monkeypatch):
 
     monkeypatch.setattr("providers.yahoo.fetch_historical", fake_fetch_historical)
 
-    result = await historical_engine._fetch_from_broker("RELIANCE", "NSE", "15m", 30, "user-1")
-
+    # bare canonical index symbol now reaches Yahoo with its mapped fyers symbol
+    result = await historical_engine._fetch_from_broker("NIFTY50-INDEX", "NSE", "15m", 30, "user-1")
     assert result == []
-    assert calls == []
+    assert calls == ["NSE:NIFTY50-INDEX"]

@@ -363,7 +363,15 @@ async def get_historical(
     current_user: UserProfile = Depends(get_current_user),
 ):
     from engine.backtest import fetch_historical_data
-    candles = await fetch_historical_data(symbol, exchange, interval, days, user_id=current_user.id)
+    try:
+        candles = await fetch_historical_data(symbol, exchange, interval, days, user_id=current_user.id)
+    except ValueError as e:
+        # Real-data honesty contract: no fabricated candles — surface a clean 400,
+        # never an unhandled 500 (this endpoint feeds every chart widget).
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Historical fetch failed for %s", symbol)
+        raise HTTPException(status_code=502, detail=f"Historical data unavailable for {symbol}: {e}")
     return {"symbol": symbol, "interval": interval, "candles": candles}
 
 
