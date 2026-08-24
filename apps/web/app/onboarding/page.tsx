@@ -36,6 +36,7 @@ const BROKER_INFO: Record<string, { name: string }> = {
   finvasia: { name: 'Shoonya' },
   flattrade: { name: 'Flattrade' },
   aliceblue: { name: 'Alice Blue' },
+  lemonn: { name: 'Lemonn (API pending)' },
 }
 
 const STEPS = ['Account', 'Connect Broker', 'Done']

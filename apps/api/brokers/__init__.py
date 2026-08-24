@@ -9,6 +9,7 @@ from brokers.flattrade_adapter import FlattradeAdapter
 from brokers.fyers_adapter import FyersAdapter
 from brokers.groww_adapter import GrowwAdapter
 from brokers.kotakneo_adapter import KotakNeoAdapter
+from brokers.lemonn_adapter import LemonnAdapter
 from brokers.sdk.registry import BrokerSpec, registry as _sdk_registry
 from brokers.upstox_adapter import UpstoxAdapter
 from brokers.zerodha_adapter import ZerodhaAdapter
@@ -78,6 +79,7 @@ register_broker("aliceblue", AliceBlueAdapter)
 register_broker("finvasia", FinvasiaAdapter)
 register_broker("flattrade", FlattradeAdapter)
 register_broker("kotakneo", KotakNeoAdapter)
+register_broker("lemonn", LemonnAdapter)
 
 
 __all__ = [
@@ -92,6 +94,7 @@ __all__ = [
     "FyersAdapter",
     "GrowwAdapter",
     "KotakNeoAdapter",
+    "LemonnAdapter",
     "UpstoxAdapter",
     "ZerodhaAdapter",
     "register_broker",

@@ -86,6 +86,7 @@ def check_broker_adapters() -> None:
         "flattrade": ("brokers.flattrade_adapter", "FlattradeAdapter"),
         "kotakneo": ("brokers.kotakneo_adapter", "KotakNeoAdapter"),
         "fivepaisa": ("brokers.fivepaisa_adapter", "FivePaisaAdapter"),
+        "lemonn": ("brokers.lemonn_adapter", "LemonnAdapter"),
     }
     for name, (mod_path, cls_name) in brokers.items():
         try:

@@ -103,7 +103,7 @@ class TestBrokerRegistry:
 class TestProductionRegistry:
     def test_all_legacy_brokers_registered(self):
         for name in ("fyers", "dhan", "zerodha", "angelone", "upstox", "fivepaisa",
-                     "aliceblue", "finvasia", "flattrade", "kotakneo", "groww"):
+                     "aliceblue", "finvasia", "flattrade", "kotakneo", "groww", "lemonn"):
             assert name in list_brokers(), name
             assert get_broker(name)
 

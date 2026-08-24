@@ -26,7 +26,7 @@ def _build_capabilities() -> dict[str, "BrokerCapabilities"]:
     result: dict[str, BrokerCapabilities] = {}
     for name in (
         "fyers", "dhan", "zerodha", "angelone", "upstox",
-        "fivepaisa", "aliceblue", "finvasia", "flattrade", "kotakneo",
+        "fivepaisa", "aliceblue", "finvasia", "flattrade", "kotakneo", "lemonn",
     ):
         caps = get_capabilities(name)
         result[name] = BrokerCapabilities(

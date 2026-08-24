@@ -15,6 +15,7 @@ BROKER_RATE_LIMITS: dict[str, dict] = {
     "finvasia": {"calls": 50, "window": 60},
     "flattrade": {"calls": 50, "window": 60},
     "kotakneo": {"calls": 50, "window": 60},
+    "lemonn": {"calls": 30, "window": 60},
     "paper": {"calls": 1000, "window": 60},
 }
 

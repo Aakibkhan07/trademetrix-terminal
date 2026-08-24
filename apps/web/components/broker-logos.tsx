@@ -23,6 +23,8 @@ export function BrokerLogo({ broker, size = 32 }: { broker: string; size?: numbe
       return <svg {...props} style={s}><rect x="1" y="1" width="30" height="30" rx="7" fill="#0088CC"/><path d="M8 10h16M8 16h14M8 22h16" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/></svg>
     case "aliceblue":
       return <svg {...props} style={s}><rect x="1" y="1" width="30" height="30" rx="7" fill="#2196F3"/><path d="M10 22c0-6 12-6 12 0" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" fill="none"/><path d="M13 18c0-3 6-3 6 0" stroke="#fff" strokeWidth="2" strokeLinecap="round" fill="none"/><circle cx="16" cy="9" r="3" fill="#fff"/></svg>
+    case "lemonn":
+      return <svg {...props} style={s}><rect x="1" y="1" width="30" height="30" rx="8" fill="#F5C518"/><ellipse cx="16" cy="17" rx="8.5" ry="7" transform="rotate(-20 16 17)" fill="#fff"/><path d="M15 9c1.5-1.5 3.5-2 5-1.5" stroke="#2E7D32" strokeWidth="2" strokeLinecap="round"/><circle cx="21" cy="7.5" r="1.4" fill="#2E7D32"/></svg>
     default:
       return <svg {...props} style={s}><rect x="1" y="1" width="30" height="30" rx="8" fill="color-mix(in srgb, var(--violet) 12%, transparent)"/><text x="16" y="21" textAnchor="middle" fontSize="16" fontWeight="700" fill="var(--violet)" fontFamily="sans-serif">{broker[0].toUpperCase()}</text></svg>
   }

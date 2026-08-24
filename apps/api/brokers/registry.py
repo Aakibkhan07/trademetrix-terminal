@@ -164,6 +164,19 @@ _register_broker_meta("kotakneo", {
     "oauth_available": False,
 })
 
+_register_broker_meta("lemonn", {
+    "display_name": "Lemonn",
+    "auth_type": "credentials",
+    "description": "Save your Lemonn credentials now — live trading activates when Lemonn launches its public API",
+    "fields": [
+        {"key": "client_code", "label": "Client ID", "placeholder": "Your Lemonn Client ID / Mobile", "required": True},
+        {"key": "secret_key", "label": "Password / PIN", "type": "password", "placeholder": "Your Lemonn Password or PIN", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Lemonn has NOT launched a public trading API yet\n2. Save your Client ID + Password now to pre-connect your account\n3. Credentials are stored encrypted and activated automatically once the API is available",
+    "oauth_available": False,
+})
+
 
 def get_broker_metadata(broker: str | None = None) -> list[dict] | dict:
     """Legacy facade — data now lives in the Unified Broker SDK v2 registry.

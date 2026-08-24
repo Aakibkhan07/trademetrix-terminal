@@ -249,6 +249,10 @@ BROKER_CAPABILITY_MATRIX: dict[str, set[CapabilityFlag]] = {
         CapabilityFlag.MARKET_DATA_STREAMING,
     },
     "groww": _COMMON | {CapabilityFlag.WEBSOCKET, CapabilityFlag.MARKET_DATA_STREAMING},
+    # Lemonn: EMPTY set — no public API exists yet (see brokers/lemonn_adapter.py).
+    # Every capability-gated call raises UnsupportedFeatureError until real
+    # endpoints ship; flip flags there + here together when activating live.
+    "lemonn": set(),
     "paper": _COMMON
     | {
         CapabilityFlag.WEBSOCKET,
