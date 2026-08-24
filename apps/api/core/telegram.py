@@ -123,19 +123,23 @@ class TelegramGateway:
     # ── links store ─────────────────────────────────────────────────
 
     async def save_link(self, user_id: str, chat_id: str, username: str = "") -> None:
+        # Replace semantics: one link per user AND one user per chat. Explicit
+        # delete-then-insert because PostgREST on_conflict needs a matching
+        # composite unique constraint (we have separate PK + UNIQUE).
         supabase = None
         try:
             from core.db import get_supabase
 
             supabase = get_supabase()
-            await supabase.table("telegram_links").upsert(
+            supabase.table("telegram_links").delete().eq("user_id", user_id).execute()
+            supabase.table("telegram_links").delete().eq("chat_id", str(chat_id)).execute()
+            supabase.table("telegram_links").insert(
                 {
                     "user_id": user_id,
                     "chat_id": str(chat_id),
                     "username": username or "",
                     "linked_at": datetime.now(UTC).isoformat(),
-                },
-                on_conflict="user_id,chat_id",
+                }
             ).execute()
         except Exception as e:
             logger.error("Failed to save telegram link for %s: %s", user_id, e)
