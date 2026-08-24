@@ -1,3 +1,27 @@
+## v1.7.1 (2026-08-12) — Builder template signals + kill-switch hardening + Angel One broker fixes (PRODUCTION VERIFIED)
+
+> Three fix clusters: every builder strategy template now emits real signals on real candles (and the legacy backtest route returns the full result shape), the global kill switch can no longer fail open, and Angel One is a first-class data/order broker (scrip-master token resolution, batch FULL quotes, feed started with the user's ACTIVE broker).
+
+### Fixed — Strategy Builder
+1. **Templates emit real signals on real candles** (`1990a29`) — added the missing runtime compute functions (`source.candle`, `source.close_history`, `source.market_time`, `signal.breakout`, `time.day_of_week`, `time.time_range`, `constant.number`); `sma`/`ema` emit value+series ports, `macd` emits series_macd/series_signal (signal line = EMA of the MACD line), `cross_above`/`cross_below` use the wired series input; `logic.not` reads port `value`; VWAP falls back to a time-weighted average when volume is absent (Yahoo index candles carry none). Broken templates rewired: vwap deviation-band via constants, scalping via cross entries (dropped unimplemented `order.sl`/`order.target`), ICT via `smc.fvg` + time_range; `expiry_hunter` curated out of templates (needs `greek.iv`, unavailable in the single-instrument candle runtime).
+2. **Redeploy gate fixed** (`56606e0`) — deploy set status to PAPER then rejected every redeploy (400 "Strategy is paper") because PAPER wasn't in the allowed statuses; `/deploy` now aligns with `/start`: PAPER and STOPPED strategies are redeployable.
+3. **Legacy `/backtests/run` shape fixed** (`1990a29`) — returned the pre-BTResult payload (no `config`/`summary` keys) which crashed the backtest page client-side; it now routes through `backtest_manager.run` and returns the full `_result_payload`.
+
+### Fixed — Risk
+4. **Kill switch can't fail open** (`56606e0`) — comparisons in `risk/kill_switch.py`, `risk/rules.py`, `risk/riskguard.py` and the admin read used `val == "1"`, but `cache.get` json-decodes so a raw `redis-cli SET global:kill_switch 1` came back as int `1` and the gate failed OPEN. All comparisons are now `str(val) == "1"` so raw and `cache.set` writes both engage it. New tests: `test_builder_deploy_gate.py` (9), `test_kill_switch_hardening.py`.
+
+### Fixed — Brokers / Market Data (Angel One)
+5. **Index tokens resolve from the scrip master** (`5a14f4e`) — the Angel scrip master names indices `Nifty 50`/`Nifty Bank` while the app uses `NSE:NIFTY50-INDEX`; canonical pre-prefixed symbols built doubled keys (`NSE:NSE:...`) and never resolved → empty feed for every symbol. Segment prefix stripped before lookup, BSE honored for SENSEX, canonical index symbols aliased to scrip-master tokens.
+6. **Quotes via batch FULL quote endpoint** (`d4f27c6`) — `order/v1/getLtpData` returns AB4033 "Invalid tradingsymbol" on this account so quotes silently fell back to Yahoo; switched to `market/v1/quote/` FULL (batched by exchange; gives OHLC + prev close) with rows mapped back to canonical symbols.
+7. **Feed starts with the user's ACTIVE broker** (`35f7bc2`) — `start_market_feed` hardcoded `broker_type=fyers`, so Angel One users got the Yahoo fallback instead of live ticks; resolves the active broker like the quote route and passes stored secret/additional params into feed auth (Angel may fresh-login via TOTP when only a secret is stored → valid SmartAPI feedToken).
+8. **Segment adoption + sector aliases** (`eefea34`, `b3ebaa3`) — token resolution adopts NFO/BSE/MCX from the symbol prefix (quote tokens grouped under NFO exchange); `INDEX_ALIASES` expanded to sector indices (IT, Pharma, Auto, etc.).
+
+### Validation
+- API suite **995 passed, 1 xfailed** (re-verified 2026-08-24 at `91654b1`).
+- Prod deployment verified 2026-08-24: VPS git = origin/main = `91654b1`; all 11 changed API files md5-match inside `trademetrix_api`; containers healthy (uptime since the 08-12 restart).
+- Health sweep 200: `/health`, `/live`, `/trade`, `/backtest`, `/sitemap.xml`. Kill switch `global:kill_switch` = `"1"` (ENABLED, untouched). Last-24h API logs: only pre-existing yfinance fetch noise (KNOWN_ISSUES #13), zero new errors.
+- Commits: `1990a29`, `56606e0`, `5a14f4e`, `d4f27c6`, `b3ebaa3`, `eefea34`, `91654b1`.
+
 ## v1.7.0 (2026-08-08) — Backtest Engine: real 5-year windows + curated working strategy surface (PRODUCTION VERIFIED)
 
 > Backtest engine honesty pass: the backtest surface now contains ONLY strategies that emit real trade signals from candles, the window ceiling is raised from 60 days to 5 years with correct provider period handling, and backtests can never silently run on fabricated (synthetic) candles again.

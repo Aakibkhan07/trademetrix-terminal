@@ -3,6 +3,18 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-24 — Verify + document the 2026-08-12 fix clusters (v1.7.1, PRODUCTION VERIFIED)
+
+### What was done
+1. **Scope** — commits `1990a29`…`91654b1` (2026-08-12) were pushed but undocumented: builder template signal fixes + redeploy gate + kill-switch hardening (`1990a29`, `56606e0`), Angel One broker fixes (scrip-master token resolution `5a14f4e`, batch FULL quotes `d4f27c6`, feed starts with the user's ACTIVE broker `35f7bc2`, NFO/BSE/MCX segment adoption + sector index aliases `eefea34`, `b3ebaa3`, quote tokens grouped under NFO `91654b1`). CHANGELOG v1.7.1 entry written; details there.
+2. **Verification (no code changes)** — local suite **995 passed, 1 xfailed** at `91654b1`; VPS git = origin/main = `91654b1`, working tree clean; all 11 changed API files md5-match inside `trademetrix_api` (containers healthy, uptime since the 08-12 restart — the work was hot-deployed on the day); public sweep `/health /live /trade /backtest /sitemap.xml` all 200; kill switch `global:kill_switch` = `"1"` ENABLED untouched; last-24h API logs contain ONLY pre-existing yfinance fetch noise (KNOWN_ISSUES #13), zero new errors.
+3. **SSH key auth now works** to root@187.127.185.56 from this workstation (the sshpass password recipe in older entries is no longer needed).
+
+### Reference
+- **Kill switch contract (post-56606e0)**: always compare `str(val) == "1"` — `cache.get` json-decodes, so a raw `redis-cli SET global:kill_switch 1` returns int `1`. A raw write DOES engage the switch now; verify with `docker exec trademetrix_redis redis-cli GET global:kill_switch`.
+- **Angel One data path**: scrip master names indices `Nifty 50`/`Nifty Bank` → alias canonical `NSE:NIFTY50-INDEX` style symbols to scrip-master tokens; strip the exchange prefix before lookup (pre-prefixed input built doubled `NSE:NSE:` keys); quotes via batch `market/v1/quote/` FULL endpoint (`getLtpData` AB4033s on this account); feed adapter may fresh-login via TOTP when only a secret is stored.
+- **Redeploy rule**: PAPER and STOPPED strategies are redeployable via `/deploy` (aligned with `/start`) — never re-add a status gate that blocks them.
+
 ## Session: 2026-08-08 — Backtest Engine honesty: real 5-year windows + curated working strategy surface (v1.7.0, PRODUCTION VERIFIED)
 
 ### What was done
