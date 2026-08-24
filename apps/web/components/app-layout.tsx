@@ -16,6 +16,7 @@ const USER_SECTIONS = [
     label: 'Home',
     items: [
       { href: '/live', label: 'Live Dashboard', icon: '📊' },
+      { href: '/go-live', label: 'Go Live', icon: '🚀' },
     ],
   },
   {
