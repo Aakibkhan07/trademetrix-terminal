@@ -1,3 +1,21 @@
+## v1.7.2 (2026-08-24) — Lemonn broker: connect-flow scaffold (API-pending, honest unsupported surface)
+
+> Lemonn (lemonn.co.in — NU Investors Technologies, SEBI INZ000304837) publishes **no public trading API** today. Users can now pre-connect Lemonn through the normal brokers flow; every trading/data capability fails TYPED (`UnsupportedFeatureError` with an honest detail message) until Lemonn ships real endpoints — never silent fallbacks, never fabricated data.
+
+### Added
+1. **`LemonnAdapter` (`brokers/lemonn_adapter.py`)** — full `BaseBroker + BrokerAdapterBase` surface; credential validation on `authenticate` (ValueError when `client_code`/`secret_key` missing), typed `UnsupportedFeatureError` for all 10 trading/data methods, safe no-op disconnect. Capability matrix row is deliberately **EMPTY** (`brokers/sdk/capabilities.py`) so capability-gated paths fail closed.
+2. **Connect flow** — registry metadata entry (`display_name "Lemonn"`, fields `client_code`+`secret_key`, instructions stating the API-pending status); `/brokers` page renders it dynamically; onboarding picker entry ("Lemonn (API pending)") + custom lemon logo in `broker-logos.tsx`.
+3. **Registration plumbing** — `brokers/__init__.py` registration, execution-layer `_build_capabilities` name (all-false read model), conservative rate-limit entry (30/60s), `validate_production.py` import smoke. Cert suite picks the adapter up automatically (Level A interface cert passes).
+4. **Migration `20260824_02000_broker_credentials_lemonn.sql`** — adds `lemonn` to the `broker_credentials.broker` CHECK constraint AND fixes a latent bug: `groww` was never in the constraint (saving Groww credentials would have failed with 23514). Applied to prod via psql (constraint verified).
+
+### Validation
+- API suite **1016 passed, 1 xfailed** (+21: `tests/test_broker_lemonn.py` covers registration, empty capabilities, connect-flow validation, every typed-unsupported method, health/capabilities contract).
+- Web `tsc --noEmit` clean; prod build clean (BUILD_ID `C35wNJ5ki45512xgH5EX9` served == local).
+- Prod deploy: migration applied (constraint now includes `groww`,`lemonn`); 6 API files hot-deployed, restart clean, `/health` 200; in-container check `lemonn registered: Lemonn | caps: 0 | fields: [client_code, secret_key]`; web `.next` deployed stop→cp→start→chown; `/brokers`, `/onboarding`, api health all 200 post-deploy.
+
+### Activating live later
+Implement the adapter methods against real endpoints and flip the `"lemonn"` capability row from `set()` to the earned flags **in the same change** — the tests in `test_broker_lemonn.py` assert both halves of that contract today.
+
 ## v1.7.1 (2026-08-12) — Builder template signals + kill-switch hardening + Angel One broker fixes (PRODUCTION VERIFIED)
 
 > Three fix clusters: every builder strategy template now emits real signals on real candles (and the legacy backtest route returns the full result shape), the global kill switch can no longer fail open, and Angel One is a first-class data/order broker (scrip-master token resolution, batch FULL quotes, feed started with the user's ACTIVE broker).

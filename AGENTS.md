@@ -3,6 +3,20 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-24 — Lemonn broker connect-flow scaffold (v1.7.2, PRODUCTION VERIFIED)
+
+### What was done
+1. **Research first** — Lemonn India (lemonn.co.in, NU Investors Technologies/PeepalCo) publishes NO public trading API (no dev portal/keys; their algo = hosted SmartInvest/Zing/BOLT only). `developer.lemon.markets` is an unrelated German EUR broker. User approved a scaffold: full connect/login flow now, live trading later.
+2. **Honest scaffold shipped** (`fb36b4d`) — `brokers/lemonn_adapter.py`: credential-validating `authenticate` + typed `UnsupportedFeatureError` on all 10 trading/data methods; capability matrix row `"lemonn": set()` (fail closed); registry metadata fields `client_code`+`secret_key`; exec-layer capabilities entry (all false); rate limit 30/60; validate_production smoke; migration `20260824_02000_broker_credentials_lemonn.sql` adds `lemonn` to the CHECK constraint **and the missing `groww`** (latent 23514 bug — groww was never in the init constraint); web: lemon logo case + onboarding "Lemonn (API pending)" picker entry. `/brokers` page is metadata-driven — zero frontend changes needed there.
+3. **Validation** — suite **1016 passed, 1 xfailed** (+21 lemonn tests); tsc clean; prod build BUILD_ID `C35wNJ5ki45512xgH5EX9`.
+4. **Deploy + verify** — migration applied to prod Supabase via psql (constraint verified to include `groww`,`lemonn`); 6 API files hot-deployed → restart → `/health` 200; in-container: `lemonn registered: Lemonn | caps: 0 | fields: [client_code, secret_key]`; web `.next` deployed (stop→cp→start→chown -R 1001), `/brokers` `/onboarding` 200; VPS git synced `fb36b4d`.
+
+### Reference
+- **Lemonn activation contract**: implementing real endpoints later MUST land together with flipping the capability row — `tests/test_broker_lemonn.py` asserts typed-unsupported today and documents both halves of the flip. Never let a half-activated adapter reach the OMS.
+- **Migration gotcha**: the `broker_credentials.broker` CHECK lives ONLY in `20250628000100_init.sql` (+fix_tables copy); new brokers need an idempotent drop/re-add migration — groww proves code-only registration silently breaks saves.
+- **Prod psql access**: container env does NOT carry SUPABASE_DB_PASSWORD; use the managed DB password with `PGPASSWORD=... psql postgresql://postgres@db.nwutlfuowiulfpbsrldn.supabase.co:5432/postgres?sslmode=require` from the VPS.
+- **Local tar→VPS piping**: run `tar czf - <relative paths>` from the correct workdir (apps/api for broker files); piping `cat file | ssh 'cat > /tmp/x'` beats scp for single files.
+
 ## Session: 2026-08-24 — Verify + document the 2026-08-12 fix clusters (v1.7.1, PRODUCTION VERIFIED)
 
 ### What was done
