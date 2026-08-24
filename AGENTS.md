@@ -3,6 +3,20 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-24 — Google sign-in via GoTrue OAuth (v1.8.0, code DEPLOYED — provider activation pending owner dashboard config)
+
+### What was done
+1. **Flow** — "Continue with Google" on `/auth` → GoTrue `/auth/v1/authorize?provider=google&redirect_to=<origin>/auth/callback` → Google consent → GoTrue redirects with tokens in the FRAGMENT → new `POST /auth/google` verifies the GoTrue access_token against GoTrue `/auth/v1/user` (requires a `google` identity), find-or-create profile, mints the API session like `/signin`. Callback routes admin→/dashboard, fresh non-admin→/onboarding (onboarding_completed=false), else→/live.
+2. **Files** — `routes/v1_auth.py` (+OAuthExchangeRequest +google_auth); web: `api.auth.exchangeOAuth`, `app/auth/callback/page.tsx` (standalone — added to STANDALONE_PAGES), Google button on auth page. Commit `4bc4cc9`; suite **1042 passed** (+5).
+3. **Deployed** — API hot-deployed + restarted (health 200; endpoint CSRF-guarded live); web BUILD_ID `3Ok2nMUsloeBLc9Mdb1LZ`; button renders on prod.
+4. **PENDING (owner-only)** — Supabase project has `"google": false`. Activation = 3 dashboard steps (Google Cloud OAuth client w/ redirect URI `https://nwutlfuowiulfpbsrldn.supabase.co/auth/v1/callback` → Supabase Auth→Providers→Google → add `https://ai.trademetrix.tech/auth/callback` to Redirect URLs). Documented in CHANGELOG v1.8.0.
+
+### Reference
+- **GoTrue token verification pattern**: GET `{supabase_url}/auth/v1/user` with `apikey: anon_key` + `Authorization: Bearer <access_token>` — never decode the GoTrue JWT locally (API SECRET_KEY can't verify it).
+- **TestClient gotcha**: `with TestClient(app)` runs FULL lifespan (starts engine loops; shutdown closes the shared Supabase client → 88 downstream failures). Always use the conftest `client` fixture (ASGITransport, no lifespan) for route tests.
+- **Patch-target rule** (recurring): module-level `from X import fn` in routes means tests must patch `"routes.v1_auth.fn"`, not `"X.fn"`.
+- Supabase auth settings probe: `GET /auth/v1/settings` shows enabled providers (`external.google`).
+
 ## Session: 2026-08-24 — Chart-data 500 sweep: crawl-driven fix of Yahoo gate + route hardening (v1.7.3, PRODUCTION VERIFIED)
 
 ### What was done

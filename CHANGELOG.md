@@ -1,3 +1,21 @@
+## v1.8.0 (2026-08-24) — Google sign-in (Supabase GoTrue OAuth) — code live; provider activation pending dashboard config
+
+> "Continue with Google" is now on the sign-in/sign-up pages end-to-end. The full code path ships and is deployed; flipping it live requires ONE manual step in the Supabase dashboard (Google provider credentials), which only the project owner can do.
+
+### Added
+1. **`POST /auth/google`** (`routes/v1_auth.py`) — exchanges a Supabase GoTrue OAuth session for the app's own session: verifies the GoTrue `access_token` against GoTrue `/auth/v1/user`, requires a `google` identity, finds-or-creates the profile row, mints cookie + JWT exactly like `/signin`, audits as `signin`.
+2. **Frontend** — "Continue with Google" / "Sign up with Google" on `/auth` (redirects to GoTrue `/auth/v1/authorize?provider=google` with `redirect_to=/auth/callback`); new standalone `/auth/callback` page parses the fragment tokens, exchanges them, and routes admin→`/dashboard`, fresh non-admin→`/onboarding`, else→`/live`; friendly error state with back-to-sign-in link.
+
+### Activation steps (owner, ~5 min)
+1. Google Cloud Console → APIs & Services → Credentials → create **OAuth client ID** (Web application); Authorized redirect URI: `https://nwutlfuowiulfpbsrldn.supabase.co/auth/v1/callback`.
+2. Supabase Dashboard → Authentication → Providers → **Google**: paste Client ID + Secret, enable, save.
+3. Supabase Dashboard → Authentication → URL Configuration → add `https://ai.trademetrix.tech/auth/callback` to **Redirect URLs**.
+
+### Validation
+- API suite **1042 passed** (+5 in `test_auth_google.py`: exchange happy path, non-Google identity 400, invalid token 401, profile find-or-create both branches).
+- Web `tsc` clean; BUILD_ID `3Ok2nMUsloeBLc9Mdb1LZ` served; button renders on prod `/auth`; endpoint registered (CSRF-guarded 403 on bare probe).
+- Commit: `4bc4cc9`.
+
 ## v1.7.3 (2026-08-24) — Chart data 500s fixed app-wide + real-data contract restored in buyer backtests (PRODUCTION VERIFIED)
 
 > A prod browser crawl (fresh user × 21 pages, console+network capture) found 43 issues with a single root cause: every chart widget fed the backend BARE index symbols (`NIFTY50-INDEX`, no exchange prefix), the Yahoo fallback gate silently rejected them, and the resulting `ValueError` escaped as raw ASGI 500s. Post-fix crawl: **0 issues**.
