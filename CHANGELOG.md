@@ -1,3 +1,20 @@
+## v1.7.3 (2026-08-24) — Chart data 500s fixed app-wide + real-data contract restored in buyer backtests (PRODUCTION VERIFIED)
+
+> A prod browser crawl (fresh user × 21 pages, console+network capture) found 43 issues with a single root cause: every chart widget fed the backend BARE index symbols (`NIFTY50-INDEX`, no exchange prefix), the Yahoo fallback gate silently rejected them, and the resulting `ValueError` escaped as raw ASGI 500s. Post-fix crawl: **0 issues**.
+
+### Fixed
+1. **Yahoo fallback gate rejected canonical symbols** (`market/historical.py`) — gate now evaluates the MAPPED symbol (via `_map_symbol` → `YAHOO_SYMBOL_MAP`), so bare index symbols resolve to real Yahoo tickers (`^NSEI` etc.) and charts keep working when the broker token is expired/unavailable.
+2. **Unhandled 500 on `/marketdata/historical`** (`routes/v1_marketdata.py`) — data gaps now surface as a clean **400** ("No real market data available…"), unexpected failures as a logged **502**; no more ASGI tracebacks.
+3. **Quotes had the same hole** (`providers/yahoo.py`) — bare `-INDEX` aliases added to `YAHOO_SYMBOL_MAP` (18 entries; `NIFTY50-INDEX` had also been missed by digit-less symbol regexes).
+4. **Buyer backtests were still fabricating candles** (`application/services/buyer_strategy_service.py`) — `_generate_simulated_candles` fallback removed per the v1.7.0 real-data contract; data gaps raise ValueError → route 400.
+5. **`/orders` dead URL** — now redirects to `/positions` (open orders render there).
+
+### Validation
+- API suite **1037 passed, 1 xfailed** (+21 regression tests in `test_chart_data_500_fix.py`; 2 stale tests updated to the new contracts).
+- Prod deploy verified in-container: `NIFTY50-INDEX` / `NIFTYIT-INDEX` / `INDIAVIX-INDEX` 5m/1d → **200 with 75 real candles each** (was 500).
+- Full browser crawl after deploy: **0 issues** across /live /trade /positions /portfolio /orders /funds /terminal /strategies /backtest /journal /alerts /risk /analytics /settings /account /brokers /marketdata /workspace.
+- Commit: `86ce507`. Web BUILD_ID `FsW9ro2uKGwY5fxuIsG2Y`.
+
 ## v1.7.2 (2026-08-24) — Lemonn broker: connect-flow scaffold (API-pending, honest unsupported surface)
 
 > Lemonn (lemonn.co.in — NU Investors Technologies, SEBI INZ000304837) publishes **no public trading API** today. Users can now pre-connect Lemonn through the normal brokers flow; every trading/data capability fails TYPED (`UnsupportedFeatureError` with an honest detail message) until Lemonn ships real endpoints — never silent fallbacks, never fabricated data.

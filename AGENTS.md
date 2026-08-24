@@ -3,6 +3,20 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-24 — Chart-data 500 sweep: crawl-driven fix of Yahoo gate + route hardening (v1.7.3, PRODUCTION VERIFIED)
+
+### What was done
+1. **Evidence first** — user reported "many errors and incompletion" on prod. Wrote a puppeteer crawl (`/tmp/tmcrawl/crawl.js`: fresh GoTrue user → API-minted signin → visit 21 routes → capture pageerrors/console/http≥400): **43 issues**, all one root cause — chart widgets call `GET /marketdata/historical?symbol=NIFTY50-INDEX` (BARE, no exchange prefix); the Yahoo fallback gate in `market/historical.py::_fetch_from_yahoo` required a colon-or-allowlist so bare symbols returned [], then `fetch_historical_data`'s honesty ValueError escaped the unguarded route as raw ASGI 500s. `/orders` was also a dead URL.
+2. **Fixes** (`86ce507`) — gate on MAPPED symbol; 18 bare `-INDEX` aliases added to `YAHOO_SYMBOL_MAP` (quotes path had the same hole; NIFTY50-INDEX missed by `[A-Z]+` regexes without digits); `/marketdata/historical` ValueError→400 / other→logged 502; buyer_strategy_service `_generate_simulated_candles` REMOVED (was still violating the v1.7.0 real-data contract); web `/orders` → redirect to `/positions`.
+3. **Validation** — suite **1037 passed** (+21 regression tests `test_chart_data_500_fix.py`; 2 stale tests asserting old behavior updated); prod in-container: NIFTY50-INDEX/NIFTYIT-INDEX/INDIAVIX-INDEX 5m/1d → 200 with 75 real candles each (Yahoo fallback works with expired fyers token); post-deploy crawl **0 issues**. Web BUILD_ID `FsW9ro2uKGwY5fxuIsG2Y`.
+4. **Ops note**: fyers access token on prod is EXPIRED again (auto-refresh did not re-validate this cycle) — everything degrades gracefully now, but live broker data/orders need a manual re-auth via `/v1/brokers/fyers/re-auth` for the affected account.
+
+### Reference
+- **Crawler pattern** (reusable): GoTrue admin create (`email_confirm:true`) → GET `/auth/csrf` + cookie jar → POST `/api/v1/auth/signin` (API re-mints its own token) → set cookie `tm_session` domain `.trademetrix.tech` → puppeteer-core with system Chrome at `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`; node_modules symlink trick: `ln -sfn /Users/aakib/node_modules node_modules` (puppeteer-core lives in ~). Filter benign anonymous `/auth/me` 401s.
+- **Symbol contract**: frontend sends BARE canonical symbols (`NIFTY50-INDEX`, sector indices, `INDIAVIX-INDEX`) to marketdata endpoints — any backend symbol gate must map FIRST (`_map_symbol`), never require an exchange prefix.
+- **Real-data contract enforcement point**: `buyer_strategy_service.backtest` now raises ValueError on data gaps (route wraps → 400). `_generate_simulated_candles` must NOT return anywhere.
+- Stale-test rule: when fixing behavior, grep tests asserting the OLD behavior (`test_market_historical.py`, `test_buyer_strategy_service.py` both asserted the bug).
+
 ## Session: 2026-08-24 — Lemonn broker connect-flow scaffold (v1.7.2, PRODUCTION VERIFIED)
 
 ### What was done
