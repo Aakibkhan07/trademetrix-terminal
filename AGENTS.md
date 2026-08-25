@@ -3,6 +3,21 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-08-25 — Growth sprints A/B/C + landing honesty pass + image rebuild (v1.8.x, PRODUCTION VERIFIED)
+
+### What was done
+1. **Sprint A: per-user Telegram alerts** (`96a796d`, `5d7bab8`, `dfbd356`) — `core/telegram.py` gateway + `/notifications/telegram/*` routes + settings-page connect card; bot @TradeMetrixAlgoBot LIVE (token in apps/api/.env on VPS). E2E-verified vs real Telegram API; fixed on_conflict (delete+insert), sync execute(), getUpdates 35s timeout.
+2. **Sprint B: Go-Live wizard** (`/go-live`, nav "Go Live") — broker → strategy → mode → deploy; browser E2E caught the Start button permanently disabled (canNext fallthrough) → fixed `2f25ac9`, 13/13 PASS.
+3. **Sprint C: Risk Guardrails panel** on /risk (`8c8bf69`) — live open-positions & trades-today vs caps with progress bars.
+4. **Landing honesty pass** — algo.trademetrix.tech source = static export backed up at `~/backups/algo.trademetrix.tech` (git repo, Vercel project `algo.trademetrix.tech`). Removed ₹500Cr/10K+/₹12Cr/92%-survey/SOC2/AWS-multi-region/sub-5ms/15+yr-tick claims, fake testimonials (6 people), marketplace subs counts + star ratings; ICICI/HDFC/IIFL/Motilal -> Coming Soon (both DOM and RSC flight layers); Groww Full API; Kotak Securities -> Kotak Neo. index.html hydration scripts stripped (truly static); deployed via `vercel --prod` with vercel.json builds config. Live-verified clean.
+5. **API image rebuilt from main** (`infra/production && docker compose build api && up -d api`) — hot-deploy drift eliminated; telegram + google auth + all fixes baked into image; TELEGRAM_BOT_TOKEN survives via compose env_file.
+
+### Reference
+- Landing site deploys: `cd ~/backups/algo.trademetrix.tech && vercel --prod` (linked project; vercel.json pins @vercel/static).
+- integrations.html is a JS shell — edit BOTH DOM and flight JSON (escaped \"children\") or statuses revert.
+- index.html has NO scripts now — keep it that way or hydration reverts edits.
+- Recreate api container => always rebuild image or re-hot-deploy files (recreate wipes docker cp'd files).
+
 ## Session: 2026-08-24 — Google sign-in via GoTrue OAuth (v1.8.0, code DEPLOYED — provider activation pending owner dashboard config)
 
 ### What was done
