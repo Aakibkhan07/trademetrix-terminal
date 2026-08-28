@@ -23,23 +23,22 @@ const USER_SECTIONS = [
   {
     label: 'Trade',
     items: [
-      { href: '/workspace', label: 'Trading Workspace', icon: '📈' },
       { href: '/trade', label: 'Orders', icon: '📋' },
       { href: '/positions', label: 'Positions', icon: '📍' },
       { href: '/portfolio', label: 'Portfolio', icon: '🏠' },
       { href: '/funds', label: 'Funds', icon: '💰' },
       { href: '/paper', label: 'Paper Trading', icon: '📄' },
-      { href: '/brokers', label: 'Brokers', icon: '🏦' },
+      { href: '/portal/brokers', label: 'Brokers', icon: '🏦' },
     ],
   },
   {
     label: 'Build & Analyze',
     items: [
-      { href: '/marketdata', label: 'Market Analyzer', icon: '🔍' },
       { href: '/strategies/builder', label: 'Strategy Builder', icon: '🤖' },
       { href: '/backtest', label: 'Backtest', icon: '🧪' },
       { href: '/analytics', label: 'Analytics', icon: '📉' },
-      { href: '/journal', label: 'Trade Journal', icon: '📖' },
+      { href: '/marketdata', label: 'Market Analyzer', icon: '🔍' },
+      { href: '/terminal', label: 'Terminal', icon: '⚡' },
     ],
   },
   {
@@ -54,12 +53,8 @@ const USER_SECTIONS = [
   {
     label: 'Platform',
     items: [
-      { href: '/terminal', label: 'Terminal', icon: '⚡' },
-      { href: '/terminal/option-chain', label: 'Option Chain', icon: '🔗' },
-      { href: '/terminal/builder', label: 'Terminal Builder', icon: '🛠️' },
-      { href: '/strategies', label: 'Strategies', icon: '🗂️' },
-      { href: '/marketplace', label: 'Marketplace', icon: '🛍️' },
       { href: '/ai', label: 'AI Assistant', icon: '✦' },
+      { href: '/strategies', label: 'Strategies', icon: '🗂️' },
     ],
   },
 ]
@@ -91,9 +86,6 @@ const ADMIN_SECTIONS = [
       { href: '/dashboard?tab=strategy-perf', label: 'Perf Tracker', icon: '📈' },
       { href: '/dashboard?tab=user-strategies', label: 'User Algos', icon: '🤖' },
       { href: '/dashboard?tab=referrals', label: 'Referrals', icon: '🔗' },
-      { href: '/dashboard?tab=webhook-tester', label: 'Webhook Tester', icon: '🔌' },
-      { href: '/dashboard?tab=backups', label: 'Backups', icon: '💾' },
-      { href: '/dashboard?tab=scheduled-tasks', label: 'Scheduled', icon: '⏰' },
     ],
   },
   {
@@ -130,6 +122,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { user, loading, isAdmin, signout } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -253,7 +246,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         onBlur={e => { e.currentTarget.style.top = '-48px' }}
       >Skip to content</a>
       {/* Sidebar */}
-      <nav style={{
+      <nav className={`tm-sidebar${mobileOpen ? ' tm-open' : ''}`} style={{
         width: collapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)',
         background: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border)',
@@ -291,6 +284,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <button
               onClick={() => setCollapsed(true)}
               aria-label="Collapse sidebar"
+              className="tm-collapse-btn"
               style={{
                 background: 'none', border: 'none', color: 'var(--text-faint)',
                 cursor: 'pointer', fontSize: 14, padding: 4, flexShrink: 0,
@@ -305,6 +299,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <button
               onClick={() => setCollapsed(false)}
               aria-label="Expand sidebar"
+              className="tm-collapse-btn"
               style={{
                 position: 'absolute', right: -12, top: 12, zIndex: 20,
                 width: 20, height: 20, borderRadius: '50%',
@@ -335,11 +330,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {section.items.map((item) => {
                 const active = isActive_(item.href)
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={active ? 'page' : undefined}
-                    style={{
+                   <Link
+                     key={item.href}
+                     href={item.href}
+                     aria-current={active ? 'page' : undefined}
+                     onClick={() => setMobileOpen(false)}
+                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: collapsed ? '8px' : '6px 12px',
                       margin: collapsed ? '2px 6px' : '0 6px',
@@ -399,19 +395,43 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
+      {/* Mobile drawer backdrop */}
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 55 }}
+        />
+      )}
+
       {/* Main */}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
         {/* Top Navbar */}
-        <header style={{
+        <header className="tm-topbar" style={{
           height: 'var(--header-height)', display: 'flex', alignItems: 'center',
           padding: '0 12px', background: 'var(--bg-secondary)',
           borderBottom: '1px solid var(--border)', gap: 8, flexShrink: 0,
         }}>
+          {/* Hamburger (mobile) */}
+          <button
+            onClick={() => setMobileOpen(o => !o)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileOpen}
+            className="tm-hamburger"
+            style={{
+              display: 'none', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)', background: 'transparent',
+              color: 'var(--text-sub)', cursor: 'pointer', flexShrink: 0, fontSize: 16,
+            }}
+          >☰</button>
+
           {/* Search */}
           <button
             onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 50) }}
             data-search-open
             aria-label="Search symbols, strategies, pages (⌘K)"
+            className="tm-search-btn"
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
@@ -431,12 +451,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
 
           {/* Market Ticker */}
-          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          <div className="tm-ticker" style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <MarketTicker />
           </div>
 
           {/* AI Assistant button */}
-          <Link href="/ai" style={{
+          <Link href="/ai" className="tm-ai-btn" style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '4px 10px', borderRadius: 'var(--radius-sm)',
             background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.15)',
@@ -452,7 +472,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
 
           {/* Broker connection status */}
-          <BrokerStatusWidget />
+          <span className="tm-broker-widget"><BrokerStatusWidget /></span>
 
           {/* Theme toggle */}
           <button onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} style={{
@@ -534,7 +554,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               }}>
                 {user?.email?.[0]?.toUpperCase() || '?'}
               </div>
-              <span style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
+              <span className="tm-profile-email" style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
                 {user?.email?.split('@')[0] || '—'}
               </span>
               <span className={`t-dot ${connected ? 't-dot-green' : 't-dot-red'}`} style={{ width: 5, height: 5 }} />
@@ -747,6 +767,67 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Status Bar */}
         <StatusBar />
       </div>
+
+      <style jsx global>{`
+        .t-content {
+          flex: 1 1 auto;
+          min-width: 0;
+          overflow-y: auto;
+        }
+
+        @media (max-width: 860px) {
+          .tm-sidebar {
+            position: fixed !important;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 264px !important;
+            z-index: 60;
+            transform: translateX(-100%);
+            transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+          }
+          .tm-sidebar.tm-open {
+            transform: translateX(0);
+          }
+          .tm-collapse-btn {
+            display: none !important;
+          }
+          .tm-hamburger {
+            display: flex !important;
+          }
+          .tm-topbar {
+            padding: 0 8px !important;
+            gap: 6px !important;
+          }
+          .tm-search-btn {
+            width: 34px !important;
+            padding: 0 !important;
+            justify-content: center !important;
+          }
+          .tm-search-btn > span:not(:first-child) {
+            display: none !important;
+          }
+          .tm-ticker {
+            display: none !important;
+          }
+          .tm-broker-widget {
+            display: none !important;
+          }
+          .tm-ai-btn > span:last-child {
+            display: none !important;
+          }
+          .tm-profile-email {
+            display: none !important;
+          }
+        }
+
+        @media (min-width: 861px) {
+          .tm-hamburger {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
