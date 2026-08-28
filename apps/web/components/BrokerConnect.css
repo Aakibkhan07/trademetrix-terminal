@@ -1,0 +1,240 @@
+/* Trade Metrix — Broker Connect
+   Locked design system: base #08090c, violet #8b5cf6, cyan #22d3ee,
+   glassmorphism, DM Sans / Outfit, no italics anywhere. Vanilla CSS. */
+
+.tm-bc {
+  --bg: #08090c;
+  --panel: rgba(255, 255, 255, 0.03);
+  --panel-brd: rgba(255, 255, 255, 0.08);
+  --violet: #8b5cf6;
+  --cyan: #22d3ee;
+  --txt: #e7e9ee;
+  --txt-dim: #8b90a0;
+  --ok: #22d3ee;
+  --warn: #f5a524;
+  --err: #f87171;
+
+  font-family: "DM Sans", "Outfit", system-ui, sans-serif;
+  font-style: normal;
+  color: var(--txt);
+  max-width: 760px;
+}
+
+.tm-bc * {
+  font-style: normal;
+  box-sizing: border-box;
+}
+
+.tm-bc__head {
+  margin-bottom: 20px;
+}
+
+.tm-bc__title {
+  font-family: "Outfit", sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+
+.tm-bc__sub {
+  font-size: 13.5px;
+  color: var(--txt-dim);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* connected banner */
+.tm-bc__connected {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  border-radius: 14px;
+  background: linear-gradient(
+    100deg,
+    rgba(34, 211, 238, 0.08),
+    rgba(139, 92, 246, 0.06)
+  );
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.08) inset;
+}
+
+.tm-bc__connected-txt {
+  font-size: 13.5px;
+}
+.tm-bc__connected-txt b {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+/* broker grid */
+.tm-bc__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.tm-bc__card {
+  position: relative;
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--panel-brd);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tm-bc__card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.12);
+}
+
+.tm-bc__card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.tm-bc__broker {
+  font-family: "Outfit", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* status pill */
+.tm-bc__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+.tm-bc__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.tm-bc__pill--live {
+  color: var(--ok);
+  background: rgba(34, 211, 238, 0.08);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+.tm-bc__pill--live .tm-bc__dot {
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+  animation: tm-pulse 1.8s ease-in-out infinite;
+}
+.tm-bc__pill--reconnect {
+  color: var(--warn);
+  background: rgba(245, 165, 36, 0.08);
+  border-color: rgba(245, 165, 36, 0.3);
+}
+.tm-bc__pill--reconnect .tm-bc__dot {
+  background: var(--warn);
+  box-shadow: 0 0 8px var(--warn);
+}
+.tm-bc__pill--off {
+  color: var(--txt-dim);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--panel-brd);
+}
+.tm-bc__pill--off .tm-bc__dot {
+  background: var(--txt-dim);
+}
+
+.tm-bc__pill--soon {
+  color: var(--txt-dim);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--panel-brd);
+  opacity: 0.8;
+}
+.tm-bc__pill--soon .tm-bc__dot {
+  background: var(--txt-dim);
+}
+.tm-bc__card--soon {
+  opacity: 0.72;
+}
+
+@keyframes tm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.tm-bc__meta {
+  font-size: 12px;
+  color: var(--txt-dim);
+  margin: 0 0 14px;
+  line-height: 1.5;
+  min-height: 18px;
+}
+.tm-bc__meta b {
+  color: var(--txt);
+  font-weight: 500;
+}
+
+/* buttons */
+.tm-bc__btn {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 11px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: filter 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.tm-bc__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.tm-bc__btn--primary {
+  color: #0a0710;
+  background: linear-gradient(100deg, var(--cyan), var(--violet));
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.25);
+}
+.tm-bc__btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 26px rgba(139, 92, 246, 0.4);
+}
+.tm-bc__btn--reconnect {
+  color: #0a0710;
+  background: linear-gradient(100deg, var(--warn), #ffcf6b);
+  box-shadow: 0 4px 18px rgba(245, 165, 36, 0.22);
+}
+.tm-bc__btn--ghost {
+  color: var(--txt-dim);
+  background: transparent;
+  border-color: var(--panel-brd);
+  margin-top: 8px;
+}
+.tm-bc__btn--ghost:hover:not(:disabled) {
+  color: var(--txt);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tm-bc__err {
+  color: var(--err);
+  font-size: 12.5px;
+  margin: 10px 0 0;
+}
+
+.tm-bc__note {
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--txt-dim);
+  line-height: 1.6;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--panel-brd);
+}

@@ -10,6 +10,7 @@ import { api } from '@/lib/api'
 import Logo from '@/components/logo'
 import StatusBar from '@/components/status-bar'
 import MarketTicker from '@/components/market-ticker'
+import BrokerStatusWidget from '@/components/BrokerStatusWidget'
 
 const USER_SECTIONS = [
   {
@@ -449,6 +450,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <span style={{ fontSize: 14 }}>✦</span>
             AI
           </Link>
+
+          {/* Broker connection status */}
+          <BrokerStatusWidget />
 
           {/* Theme toggle */}
           <button onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} style={{

@@ -1,0 +1,7 @@
+# Broker-connect backend deps (add to your existing FastAPI requirements)
+fastapi>=0.110
+httpx>=0.27
+cryptography>=42.0
+redis>=5.0
+supabase>=2.4
+pydantic>=2.6
