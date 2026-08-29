@@ -76,10 +76,14 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface BrokerInfo {
+  key: BrokerKey;
+  configured: boolean;
+  coming_soon: boolean;
+}
+
 export function getAvailableBrokers() {
-  return req<{ brokers: BrokerKey[]; coming_soon: BrokerKey[] }>(
-    "/api/broker/available"
-  );
+  return req<{ brokers: BrokerInfo[] }>("/api/broker/available");
 }
 
 export function getConnections() {

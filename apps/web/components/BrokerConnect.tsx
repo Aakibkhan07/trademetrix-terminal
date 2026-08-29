@@ -8,6 +8,7 @@ import {
   disconnectBroker,
   type BrokerKey,
   type BrokerConnection,
+  type BrokerInfo,
 } from "../lib/brokerApi";
 import "./BrokerConnect.css";
 
@@ -34,8 +35,7 @@ function fmtExpiry(iso: string): string {
 type CardState = "off" | "live" | "reconnect";
 
 export default function BrokerConnect() {
-  const [available, setAvailable] = useState<BrokerKey[]>([]);
-  const [comingSoon, setComingSoon] = useState<BrokerKey[]>([]);
+  const [brokers, setBrokers] = useState<BrokerInfo[]>([]);
   const [conns, setConns] = useState<BrokerConnection[]>([]);
   const [busy, setBusy] = useState<BrokerKey | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,12 +43,11 @@ export default function BrokerConnect() {
 
   const load = useCallback(async () => {
     try {
-      const [{ brokers, coming_soon }, { connections }] = await Promise.all([
+      const [{ brokers }, { connections }] = await Promise.all([
         getAvailableBrokers(),
         getConnections(),
       ]);
-      setAvailable(brokers);
-      setComingSoon(coming_soon);
+      setBrokers(brokers);
       setConns(connections);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load brokers.");
@@ -132,107 +131,126 @@ export default function BrokerConnect() {
       {error && <p className="tm-bc__err">{error}</p>}
 
       <div className="tm-bc__grid">
-        {available.map((broker) => {
+        {brokers.map((info) => {
+          const broker = info.key;
           const c = byBroker.get(broker);
           const st = stateOf(broker);
           const isBusy = busy === broker;
 
+          // Scaffold brokers not yet wired to a real OAuth flow.
+          if (info.coming_soon) {
+            return (
+              <div className="tm-bc__card tm-bc__card--soon" key={broker}>
+                <div className="tm-bc__card-top">
+                  <span className="tm-bc__broker">{LABELS[broker]}</span>
+                  <span className="tm-bc__pill tm-bc__pill--soon">
+                    <span className="tm-bc__dot" />
+                    Coming soon
+                  </span>
+                </div>
+                <p className="tm-bc__meta">Linking opens soon — not available yet.</p>
+                <button className="tm-bc__btn tm-bc__btn--ghost" disabled>
+                  Connect {LABELS[broker]}
+                </button>
+              </div>
+            );
+          }
+
+          // Already linked (live or token expired -> reconnect).
+          if (st !== "off") {
+            return (
+              <div className="tm-bc__card" key={broker}>
+                <div className="tm-bc__card-top">
+                  <span className="tm-bc__broker">{LABELS[broker]}</span>
+                  <span
+                    className={
+                      "tm-bc__pill " +
+                      (st === "live"
+                        ? "tm-bc__pill--live"
+                        : "tm-bc__pill--reconnect")
+                    }
+                  >
+                    <span className="tm-bc__dot" />
+                    {st === "live" ? "Connected" : "Reconnect"}
+                  </span>
+                </div>
+                <p className="tm-bc__meta">
+                  {st === "live" && c ? (
+                    <>
+                      {c.broker_user_id ? (
+                        <>
+                          ID <b>{c.broker_user_id}</b> ·{" "}
+                        </>
+                      ) : null}
+                      valid till <b>{fmtExpiry(c.token_expires_at)}</b>
+                    </>
+                  ) : (
+                    "Daily token expired — tap to log in again for today."
+                  )}
+                </p>
+                <button
+                  className="tm-bc__btn tm-bc__btn--primary"
+                  disabled={isBusy}
+                  onClick={() => handleConnect(broker)}
+                >
+                  {isBusy ? "Redirecting…" : "Re-authenticate"}
+                </button>
+                <button
+                  className="tm-bc__btn tm-bc__btn--ghost"
+                  disabled={isBusy}
+                  onClick={() => handleDisconnect(broker)}
+                >
+                  Disconnect
+                </button>
+              </div>
+            );
+          }
+
+          // Not linked yet.
+          if (info.configured) {
+            return (
+              <div className="tm-bc__card" key={broker}>
+                <div className="tm-bc__card-top">
+                  <span className="tm-bc__broker">{LABELS[broker]}</span>
+                  <span className="tm-bc__pill tm-bc__pill--off">
+                    <span className="tm-bc__dot" />
+                    Not linked
+                  </span>
+                </div>
+                <p className="tm-bc__meta">Link once, trade hands-free.</p>
+                <button
+                  className="tm-bc__btn tm-bc__btn--primary"
+                  disabled={isBusy}
+                  onClick={() => handleConnect(broker)}
+                >
+                  {isBusy ? "Redirecting…" : `Connect ${LABELS[broker]}`}
+                </button>
+              </div>
+            );
+          }
+
+          // Registered but operator hasn't set this broker's app credentials yet.
           return (
             <div className="tm-bc__card" key={broker}>
               <div className="tm-bc__card-top">
                 <span className="tm-bc__broker">{LABELS[broker]}</span>
-                <span
-                  className={
-                    "tm-bc__pill " +
-                    (st === "live"
-                      ? "tm-bc__pill--live"
-                      : st === "reconnect"
-                      ? "tm-bc__pill--reconnect"
-                      : "tm-bc__pill--off")
-                  }
-                >
+                <span className="tm-bc__pill tm-bc__pill--soon">
                   <span className="tm-bc__dot" />
-                  {st === "live"
-                    ? "Connected"
-                    : st === "reconnect"
-                    ? "Reconnect"
-                    : "Not linked"}
+                  Needs credentials
                 </span>
               </div>
-
               <p className="tm-bc__meta">
-                {st === "live" && c ? (
-                  <>
-                    {c.broker_user_id ? (
-                      <>
-                        ID <b>{c.broker_user_id}</b> ·{" "}
-                      </>
-                    ) : null}
-                    valid till <b>{fmtExpiry(c.token_expires_at)}</b>
-                  </>
-                ) : st === "reconnect" ? (
-                  "Daily token expired — tap to log in again for today."
-                ) : (
-                  "Link once, trade hands-free."
-                )}
+                Add this broker&apos;s app credentials to the server env, then
+                restart to enable linking.
               </p>
-
-              {st === "live" ? (
-                <>
-                  <button
-                    className="tm-bc__btn tm-bc__btn--primary"
-                    disabled={isBusy}
-                    onClick={() => handleConnect(broker)}
-                  >
-                    Re-authenticate
-                  </button>
-                  <button
-                    className="tm-bc__btn tm-bc__btn--ghost"
-                    disabled={isBusy}
-                    onClick={() => handleDisconnect(broker)}
-                  >
-                    Disconnect
-                  </button>
-                </>
-              ) : (
-                <button
-                  className={
-                    "tm-bc__btn " +
-                    (st === "reconnect"
-                      ? "tm-bc__btn--reconnect"
-                      : "tm-bc__btn--primary")
-                  }
-                  disabled={isBusy}
-                  onClick={() => handleConnect(broker)}
-                >
-                  {isBusy
-                    ? "Redirecting…"
-                    : st === "reconnect"
-                    ? "Reconnect for today"
-                    : `Connect ${LABELS[broker]}`}
-                </button>
-              )}
+              <button className="tm-bc__btn tm-bc__btn--ghost" disabled>
+                Connect {LABELS[broker]}
+              </button>
             </div>
           );
         })}
 
-        {comingSoon.map((broker) => (
-          <div className="tm-bc__card tm-bc__card--soon" key={broker}>
-            <div className="tm-bc__card-top">
-              <span className="tm-bc__broker">{LABELS[broker]}</span>
-              <span className="tm-bc__pill tm-bc__pill--soon">
-                <span className="tm-bc__dot" />
-                Coming soon
-              </span>
-            </div>
-            <p className="tm-bc__meta">Linking opens soon — not available yet.</p>
-            <button className="tm-bc__btn tm-bc__btn--ghost" disabled>
-              Connect {LABELS[broker]}
-            </button>
-          </div>
-        ))}
-
-        {!loading && available.length === 0 && comingSoon.length === 0 && (
+        {!loading && brokers.length === 0 && (
           <p className="tm-bc__sub">No brokers are enabled yet.</p>
         )}
       </div>

@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from ..config import get_settings
 from ..brokers.registry import (
     get_connector,
-    configured_brokers,
+    _REGISTRY,
     COMING_SOON_BROKERS,
     UnknownBrokerError,
     BrokerNotConfiguredError,
@@ -59,7 +59,18 @@ class DisconnectBody(BaseModel):
 
 @router.get("/available")
 async def available() -> dict:
-    return {"brokers": configured_brokers(), "coming_soon": COMING_SOON_BROKERS}
+    """All registered brokers (so the portal can list every one), each flagged
+    with whether the operator has set this broker's app credentials (`configured`)
+    and whether the connect flow is still a scaffold (`coming_soon`)."""
+    s = get_settings()
+    brokers = []
+    for key, (attr, _cls) in _REGISTRY.items():
+        brokers.append({
+            "key": key,
+            "configured": bool(getattr(s, attr)),
+            "coming_soon": key in COMING_SOON_BROKERS,
+        })
+    return {"brokers": brokers}
 
 
 @router.post("/connect")
