@@ -31,8 +31,8 @@ from ..brokers.registry import (
     CREDENTIAL_LOGIN_BROKERS,
     UnknownBrokerError,
     BrokerNotConfiguredError,
-    BrokerConnectUnsupportedError,
 )
+from ..brokers.base import BrokerConnectUnsupportedError
 from ..db import connections as db
 
 # ---------------------------------------------------------------------------
