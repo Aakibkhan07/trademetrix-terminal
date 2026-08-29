@@ -1,18 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import {
   getAvailableBrokers,
   getConnections,
   startConnect,
   disconnectBroker,
+  connectWithCredentials,
   type BrokerKey,
   type BrokerConnection,
   type BrokerInfo,
 } from "../lib/brokerApi";
+import { Dialog } from "@/components/ui/dialog";
 import "./BrokerConnect.css";
 
 const LABELS: Record<BrokerKey, string> = {
+  kotak: "Kotak",
   fyers: "Fyers",
   dhan: "Dhan",
   zerodha: "Zerodha",
@@ -22,7 +26,8 @@ const LABELS: Record<BrokerKey, string> = {
   kotakneo: "Kotak Neo",
 };
 
-function fmtExpiry(iso: string): string {
+function fmtExpiry(iso: string | null | undefined): string {
+  if (!iso) return "—";
   const d = new Date(iso);
   return d.toLocaleTimeString("en-IN", {
     hour: "2-digit",
@@ -40,6 +45,54 @@ export default function BrokerConnect() {
   const [busy, setBusy] = useState<BrokerKey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Credential-login dialog state (Kotak Neo: consumer_key + TOTP + MPIN).
+  const [cred, setCred] = useState<{
+    broker: BrokerKey | null;
+    consumer_key: string;
+    mobile_number: string;
+    ucc: string;
+    totp: string;
+    mpin: string;
+    busy: boolean;
+    err: string | null;
+  }>({
+    broker: null,
+    consumer_key: "",
+    mobile_number: "",
+    ucc: "",
+    totp: "",
+    mpin: "",
+    busy: false,
+    err: null,
+  });
+
+  const openCred = (broker: BrokerKey) =>
+    setCred((c) => ({ ...c, broker, err: null }));
+  const closeCred = () =>
+    setCred((c) => ({ ...c, broker: null, busy: false }));
+
+  const submitCred = async () => {
+    if (!cred.broker) return;
+    setCred((c) => ({ ...c, busy: true, err: null }));
+    try {
+      await connectWithCredentials(cred.broker, {
+        consumer_key: cred.consumer_key,
+        mobile_number: cred.mobile_number,
+        ucc: cred.ucc,
+        totp: cred.totp,
+        mpin: cred.mpin,
+      });
+      setCred((c) => ({ ...c, broker: null, busy: false }));
+      await load();
+    } catch (e) {
+      setCred((c) => ({
+        ...c,
+        busy: false,
+        err: e instanceof Error ? e.message : "Connect failed.",
+      }));
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -207,6 +260,30 @@ export default function BrokerConnect() {
           }
 
           // Not linked yet.
+          if (info.credential_login) {
+            return (
+              <div className="tm-bc__card" key={broker}>
+                <div className="tm-bc__card-top">
+                  <span className="tm-bc__broker">{LABELS[broker]}</span>
+                  <span className="tm-bc__pill tm-bc__pill--off">
+                    <span className="tm-bc__dot" />
+                    Not linked
+                  </span>
+                </div>
+                <p className="tm-bc__meta">
+                  Log in with your app credentials (consumer key, TOTP &amp; MPIN)
+                  — no redirect needed.
+                </p>
+                <button
+                  className="tm-bc__btn tm-bc__btn--primary"
+                  onClick={() => openCred(broker)}
+                >
+                  Connect {LABELS[broker]}
+                </button>
+              </div>
+            );
+          }
+
           if (info.configured) {
             return (
               <div className="tm-bc__card" key={broker}>
@@ -260,6 +337,93 @@ export default function BrokerConnect() {
         remind you each morning to reconnect in one tap — it takes a few seconds
         and keeps your automated strategies running.
       </p>
+
+      {cred.broker && (
+        <Dialog onClose={closeCred} title={`Connect your ${LABELS[cred.broker]} account`}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 4 }}>
+            <p style={{ margin: 0, fontSize: 13, opacity: 0.8 }}>
+              Enter the API credentials from your {LABELS[cred.broker]} Trade API
+              app. We store only the resulting daily access token.
+            </p>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+              Consumer Key
+              <input
+                type="text"
+                value={cred.consumer_key}
+                autoComplete="off"
+                onChange={(e) => setCred((c) => ({ ...c, consumer_key: e.target.value }))}
+                style={inputStyle}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+              Mobile Number
+              <input
+                type="text"
+                value={cred.mobile_number}
+                autoComplete="off"
+                onChange={(e) => setCred((c) => ({ ...c, mobile_number: e.target.value }))}
+                style={inputStyle}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+              Client Code (UCC)
+              <input
+                type="text"
+                value={cred.ucc}
+                autoComplete="off"
+                onChange={(e) => setCred((c) => ({ ...c, ucc: e.target.value }))}
+                style={inputStyle}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+              TOTP
+              <input
+                type="text"
+                value={cred.totp}
+                autoComplete="off"
+                onChange={(e) => setCred((c) => ({ ...c, totp: e.target.value }))}
+                style={inputStyle}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+              MPIN
+              <input
+                type="password"
+                value={cred.mpin}
+                autoComplete="off"
+                onChange={(e) => setCred((c) => ({ ...c, mpin: e.target.value }))}
+                style={inputStyle}
+              />
+            </label>
+            {cred.err && (
+              <p style={{ margin: 0, color: "var(--text-red, #ef4444)", fontSize: 13 }}>
+                {cred.err}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+              <button className="tm-bc__btn tm-bc__btn--ghost" onClick={closeCred}>
+                Cancel
+              </button>
+              <button
+                className="tm-bc__btn tm-bc__btn--primary"
+                onClick={submitCred}
+                disabled={cred.busy}
+              >
+                {cred.busy ? "Connecting…" : "Connect"}
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }
+
+const inputStyle: CSSProperties = {
+  background: "var(--surface-2, #11131a)",
+  border: "1px solid var(--border, #2a2d3a)",
+  borderRadius: 8,
+  padding: "8px 10px",
+  color: "inherit",
+  fontSize: 14,
+};

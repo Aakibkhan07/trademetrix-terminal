@@ -25,10 +25,13 @@ from pydantic import BaseModel
 from ..config import get_settings
 from ..brokers.registry import (
     get_connector,
+    get_credential_connector,
     _REGISTRY,
     COMING_SOON_BROKERS,
+    CREDENTIAL_LOGIN_BROKERS,
     UnknownBrokerError,
     BrokerNotConfiguredError,
+    BrokerConnectUnsupportedError,
 )
 from ..db import connections as db
 
@@ -57,6 +60,41 @@ class DisconnectBody(BaseModel):
     broker: str
 
 
+class CredentialConnectBody(BaseModel):
+    broker: str
+    consumer_key: str
+    mobile_number: str
+    ucc: str
+    totp: str
+    mpin: str
+
+
+@router.post("/connect-credentials")
+async def connect_credentials(
+    body: CredentialConnectBody, user_id: str = Depends(get_current_user)
+) -> dict:
+    """Credential-based login (Kotak Neo: consumer_key + TOTP + MPIN). No OAuth redirect."""
+    try:
+        connector = get_credential_connector(body.broker, body.consumer_key)
+    except UnknownBrokerError:
+        raise HTTPException(status_code=400, detail=f"Unsupported broker: {body.broker}")
+    except BrokerConnectUnsupportedError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
+        token = await connector.login({
+            "mobile_number": body.mobile_number,
+            "ucc": body.ucc,
+            "totp": body.totp,
+            "mpin": body.mpin,
+        })
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Broker rejected login: {e}")
+
+    db.upsert_connection(user_id, body.broker, token)
+    return {"ok": True, "broker": body.broker, "broker_user_id": token.broker_user_id}
+
+
 @router.get("/available")
 async def available() -> dict:
     """All registered brokers (so the portal can list every one), each flagged
@@ -69,6 +107,7 @@ async def available() -> dict:
             "key": key,
             "configured": bool(getattr(s, attr)),
             "coming_soon": key in COMING_SOON_BROKERS,
+            "credential_login": key in CREDENTIAL_LOGIN_BROKERS,
         })
     return {"brokers": brokers}
 

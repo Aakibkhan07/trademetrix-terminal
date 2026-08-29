@@ -9,22 +9,36 @@ const ORIGIN = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 const CSRF_URL = `${ORIGIN}/api/v1/auth/csrf`;
 
 export type BrokerKey =
-  | "fyers"
-  | "dhan"
+  | "kotak"
   | "zerodha"
   | "upstox"
   | "angelone"
+  | "fyers"
+  | "dhan"
   | "lemonn"
   | "kotakneo";
 
+export interface BrokerInfo {
+  key: BrokerKey;
+  configured: boolean;
+  coming_soon: boolean;
+  credential_login?: boolean;
+}
+
+export interface KotakNeoCredentials {
+  consumer_key: string;
+  mobile_number: string;
+  ucc: string;
+  totp: string;
+  mpin: string;
+}
+
 export interface BrokerConnection {
-  id: string;
   broker: BrokerKey;
-  broker_user_id: string | null;
-  token_expires_at: string;
-  status: "connected" | "expired" | "revoked" | "error";
-  last_connected_at: string;
+  status: string;
   is_live: boolean;
+  broker_user_id?: string | null;
+  token_expires_at?: string;
 }
 
 // --- CSRF (kept in sync with lib/api.ts) -----------------------------------
@@ -76,12 +90,6 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export interface BrokerInfo {
-  key: BrokerKey;
-  configured: boolean;
-  coming_soon: boolean;
-}
-
 export function getAvailableBrokers() {
   return req<{ brokers: BrokerInfo[] }>("/api/broker/available");
 }
@@ -105,4 +113,17 @@ export function disconnectBroker(broker: BrokerKey) {
     method: "POST",
     body: JSON.stringify({ broker }),
   });
+}
+
+export function connectWithCredentials(
+  broker: BrokerKey,
+  fields: KotakNeoCredentials
+) {
+  return req<{ ok: boolean; broker: string; broker_user_id: string | null }>(
+    "/api/broker/connect-credentials",
+    {
+      method: "POST",
+      body: JSON.stringify({ broker, ...fields }),
+    }
+  );
 }

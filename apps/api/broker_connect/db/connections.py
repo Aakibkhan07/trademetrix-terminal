@@ -67,6 +67,10 @@ def upsert_connection(user_id: str, broker: str, token: BrokerToken) -> dict:
     extra = {"broker_user_id": token.broker_user_id}
     if token.refresh_token:
         extra["refresh_token_enc"] = encrypt(token.refresh_token)
+    if token.extra:
+        # Persist broker-specific extras (e.g. Kotak Neo base_url/sid/consumer_key)
+        # so daily re-auth has what it needs without re-entering everything.
+        extra.update({k: v for k, v in token.extra.items() if v is not None})
 
     row = {
         "user_id": user_id,
@@ -108,6 +112,7 @@ def get_decrypted_token(user_id: str, broker: str) -> dict | None:
         "refresh_token": decrypt(refresh_enc) if refresh_enc else None,
         "broker_user_id": extra.get("broker_user_id"),
         "token_expires_at": r["token_expires_at"],
+        "extra": {k: v for k, v in extra.items() if k not in ("broker_user_id", "refresh_token_enc")},
         # normalise your token_status values to the engine's expected word
         "status": "connected" if r.get("token_status") in ("connected", "active", "valid") else (r.get("token_status") or "unknown"),
     }

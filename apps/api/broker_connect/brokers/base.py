@@ -30,6 +30,7 @@ class BrokerToken:
     refresh_token: str | None
     broker_user_id: str | None
     expires_at: datetime  # tz-aware, UTC
+    extra: dict | None = None  # broker-specific extras (e.g. base_url/sid for Kotak Neo)
 
 
 def default_daily_expiry(hour_ist: int = 6) -> datetime:
@@ -58,6 +59,10 @@ class BrokerConnector(ABC):
     #: matches the `broker_key` enum value in Postgres
     broker_key: str
 
+    #: brokers that authenticate with API credentials (consumer_key + TOTP + MPIN)
+    #: instead of an OAuth redirect. The portal shows a credential-entry form.
+    uses_credential_login: bool = False
+
     @abstractmethod
     async def authorization_url(self, state: str) -> str:
         """Build (and if needed pre-register) the broker login redirect URL."""
@@ -67,3 +72,13 @@ class BrokerConnector(ABC):
     async def exchange(self, params: dict) -> BrokerToken:
         """Exchange the callback params for an access token."""
         raise NotImplementedError
+
+    async def login(self, credentials: dict) -> BrokerToken:
+        """Credential-based login (consumer_key + TOTP + MPIN style).
+
+        Only implemented by connectors whose broker has no OAuth redirect. The
+        default raises so OAuth-only brokers can't be misused here.
+        """
+        raise BrokerConnectUnsupportedError(
+            f"{self.broker_key} does not support credential login."
+        )
