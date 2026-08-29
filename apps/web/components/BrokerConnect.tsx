@@ -46,29 +46,23 @@ export default function BrokerConnect() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Credential-login dialog state (Kotak Neo: consumer_key + TOTP + MPIN).
+  // Credential-login dialog state. Fields are data-driven from /available.
   const [cred, setCred] = useState<{
     broker: BrokerKey | null;
     consumer_key: string;
-    mobile_number: string;
-    ucc: string;
-    totp: string;
-    mpin: string;
+    fields: Record<string, string>;
     busy: boolean;
     err: string | null;
   }>({
     broker: null,
     consumer_key: "",
-    mobile_number: "",
-    ucc: "",
-    totp: "",
-    mpin: "",
+    fields: {},
     busy: false,
     err: null,
   });
 
   const openCred = (broker: BrokerKey) =>
-    setCred((c) => ({ ...c, broker, err: null }));
+    setCred((c) => ({ ...c, broker, fields: {}, err: null }));
   const closeCred = () =>
     setCred((c) => ({ ...c, broker: null, busy: false }));
 
@@ -76,13 +70,7 @@ export default function BrokerConnect() {
     if (!cred.broker) return;
     setCred((c) => ({ ...c, busy: true, err: null }));
     try {
-      await connectWithCredentials(cred.broker, {
-        consumer_key: cred.consumer_key,
-        mobile_number: cred.mobile_number,
-        ucc: cred.ucc,
-        totp: cred.totp,
-        mpin: cred.mpin,
-      });
+      await connectWithCredentials(cred.broker, cred.consumer_key, cred.fields);
       setCred((c) => ({ ...c, broker: null, busy: false }));
       await load();
     } catch (e) {
@@ -271,8 +259,9 @@ export default function BrokerConnect() {
                   </span>
                 </div>
                 <p className="tm-bc__meta">
-                  Log in with your app credentials (consumer key, TOTP &amp; MPIN)
-                  — no redirect needed.
+                  {info.instructions
+                    ? info.instructions.split("\n")[0]
+                    : "Log in with your app credentials — no redirect needed."}
                 </p>
                 <button
                   className="tm-bc__btn tm-bc__btn--primary"
@@ -338,13 +327,21 @@ export default function BrokerConnect() {
         and keeps your automated strategies running.
       </p>
 
-      {cred.broker && (
+      {cred.broker && (() => {
+        const credInfo = brokers.find((b) => b.key === cred.broker);
+        const fields = credInfo?.credential_fields ?? [];
+        return (
         <Dialog onClose={closeCred} title={`Connect your ${LABELS[cred.broker]} account`}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 4 }}>
             <p style={{ margin: 0, fontSize: 13, opacity: 0.8 }}>
               Enter the API credentials from your {LABELS[cred.broker]} Trade API
               app. We store only the resulting daily access token.
             </p>
+            {credInfo?.instructions && (
+              <p style={{ margin: 0, fontSize: 12, opacity: 0.7, whiteSpace: "pre-wrap" }}>
+                {credInfo.instructions}
+              </p>
+            )}
             <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
               Consumer Key
               <input
@@ -355,46 +352,28 @@ export default function BrokerConnect() {
                 style={inputStyle}
               />
             </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-              Mobile Number
-              <input
-                type="text"
-                value={cred.mobile_number}
-                autoComplete="off"
-                onChange={(e) => setCred((c) => ({ ...c, mobile_number: e.target.value }))}
-                style={inputStyle}
-              />
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-              Client Code (UCC)
-              <input
-                type="text"
-                value={cred.ucc}
-                autoComplete="off"
-                onChange={(e) => setCred((c) => ({ ...c, ucc: e.target.value }))}
-                style={inputStyle}
-              />
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-              TOTP
-              <input
-                type="text"
-                value={cred.totp}
-                autoComplete="off"
-                onChange={(e) => setCred((c) => ({ ...c, totp: e.target.value }))}
-                style={inputStyle}
-              />
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-              MPIN
-              <input
-                type="password"
-                value={cred.mpin}
-                autoComplete="off"
-                onChange={(e) => setCred((c) => ({ ...c, mpin: e.target.value }))}
-                style={inputStyle}
-              />
-            </label>
+            {fields.map((f) => (
+              <label
+                key={f.key}
+                style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}
+              >
+                {f.label}
+                {f.required ? " *" : ""}
+                <input
+                  type={f.type === "password" ? "password" : "text"}
+                  value={cred.fields[f.key] ?? ""}
+                  placeholder={f.placeholder ?? ""}
+                  autoComplete="off"
+                  onChange={(e) =>
+                    setCred((c) => ({
+                      ...c,
+                      fields: { ...c.fields, [f.key]: e.target.value },
+                    }))
+                  }
+                  style={inputStyle}
+                />
+              </label>
+            ))}
             {cred.err && (
               <p style={{ margin: 0, color: "var(--text-red, #ef4444)", fontSize: 13 }}>
                 {cred.err}
@@ -414,7 +393,8 @@ export default function BrokerConnect() {
             </div>
           </div>
         </Dialog>
-      )}
+        );
+      })()}
     </div>
   );
 }

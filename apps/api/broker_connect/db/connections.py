@@ -83,6 +83,13 @@ def upsert_connection(user_id: str, broker: str, token: BrokerToken) -> dict:
         "last_token_refresh_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
+    # Persist a broker "api key" (Kotak Neo consumer_key) so client_id stays
+    # populated for the execution engine even though we authenticate with the
+    # trade token + sid rather than an OAuth client secret.
+    if token.extra:
+        api_key = token.extra.get("api_key") or token.extra.get("consumer_key")
+        if api_key:
+            row["encrypted_api_key"] = encrypt(api_key)
     # Requires a unique/constraint on (user_id, broker). If your table allows
     # multiple creds per broker, change on_conflict to your PK or add the
     # constraint. See INTEGRATION.md.

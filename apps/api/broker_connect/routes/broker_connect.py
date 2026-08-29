@@ -32,6 +32,7 @@ from ..brokers.registry import (
     UnknownBrokerError,
     BrokerNotConfiguredError,
 )
+from brokers.registry import BROKER_METADATA
 from ..brokers.base import BrokerConnectUnsupportedError
 from ..db import connections as db
 
@@ -63,10 +64,7 @@ class DisconnectBody(BaseModel):
 class CredentialConnectBody(BaseModel):
     broker: str
     consumer_key: str
-    mobile_number: str
-    ucc: str
-    totp: str
-    mpin: str
+    credentials: dict = {}
 
 
 @router.post("/connect-credentials")
@@ -81,13 +79,10 @@ async def connect_credentials(
     except BrokerConnectUnsupportedError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    creds = dict(body.credentials)
+    creds.setdefault("consumer_key", body.consumer_key)
     try:
-        token = await connector.login({
-            "mobile_number": body.mobile_number,
-            "ucc": body.ucc,
-            "totp": body.totp,
-            "mpin": body.mpin,
-        })
+        token = await connector.login(creds)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Broker rejected login: {e}")
 
@@ -103,12 +98,17 @@ async def available() -> dict:
     s = get_settings()
     brokers = []
     for key, (attr, _cls) in _REGISTRY.items():
-        brokers.append({
+        meta = BROKER_METADATA.get(key, {})
+        entry = {
             "key": key,
             "configured": bool(getattr(s, attr)),
             "coming_soon": key in COMING_SOON_BROKERS,
             "credential_login": key in CREDENTIAL_LOGIN_BROKERS,
-        })
+        }
+        if key in CREDENTIAL_LOGIN_BROKERS:
+            entry["credential_fields"] = meta.get("fields", [])
+            entry["instructions"] = meta.get("instructions", "")
+        brokers.append(entry)
     return {"brokers": brokers}
 
 

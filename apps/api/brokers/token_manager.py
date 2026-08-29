@@ -90,10 +90,19 @@ class TokenManager:
                 if not access_token:
                     raise ValueError("Empty access token returned by broker")
 
+                # Merge the broker-specific additional_params (e.g. Kotak Neo's
+                # base_url / sid / serverId / api_key) into the session so the
+                # adapter receives them when get_session() is the credential source.
+                extra = {
+                    k: v
+                    for k, v in creds.items()
+                    if k not in ("client_id", "secret_key", "access_token", "token_expires_at")
+                }
                 self._session = {
                     "access_token": access_token,
                     "expires_at": expires_at,
                     "client_id": creds.get("client_id", ""),
+                    **extra,
                 }
                 self._session_create_time = time.monotonic()
                 await self.save_access_token(access_token, expires_at)

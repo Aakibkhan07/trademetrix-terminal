@@ -153,15 +153,19 @@ _register_broker_meta("groww", {
 
 _register_broker_meta("kotakneo", {
     "display_name": "Kotak Neo",
-    "auth_type": "api_key_secret",
-    "description": "Connect via Kotak Neo API Key & Secret",
-    "fields": [
-        {"key": "client_id", "label": "Consumer Key", "placeholder": "Kotak Neo Consumer Key", "required": True},
-        {"key": "secret_key", "label": "Consumer Secret", "type": "password", "placeholder": "Kotak Neo Consumer Secret", "required": True},
-    ],
-    "has_additional_params": False,
-    "instructions": "1. Go to developer.kotakneo.com\n2. Create an application\n3. Copy Consumer Key & Secret here\n4. System will obtain access token automatically",
+    "auth_type": "credentials",
+    "description": "Connect via Kotak Neo Trade API (Consumer Key + TOTP + MPIN)",
     "oauth_available": False,
+    "credential_login": True,
+    "fields": [
+        {"key": "consumer_key", "label": "Consumer Key (API access token)", "placeholder": "Neo app → More → Trade API → Generate application", "required": True},
+        {"key": "mobile_number", "label": "Registered Mobile", "placeholder": "+919999999999", "required": True},
+        {"key": "ucc", "label": "UCC (Client Code)", "placeholder": "e.g. AB1234", "required": True},
+        {"key": "totp", "label": "TOTP (6-digit)", "placeholder": "From authenticator app", "required": True},
+        {"key": "mpin", "label": "MPIN", "type": "password", "placeholder": "6-digit trading MPIN", "required": True},
+    ],
+    "has_additional_params": True,
+    "instructions": "1. Neo app → More → Trade API → Generate application → copy Consumer Key\n2. Register TOTP (authenticator app)\n3. Enter Consumer Key + mobile + UCC + current TOTP + MPIN to connect",
 })
 
 _register_broker_meta("lemonn", {

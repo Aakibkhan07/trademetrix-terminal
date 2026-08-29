@@ -23,14 +23,16 @@ export interface BrokerInfo {
   configured: boolean;
   coming_soon: boolean;
   credential_login?: boolean;
+  credential_fields?: CredentialField[];
+  instructions?: string;
 }
 
-export interface KotakNeoCredentials {
-  consumer_key: string;
-  mobile_number: string;
-  ucc: string;
-  totp: string;
-  mpin: string;
+export interface CredentialField {
+  key: string;
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+  type?: string;
 }
 
 export interface BrokerConnection {
@@ -117,13 +119,14 @@ export function disconnectBroker(broker: BrokerKey) {
 
 export function connectWithCredentials(
   broker: BrokerKey,
-  fields: KotakNeoCredentials
+  consumer_key: string,
+  credentials: Record<string, string>
 ) {
   return req<{ ok: boolean; broker: string; broker_user_id: string | null }>(
     "/api/broker/connect-credentials",
     {
       method: "POST",
-      body: JSON.stringify({ broker, ...fields }),
+      body: JSON.stringify({ broker, consumer_key, credentials }),
     }
   );
 }
