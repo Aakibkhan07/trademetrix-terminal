@@ -12,6 +12,7 @@ import { track } from '@/lib/analytics'
 interface Cred { broker: string; is_active: boolean }
 interface UserStrategy { id: string; name: string; type?: string; is_active?: boolean }
 interface AssignedStrategy { strategy_key: string; name: string; description: string; required_tier: string }
+interface BuiltinStrategy { key: string; name: string; description?: string }
 
 const STEPS = ['Broker', 'Strategy', 'Mode', 'Deploy']
 const DEFAULT_SYMBOLS = 'NSE:NIFTY50-INDEX'
@@ -28,6 +29,7 @@ export default function GoLivePage() {
   // step 2
   const [strategies, setStrategies] = useState<UserStrategy[]>([])
   const [assigned, setAssigned] = useState<AssignedStrategy[]>([])
+  const [builtin, setBuiltin] = useState<BuiltinStrategy[]>([])
   const [strategyId, setStrategyId] = useState('')
   // step 3
   const [mode, setMode] = useState<'PAPER' | 'LIVE'>('PAPER')
@@ -50,6 +52,9 @@ export default function GoLivePage() {
     api.strategies.assigned().then((s: unknown) => {
       setAssigned(((s as { strategies?: AssignedStrategy[] }).strategies || []) as AssignedStrategy[])
     }).catch(() => {})
+    api.strategies.listBuiltin().then((s: unknown) => {
+      setBuiltin(((s as { strategies?: BuiltinStrategy[] }).strategies || []) as BuiltinStrategy[])
+    }).catch(() => {})
     api.notifications.telegramStatus().then((s: unknown) => {
       setTgLinked((s as { linked?: boolean }).linked === true)
     }).catch(() => setTgLinked(null))
@@ -62,17 +67,17 @@ export default function GoLivePage() {
     return true
   }
 
-  const createFromCatalog = async (a: AssignedStrategy) => {
+  const createFromCatalog = async (key: string, name: string) => {
     setError(''); setBusy(true)
     try {
       const created = await api.strategies.create({
-        name: a.name || a.strategy_key,
-        type: a.strategy_key,
+        name: name || key,
+        type: key,
         config: {},
       }) as unknown as { id?: string; strategy_id?: string }
       const id = created.id || created.strategy_id
       if (!id) throw new Error('Strategy created but no id returned')
-      setStrategies(prev => [{ id, name: a.name || a.strategy_key, type: a.strategy_key }, ...prev])
+      setStrategies(prev => [{ id, name: name || key, type: key }, ...prev])
       setStrategyId(id)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Could not create strategy')
@@ -175,11 +180,11 @@ export default function GoLivePage() {
         <div className="t-panel" style={{ padding: 18 }}>
           <h3 className="t-panel-title" style={{ marginBottom: 4 }}>Step 2 · Choose your strategy</h3>
           <p className="t-faint" style={{ fontSize: 12, marginBottom: 14 }}>
-            Pick an existing strategy, or create one from your plan&rsquo;s catalog.
+            Pick an existing strategy, create one from your plan&rsquo;s catalog, or start from a built-in strategy below.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {strategies.length === 0 && (
-              <p className="t-faint" style={{ fontSize: 12 }}>No strategies yet — create one below.</p>
+              <p className="t-faint" style={{ fontSize: 12 }}>No strategies yet — pick one below to begin.</p>
             )}
             {strategies.map(s => (
               <button
@@ -201,8 +206,22 @@ export default function GoLivePage() {
               <div className="t-faint" style={{ fontSize: 11, letterSpacing: 1, margin: '4px 0 8px' }}>CREATE FROM CATALOG</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {assigned.map(a => (
-                  <button key={a.strategy_key} className="t-btn t-btn-sm" disabled={busy} onClick={() => createFromCatalog(a)}>
+                  <button key={a.strategy_key} className="t-btn t-btn-sm" disabled={busy} onClick={() => createFromCatalog(a.strategy_key, a.name)}>
                     + {a.name || a.strategy_key}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {builtin.length > 0 && (
+            <>
+              <div className="t-faint" style={{ fontSize: 11, letterSpacing: 1, margin: '16px 0 8px' }}>
+                {assigned.length > 0 ? 'OR START FROM A BUILT-IN STRATEGY' : 'START FROM A BUILT-IN STRATEGY'}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {builtin.map(b => (
+                  <button key={b.key} className="t-btn t-btn-sm" disabled={busy} onClick={() => createFromCatalog(b.key, b.name)}>
+                    + {b.name || b.key}
                   </button>
                 ))}
               </div>
