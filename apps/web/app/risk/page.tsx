@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useToast } from '@/lib/use-toast'
+import { useAuth } from '@/lib/auth-context'
 
 export default function RiskPage() {
   const { toast } = useToast()
+  const { isAdmin } = useAuth()
   const [killSwitch, setKillSwitch] = useState(false)
   const [loading, setLoading] = useState(true)
   const [limits, setLimits] = useState({
@@ -100,27 +102,36 @@ export default function RiskPage() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-              Kill Switch
+              Global Kill Switch
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 2 }}>
               {killSwitch
-                ? 'All trading is halted. No orders can be placed.'
-                : 'Trading is enabled. Kill switch is inactive.'}
+                ? 'All trading is halted platform-wide. No orders can be placed.'
+                : 'Trading is enabled. Global kill switch is inactive.'}
             </div>
           </div>
-          <button
-            onClick={toggleKillSwitch}
-            style={{
-              padding: '8px 20px', borderRadius: 'var(--radius-sm)',
-              border: 'none', cursor: 'pointer',
-              background: killSwitch ? 'var(--red)' : 'var(--green)',
-              color: 'var(--text-inverse)', fontSize: 12, fontWeight: 700,
-              fontFamily: 'var(--font-body)',
-              transition: 'all 150ms ease',
-            }}
-          >
-            {killSwitch ? 'Disable' : 'Enable'}
-          </button>
+          {isAdmin ? (
+            <button
+              onClick={toggleKillSwitch}
+              style={{
+                padding: '8px 20px', borderRadius: 'var(--radius-sm)',
+                border: 'none', cursor: 'pointer',
+                background: killSwitch ? 'var(--red)' : 'var(--green)',
+                color: 'var(--text-inverse)', fontSize: 12, fontWeight: 700,
+                fontFamily: 'var(--font-body)',
+                transition: 'all 150ms ease',
+              }}
+            >
+              {killSwitch ? 'Disable' : 'Enable'}
+            </button>
+          ) : (
+            <span style={{
+              fontSize: 11, color: 'var(--text-faint)', fontStyle: 'italic',
+              padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+            }}>
+              Admin only
+            </span>
+          )}
         </div>
 
         {killSwitch && (
