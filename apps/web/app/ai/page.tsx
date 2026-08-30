@@ -18,6 +18,22 @@ const QUICK_ACTIONS = [
   { label: 'Check Risk', prompt: 'Review my risk settings and suggest improvements' },
 ]
 
+function ExplainPanel({ onAsk }: { onAsk: (q: string) => void }) {
+  const [runId, setRunId] = useState('')
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <input className="t-input" placeholder="run_id e.g. a1b2c3d4..." value={runId} onChange={e => setRunId(e.target.value)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+        <button className="t-btn t-btn-sm" disabled={!runId.trim()} onClick={() => onAsk(`Is backtest run ${runId.trim()} overfitted? Check win_rate, profit_factor, Sharpe in-sample vs walk-forward and tell me verdict`)}>Overfitted?</button>
+        <button className="t-btn t-btn-sm" disabled={!runId.trim()} onClick={() => onAsk(`Explain walk-forward for run ${runId.trim()} — what happened in each fold, train vs test?`)}>Walk-forward</button>
+        <button className="t-btn t-btn-sm" disabled={!runId.trim()} onClick={() => onAsk(`Why did run ${runId.trim()} lose? Analyze max_drawdown, losing streak, hour/weekday heatmap`)}>Why Loss?</button>
+        <button className="t-btn t-btn-sm t-btn-primary" disabled={!runId.trim()} onClick={() => onAsk(`Give me institutional verdict for run ${runId.trim()} — profitable? consistent? PASS/CAUTION/FAIL with Sharpe/Sortino/Calmar`)}>Verdict</button>
+      </div>
+      <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Tip: copy run_id from Backtest → Overview header</div>
+    </div>
+  )
+}
+
 function StrategyCard({ strategy, onDeploy }: { strategy: any; onDeploy: () => void }) {
   return (
     <div style={{
@@ -277,6 +293,14 @@ export default function AIPage() {
             </div>
           </div>
 
+          <div className="t-panel" style={{ padding: 12, borderLeft: '2px solid var(--amber)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--amber)' }} /> Explainable Backtest
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 8 }}>Paste a backtest <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>run_id</span> — AI checks overfitting, walk-forward & why it lost</div>
+            <ExplainPanel onAsk={(q) => handleSend(q)} />
+          </div>
+
           <div className="t-panel" style={{ padding: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Examples</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11, color: 'var(--text-sub)' }}>
@@ -284,9 +308,9 @@ export default function AIPage() {
                 'Analyze NIFTY for today',
                 'Why was my order rejected?',
                 'Build me a trend following strategy',
-                'Suggest strategy for ₹50,000 capital',
+                'Is my backtest overfitted? run_id=...',
+                'Walk-forward me kya hua?',
                 'How much risk am I taking?',
-                'Explain put option in Hinglish',
               ].map((ex, i) => (
                 <button
                   key={i}
