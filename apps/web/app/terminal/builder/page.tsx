@@ -501,15 +501,15 @@ function LegCard({
    ═══════════════════════════════════════ */
 
 function PayoffPreview({
-  legs, spotPrice, indexSymbol, isSimulated,
+  legs, spotPrice, indexSymbol, isSimulated, chain,
 }: {
-  legs: StrategyLeg[]; spotPrice: number | null; indexSymbol: string; isSimulated?: boolean
+  legs: StrategyLeg[]; spotPrice: number | null; indexSymbol: string; isSimulated?: boolean; chain?: OptionChain | null
 }) {
   if (!spotPrice) {
     return (
       <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
-        <p style={{ fontSize: 11, color: 'var(--text-faint)' }}>Preview unavailable</p>
-        <p style={{ fontSize: 10, color: 'var(--text-sub)', marginTop: 4 }}>Market data not available for {indexSymbol}</p>
+        <p style={{ fontSize: 11, color: 'var(--text-faint)' }}>Payoff Lab — Preview unavailable</p>
+        <p style={{ fontSize: 10, color: 'var(--text-sub)', marginTop: 4 }}>Market data not available for {indexSymbol} — add legs to see institutional payoff</p>
       </div>
     )
   }
@@ -518,24 +518,34 @@ function PayoffPreview({
     return null
   }
 
+  const getPremium = (leg: StrategyLeg) => {
+    if (!chain || leg.segment !== 'options' || !leg.option_type) return 0
+    const atmStrike = Math.round(spotPrice / 50) * 50
+    const targetStrike = leg.strike_criteria === 'atm_offset' ? atmStrike + leg.strike_value * 50 : atmStrike
+    const hit = chain.strikes.find(s => s.strike === targetStrike)
+    if (!hit) return 0
+    return leg.option_type === 'CE' ? (hit.CE.ltp || 0) : (hit.PE.ltp || 0)
+  }
+
   const strikeRange = 0.15
   const minPrice = Math.round(spotPrice * (1 - strikeRange))
   const maxPrice = Math.round(spotPrice * (1 + strikeRange))
-  const step = Math.max(1, Math.round((maxPrice - minPrice) / 60))
+  const step = Math.max(1, Math.round((maxPrice - minPrice) / 80))
+  const prices: number[] = []
   const points: number[] = []
 
   for (let p = minPrice; p <= maxPrice; p += step) {
+    prices.push(p)
     let total = 0
     for (const leg of legs) {
+      const premium = getPremium(leg)
       if (leg.segment === 'futures') {
-        const multiplier = leg.position === 'buy' ? 1 : -1
-        total += multiplier * (p - spotPrice) * leg.lots
+        const m = leg.position === 'buy' ? 1 : -1
+        total += m * (p - spotPrice) * leg.lots * 50
       } else if (leg.option_type) {
-        const intrinsic = leg.option_type === 'CE'
-          ? Math.max(0, p - spotPrice)
-          : Math.max(0, spotPrice - p)
-        const multiplier = leg.position === 'buy' ? 1 : -1
-        total += multiplier * intrinsic * leg.lots
+        const intrinsic = leg.option_type === 'CE' ? Math.max(0, p - spotPrice) : Math.max(0, spotPrice - p)
+        const m = leg.position === 'buy' ? 1 : -1
+        total += m * (intrinsic - premium) * leg.lots * 50
       }
     }
     points.push(total)
@@ -544,9 +554,9 @@ function PayoffPreview({
   const maxP = Math.max(...points, 1)
   const minP = Math.min(...points, -1)
   const range = maxP - minP || 1
-  const width = 340
-  const height = 140
-  const pad = { top: 16, right: 12, bottom: 20, left: 44 }
+  const width = 360
+  const height = 160
+  const pad = { top: 16, right: 12, bottom: 22, left: 50 }
   const chartW = width - pad.left - pad.right
   const chartH = height - pad.top - pad.bottom
 
@@ -554,53 +564,82 @@ function PayoffPreview({
   const yPos = (v: number) => pad.top + chartH - ((v - minP) / range) * chartH
 
   const d = points.map((v, i) => `${i === 0 ? 'M' : 'L'}${xPos(i)},${yPos(v)}`).join(' ')
-
   const yTicks = 5
   const yStep = range / yTicks
   const zeroY = yPos(0)
 
+  const breakevens: number[] = []
+  for (let i = 1; i < points.length; i++) {
+    if ((points[i-1] < 0 && points[i] >= 0) || (points[i-1] >= 0 && points[i] < 0)) {
+      const t = Math.abs(points[i-1]) / (Math.abs(points[i-1]) + Math.abs(points[i]))
+      breakevens.push(Math.round(prices[i-1] + t * (prices[i] - prices[i-1])))
+    }
+  }
+  const maxProfit = Math.max(...points)
+  const maxLoss = Math.min(...points)
+
   return (
     <div className="t-panel" style={{ position: 'relative' }}>
-      <div className="t-panel-header" style={{ padding: '6px 10px', minHeight: 28 }}>
-        <span className="t-panel-title" style={{ fontSize: 12 }}>Payoff Preview</span>
-        {isSimulated && (
-          <span className="t-badge t-badge-amber" style={{ fontSize: 9 }}>SIMULATED DATA</span>
-        )}
+      <div className="t-panel-header" style={{ padding: '8px 12px', minHeight: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span className="t-panel-title" style={{ fontSize: 11, letterSpacing: '0.08em' }}>PAYOFF LAB — EXPIRY</span>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', background: 'rgba(34,211,238,.08)', border: '1px solid rgba(34,211,238,.15)', padding: '2px 6px', borderRadius: 4 }}>Spot {fmtNum(spotPrice)}</span>
+          {isSimulated && <span className="t-badge t-badge-amber" style={{ fontSize: 8 }}>SIMULATED</span>}
+        </div>
       </div>
-      <div className="t-panel-body" style={{ padding: '4px', overflow: 'hidden' }}>
-        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', maxHeight: 160, display: 'block' }}>
-          {/* Gridlines and Y labels */}
+      <div className="t-panel-body" style={{ padding: 0, overflow: 'hidden' }}>
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', maxHeight: 180, display: 'block' }}>
           {Array.from({ length: yTicks + 1 }).map((_, i) => {
             const val = minP + i * yStep
             const y = yPos(val)
             return (
               <g key={i}>
-                <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="var(--border)" strokeWidth={0.5} />
-                <text x={pad.left - 4} y={y + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8}
-                  fontFamily="var(--font-mono)">
-                  {fmtNum(val)}
-                </text>
+                <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="var(--border)" strokeWidth={0.5} opacity={0.6} />
+                <text x={pad.left - 6} y={y + 3} textAnchor="end" fill="var(--text-faint)" fontSize={7} fontFamily="var(--font-mono)">{val >= 0 ? '+' : ''}{fmtNum(val)}</text>
               </g>
             )
           })}
-          {/* Zero line */}
-          <line x1={pad.left} y1={zeroY} x2={width - pad.right} y2={zeroY} stroke="var(--text-sub)" strokeWidth={0.5} strokeDasharray="3 3" />
-          {/* Payoff line */}
-          <path d={d} fill="none" stroke="var(--violet)" strokeWidth={1.5} />
-          {/* Fill area */}
-          <path d={`${d} L${xPos(points.length - 1)},${zeroY} L${xPos(0)},${zeroY} Z`}
-            fill="url(#payoffGradient)" opacity={0.15} />
+          <line x1={pad.left} y1={zeroY} x2={width - pad.right} y2={zeroY} stroke="var(--text-sub)" strokeWidth={0.7} strokeDasharray="4 3" />
+          <text x={width - pad.right + 2} y={zeroY + 3} fill="var(--text-faint)" fontSize={7} fontFamily="var(--font-mono)">0</text>
+          <path d={d} fill="none" stroke="var(--violet)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <path d={`${d} L${xPos(points.length - 1)},${zeroY} L${xPos(0)},${zeroY} Z`} fill="url(#payoffGradient2)" opacity={0.18} />
           <defs>
-            <linearGradient id="payoffGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--violet)" stopOpacity={0.4} />
+            <linearGradient id="payoffGradient2" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--violet)" stopOpacity={0.45} />
               <stop offset="100%" stopColor="var(--violet)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          {/* Spot marker */}
-          <line x1={xPos(Math.round((spotPrice - minPrice) / step))} y1={pad.top}
-            x2={xPos(Math.round((spotPrice - minPrice) / step))} y2={height - pad.bottom}
-            stroke="var(--cyan)" strokeWidth={0.5} strokeDasharray="2 2" opacity={0.5} />
+          {breakevens.map(be => {
+            const idx = prices.findIndex(p => p >= be)
+            if (idx < 0) return null
+            return <g key={be}><line x1={xPos(idx)} y1={pad.top} x2={xPos(idx)} y2={height - pad.bottom} stroke="var(--amber)" strokeWidth={0.7} strokeDasharray="3 3" /><circle cx={xPos(idx)} cy={zeroY} r={2.5} fill="var(--amber)" /><text x={xPos(idx)} y={height - 6} textAnchor="middle" fill="var(--amber)" fontSize={7} fontFamily="var(--font-mono)" fontWeight={700}>BE {be}</text></g>
+          })}
+          <line x1={xPos(Math.round((spotPrice - minPrice) / step))} y1={pad.top} x2={xPos(Math.round((spotPrice - minPrice) / step))} y2={height - pad.bottom} stroke="var(--cyan)" strokeWidth={1} strokeDasharray="2 3" opacity={0.7} />
+          <text x={xPos(Math.round((spotPrice - minPrice) / step))} y={pad.top - 2} textAnchor="middle" fill="var(--cyan)" fontSize={7} fontFamily="var(--font-mono)" fontWeight={700}>SPOT</text>
         </svg>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderTop: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+        <div style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid var(--border)' }}>
+          <div style={{ color: 'var(--text-faint)', fontSize: 8, letterSpacing: '0.08em' }}>MAX PROFIT</div>
+          <div style={{ color: 'var(--green)', fontWeight: 700, marginTop: 2 }}>+₹{fmtNum(maxProfit)}</div>
+        </div>
+        <div style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid var(--border)' }}>
+          <div style={{ color: 'var(--text-faint)', fontSize: 8, letterSpacing: '0.08em' }}>MAX LOSS</div>
+          <div style={{ color: 'var(--red)', fontWeight: 700, marginTop: 2 }}>₹{fmtNum(maxLoss)}</div>
+        </div>
+        <div style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid var(--border)' }}>
+          <div style={{ color: 'var(--text-faint)', fontSize: 8, letterSpacing: '0.08em' }}>BREAKEVEN</div>
+          <div style={{ color: 'var(--amber)', fontWeight: 700, marginTop: 2 }}>{breakevens.length ? breakevens.join(', ') : '—'}</div>
+        </div>
+        <div style={{ padding: '8px 10px', textAlign: 'center' }}>
+          <div style={{ color: 'var(--text-faint)', fontSize: 8, letterSpacing: '0.08em' }}>R:R</div>
+          <div style={{ color: 'var(--text)', fontWeight: 700, marginTop: 2 }}>{Math.abs(maxLoss) > 0 ? (maxProfit / Math.abs(maxLoss)).toFixed(2) : '∞'}</div>
+        </div>
+      </div>
+      <div style={{ padding: '6px 10px', fontSize: 9, color: 'var(--text-faint)', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <span>{legs.length} leg{legs.length !== 1 ? 's' : ''} · {indexSymbol} · Lot 50</span>
+        <span>·</span>
+        <span>Premium from chain LTP when available, else intrinsic</span>
       </div>
     </div>
   )
@@ -1247,6 +1286,7 @@ export default function BuilderPage() {
             spotPrice={optionChain?.spot_price ?? null}
             indexSymbol={form.index_symbol}
             isSimulated={optionChain?.is_simulated}
+            chain={optionChain}
           />
 
           {/* Margin Estimate */}
