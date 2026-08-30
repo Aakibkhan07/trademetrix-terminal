@@ -212,18 +212,54 @@ export default function BrokersPage() {
     )
   }
 
+  const stats = {
+    connected: credentials.length,
+    available: availableBrokers.filter(b => !connectedBrokers.includes(b)).length,
+    activeTokens: credentials.filter(c => c.token_expires_at && new Date(c.token_expires_at).getTime() > Date.now()).length,
+  }
   return (
     <div>
-      <div className="t-row" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 600, margin: 0, color: 'var(--text)' }}>Brokers</h1>
-          <p className="t-faint" style={{ margin: '2px 0 0' }}>
-            Connect and manage your broker accounts
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--text)', letterSpacing: '-0.02em' }}>Brokers</h1>
+          <p className="t-faint" style={{ margin: '4px 0 0', fontSize: 12 }}>
+            Institutional connectivity — <span style={{ color: 'var(--text)', fontWeight: 600 }}>{stats.connected} connected</span> · {stats.available} available · {stats.activeTokens} tokens live
           </p>
         </div>
-        <button className="t-btn t-btn-primary" onClick={() => openAdd()}>
+        <button className="t-btn t-btn-primary" onClick={() => openAdd()} style={{ height: 34, padding: '0 16px', fontSize: 12 }}>
           + Connect Broker
         </button>
+      </div>
+
+      <div className="t-grid-3" style={{ marginBottom: 20 }}>
+        <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(52,211,153,.12)', border: '1px solid rgba(52,211,153,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.7"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Connected</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{stats.connected}</div>
+          </div>
+          <span className="t-dot t-dot-green t-dot-pulse" style={{ marginLeft: 'auto' }} />
+        </div>
+        <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(139,92,246,.12)', border: '1px solid rgba(139,92,246,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" strokeWidth="1.7"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Available</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{stats.available}</div>
+          </div>
+        </div>
+        <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: stats.activeTokens ? 'rgba(34,211,238,.12)' : 'rgba(248,113,113,.12)', border: `1px solid ${stats.activeTokens ? 'rgba(34,211,238,.2)' : 'rgba(248,113,113,.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={stats.activeTokens ? 'var(--cyan)' : 'var(--red)'} strokeWidth="1.7"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Live Tokens</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: stats.activeTokens ? 'var(--cyan)' : 'var(--red)' }}>{stats.activeTokens}</div>
+          </div>
+        </div>
       </div>
 
       {msg && (

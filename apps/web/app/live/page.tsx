@@ -92,10 +92,20 @@ export default function LivePage() {
       </header>
 
       <div style={{ flex: 1, maxWidth: 1480, width: '100%', margin: '0 auto', padding: '16px 24px 40px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div>
-          <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Live</h1>
-          <div className="t-faint" style={{ fontSize: 12, marginTop: 2 }}>
-            Institutional cockpit — positions, orders, signals and risk in one view.
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: conn.sseConnected ? 'var(--green)' : 'var(--amber)', boxShadow: conn.sseConnected ? '0 0 8px var(--green)' : 'none', display: 'inline-block' }} />
+              Live
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', padding: '2px 6px', borderRadius: 4, background: conn.isMarketOpen ? 'rgba(52,211,153,.12)' : 'rgba(251,191,36,.12)', border: `1px solid ${conn.isMarketOpen ? 'rgba(52,211,153,.2)' : 'rgba(251,191,36,.2)'}`, color: conn.isMarketOpen ? 'var(--green)' : 'var(--amber)' }}>{conn.isMarketOpen ? 'MARKET OPEN' : 'MARKET CLOSED'}</span>
+            </h1>
+            <div className="t-faint" style={{ fontSize: 12, marginTop: 4 }}>
+              Institutional cockpit — positions, orders, signals and risk in one view · <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} IST</span>
+            </div>
+          </div>
+          <div className="t-faint" style={{ fontSize: 11, display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span className={`t-dot ${conn.sseConnected ? 't-dot-green t-dot-pulse' : 't-dot-amber'}`} /> Stream {conn.sseConnected ? 'live' : 'reconnecting'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span className={`t-dot ${!conn.isOffline ? 't-dot-green' : 't-dot-red'}`} /> {conn.isOffline ? 'offline' : 'online'}</span>
           </div>
         </div>
 
