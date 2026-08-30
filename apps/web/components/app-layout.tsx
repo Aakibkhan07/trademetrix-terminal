@@ -175,7 +175,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem('sidebar-collapsed')
-    if (stored === 'true') setCollapsed(true)
+    if (stored === 'true') localStorage.setItem('sidebar-collapsed', 'false')
+    setCollapsed(false)
   }, [])
 
   useEffect(() => {
@@ -346,7 +347,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
           {sections.map((section) => (
             <div key={section.label}>
-              {!collapsed && (
+              {(!collapsed || mobileOpen) && (
                 <div style={{ padding: '8px 12px 2px' }}>
                   <div style={{
                     fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
@@ -362,18 +363,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                      href={item.href}
                      aria-current={active ? 'page' : undefined}
                      onClick={() => setMobileOpen(false)}
-                     style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      padding: collapsed ? '8px' : '6px 12px',
-                      margin: collapsed ? '2px 6px' : '0 6px',
-                      borderRadius: 'var(--radius-sm)',
-                      color: active ? 'var(--cyan)' : 'var(--text-sub)',
-                      fontSize: active ? 12 : 11, fontWeight: 700,
-                      textDecoration: 'none',
-                      background: active ? 'var(--bg-active)' : 'transparent',
-                      transition: 'all 150ms ease',
-                      justifyContent: collapsed ? 'center' : 'flex-start',
-                    }}
+                      style={{
+                       display: 'flex', alignItems: 'center', gap: 8,
+                       padding: collapsed && !mobileOpen ? '8px' : '6px 12px',
+                       margin: collapsed && !mobileOpen ? '2px 6px' : '0 6px',
+                       borderRadius: 'var(--radius-sm)',
+                       color: active ? 'var(--cyan)' : 'var(--text-sub)',
+                       fontSize: active ? 12 : 11, fontWeight: 700,
+                       textDecoration: 'none',
+                       background: active ? 'var(--bg-active)' : 'transparent',
+                       transition: 'all 150ms ease',
+                       justifyContent: collapsed && !mobileOpen ? 'center' : 'flex-start',
+                     }}
                     onMouseEnter={e => {
                       if (!active) { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-hover)' }
                     }}
@@ -385,7 +386,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
                       flexShrink: 0, opacity: active ? 1 : 0.6,
                     }}>{(item as any).icon ? <span style={{ fontSize: 14 }}>{(item as any).icon}</span> : <NavIcon href={item.href} active={active} />}</span>
-                    {!collapsed && (
+                    {(!collapsed || mobileOpen) && (
                       <span style={{
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>{item.label}</span>
@@ -399,25 +400,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Footer */}
         <div style={{
-          padding: collapsed ? 4 : 8, borderTop: '1px solid var(--border)',
+          padding: collapsed && !mobileOpen ? 4 : 8, borderTop: '1px solid var(--border)',
         }}>
           <button
             onClick={signout}
             aria-label="Sign out"
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: collapsed ? '8px' : '6px 8px',
+              padding: collapsed && !mobileOpen ? '8px' : '6px 8px',
               width: '100%', borderRadius: 'var(--radius-sm)',
               border: 'none', background: 'none', color: 'var(--text-sub)',
               fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 700,
               cursor: 'pointer', transition: 'all 150ms ease',
-              justifyContent: collapsed ? 'center' : 'flex-start',
+              justifyContent: collapsed && !mobileOpen ? 'center' : 'flex-start',
             }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-sub)'; e.currentTarget.style.background = 'none' }}
           >
             <span style={{ fontSize: 14, opacity: 0.5 }}>⏻</span>
-            {!collapsed && <span>Sign Out</span>}
+            {(!collapsed || mobileOpen) && <span>Sign Out</span>}
           </button>
         </div>
       </nav>
