@@ -113,7 +113,7 @@ class TestProductionRegistry:
         by_name = {m["broker"]: m for m in meta}
         assert by_name["fyers"]["display_name"] == "Fyers"
         assert by_name["angelone"]["auth_type"] == "credentials"
-        assert by_name["kotakneo"]["auth_type"] == "api_key_secret"
+        assert by_name["kotakneo"]["auth_type"] == "credentials"
         single = get_broker_metadata("dhan")
         assert single["broker"] == "dhan"
         assert single["oauth_available"] is True

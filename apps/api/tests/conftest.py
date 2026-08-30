@@ -58,6 +58,8 @@ def _apply_test_mocks():
                 email=test_email,
                 full_name="Test User",
                 subscription_tier="enterprise",
+                role="super_admin",
+                is_admin=True,
             )
         from fastapi import HTTPException, status
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
@@ -129,6 +131,24 @@ def _apply_test_mocks():
     import risk.helpers as risk_helpers
     patch.object(risk_rules, "async_safe_execute", mock_execute).start()
     patch.object(risk_helpers, "async_safe_execute", mock_execute).start()
+
+    # ── Mock global kill-switch cache (admin_service uses core.cache) ──
+    import core.cache as cache_module
+
+    _kill_switch_store: dict[str, str] = {}
+
+    async def _mock_cache_get(key: str, default=None):
+        return _kill_switch_store.get(key, default)
+
+    async def _mock_cache_set(key: str, value: str, ttl=None, *args, **kwargs):
+        _kill_switch_store[key] = value
+
+    async def _mock_cache_delete(key: str, *args, **kwargs):
+        _kill_switch_store.pop(key, None)
+
+    patch.object(cache_module.cache, "get", _mock_cache_get).start()
+    patch.object(cache_module.cache, "set", _mock_cache_set).start()
+    patch.object(cache_module.cache, "delete", _mock_cache_delete).start()
 
     # ── Patch strategies Supabase ──
     import application.services.strategy_catalog_service as strat_svc
