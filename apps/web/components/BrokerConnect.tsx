@@ -12,6 +12,7 @@ import {
   type BrokerConnection,
   type BrokerInfo,
 } from "../lib/brokerApi";
+import { api } from "@/lib/api";
 import { Dialog } from "@/components/ui/dialog";
 import "./BrokerConnect.css";
 
@@ -70,7 +71,27 @@ export default function BrokerConnect() {
     if (!cred.broker) return;
     setCred((c) => ({ ...c, busy: true, err: null }));
     try {
-      await connectWithCredentials(cred.broker, cred.consumer_key, cred.fields);
+      const broker = cred.broker as string;
+      const isKotakNeo = broker === 'kotakneo';
+      if (isKotakNeo) {
+        await connectWithCredentials(cred.broker, cred.consumer_key, cred.fields);
+      } else {
+        const fields = cred.fields as Record<string, string>;
+        const mapping: Record<string, { api_key?: string; secret_key?: string; client_id?: string; client_code?: string; additional_params?: Record<string,string> }> = {};
+        const get = (k: string) => fields[k] || '';
+        let payload: any = { broker };
+        if (broker === 'angelone') {
+          payload = { broker, client_code: get('client_code'), secret_key: get('secret_key'), api_key: get('api_key'), additional_params: { totp_secret: get('totp_secret') } };
+        } else if (broker === 'fyers' || broker === 'zerodha' || broker === 'dhan' || broker === 'upstox') {
+          payload = { broker, client_id: get('client_id') || cred.consumer_key, api_key: get('api_key') || cred.consumer_key, secret_key: get('secret_key'), additional_params: {} };
+          if (get('totp_secret')) payload.additional_params.totp_secret = get('totp_secret');
+        } else if (broker === 'lemonn') {
+          payload = { broker, client_code: get('client_code'), secret_key: get('secret_key'), additional_params: {} };
+        } else {
+          payload = { broker, client_code: get('client_code') || get('client_id'), secret_key: get('secret_key'), api_key: get('api_key') || cred.consumer_key, additional_params: fields };
+        }
+        await (api.brokers as any).saveCredentials(payload);
+      }
       setCred((c) => ({ ...c, broker: null, busy: false }));
       await load();
     } catch (e) {
@@ -178,21 +199,27 @@ export default function BrokerConnect() {
           const st = stateOf(broker);
           const isBusy = busy === broker;
 
-          // Scaffold brokers not yet wired to a real OAuth flow.
           if (info.coming_soon) {
+            const isLemonn = broker === 'lemonn';
             return (
-              <div className="tm-bc__card tm-bc__card--soon" key={broker}>
+              <div className={`tm-bc__card ${isLemonn ? '' : 'tm-bc__card--soon'}`} key={broker}>
                 <div className="tm-bc__card-top">
                   <span className="tm-bc__broker">{LABELS[broker]}</span>
-                  <span className="tm-bc__pill tm-bc__pill--soon">
+                  <span className={`tm-bc__pill ${isLemonn ? 'tm-bc__pill--off' : 'tm-bc__pill--soon'}`}>
                     <span className="tm-bc__dot" />
-                    Coming soon
+                    {isLemonn ? 'Pre-connect' : 'Coming soon'}
                   </span>
                 </div>
-                <p className="tm-bc__meta">Linking opens soon — not available yet.</p>
-                <button className="tm-bc__btn tm-bc__btn--ghost" disabled>
-                  Connect {LABELS[broker]}
-                </button>
+                <p className="tm-bc__meta">{isLemonn ? 'Save credentials now — auto-activates when API launches.' : 'Linking opens soon — not available yet.'}</p>
+                {isLemonn ? (
+                  <button className="tm-bc__btn tm-bc__btn--primary" onClick={() => openCred(broker)}>
+                    Connect {LABELS[broker]}
+                  </button>
+                ) : (
+                  <button className="tm-bc__btn tm-bc__btn--ghost" disabled>
+                    Connect {LABELS[broker]}
+                  </button>
+                )}
               </div>
             );
           }
@@ -295,21 +322,17 @@ export default function BrokerConnect() {
             );
           }
 
-          // Registered but operator hasn't set this broker's app credentials yet.
           return (
             <div className="tm-bc__card" key={broker}>
               <div className="tm-bc__card-top">
                 <span className="tm-bc__broker">{LABELS[broker]}</span>
-                <span className="tm-bc__pill tm-bc__pill--soon">
+                <span className="tm-bc__pill tm-bc__pill--off">
                   <span className="tm-bc__dot" />
-                  Needs credentials
+                  Not linked
                 </span>
               </div>
-              <p className="tm-bc__meta">
-                Add this broker&apos;s app credentials to the server env, then
-                restart to enable linking.
-              </p>
-              <button className="tm-bc__btn tm-bc__btn--ghost" disabled>
+              <p className="tm-bc__meta">Fill your API credentials — auto-sync after save.</p>
+              <button className="tm-bc__btn tm-bc__btn--primary" onClick={() => openCred(broker)}>
                 Connect {LABELS[broker]}
               </button>
             </div>
@@ -329,7 +352,19 @@ export default function BrokerConnect() {
 
       {cred.broker && (() => {
         const credInfo = brokers.find((b) => b.key === cred.broker);
-        const fields = credInfo?.credential_fields ?? [];
+        let fields = credInfo?.credential_fields ?? [];
+        if (fields.length === 0) {
+          const fallbacks: Record<string, typeof fields> = {
+            fyers: [{ key: 'client_id', label: 'App ID', placeholder: 'Fyers App ID', required: true }, { key: 'secret_key', label: 'App Secret', type: 'password', placeholder: 'Fyers App Secret', required: true }],
+            zerodha: [{ key: 'client_id', label: 'API Key', placeholder: 'Kite API Key', required: true }, { key: 'secret_key', label: 'API Secret', type: 'password', placeholder: 'Kite API Secret', required: true }],
+            dhan: [{ key: 'client_id', label: 'Client ID', placeholder: 'Dhan Client ID', required: true }, { key: 'secret_key', label: 'Client Secret', type: 'password', placeholder: 'Dhan Client Secret', required: true }],
+            upstox: [{ key: 'client_id', label: 'API Key', placeholder: 'Upstox API Key', required: true }, { key: 'secret_key', label: 'API Secret', type: 'password', placeholder: 'Upstox API Secret', required: true }],
+            angelone: [{ key: 'client_code', label: 'Client Code', placeholder: 'Angel Client Code', required: true }, { key: 'secret_key', label: 'Password', type: 'password', placeholder: 'Trading Password', required: true }, { key: 'api_key', label: 'App Key', placeholder: 'Angel App API Key', required: true }, { key: 'totp_secret', label: 'TOTP Secret', placeholder: 'Base32 (optional)', required: false }],
+            lemonn: [{ key: 'client_code', label: 'Client ID', placeholder: 'Lemonn Client ID', required: true }, { key: 'secret_key', label: 'Password', type: 'password', placeholder: 'Lemonn Password', required: true }],
+          };
+          fields = fallbacks[cred.broker] ?? [];
+        }
+        const showConsumerKey = cred.broker === 'kotakneo';
         return (
         <Dialog onClose={closeCred} title={`Connect your ${LABELS[cred.broker]} account`}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 4 }}>
@@ -342,6 +377,7 @@ export default function BrokerConnect() {
                 {credInfo.instructions}
               </p>
             )}
+            {showConsumerKey && (
             <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
               Consumer Key
               <input
@@ -352,6 +388,7 @@ export default function BrokerConnect() {
                 style={inputStyle}
               />
             </label>
+            )}
             {fields.map((f) => (
               <label
                 key={f.key}
