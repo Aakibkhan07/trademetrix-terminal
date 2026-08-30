@@ -29,6 +29,7 @@ function NavIcon({ href, active }: { href: string; active?: boolean }) {
   if (href === '/marketdata') return <svg {...common}><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5"/></svg>
   if (href === '/terminal') return <svg {...common}><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
   if (href === '/alerts') return <svg {...common}><path d="M6 8a6 6 0 0 1 12 0c0 7-6 11-6 11S6 15 6 8z"/><path d="M10 21h4"/></svg>
+  if (href === '/reports/daily') return <svg {...common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M10 13H8"/><path d="M16 13h-2"/><path d="M10 17H8"/><path d="M16 17h-2"/></svg>
   if (href === '/risk') return <svg {...common}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
   if (href === '/settings') return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/></svg>
   if (href === '/help') return <svg {...common}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
@@ -69,6 +70,7 @@ const USER_SECTIONS = [
   {
     label: 'Manage',
     items: [
+      { href: '/reports/daily', label: 'Daily Report' },
       { href: '/alerts', label: 'Alerts' },
       { href: '/risk', label: 'Risk Control' },
       { href: '/settings', label: 'Settings' },
