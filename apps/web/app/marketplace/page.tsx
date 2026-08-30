@@ -70,16 +70,53 @@ export default function MarketplacePage() {
     }
   }
 
+  const stats = {
+    total: strategies.length,
+    avgWin: strategies.length ? (strategies.reduce((a, s) => a + s.win_rate, 0) / strategies.length).toFixed(1) : '—',
+    profitable: strategies.filter(s => s.total_pnl > 0).length,
+    free: strategies.filter(s => s.required_tier === 'free').length,
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Page Header */}
-      <div>
-        <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>
-          Strategy Marketplace
-        </h1>
-        <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
-          Discover, compare, and deploy trading strategies
-        </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, margin: 0, color: 'var(--text)', letterSpacing: '-0.02em' }}>Strategy Marketplace</h1>
+          <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '4px 0 0' }}>
+            Institutional strategies — <span style={{ color: 'var(--text)', fontWeight: 600 }}>{stats.total} listed</span> · avg <span style={{ color: 'var(--green)', fontWeight: 600 }}>{stats.avgWin}% win</span> · {stats.profitable} profitable
+          </p>
+        </div>
+        <Link href="/strategies/builder" className="t-btn t-btn-primary" style={{ textDecoration: 'none', height: 34, padding: '0 16px', fontSize: 12 }}>+ Sell Your Strategy</Link>
+      </div>
+
+      <div className="t-grid-3" style={{ marginBottom: 4 }}>
+        <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(139,92,246,.12)', border: '1px solid rgba(139,92,246,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" strokeWidth="1.7"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Listed</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{stats.total}</div>
+          </div>
+        </div>
+        <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(52,211,153,.12)', border: '1px solid rgba(52,211,153,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.7"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Avg Win Rate</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--green)' }}>{stats.avgWin}%</div>
+          </div>
+        </div>
+        <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(34,211,238,.12)', border: '1px solid rgba(34,211,238,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="1.7"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Profitable</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--cyan)' }}>{stats.profitable}/{stats.total}</div>
+          </div>
+        </div>
       </div>
 
       {/* Search + Filter */}
