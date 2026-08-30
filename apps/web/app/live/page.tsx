@@ -111,7 +111,7 @@ export default function LivePage() {
 
         <MarketOverview market={conn.market} marketLoading={conn.marketLoading} isOffline={conn.isOffline} />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 320px', gap: 10, alignItems: 'start' }}>
+        <div className="t-live-grid" style={{ display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 320px', gap: 10, alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
             <div className="t-seg" style={{ gap: 0 }}>
               {(['positions', 'orders', 'portfolio'] as PrimaryTab[]).map(t => (

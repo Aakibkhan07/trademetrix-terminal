@@ -259,7 +259,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div style={{
-      display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden',
+      display: 'flex', height: '100dvh', width: '100%', overflow: 'hidden',
       background: 'var(--bg)',
     }}>
       <a href="#main-content" style={{
@@ -808,8 +808,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             top: 0;
             bottom: 0;
             left: 0;
-            width: 264px !important;
-            z-index: 60;
+            width: min(264px, 85vw) !important;
+            z-index: 61 !important;
             transform: translateX(-100%);
             transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
@@ -817,18 +817,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           .tm-sidebar.tm-open {
             transform: translateX(0);
           }
+          .tm-topbar { z-index: 50 !important; }
           .tm-collapse-btn {
             display: none !important;
           }
           .tm-hamburger {
             display: flex !important;
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
           }
           .tm-topbar {
             padding: 0 8px !important;
             gap: 6px !important;
           }
           .tm-search-btn {
-            width: 34px !important;
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
             padding: 0 !important;
             justify-content: center !important;
           }
@@ -844,6 +852,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           .tm-ai-btn > span:last-child {
             display: none !important;
           }
+          .tm-ai-btn, .tm-topbar button { min-height: 44px !important; }
           .tm-profile-email {
             display: none !important;
           }

@@ -330,7 +330,7 @@ export default function TradePage() {
       )}
 
       {!chainLoading && !chainError && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 12, alignItems: 'start' }}>
+        <div className="t-trade-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 12, alignItems: 'start' }}>
           <div>
             <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
               {!liveSource && chain.optionChain.length > 0 && (
@@ -359,7 +359,7 @@ export default function TradePage() {
             <FillsTicker load={loadFills} />
           </div>
 
-          <div style={{ position: 'sticky', top: 12 }}>
+          <div className="t-trade-order-card" style={{ position: 'sticky', top: 12 }}>
             <OrderCard
               form={form}
               onChange={p => setForm(f => ({ ...f, ...p }))}

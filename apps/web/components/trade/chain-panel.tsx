@@ -99,7 +99,7 @@ export function ChainPanel({ rows, metrics, spot, selectedStrike, selectedSide, 
                         type="button"
                         data-kb={`ce-${r.strike}`}
                         className={`t-btn t-btn-sm ${selectedStrike === r.strike && selectedSide === 'CE' ? 't-btn-primary' : 't-btn-ghost'}`}
-                        style={{ flex: 0, padding: '2px 6px', fontSize: 10, minWidth: 0 }}
+                        style={{ flex: 0, minWidth: 0 }}
                         onClick={e => { e.stopPropagation(); onSelectSide(r.strike, 'CE') }}
                       >
                         {r.call.ltp > 0 ? r.call.ltp.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : '—'}
@@ -120,7 +120,7 @@ export function ChainPanel({ rows, metrics, spot, selectedStrike, selectedSide, 
                         type="button"
                         data-kb={`pe-${r.strike}`}
                         className={`t-btn t-btn-sm ${selectedStrike === r.strike && selectedSide === 'PE' ? 't-btn-danger' : 't-btn-ghost'}`}
-                        style={{ padding: '2px 6px', fontSize: 10, minWidth: 0 }}
+                        style={{ minWidth: 0 }}
                         onClick={e => { e.stopPropagation(); onSelectSide(r.strike, 'PE') }}
                       >
                         {advanced && <span className="t-faint" style={{ fontSize: 8, marginRight: 3 }}>{r.put.iv > 0 ? r.put.iv.toFixed(0) + '%' : ''}</span>}

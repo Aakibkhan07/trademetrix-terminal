@@ -1377,3 +1377,39 @@
   font-size: 14px;
   font-weight: 700;
 }
+
+@media (pointer: coarse) {
+  .t-btn, .t-btn-primary, .t-btn-sub, .t-btn-ghost { min-height: 44px; padding: 10px 14px; font-size: 12px; }
+  .t-btn-sm { min-height: 36px; height: auto; padding: 8px 14px; font-size: 11px; }
+  .t-btn-xs { min-height: 32px; height: auto; padding: 8px 10px; font-size: 10px; }
+  .t-btn-icon { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+  .t-chip { min-height: 32px; padding: 8px 12px; font-size: 11px; }
+  .t-stepper-btn { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+  .t-input, .t-select, .input, .select { min-height: 44px; height: 44px; font-size: 16px; padding: 10px 12px; }
+  .t-kill { min-height: 36px; height: auto; padding: 8px 12px; }
+}
+
+.t-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 640px) {
+  .t-content { padding: 12px !important; }
+  .t-panel-body { padding: 12px !important; }
+  .t-grid-2, .t-grid-3, .t-grid-4 { grid-template-columns: 1fr !important; }
+  .t-row { flex-direction: column !important; }
+  .t-stat { padding: 12px 14px !important; }
+  .t-stat-value { font-size: 20px !important; }
+  .t-modal { width: min(92vw, 480px) !important; max-height: 85dvh !important; overflow-y: auto; }
+  .t-table-wrap { margin: 0 -12px; padding: 0 12px 10px; }
+  .t-table { font-size: 11px !important; }
+  .t-table th, .t-table td { padding: 8px 8px !important; }
+}
+
+@media (max-width: 860px) {
+  .t-live-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+  .t-trade-grid { grid-template-columns: 1fr !important; }
+  .t-trade-order-card { position: static !important; top: auto !important; }
+}

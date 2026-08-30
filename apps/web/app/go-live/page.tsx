@@ -305,7 +305,8 @@ export default function GoLivePage() {
       {step === 3 && !runId && (
         <div className="t-panel" style={{ padding: 18, marginTop: 14 }}>
           <h3 className="t-panel-title" style={{ marginBottom: 10 }}>Review</h3>
-          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', minWidth: 280 }}>
             <tbody>
               {[
                 ['Broker', broker],
@@ -321,6 +322,7 @@ export default function GoLivePage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

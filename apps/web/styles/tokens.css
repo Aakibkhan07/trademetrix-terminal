@@ -110,8 +110,9 @@ html, body {
   font-size: var(--text-base);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow-x: clip;
   height: 100%;
+  max-width: 100%;
 }
 
 body::before {

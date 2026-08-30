@@ -21,11 +21,18 @@ const dmSans = DM_Sans({
   variable: '--font-body',
 })
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover' as const,
+  themeColor: '#050508',
+}
+
 export const metadata: Metadata = {
   title: { default: 'TradeMetrix Terminal', template: '%s | TradeMetrix' },
   description: 'Multi-broker algorithmic trading platform with AI-powered strategies, real-time market data, and automated execution.',
   manifest: '/manifest.json',
-  themeColor: '#050508',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'TradeMetrix' },
   icons: {
     icon: '/favicon.svg',

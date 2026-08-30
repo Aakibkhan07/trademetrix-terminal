@@ -228,7 +228,7 @@ export default function RiskPage() {
               <button className="t-btn t-btn-primary" onClick={handleSaveLimits}>Save Limits</button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            <div className="t-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               <div style={{
                 padding: 12, background: 'var(--bg-tertiary)',
                 borderRadius: 'var(--radius-sm)',

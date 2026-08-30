@@ -16,8 +16,8 @@ export default function LandingPage() {
       display: 'flex', flexDirection: 'column',
     }}>
       <header style={{
-        height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 24px', borderBottom: '1px solid color-mix(in srgb, var(--violet) 15%, transparent)',
+        minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '8px 16px', borderBottom: '1px solid color-mix(in srgb, var(--violet) 15%, transparent)', flexWrap: 'wrap', gap: 8,
       }}>
         <Link href="/" style={{
           display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none',
@@ -54,7 +54,7 @@ export default function LandingPage() {
         </nav>
       </header>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 24px', textAlign: 'center' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 16px', textAlign: 'center' }} className="t-landing-main">
         <div style={{ maxWidth: 720 }}>
           <div style={{
             display: 'inline-block', padding: '4px 12px', borderRadius: 20, fontSize: 10,
@@ -64,7 +64,7 @@ export default function LandingPage() {
           }}>Multi-Broker Algorithmic Trading Platform</div>
 
           <h1 style={{
-            fontSize: 44, fontWeight: 700, lineHeight: 1.15, margin: '0 0 16px',
+            fontSize: 'clamp(28px, 8vw, 44px)', fontWeight: 700, lineHeight: 1.15, margin: '0 0 16px',
             fontFamily: 'var(--font-display)', color: 'var(--text-inverse)',
           }}>
             Trade across{' '}
@@ -109,8 +109,8 @@ export default function LandingPage() {
         </div>
 
         <div style={{
-          marginTop: 48, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 16, width: '100%', maxWidth: 800,
+          marginTop: 32, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: 12, width: '100%', maxWidth: 800,
         }}>
           {[
             { title: '10+ Brokers', desc: 'Fyers, Zerodha, Angel One, Dhan, Upstox, 5Paisa & more', icon: (
