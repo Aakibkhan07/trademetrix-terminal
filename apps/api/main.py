@@ -61,6 +61,7 @@ from routes.v1_notifications import router as notifications_router
 from routes.v1_strategy_runtime import router as strategy_runtime_router
 from broker_connect.routes.broker_connect import router as broker_connect_router
 from broker_connect.execution.routes import router as exec_router
+from routes.v1_reports import router as reports_router
 
 logger = logging.getLogger(__name__)
 
@@ -398,6 +399,7 @@ app.include_router(broker_webhook_router, prefix="/api/v1")
 # Broker self-serve connect + mirror/Live fan-out engine (namespaced package)
 app.include_router(broker_connect_router)   # /api/broker/*  (self-serve OAuth)
 app.include_router(exec_router)             # /api/exec/*   (admin-only fan-out)
+app.include_router(reports_router, prefix="/api/v1")  # /api/v1/reports/* (daily institutional)
 
 _prewarm_lazy_routes(app)
 
