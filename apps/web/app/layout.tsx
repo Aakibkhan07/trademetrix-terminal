@@ -7,6 +7,7 @@ import ClarityScript from '@/components/clarity'
 import AnalyticsTracker from '@/components/analytics-tracker'
 import FeedbackButtonWrapper from '@/components/feedback-wrapper'
 import QuickOrderDrawer from '@/components/quick-order-drawer'
+import PwaRegister from '@/components/pwa-register'
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -23,9 +24,13 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: { default: 'TradeMetrix Terminal', template: '%s | TradeMetrix' },
   description: 'Multi-broker algorithmic trading platform with AI-powered strategies, real-time market data, and automated execution.',
+  manifest: '/manifest.json',
+  themeColor: '#050508',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'TradeMetrix' },
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
+    apple: '/logo.jpg',
   },
   openGraph: {
     title: 'TradeMetrix Terminal',
@@ -54,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AppLayout>{children}</AppLayout>
           <FeedbackButtonWrapper />
           <QuickOrderDrawer />
+          <PwaRegister />
         </Providers>
       </body>
     </html>

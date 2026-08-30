@@ -1,0 +1,13 @@
+{
+  "name": "TradeMetrix Terminal",
+  "short_name": "TradeMetrix",
+  "description": "Multi-broker algorithmic trading — live, backtest, deploy",
+  "start_url": "/live",
+  "display": "standalone",
+  "background_color": "#050508",
+  "theme_color": "#8b5cf6",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/logo.jpg", "sizes": "192x192", "type": "image/jpeg" }
+  ]
+}
