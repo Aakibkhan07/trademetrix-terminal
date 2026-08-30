@@ -72,11 +72,12 @@ export default function GoLivePage() {
     try {
       const created = await api.strategies.create({
         name: name || key,
-        type: key,
-        config: {},
-      }) as unknown as { id?: string; strategy_id?: string }
+        type: 'builtin',
+        config: { type: key },
+      }) as unknown as { id?: string; strategy_id?: string; error?: string }
+      if (created.error) throw new Error(created.error)
       const id = created.id || created.strategy_id
-      if (!id) throw new Error('Strategy created but no id returned')
+      if (!id) throw new Error('Strategy created but no id returned — please retry or check strategy catalog access')
       setStrategies(prev => [{ id, name: name || key, type: key }, ...prev])
       setStrategyId(id)
     } catch (e: unknown) {

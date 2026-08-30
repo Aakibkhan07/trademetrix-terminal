@@ -167,15 +167,26 @@ class StrategyCatalogService:
 
     async def create_strategy(self, user_id: str, req: dict) -> dict:
         from strategies import list_strategies
-        if req.get("type") == "builtin" and req.get("config", {}).get("type") not in list_strategies():
+        allowed_types = {"builtin", "custom_python", "visual", "visual_builder"}
+        req_type = req.get("type", "builtin")
+        req_config = dict(req.get("config") or {})
+        if req_type == "builtin" and req_config.get("type") not in list_strategies():
             raise ValueError("Unknown builtin strategy type")
+        # Back-compat: frontend once sent type=strategy_key (e.g. "trend_rider") which violates
+        # the strategies_type_check CHECK. Coerce it to builtin and preserve key in config.type
+        if req_type not in allowed_types:
+            if req_type in list_strategies():
+                req_config = {"type": req_type, **req_config}
+                req_type = "builtin"
+            else:
+                raise ValueError(f"Invalid strategy type '{req_type}'")
 
         supabase = get_supabase()
         data = {
             "user_id": user_id,
             "name": req["name"],
-            "type": req.get("type", "builtin"),
-            "config": req.get("config", {}),
+            "type": req_type,
+            "config": req_config,
         }
         result = await async_safe_execute(supabase.table("strategies").insert(data))
 
@@ -186,8 +197,9 @@ class StrategyCatalogService:
                 resource="strategies",
                 resource_id=result[0]["id"],
             ))
+            return result[0]
 
-        return result[0] if result else {"error": "Failed to create strategy"}
+        raise ValueError("Failed to create strategy — database insert returned no id (check RLS / type constraint)")
 
     async def update_strategy(self, strategy_id: str, user_id: str, updates: dict) -> None:
         if not updates:

@@ -147,7 +147,7 @@ export default function StrategiesPage() {
     setCreating(true)
     setCreateError('')
     try {
-      await api.strategies.create({ name, type: strategyType, config: { symbol } })
+      await api.strategies.create({ name, type: 'builtin', config: { type: strategyType, symbol } })
       setShowCreate(false)
       setName('')
       load()
