@@ -59,11 +59,44 @@ export default function HelpPage() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 800 }}>
-      <div className="t-page-header">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 860 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h1 className="t-page-title">Help Center</h1>
-          <p className="t-page-subtitle">Documentation, tutorials, and support</p>
+          <h1 className="t-page-title" style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>Help Center — Platform Kaise Use Karein</h1>
+          <p className="t-page-subtitle" style={{ marginTop: 4 }}>7 steps me start — broker se live tak, Hinglish me</p>
+        </div>
+        <button className="t-btn" onClick={() => window.print()}>Print Guide</button>
+      </div>
+
+      {/* QUICK START GUIDE — in-app, no GitHub */}
+      <div className="t-panel" style={{ borderLeft: '3px solid var(--cyan)' }}>
+        <div className="t-panel-header" style={{ padding: '12px 16px' }}>
+          <h3 className="t-panel-title" style={{ fontSize: 13, letterSpacing: '0.08em' }}>QUICK START — 7 STEPS</h3>
+          <span className="t-badge t-badge-cyan" style={{ fontSize: 9 }}>2 MIN ME START</span>
+        </div>
+        <div className="t-panel-body" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, fontSize: 12, lineHeight: 1.65, color: 'var(--text-sub)' }}>
+          {[
+            { n: '1', t: 'Account Banao (30 sec)', d: 'ai.trademetrix.tech/auth → Sign Up → email/password → verify → auto /live pe pahunch jaoge. Problem ho toh isi page pe Feedback bhejo.' },
+            { n: '2', t: 'Broker Connect (2 min) — sabse zaroori', d: 'Fyers/Zerodha/Dhan/Upstox: /brokers → Connect → apna API Key/Secret dalo → Allow karo → Active + Token valid dikhega. Angel/Kotak: Client Code + Password + API Key + TOTP Secret dalo → Active. Token roz expire hota hai (SEBI) — subah Re-auth dabao, Telegram pe T-60min alert aayega. Aapka Secret encrypted vault me save hota hai, .env me nahi.' },
+            { n: '3', t: 'Paper Trading se Start (Risk 0)', d: '/live ya /paper pe NIFTY/BANKNIFTY → Quick Trade → Buy 1 lot → Paper mode me FILLED dikhega, real paisa nahi katega. /positions pe Paper P&L live dekho.' },
+            { n: '4', t: 'Strategy Banao', d: '/strategies/builder → + New Strategy → NIFTY + Weekly + 09:15-15:15 → Legs jodo (Buy CE + Sell PE) → right me Payoff Lab me MAX PROFIT/Breakeven dekho → Save → Activity me Paper deploy.' },
+            { n: '5', t: 'Backtest — Kaunsi Profitable Hai?', d: '/backtest → NIFTY 365d 1d → Leaderboard → Rank All 10 Now → net P&L se sort, #1 👑 sabse profitable. Builder wali bhi same engine se chalti hai, Deploy to Paper 1 click.' },
+            { n: '6', t: 'Live Pe Jao (Ready Ho Toh)', d: 'Paper pe 1 week test ke baad /go-live → LIVE toggle → Confirm + daily loss limit → /live cockpit pe Market OPEN + Stream live. Risk pe Kill Switch hamesha ready.' },
+            { n: '7', t: 'Daily Report + Mobile', d: '/reports/daily → aaj ka P&L/Win/Trades → Print/PDF. Roz 18:00 IST pe Email+Telegram auto (keys already VPS me hain). Phone pe Add to Home Screen karo — PWA app ban jayega.' },
+          ].map(s => (
+            <div key={s.n} style={{ display: 'flex', gap: 12, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'color-mix(in srgb, var(--panel) 96%, transparent)' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gradient-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{s.n}</div>
+              <div>
+                <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 12 }}>{s.t}</div>
+                <div style={{ marginTop: 2 }}>{s.d}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+            <a href="/brokers" className="t-btn t-btn-primary" style={{ textDecoration: 'none', fontSize: 11 }}>Go to Brokers →</a>
+            <a href="/strategies/builder" className="t-btn" style={{ textDecoration: 'none', fontSize: 11 }}>Build Strategy →</a>
+            <a href="/reports/daily" className="t-btn" style={{ textDecoration: 'none', fontSize: 11 }}>Daily Report →</a>
+          </div>
         </div>
       </div>
 
