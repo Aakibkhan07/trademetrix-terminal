@@ -752,7 +752,7 @@ function BacktestContent() {
   const [result, setResult] = useState<BTResult | null>(null)
   const [error, setError] = useState('')
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'optimizer' | 'compare' | 'trades' | 'risk' | 'report'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'leaderboard' | 'optimizer' | 'compare' | 'trades' | 'risk' | 'report'>('overview')
 
   const [optMethod, setOptMethod] = useState('grid')
   const [optMetric, setOptMetric] = useState('sharpe_ratio')
@@ -765,6 +765,10 @@ function BacktestContent() {
   const [compareRunning, setCompareRunning] = useState(false)
   const [comparison, setComparison] = useState<Record<string, Record<string, unknown>> | null>(null)
   const [compareError, setCompareError] = useState('')
+
+  const [leaderboard, setLeaderboard] = useState<{ id: string; name: string; summary: BTResult['summary']; run_id: string }[] | null>(null)
+  const [leaderboardRunning, setLeaderboardRunning] = useState(false)
+  const [leaderboardError, setLeaderboardError] = useState('')
 
   const [sharing, setSharing] = useState(false)
   const [shareLink, setShareLink] = useState('')
@@ -880,6 +884,25 @@ function BacktestContent() {
       setCompareError(err instanceof Error ? err.message : 'Compare failed')
     } finally { setCompareRunning(false) }
   }, [compareIdsText])
+
+  const handleLeaderboard = useCallback(async () => {
+    setLeaderboardRunning(true); setLeaderboardError(''); setLeaderboard(null)
+    try {
+      const runs: { id: string; name: string; summary: BTResult['summary']; run_id: string }[] = []
+      for (const b of BUILTIN_STRATEGIES) {
+        try {
+          const data = await api.backtest.run({ strategy_type: b.id, symbol, interval, days, initial_capital: capital, config: {}, slippage_pct: slippage }) as BTResult
+          runs.push({ id: b.id, name: b.name, summary: data.summary, run_id: data.run_id })
+        } catch (e) {
+          runs.push({ id: b.id, name: b.name, summary: { total_trades: 0, winning_trades: 0, losing_trades: 0, win_rate: 0, net_pnl: 0, profit_factor: 0, max_drawdown_pct: 0, sharpe_ratio: 0, sortino_ratio: 0, calmar_ratio: 0, return_pct: 0, expectancy: 0, expectancy_per_r: 0, avg_risk_reward_ratio: 0, median_risk_reward_ratio: 0, alpha: 0, beta: 0, benchmark_return_pct: 0, excess_return_pct: 0, candles_analyzed: 0, start_equity: 0, end_equity: 0 } as any, run_id: '' })
+        }
+      }
+      runs.sort((a, b) => (b.summary.net_pnl ?? 0) - (a.summary.net_pnl ?? 0))
+      setLeaderboard(runs)
+    } catch (err: unknown) {
+      setLeaderboardError(err instanceof Error ? err.message : 'Leaderboard failed')
+    } finally { setLeaderboardRunning(false) }
+  }, [symbol, interval, days, capital, slippage])
 
   const handleExport = useCallback(async (format: 'json' | 'csv' | 'pdf') => {
     if (!result) return
@@ -1132,7 +1155,7 @@ function BacktestContent() {
 
   const selectedBuilderName = builderStrategies.find(b => b.id === strategy)?.name || strategy
 
-  const tabs = ['overview', 'optimizer', 'compare', 'trades', ...(risk?.enabled ? (['risk'] as const) : []), 'report'] as Array<'overview' | 'optimizer' | 'compare' | 'trades' | 'risk' | 'report'>
+  const tabs = ['overview', 'leaderboard', 'optimizer', 'compare', 'trades', ...(risk?.enabled ? (['risk'] as const) : []), 'report'] as Array<'overview' | 'leaderboard' | 'optimizer' | 'compare' | 'trades' | 'risk' | 'report'>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1236,6 +1259,7 @@ function BacktestContent() {
             {tabs.map(tab => (
               <button key={tab} className={`t-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
                 {tab === 'overview' ? 'Overview'
+                  : tab === 'leaderboard' ? 'Leaderboard'
                   : tab === 'optimizer' ? 'Optimizer'
                   : tab === 'compare' ? 'Compare Runs'
                   : tab === 'report' ? 'Report'
@@ -1321,6 +1345,65 @@ function BacktestContent() {
                 )}
               </div>
             </>
+          )}
+
+          {activeTab === 'leaderboard' && (
+            <div className="t-panel" style={{ padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Strategy Leaderboard — Profit Ranked</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>Runs each built-in strategy on <strong>{symbol} {interval} · {days}d · ₹{capital.toLocaleString('en-IN')}</strong> with real costs (slippage {slippage}%) and ranks by <strong>net P&L after costs</strong>. Builder DSL strategies appear here once you run them — same engine, same risk, deployable to paper/live.</div>
+                </div>
+                <button className="t-btn t-btn-primary" onClick={handleLeaderboard} disabled={leaderboardRunning}>
+                  {leaderboardRunning ? 'Ranking…' : 'Rank All 10 Now'}
+                </button>
+              </div>
+              {leaderboardError && <div style={{ color: 'var(--text-red)', fontSize: 11, marginTop: 8 }}>{leaderboardError}</div>}
+              {leaderboard && (
+                <div style={{ marginTop: 12, overflowX: 'auto' }}>
+                  <table className="t-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Strategy</th>
+                        <th className="num">Net P&L</th>
+                        <th className="num">Return %</th>
+                        <th className="num">Trades</th>
+                        <th className="num">Win %</th>
+                        <th className="num">PF</th>
+                        <th className="num">Sharpe</th>
+                        <th className="num">Max DD %</th>
+                        <th>Verdict</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leaderboard.map((r, idx) => {
+                        const prof = r.summary.net_pnl > 0
+                        const top = idx === 0 && prof
+                        return (
+                          <tr key={r.id} style={top ? { background: 'color-mix(in srgb, var(--green) 6%, transparent)' } : {}}>
+                            <td className="t-faint" style={{ fontWeight: 700 }}>{idx + 1}{top ? ' 👑' : ''}</td>
+                            <td style={{ fontWeight: 700 }}>{r.name}<span style={{ color: 'var(--text-faint)', fontSize: 10, marginLeft: 6, fontFamily: 'var(--font-mono)' }}>{r.id}</span></td>
+                            <td className={`t-num ${prof ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>{fmtMoney(r.summary.net_pnl)}</td>
+                            <td className="t-num" style={{ color: r.summary.return_pct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>{r.summary.return_pct >= 0 ? '+' : ''}{fmt(r.summary.return_pct)}%</td>
+                            <td className="t-num">{r.summary.total_trades}</td>
+                            <td className="t-num">{fmt(r.summary.win_rate, 1)}%</td>
+                            <td className="t-num">{fmt(r.summary.profit_factor)}</td>
+                            <td className="t-num" style={{ color: r.summary.sharpe_ratio >= 1 ? 'var(--text-green)' : 'var(--amber)' }}>{fmt(r.summary.sharpe_ratio)}</td>
+                            <td className="t-num t-down">-{fmt(r.summary.max_drawdown_pct)}%</td>
+                            <td><span className={`t-badge ${prof ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 9 }}>{prof ? 'PROFITABLE' : 'LOSS'}</span></td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 8 }}>Builder strategies bhi yahi engine se chalte hain — `/strategies/builder` me banao, backtest karo, fir **Deploy to Paper** se live. Real costs, real candles, same RiskEngine.</div>
+                </div>
+              )}
+              {!leaderboard && !leaderboardRunning && (
+                <div style={{ marginTop: 12, padding: 16, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8, color: 'var(--text-faint)', fontSize: 11 }}>Hit “Rank All 10 Now” to see kaunsi strategy sabse profitable hai — sorted by net P&L after all charges.</div>
+              )}
+            </div>
           )}
 
           {activeTab === 'optimizer' && (
