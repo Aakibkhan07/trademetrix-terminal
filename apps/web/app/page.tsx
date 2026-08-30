@@ -96,14 +96,35 @@ export default function LandingPage() {
         </div>
 
         <div style={{
-          marginTop: 80, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 640,
+        }}>
+          {['FYERS','ZERODHA','ANGEL ONE','DHAN','UPSTOX','KOTAK NEO'].map(b => (
+            <span key={b} style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '5px 10px', borderRadius: 20,
+              border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text-faint)',
+              fontFamily: 'var(--font-mono)',
+            }}>{b}</span>
+          ))}
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '5px 10px', borderRadius: 20, background: 'rgba(52,211,153,.1)', border: '1px solid rgba(52,211,153,.2)', color: 'var(--green)' }}>+ 4 MORE</span>
+        </div>
+
+        <div style={{
+          marginTop: 48, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: 16, width: '100%', maxWidth: 800,
         }}>
           {[
-            { emoji: 'B', title: '10+ Brokers', desc: 'Fyers, Zerodha, Angel One, Dhan, Upstox, 5Paisa & more' },
-            { emoji: 'S', title: '8 Strategies', desc: 'Trend Rider, MACD Cross, VWAP Band, ORB Pro & more' },
-            { emoji: 'A', title: 'AI Trading Desk', desc: 'Gemini-powered analysis and trade suggestions' },
-            { emoji: 'R', title: 'Risk Controls', desc: 'Kill switch, daily loss limits, drawdown protection' },
+            { title: '10+ Brokers', desc: 'Fyers, Zerodha, Angel One, Dhan, Upstox, 5Paisa & more', icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/><path d="M12 11v4"/><path d="M9 15h6"/></svg>
+            )},
+            { title: '8 Strategies', desc: 'Trend Rider, MACD Cross, VWAP Band, ORB Pro & more', icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+            )},
+            { title: 'AI Trading Desk', desc: 'Gemini-powered analysis and trade suggestions', icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 2l2.4 7.2H22l-6.2 4.5 2.4 7.2L12 16.4 5.8 20.9 8.2 13.7 2 9.2h7.6z"/></svg>
+            )},
+            { title: 'Risk Controls', desc: 'Kill switch, daily loss limits, drawdown protection', icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            )},
           ].map(c => (
             <div key={c.title} style={{
               padding: '20px', borderRadius: 10, textAlign: 'left',
@@ -112,13 +133,21 @@ export default function LandingPage() {
             }}>
               <div style={{
                 width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: 13, fontWeight: 700, marginBottom: 10,
-                background: 'var(--gradient-primary)', color: 'var(--text-inverse)',
-              }}>{c.emoji}</div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px', color: 'var(--text-inverse)' }}>{c.title}</h3>
+                justifyContent: 'center', marginBottom: 10,
+                background: 'var(--gradient-primary)', color: '#fff',
+              }}>{c.icon}</div>
+              <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px', color: 'var(--text)' }}>{c.title}</h3>
               <p style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-faint)', margin: 0 }}>{c.desc}</p>
             </div>
           ))}
+        </div>
+
+        <div style={{ marginTop: 32, display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+          <span style={{ color: 'var(--text-faint)' }}><span style={{ color: 'var(--text)', fontWeight: 700 }}>1060+</span> tests passing</span>
+          <span style={{ color: 'var(--border)' }}>|</span>
+          <span style={{ color: 'var(--text-faint)' }}><span style={{ color: 'var(--green)', fontWeight: 700 }}>● LIVE</span> paper & live execution</span>
+          <span style={{ color: 'var(--border)' }}>|</span>
+          <span style={{ color: 'var(--text-faint)' }}><span style={{ color: 'var(--text)', fontWeight: 700 }}>5 yrs</span> backtest</span>
         </div>
 
         <div style={{

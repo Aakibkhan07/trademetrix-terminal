@@ -12,49 +12,74 @@ import StatusBar from '@/components/status-bar'
 import MarketTicker from '@/components/market-ticker'
 import BrokerStatusWidget from '@/components/BrokerStatusWidget'
 
+function NavIcon({ href, active }: { href: string; active?: boolean }) {
+  const s = active ? 'var(--cyan)' : 'currentColor'
+  const common = { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: s, strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  if (href === '/live') return <svg {...common}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+  if (href === '/go-live') return <svg {...common}><path d="M12 2l3 7h7l-5.5 4 2 7L12 16 5.5 20l2-7L2 9h7z"/><path d="M12 16v4"/></svg>
+  if (href === '/trade') return <svg {...common}><path d="M9 5h6"/><path d="M9 12h6"/><path d="M9 19h6"/><path d="M5 5h.01"/><path d="M5 12h.01"/><path d="M5 19h.01"/></svg>
+  if (href === '/positions') return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/></svg>
+  if (href === '/portfolio') return <svg {...common}><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg>
+  if (href === '/funds') return <svg {...common}><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 10h.01"/><path d="M2 10h20"/></svg>
+  if (href === '/paper') return <svg {...common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>
+  if (href === '/portal/brokers') return <svg {...common}><path d="M3 21h18"/><path d="M5 21V7l8-4 8 4v14"/><path d="M9 21v-6h6v6"/></svg>
+  if (href === '/strategies/builder') return <svg {...common}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M14 6h3"/><path d="M6 14v3"/></svg>
+  if (href === '/backtest') return <svg {...common}><path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M15 3h4a2 2 0 0 1 2 2v4"/><path d="M9 21H5a2 2 0 0 1-2-2v-4"/><path d="M15 21h4a2 2 0 0 1 2-2v-4"/><path d="M9 9h6v6H9z"/></svg>
+  if (href === '/analytics') return <svg {...common}><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+  if (href === '/marketdata') return <svg {...common}><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5"/></svg>
+  if (href === '/terminal') return <svg {...common}><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+  if (href === '/alerts') return <svg {...common}><path d="M6 8a6 6 0 0 1 12 0c0 7-6 11-6 11S6 15 6 8z"/><path d="M10 21h4"/></svg>
+  if (href === '/risk') return <svg {...common}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  if (href === '/settings') return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/></svg>
+  if (href === '/help') return <svg {...common}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+  if (href === '/ai') return <svg {...common}><path d="M12 2l2.4 7.2H22l-6.2 4.5 2.4 7.2L12 16.4 5.8 20.9 8.2 13.7 2 9.2h7.6z"/></svg>
+  if (href === '/strategies') return <svg {...common}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+  return <svg {...common}><circle cx="12" cy="12" r="2"/></svg>
+}
+
 const USER_SECTIONS = [
   {
     label: 'Home',
     items: [
-      { href: '/live', label: 'Live Dashboard', icon: '📊' },
-      { href: '/go-live', label: 'Go Live', icon: '🚀' },
+      { href: '/live', label: 'Live Dashboard' },
+      { href: '/go-live', label: 'Go Live' },
     ],
   },
   {
     label: 'Trade',
     items: [
-      { href: '/trade', label: 'Orders', icon: '📋' },
-      { href: '/positions', label: 'Positions', icon: '📍' },
-      { href: '/portfolio', label: 'Portfolio', icon: '🏠' },
-      { href: '/funds', label: 'Funds', icon: '💰' },
-      { href: '/paper', label: 'Paper Trading', icon: '📄' },
-      { href: '/portal/brokers', label: 'Brokers', icon: '🏦' },
+      { href: '/trade', label: 'Orders' },
+      { href: '/positions', label: 'Positions' },
+      { href: '/portfolio', label: 'Portfolio' },
+      { href: '/funds', label: 'Funds' },
+      { href: '/paper', label: 'Paper Trading' },
+      { href: '/portal/brokers', label: 'Brokers' },
     ],
   },
   {
     label: 'Build & Analyze',
     items: [
-      { href: '/strategies/builder', label: 'Strategy Builder', icon: '🤖' },
-      { href: '/backtest', label: 'Backtest', icon: '🧪' },
-      { href: '/analytics', label: 'Analytics', icon: '📉' },
-      { href: '/marketdata', label: 'Market Analyzer', icon: '🔍' },
-      { href: '/terminal', label: 'Terminal', icon: '⚡' },
+      { href: '/strategies/builder', label: 'Strategy Builder' },
+      { href: '/backtest', label: 'Backtest' },
+      { href: '/analytics', label: 'Analytics' },
+      { href: '/marketdata', label: 'Market Analyzer' },
+      { href: '/terminal', label: 'Terminal' },
     ],
   },
   {
     label: 'Manage',
     items: [
-      { href: '/alerts', label: 'Alerts', icon: '🔔' },
-      { href: '/risk', label: 'Risk Control', icon: '🛡️' },
-      { href: '/settings', label: 'Settings', icon: '⚙️' },
-      { href: '/help', label: 'Help', icon: '❓' },
+      { href: '/alerts', label: 'Alerts' },
+      { href: '/risk', label: 'Risk Control' },
+      { href: '/settings', label: 'Settings' },
+      { href: '/help', label: 'Help' },
     ],
   },
   {
     label: 'Platform',
     items: [
-      { href: '/ai', label: 'AI Assistant', icon: '✦' },
-      { href: '/strategies', label: 'Strategies', icon: '🗂️' },
+      { href: '/ai', label: 'AI Assistant' },
+      { href: '/strategies', label: 'Strategies' },
     ],
   },
 ]
@@ -355,9 +380,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     }}
                   >
                     <span style={{
-                      fontSize: 14, width: 20, textAlign: 'center',
-                      flexShrink: 0, opacity: active ? 1 : 0.5,
-                    }}>{item.icon}</span>
+                      width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, opacity: active ? 1 : 0.6,
+                    }}>{(item as any).icon ? <span style={{ fontSize: 14 }}>{(item as any).icon}</span> : <NavIcon href={item.href} active={active} />}</span>
                     {!collapsed && (
                       <span style={{
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
