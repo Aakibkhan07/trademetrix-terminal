@@ -5,7 +5,6 @@ import { Providers } from './providers'
 import AppLayout from '@/components/app-layout'
 import ClarityScript from '@/components/clarity'
 import AnalyticsTracker from '@/components/analytics-tracker'
-import FeedbackButtonWrapper from '@/components/feedback-wrapper'
 import QuickOrderDrawer from '@/components/quick-order-drawer'
 import PwaRegister from '@/components/pwa-register'
 
@@ -64,7 +63,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <AnalyticsTracker />
           <AppLayout>{children}</AppLayout>
-          <FeedbackButtonWrapper />
           <QuickOrderDrawer />
           <PwaRegister />
         </Providers>
