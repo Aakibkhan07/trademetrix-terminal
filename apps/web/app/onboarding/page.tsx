@@ -287,7 +287,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       {unconnected.length > 0 && (
         <div>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 10px', color: 'var(--text)' }}>Connect a Broker</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginBottom: 16 }}>
             {unconnected.map(b => {
               const info = BROKER_INFO[b]
               if (!info) return null

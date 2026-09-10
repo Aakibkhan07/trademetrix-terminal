@@ -107,7 +107,7 @@ export function TradeRouterTab() {
 
   return (
     <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-      <div style={{ flex: '1 1 560px', minWidth: 380 }}>
+      <div style={{ flex: '1 1 560px', minWidth: 'min(380px,100%)', maxWidth: '100%' }}>
         <div className="t-panel" style={{ padding: 12, marginBottom: 12 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <select className="t-input" value={selectedUser} onChange={e => setSelectedUser(e.target.value)}

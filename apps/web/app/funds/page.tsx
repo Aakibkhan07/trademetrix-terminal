@@ -68,7 +68,7 @@ export default function FundsPage() {
 
       {hasBroker && funds && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
             {[
               { label: 'Total Margin', value: funds.total_margin || 0, color: 'var(--cyan)' },
               { label: 'Used Margin', value: funds.used_margin || 0, color: 'var(--amber)' },

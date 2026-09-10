@@ -618,7 +618,7 @@ function PayoffPreview({
           <text x={xPos(Math.round((spotPrice - minPrice) / step))} y={pad.top - 2} textAnchor="middle" fill="var(--cyan)" fontSize={7} fontFamily="var(--font-mono)" fontWeight={700}>SPOT</text>
         </svg>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderTop: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 0, borderTop: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
         <div style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid var(--border)' }}>
           <div style={{ color: 'var(--text-faint)', fontSize: 8, letterSpacing: '0.08em' }}>MAX PROFIT</div>
           <div style={{ color: 'var(--green)', fontWeight: 700, marginTop: 2 }}>+₹{fmtNum(maxProfit)}</div>

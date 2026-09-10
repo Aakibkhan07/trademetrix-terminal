@@ -151,7 +151,7 @@ export default function AIPage() {
         </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
+      <div className="t-ai-stack" style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
         {/* Chat Panel */}
         <div style={{
           flex: 1, display: 'flex', flexDirection: 'column',
@@ -273,7 +273,7 @@ export default function AIPage() {
 
         {/* Right Panel */}
         <div style={{
-          width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10,
+          width: 260, flexShrink: 0, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 10,
         }}>
           <div className="t-panel" style={{ padding: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>What I Can Do</div>

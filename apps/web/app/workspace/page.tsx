@@ -103,7 +103,7 @@ export default function WorkspacePage() {
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', background: 'var(--bg)' }}>
       <WorkspaceSidebar />
-      <div style={{ width: 238, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div className="t-ws-watchlist" style={{ width: 238, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <WatchlistPanel activeSymbol={activeSymbol} onSelectSymbol={selectSymbol} onAnalyze={openAnalyzer} />
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -152,7 +152,7 @@ export default function WorkspacePage() {
           )}
         </div>
       </div>
-      <div style={{ width: 268, flexShrink: 0, borderLeft: '1px solid var(--border)', padding: 10, minHeight: 0 }}>
+      <div className="t-ws-market" style={{ width: 268, flexShrink: 0, borderLeft: '1px solid var(--border)', padding: 10, minHeight: 0 }}>
         <MarketPanel activeSymbol={activeSymbol} activeName={activeName} ticks={ticks} onAnalyze={openAnalyzer} />
       </div>
 

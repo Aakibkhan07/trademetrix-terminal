@@ -99,7 +99,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* KPI Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
         {[
           { label: 'Today\'s P&L', value: dailyPnl === null ? '—' : `${dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(0)}`, sub: pnlDailyData?.broker ? `${pnlDailyData.broker} (realized)` : 'no broker', color: (dailyPnl ?? 0) >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
           { label: 'Total P&L', value: `${analytics.totalPnl >= 0 ? '+' : ''}${analytics.totalPnl.toFixed(0)}`, sub: `${positions.length} positions`, color: analytics.totalPnl >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
@@ -117,7 +117,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
         {/* Equity Curve */}
         <div className="t-panel" style={{ padding: 12 }}>
           <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Equity Curve</div>
@@ -207,7 +207,7 @@ export default function AnalyticsPage() {
       )}
 
       {/* Holdings + Recent Runs */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
         {/* Holdings Table */}
         <div className="t-panel" style={{ padding: 0 }}>
           <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -277,7 +277,7 @@ export default function AnalyticsPage() {
 
       {/* Account Summary */}
       {funds && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
           {[
             { label: 'Total Margin', value: `₹${(funds.total_margin || 0).toLocaleString()}`, pct: 100, color: 'var(--cyan)' },
             { label: 'Used Margin', value: `₹${(funds.used_margin || 0).toLocaleString()}`, pct: funds.total_margin ? ((funds.used_margin || 0) / funds.total_margin) * 100 : 0, color: 'var(--amber)' },

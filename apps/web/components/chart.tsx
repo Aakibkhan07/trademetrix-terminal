@@ -88,7 +88,14 @@ export default function Chart({ symbol, height = 400, interval: controlledInterv
     candleSeriesRef.current = candleSeries
     volumeSeriesRef.current = volumeSeries
 
+    const ro = new ResizeObserver(() => {
+      const el = containerRef.current
+      if (el && chartRef.current) chartRef.current.applyOptions({ width: el.clientWidth })
+    })
+    if (containerRef.current) ro.observe(containerRef.current)
+
     return () => {
+      ro.disconnect()
       chart.remove()
       chartRef.current = null
       candleSeriesRef.current = null

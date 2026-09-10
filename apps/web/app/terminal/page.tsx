@@ -179,10 +179,10 @@ export default function TerminalPage() {
         }}>{error}</div>
       )}
 
-      <div style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
+      <div className="t-terminal-stack" style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
         {/* Left: Order Ticket */}
         <div style={{
-          width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10,
+          width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: '100%',
         }}>
           <div className="t-panel" style={{
             padding: 0, borderTop: `3px solid ${side === 'BUY' ? 'var(--green)' : 'var(--red)'}`,

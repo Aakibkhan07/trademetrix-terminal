@@ -124,7 +124,7 @@ export default function StrategyDetailPage() {
         background: 'var(--panel)', border: '1px solid var(--border)',
         borderRadius: 'var(--radius-md)', padding: 20,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 20, margin: 0, color: 'var(--text)' }}>
@@ -173,9 +173,9 @@ export default function StrategyDetailPage() {
           </h2>
           <div style={{
             background: 'var(--panel)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)', overflow: 'hidden',
+            borderRadius: 'var(--radius-md)', overflowX: 'auto',
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 500 }}>Symbol</th>

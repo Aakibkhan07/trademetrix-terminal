@@ -905,8 +905,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               min-height: 44px !important;
               padding: 10px 14px !important;
             }
+            .chart-btn, .chain-panel .t-btn-sm, .t-trade-grid .t-btn-sm {
+              min-height: 44px !important;
+              min-width: 44px !important;
+            }
             input.t-input, .t-input, select, textarea {
               font-size: 16px !important;
+            }
+            .t-terminal-stack {
+              flex-direction: column !important;
+            }
+            .t-terminal-stack > div {
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+            .t-ai-stack {
+              flex-direction: column !important;
+            }
+            .t-ai-stack > div {
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+            .t-ws-watchlist, .t-ws-market {
+              display: none !important;
             }
           }
       `}</style>
