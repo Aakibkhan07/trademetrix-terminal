@@ -25,6 +25,7 @@ export function WidgetFrame({
   marketClosed = false,
   empty = false,
   emptyMessage = 'No data',
+  emptyAction,
   style,
   children,
 }: {
@@ -38,6 +39,7 @@ export function WidgetFrame({
   marketClosed?: boolean
   empty?: boolean
   emptyMessage?: string
+  emptyAction?: ReactNode
   style?: CSSProperties
   children: ReactNode
 }) {
@@ -72,7 +74,10 @@ export function WidgetFrame({
             <SkeletonBar w="60%" />
           </div>
         ) : empty ? (
-          <EmptyState title={emptyMessage} style={{ padding: 24 }} />
+          <div style={{ textAlign: 'center' }}>
+            <EmptyState title={emptyMessage} style={{ padding: 24 }} />
+            {emptyAction && <div style={{ marginTop: 8 }}>{emptyAction}</div>}
+          </div>
         ) : (
           children
         )}

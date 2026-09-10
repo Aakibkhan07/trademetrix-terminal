@@ -26,19 +26,19 @@ async def compute_daily_pnl_fifo(user_id: str, broker: str | None = None) -> flo
 
         sell_symbols = {o["symbol"] for o in filled if o["side"] == "SELL"}
         historical: dict[str, list[dict]] = {}
-        for sym in sell_symbols:
-            hist_rows = await async_safe_execute(
+        if sell_symbols:
+            hist_all = await async_safe_execute(
                 supabase.table("orders")
-                .select("quantity, filled_quantity, average_price")
+                .select("symbol, quantity, filled_quantity, average_price")
                 .eq("user_id", user_id)
-                .eq("symbol", sym)
+                .in_("symbol", sorted(sell_symbols))
                 .eq("side", "BUY")
                 .eq("status", "FILLED")
                 .lt("created_at", today_start)
                 .order("created_at")
-            )
-            if hist_rows:
-                historical[sym] = hist_rows
+            ) or []
+            for h in hist_all:
+                historical.setdefault(h.get("symbol", ""), []).append(h)
 
         pnl = 0.0
         buy_queue: dict[str, list[list[float]]] = {}

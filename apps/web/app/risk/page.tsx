@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { api } from '@/lib/api'
+import { api, friendlyApiError } from '@/lib/api'
 import { useToast } from '@/lib/use-toast'
 import { useAuth } from '@/lib/auth-context'
 
@@ -16,6 +16,7 @@ export default function RiskPage() {
   const [usage, setUsage] = useState<{ openPositions: number; filledToday: number } | null>(null)
   const [editing, setEditing] = useState(false)
   const [editValues, setEditValues] = useState(limits)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const load = async () => {
     try {
@@ -25,7 +26,8 @@ export default function RiskPage() {
       if (s?.max_daily_loss != null) setLimits(prev => ({ ...prev, max_daily_loss: s.max_daily_loss }))
       if (s?.max_drawdown != null) setLimits(prev => ({ ...prev, max_drawdown: s.max_drawdown }))
       if (s?.max_open_positions != null) setLimits(prev => ({ ...prev, max_open_positions: s.max_open_positions }))
-    } catch (e) { console.error('Failed to load risk settings:', e) }
+      setLoadError(null)
+    } catch (e) { setLoadError(friendlyApiError(e)) }
     finally { setLoading(false) }
     // live usage vs guardrails (fail-open display, never blocks the page)
     try {
@@ -77,6 +79,12 @@ export default function RiskPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {loadError && (
+        <div className="t-panel" style={{ padding: '10px 14px', borderColor: 'var(--red)' }}>
+          <span className="t-error">{loadError}</span>{' '}
+          <button className="t-btn t-btn-xs" onClick={() => { setLoading(true); load() }}>Retry</button>
+        </div>
+      )}
       <div>
         <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Risk Control</h1>
         <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>

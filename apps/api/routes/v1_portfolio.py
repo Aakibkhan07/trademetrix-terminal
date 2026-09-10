@@ -11,12 +11,11 @@ router = APIRouter(tags=["portfolio"])
 logger = logging.getLogger(__name__)
 
 
-def _find_broker(user_id: str, preferred: str | None) -> str | None:
+async def _find_broker(user_id: str, preferred: str | None) -> str | None:
     if preferred:
         return preferred
-    import asyncio
     try:
-        return asyncio.run(get_active_broker(user_id))
+        return await get_active_broker(user_id)
     except Exception:
         return None
 

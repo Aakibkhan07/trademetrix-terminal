@@ -204,7 +204,8 @@ function PortfolioSummary({ offline }: { offline: boolean }) {
       loading={paper.loading || funds.loading}
       error={paper.error || funds.error}
       empty={!p && !f}
-      emptyMessage="No account data yet"
+      emptyMessage="No account data yet — try paper trading with ₹5L virtual cash"
+      emptyAction={<a className="t-btn t-btn-sm t-btn-primary" href="/paper">Try Demo</a>}
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <KpiCard variant="stat" label="Paper Equity" value={fmtInr(p?.current_equity)} color="var(--green)" />

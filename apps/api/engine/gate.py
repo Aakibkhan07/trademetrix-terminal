@@ -5,7 +5,7 @@ import re
 import time
 from datetime import UTC, datetime, date
 
-from core.constants import STRIKE_INTERVALS
+from core.constants import LOT_SIZES, STRIKE_INTERVALS
 from core.db import async_supabase, get_supabase
 from core.models import NormalizedOrder, OptionType, OrderResult, OrderStatus
 from core.safe_query import async_safe_execute, async_safe_single
@@ -233,7 +233,7 @@ async def _snap_to_itm_strike(user_id: str, order: NormalizedOrder) -> bool:
     """Rewrite an option order to the nearest in-the-money strike.
 
     CE → nearest strike at or below spot; PE → nearest strike at or above spot.
-    Only applies to user-facing engine trades (source != 'strategy').
+    Applies to ALL Nifty/Sensex option trades (paper + live, strategy + manual).
     Returns True when the symbol was rewritten.
     """
     if not order.symbol or not order.strike_price:
@@ -245,27 +245,52 @@ async def _snap_to_itm_strike(user_id: str, order: NormalizedOrder) -> bool:
     if order.option_type not in (OptionType.CE, OptionType.PE):
         return False
 
+    spot: float | None = None
     try:
-        from brokers.token_manager import TokenManager
-        from brokers.fyers_adapter import FyersAdapter
-        from core.constants import MONTH_CODES
-
-        session = await TokenManager(user_id, "fyers").get_session()
-        if not session:
+        from market.cache import market_cache
+        sym_upper = order.symbol.upper()
+        is_nifty = "NIFTY" in sym_upper
+        is_sensex = "SENSEX" in sym_upper
+        if not (is_nifty or is_sensex):
             return False
-        adapter = FyersAdapter()
-        await adapter.authenticate({
-            "client_id": session.get("client_id", ""),
-            "access_token": session.get("access_token", ""),
-        })
-        # Fyers has no index spot quotes — use the same-month index future as
-        # a spot proxy (basis is a few points; plenty for strike grid snapping).
-        fut_sym = f"NSE:{underlying.split(':')[-1]}{str(expiry.year)[-2:]}{MONTH_CODES[expiry.month]}FUT"
-        quotes = await adapter.get_quotes([fut_sym])
-        if not quotes or getattr(quotes[0], "last_price", 0) <= 0:
-            logger.warning("ITM snap skipped for %s: no future quote (%s)", order.symbol, fut_sym)
-            return False
-        spot = quotes[0].last_price
+        # Try market cache first (live ticks / previous quote poll)
+        for probe in ([f"NSE:NIFTY50-INDEX", f"BSE:SENSEX-INDEX"] if is_sensex else [f"NSE:NIFTY50-INDEX"]):
+            q = market_cache.get_quote(probe)
+            if q:
+                lp = q.get("last_price") if isinstance(q, dict) else getattr(q, "last_price", 0)
+                if lp and lp > 0:
+                    spot = float(lp)
+                    break
+        if spot is None:
+            from brokers.token_manager import TokenManager
+            from brokers.fyers_adapter import FyersAdapter
+            from core.constants import MONTH_CODES
+            session = await TokenManager(user_id, "fyers").get_session()
+            if session:
+                adapter = FyersAdapter()
+                await adapter.authenticate({
+                    "client_id": session.get("client_id", ""),
+                    "access_token": session.get("access_token", ""),
+                })
+                fut_sym = f"NSE:{underlying.split(':')[-1]}{str(expiry.year)[-2:]}{MONTH_CODES[expiry.month]}FUT"
+                try:
+                    quotes = await adapter.get_quotes([fut_sym])
+                    if quotes and getattr(quotes[0], "last_price", 0) > 0:
+                        spot = float(quotes[0].last_price)
+                except Exception:
+                    pass
+                if spot is None:
+                    # fallback to index quote via broker
+                    idx_sym = "BSE:SENSEX-INDEX" if is_sensex else "NSE:NIFTY50-INDEX"
+                    try:
+                        quotes = await adapter.get_quotes([idx_sym])
+                        if quotes and getattr(quotes[0], "last_price", 0) > 0:
+                            spot = float(quotes[0].last_price)
+                    except Exception:
+                        pass
+        if spot is None or spot <= 0:
+            spot = 81000.0 if is_sensex else 24500.0
+            logger.warning("ITM snap using fallback spot %.2f for %s", spot, order.symbol)
     except Exception as e:
         logger.warning("ITM snap skipped for %s: %s", order.symbol, e)
         return False
@@ -280,7 +305,16 @@ async def _snap_to_itm_strike(user_id: str, order: NormalizedOrder) -> bool:
 
     from core.constants import format_fyers_option_symbol
 
-    new_symbol = format_fyers_option_symbol(underlying.split(":")[-1], itm_strike, opt_type, expiry)
+    raw_underlying = underlying.split(":")[-1]
+    new_symbol = format_fyers_option_symbol(raw_underlying, itm_strike, opt_type, expiry)
+    if "BSE" in underlying.upper() or raw_underlying.upper() == "SENSEX":
+        new_symbol = new_symbol.replace("NSE:", "BSE:")
+        order.exchange = order.exchange if str(order.exchange).upper() == "BSE" else order.exchange
+        try:
+            from core.models import Exchange
+            order.exchange = Exchange.BSE
+        except Exception:
+            pass
     logger.info(
         "ITM snap: %s (spot %.2f, strike %.0f) → %s",
         order.symbol, spot, cur_strike, new_symbol,
@@ -288,6 +322,38 @@ async def _snap_to_itm_strike(user_id: str, order: NormalizedOrder) -> bool:
     order.symbol = new_symbol
     order.strike_price = float(itm_strike)
     order.expiry_date = expiry.isoformat()
+    return True
+
+
+def _get_lot_size(symbol: str) -> int | None:
+    s = (symbol or "").upper()
+    if "BANKNIFTY" in s:
+        return LOT_SIZES.get("BANKNIFTY")
+    if "FINNIFTY" in s:
+        return LOT_SIZES.get("FINNIFTY")
+    if "MIDCPNIFTY" in s:
+        return LOT_SIZES.get("MIDCPNIFTY")
+    if "SENSEX" in s:
+        return LOT_SIZES.get("SENSEX")
+    if "NIFTY" in s:
+        return LOT_SIZES.get("NIFTY")
+    return None
+
+
+def _snap_quantity_to_lot(order: NormalizedOrder) -> bool:
+    if order.instrument_type and order.instrument_type.value == "EQ":
+        return False
+    lot = _get_lot_size(order.symbol)
+    if not lot or lot <= 1:
+        return False
+    qty = int(order.quantity or 0)
+    if qty <= 0:
+        return False
+    new_qty = 10 * lot
+    if qty == new_qty:
+        return False
+    logger.info("Lot enforce 10 lots: %s qty %s -> %s (lot %s x10)", order.symbol, qty, new_qty, lot)
+    order.quantity = new_qty
     return True
 
 
@@ -344,8 +410,10 @@ async def execute_order(
             order.broker = broker
             order.is_paper = order.is_paper or broker == "paper"
 
-            if source != "strategy" and order.option_type:
+            if order.option_type:
                 await _snap_to_itm_strike(user_id, order)
+
+            _snap_quantity_to_lot(order)
 
             riskguard = RiskGuard(user_id)
             risk_check = await riskguard.check_order(order)

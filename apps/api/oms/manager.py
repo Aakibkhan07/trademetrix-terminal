@@ -790,19 +790,19 @@ class OrderManager:
             await asyncio.sleep(BRACKET_INTERVAL_SECONDS)
 
     async def _evaluate_brackets(self) -> None:
-        for bracket in list(self._bracket_orders.values()):
-            if not bracket.active:
+        active = [b for b in list(self._bracket_orders.values()) if b.active and not (b.sl_order_id or b.target_order_id)]
+        for b in list(self._bracket_orders.values()):
+            if b.active and (b.sl_order_id or b.target_order_id):
+                b.active = False
+                await save_bracket_order(b)
+        if not active:
+            return
+        quotes = await asyncio.gather(*[self._bracket_quote(b) for b in active], return_exceptions=True)
+        for bracket, last in zip(active, quotes):
+            if isinstance(last, Exception):
+                logger.warning("Bracket quote failed for %s: %s", bracket.oms_order_id, last)
                 continue
-            if bracket.sl_order_id or bracket.target_order_id:
-                bracket.active = False
-                await save_bracket_order(bracket)
-                continue
-            try:
-                last = await self._bracket_quote(bracket)
-            except Exception as e:
-                logger.warning("Bracket quote failed for %s: %s", bracket.oms_order_id, e)
-                continue
-            if last <= 0:
+            if not isinstance(last, (int, float)) or last <= 0:
                 continue
             if bracket.side == "BUY":
                 if last <= bracket.stop_loss_price:

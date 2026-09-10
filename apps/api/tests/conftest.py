@@ -146,9 +146,13 @@ def _apply_test_mocks():
     async def _mock_cache_delete(key: str, *args, **kwargs):
         _kill_switch_store.pop(key, None)
 
+    async def _mock_cache_increment(key: str, ttl: int = 60, *args, **kwargs):
+        return 1
+
     patch.object(cache_module.cache, "get", _mock_cache_get).start()
     patch.object(cache_module.cache, "set", _mock_cache_set).start()
     patch.object(cache_module.cache, "delete", _mock_cache_delete).start()
+    patch.object(cache_module.cache, "increment", _mock_cache_increment).start()
 
     # ── Patch strategies Supabase ──
     import application.services.strategy_catalog_service as strat_svc

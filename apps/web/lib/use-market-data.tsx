@@ -135,7 +135,7 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
         }
         return changed ? { ...prev, ...buf } : prev
       })
-    }, 250)
+    }, 1000)
     return () => {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       if (flushTimerRef.current) clearInterval(flushTimerRef.current)

@@ -132,7 +132,7 @@ export default function PaperTradingPage() {
   useEffect(() => { refresh() }, [refresh])
 
   useEffect(() => {
-    const t = setInterval(refresh, 3000)
+    const t = setInterval(refresh, 15000)
     return () => clearInterval(t)
   }, [refresh])
 

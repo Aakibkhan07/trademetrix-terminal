@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { MONEYNESS_OPTIONS, marginLeg } from '@/lib/options-contracts'
 import type { IndexKey, Moneyness } from '@/lib/options-contracts'
 import type { ChainData } from './types'
@@ -21,7 +22,7 @@ export interface OrderForm {
  * contract preview before BUY / SELL. Paper is the default; Live is one
  * deliberate toggle away (reuse of the strategy deploy contract).
  */
-export function OrderCard({ form, onChange, chain, spot, ltp, lotSize, margin, marginLoading, mode, onMode, onPlace }: {
+export function OrderCard({ form, onChange, chain, spot, ltp, lotSize, margin, marginLoading, mode, onMode, onPlace, placing = false }: {
   form: OrderForm
   onChange: (next: Partial<OrderForm>) => void
   chain: ChainData | null
@@ -33,7 +34,23 @@ export function OrderCard({ form, onChange, chain, spot, ltp, lotSize, margin, m
   mode: 'paper' | 'live'
   onMode: (m: 'paper' | 'live') => void
   onPlace: (side: 'BUY' | 'SELL') => void
+  placing?: boolean
 }) {
+  const [armSide, setArmSide] = useState<'BUY' | 'SELL' | null>(null)
+  useEffect(() => {
+    if (!armSide) return
+    const t = setTimeout(() => setArmSide(null), 5000)
+    return () => clearTimeout(t)
+  }, [armSide])
+  const qty = form.lots * lotSize
+  const notional = ltp && ltp > 0 ? ltp * qty : null
+  const noQuote = !chain?.optionChain?.length || !ltp || ltp <= 0
+  const tap = (side: 'BUY' | 'SELL') => {
+    if (placing || noQuote) return
+    if (mode === 'live' && armSide !== side) { setArmSide(side); return }
+    setArmSide(null)
+    onPlace(side)
+  }
   const expiries = chain?.expiries ?? []
   const weekly = expiries[0] ?? '—'
   const monthly = expiries[expiries.length - 1] ?? '—'
@@ -141,15 +158,17 @@ export function OrderCard({ form, onChange, chain, spot, ltp, lotSize, margin, m
         <div style={{ fontSize: 10, color: 'var(--text-faint)', lineHeight: 1.6 }}>
           {form.index} <b style={{ color: 'var(--text)' }}>{form.expiry}</b> · {form.moneyness === 'CUSTOM' && form.customStrike ? form.customStrike : MONEYNESS_OPTIONS.find(m => m.key === form.moneyness)?.label} ·{' '}
           <b style={{ color: form.optionType === 'CE' ? 'var(--violet)' : 'var(--red)' }}>{form.optionType === 'CE' ? 'CE' : 'PE'}</b> · {form.lots} lot × {lotSize}
+          {notional !== null && <span> · ≈ ₹{notional.toLocaleString('en-IN', { maximumFractionDigits: 0 })} notional</span>}
         </div>
+        {noQuote && <div className="t-faint" style={{ fontSize: 10 }}>Waiting for live quote — order disabled until LTP arrives.</div>}
 
         {/* Actions */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <button type="button" data-kb="buy" className="t-btn" style={{ background: 'var(--green)', color: '#052a14', fontWeight: 800 }} onClick={() => onPlace('BUY')}>
-            BUY {form.optionType}
+          <button type="button" data-kb="buy" className="t-btn" style={{ background: 'var(--green)', color: '#052a14', fontWeight: 800, opacity: placing || noQuote ? 0.6 : 1 }} disabled={placing || noQuote} onClick={() => tap('BUY')}>
+            {placing ? '…' : mode === 'live' && armSide !== 'BUY' ? `TAP TO CONFIRM BUY` : `BUY ${form.optionType}`}
           </button>
-          <button type="button" data-kb="sell" className="t-btn" style={{ background: 'var(--red)', color: '#fff', fontWeight: 800 }} onClick={() => onPlace('SELL')}>
-            SELL {form.optionType}
+          <button type="button" data-kb="sell" className="t-btn" style={{ background: 'var(--red)', color: '#fff', fontWeight: 800, opacity: placing || noQuote ? 0.6 : 1 }} disabled={placing || noQuote} onClick={() => tap('SELL')}>
+            {placing ? '…' : mode === 'live' && armSide !== 'SELL' ? `TAP TO CONFIRM SELL` : `SELL ${form.optionType}`}
           </button>
         </div>
         {mode === 'live' && (

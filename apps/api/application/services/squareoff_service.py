@@ -16,7 +16,7 @@ SQUAREOFF_TABLE = "squareoff_config"
 
 
 class SquareoffConfigModel:
-    def __init__(self, enabled: bool = False, time: str = "15:15", days: list[int] | None = None, user_id: str = ""):
+    def __init__(self, enabled: bool = False, time: str = "15:40", days: list[int] | None = None, user_id: str = ""):
         self.enabled = enabled
         self.time = time
         self.days = days or [0, 1, 2, 3, 4]
@@ -35,7 +35,7 @@ class SquareoffService:
             supabase.table(SQUAREOFF_TABLE).select("*").eq("user_id", user_id)
         )
         if not data:
-            return {"enabled": False, "time": "15:15", "days": [0, 1, 2, 3, 4]}
+            return {"enabled": False, "time": "15:40", "days": [0, 1, 2, 3, 4]}
         return {
             "enabled": data.get("enabled", False),
             "time": data.get("squareoff_time", "15:15"),

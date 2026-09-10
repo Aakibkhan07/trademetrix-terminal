@@ -32,10 +32,10 @@ export function TradeRouterTab() {
 
   useEffect(() => {
     const indices = ['NIFTY', 'BANKNIFTY', 'FINNIFTY']
-    indices.forEach(async sym => {
+    void Promise.allSettled(indices.map(async sym => {
       try {
         const d = await api.get<{ data?: { optionChain?: any[] }; expiry?: string; expiries?: string[] }>(
-          `/market/option-chain?symbol=${encodeURIComponent(sym)}`
+          `/marketdata/option-chain?symbol=${encodeURIComponent(sym)}`
         )
         const raw = d.data?.optionChain || []
         if (raw.length) {
@@ -43,7 +43,7 @@ export function TradeRouterTab() {
           setChainCache(prev => ({ ...prev, [sym]: { expiry, chain: raw } }))
         }
         } catch (e) { console.error('Failed to search instruments', e) }
-    })
+    }))
   }, [])
 
   useEffect(() => {

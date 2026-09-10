@@ -17,7 +17,9 @@ import asyncio
 import logging
 import secrets
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 from core.cache import cache
 from core.config import settings
@@ -288,7 +290,15 @@ def format_execution_event(event) -> str | None:
     emoji = NOTIFY_EVENT_TYPES.get(event.event_type)
     if not emoji:
         return None
-    ts = event.timestamp.strftime("%d %b %H:%M:%S") if event.timestamp else ""
+    ts = ""
+    if event.timestamp:
+        try:
+            t = event.timestamp
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=UTC)
+            ts = t.astimezone(IST).strftime("%d %b %H:%M IST")
+        except Exception:
+            ts = event.timestamp.strftime("%d %b %H:%M:%S")
     lines = [f"{emoji} <b>{event.event_type}</b>"]
     detail = []
     if event.symbol:

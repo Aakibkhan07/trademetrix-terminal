@@ -51,7 +51,8 @@ class RedisCache:
             if val is None:
                 return default
             return json.loads(val)
-        except Exception:
+        except Exception as e:
+            logger.warning("redis get %s failed: %s", key, e)
             return default
 
     async def set(self, key: str, value: Any, ttl: int = 300) -> bool:
@@ -63,7 +64,8 @@ class RedisCache:
             else:
                 await self._redis.set(key, json.dumps(value), ex=ttl)
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("redis set %s failed: %s", key, e)
             return False
 
     async def set_nx(self, key: str, value: Any, ttl: int = 300) -> bool:
@@ -72,7 +74,8 @@ class RedisCache:
         try:
             result = await self._redis.set(key, json.dumps(value), ex=ttl, nx=True)
             return result is not None
-        except Exception:
+        except Exception as e:
+            logger.warning("redis set_nx %s failed: %s", key, e)
             return False
 
     async def delete(self, key: str) -> bool:
@@ -81,7 +84,8 @@ class RedisCache:
         try:
             await self._redis.delete(key)
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("redis delete %s failed: %s", key, e)
             return False
 
     async def close(self):
@@ -95,7 +99,8 @@ class RedisCache:
         try:
             await self._redis.rpush(key, value)
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning("redis rpush %s failed: %s", key, e)
             return False
 
     async def lpop(self, key: str) -> str | None:
@@ -103,7 +108,8 @@ class RedisCache:
             return None
         try:
             return await self._redis.lpop(key)
-        except Exception:
+        except Exception as e:
+            logger.warning("redis lpop %s failed: %s", key, e)
             return None
 
     async def increment(self, key: str, ttl: int = 60) -> int:
@@ -114,7 +120,8 @@ class RedisCache:
             if count == 1:
                 await self._redis.expire(key, ttl)
             return count
-        except Exception:
+        except Exception as e:
+            logger.warning("redis incr %s failed: %s", key, e)
             return 0
 
     async def ttl(self, key: str) -> int:
@@ -122,7 +129,8 @@ class RedisCache:
             return -1
         try:
             return await self._redis.ttl(key)
-        except Exception:
+        except Exception as e:
+            logger.warning("redis ttl %s failed: %s", key, e)
             return -2
 
 

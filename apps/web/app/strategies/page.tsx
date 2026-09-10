@@ -84,7 +84,7 @@ export default function StrategiesPage() {
   useEffect(() => { loadDashboard() }, [loadDashboard])
 
   useEffect(() => {
-    const t = setInterval(loadDashboard, 5000)
+    const t = setInterval(loadDashboard, 30000)
     return () => clearInterval(t)
   }, [loadDashboard])
 

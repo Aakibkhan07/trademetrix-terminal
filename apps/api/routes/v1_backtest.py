@@ -36,7 +36,7 @@ class BacktestRequest(BaseModel):
     exchange: str = "NSE"
     interval: str = "15m"
     days: int = Field(default=365, ge=1, le=MAX_BACKTEST_DAYS, description="Backtest window in days (up to 5 years)")
-    initial_capital: float = 100000
+    initial_capital: float = Field(default=100000, gt=0)
     config: dict = {}
     slippage_pct: float = 0.05
     brokerage_pct: float = 0.03
@@ -95,9 +95,9 @@ async def run_backtest_legacy(
         return _result_payload(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Backtest failed")
-        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Backtest failed")
 
 
 # ─── V2 Backtest Engine ───
@@ -109,7 +109,7 @@ class BacktestV2Request(BaseModel):
     exchange: str = "NSE"
     interval: str = "15m"
     days: int = Field(default=365, ge=1, le=MAX_BACKTEST_DAYS, description="Backtest window in days (up to 5 years)")
-    initial_capital: float = 100000.0
+    initial_capital: float = Field(default=100000.0, gt=0)
     strategy_params: dict = {}
     speed: str = "MAX"
     data_source: str = "auto"
@@ -191,9 +191,9 @@ async def run_backtest_v2(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Backtest V2 failed")
-        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Backtest failed")
 
 
 @router.get("/v2/status")
@@ -307,9 +307,9 @@ async def create_backtest(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Backtest failed")
-        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Backtest failed")
 
 
 @router.get("/candles/{symbol}/{interval}")
@@ -553,9 +553,9 @@ async def run_backtest_v3(
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Backtest V3 failed")
-        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Backtest failed")
 
 
 @router.post("/compare")

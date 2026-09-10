@@ -44,27 +44,25 @@ class LongStraddle(BuyerBase):
             elif pe and pe.get("entry_ts"):
                 self._entry_ts = pe["entry_ts"]
 
-    async def on_candle(self, candle: Candle) -> Optional[SignalResult]:
+    async def _on_15m(self, candle: Candle) -> Optional[SignalResult]:
         t = candle.timestamp.time()
-
         if await self._is_kill_switched():
             return await self._flatten_both("kill_switch")
         if t >= self.bc.square_off:
             return await self._flatten_both("square_off")
-
         if self.phase == Phase.BUILDING_OR:
             self.phase = Phase.ARMED
-
         if self.phase != Phase.ARMED and self.phase != Phase.IN_TRADE:
             return None
-
         if self.phase == Phase.IN_TRADE:
             await self._manage(candle)
         elif self.trades_today < 1 and t < self.bc.last_entry:
             await self._check_entry(candle)
-
         await self._persist()
         return None
+
+    async def on_candle(self, candle: Candle) -> Optional[SignalResult]:
+        return await super().on_candle(candle)
 
     async def _check_entry(self, bar: Candle) -> None:
         pct = instrument_service.iv_percentile(self.bc.index)

@@ -25,7 +25,11 @@ from functools import lru_cache
 
 from supabase import create_client, Client
 
+import logging
+
 from ..config import get_settings
+
+logger = logging.getLogger(__name__)
 from .models import Signal, OrderIntent, ExecutionResult, ResultStatus, Mode, OrderType, Product, Segment
 
 TABLE = "orders"
@@ -108,5 +112,5 @@ class SupabaseOrderStore:
 
         try:
             _sb().table(TABLE).insert(row).execute()
-        except Exception:
-            pass  # order-row write must never break the batch; audit_log still has it
+        except Exception as e:
+            logger.warning("order_store insert failed: %s", e)

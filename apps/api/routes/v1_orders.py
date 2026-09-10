@@ -103,11 +103,14 @@ def _oms_to_dict(order: OmniOrder) -> dict:
 async def list_orders(
     current_user: UserProfile = Depends(get_current_user),
     active_only: bool = False,
+    limit: int = 50,
 ):
+    limit = max(1, min(limit, 200))
     if active_only:
         orders = await order_manager.get_active_orders(current_user.id)
     else:
         orders = await order_manager.get_orders_by_user(current_user.id)
+    orders = orders[-limit:]
     return {"orders": [_oms_to_dict(o) for o in orders]}
 
 

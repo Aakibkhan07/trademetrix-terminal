@@ -39,8 +39,11 @@ INDEX_ALIASES = {
 
 def main():
     print(f"Downloading scrip master from {URL} ...")
-    resp = urllib.request.urlopen(URL, timeout=120)
-    data = json.loads(resp.read().decode())
+    try:
+        resp = urllib.request.urlopen(URL, timeout=120)
+        data = json.loads(resp.read().decode())
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise SystemExit(f"scrip download failed: {e}") from e
 
     lookup: dict[str, str] = {}
     for entry in data:

@@ -4,12 +4,11 @@
 // POSTs pass the global CSRFProtectMiddleware. The httpOnly session cookie is
 // sent automatically via credentials: "include".
 
-// Origin of the API (no /api/v1 suffix) — broker routes mount at /api/broker/*.
-const ORIGIN = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+import { API_BASE } from "./api";
+const ORIGIN = new URL(API_BASE).origin;
 const CSRF_URL = `${ORIGIN}/api/v1/auth/csrf`;
 
 export type BrokerKey =
-  | "kotak"
   | "zerodha"
   | "upstox"
   | "angelone"

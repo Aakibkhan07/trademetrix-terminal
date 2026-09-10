@@ -100,39 +100,46 @@ def _from_yahoo(yahoo_symbol: str) -> str:
     return yahoo_symbol.replace(".NS", "")
 
 
+async def _fetch_one_quote(loop: asyncio.AbstractEventLoop, s: str, ys: str) -> Quote | None:
+    def _get_info() -> dict:
+        try:
+            return yf.Ticker(ys).info or {}
+        except Exception:
+            return {}
+    info = await loop.run_in_executor(None, _get_info)
+    if not info:
+        return None
+    try:
+        return Quote(
+            symbol=s,
+            exchange=Exchange.NSE,
+            last_price=float(info.get("currentPrice", info.get("regularMarketPrice", 0))),
+            open=float(info.get("open", info.get("regularMarketOpen", 0))),
+            high=float(info.get("dayHigh", info.get("regularDayHigh", 0))),
+            low=float(info.get("dayLow", info.get("regularDayLow", 0))),
+            close=float(info.get("previousClose", info.get("regularMarketPreviousClose", 0))),
+            volume=int(info.get("volume", info.get("regularMarketVolume", 0))),
+            bid=float(info.get("bid", 0)),
+            ask=float(info.get("ask", 0)),
+            timestamp=datetime.now(UTC),
+            broker="yahoo",
+            instrument_type=InstrumentType.EQ,
+            strike_price=None,
+            expiry_date=None,
+            option_type=None,
+        )
+    except Exception:
+        return None
+
+
 async def fetch_quotes(symbols: list[str]) -> list[Quote]:
+    if not symbols:
+        return []
     yahoo_symbols = [_to_yahoo(s) for s in symbols]
     try:
         loop = asyncio.get_running_loop()
-        tickers = await loop.run_in_executor(None, lambda: yf.Tickers(" ".join(yahoo_symbols)))
-        quotes = []
-        for i, s in enumerate(symbols):
-            ys = yahoo_symbols[i]
-            t = await loop.run_in_executor(None, lambda ys=ys: tickers.tickers.get(ys))
-            if not t:
-                continue
-            info = await loop.run_in_executor(None, lambda t=t: t.info if hasattr(t, "info") else {})
-            if not info:
-                continue
-            quotes.append(Quote(
-                symbol=s,
-                exchange=Exchange.NSE,
-                last_price=float(info.get("currentPrice", info.get("regularMarketPrice", 0))),
-                open=float(info.get("open", info.get("regularMarketOpen", 0))),
-                high=float(info.get("dayHigh", info.get("regularDayHigh", 0))),
-                low=float(info.get("dayLow", info.get("regularDayLow", 0))),
-                close=float(info.get("previousClose", info.get("regularMarketPreviousClose", 0))),
-                volume=int(info.get("volume", info.get("regularMarketVolume", 0))),
-                bid=float(info.get("bid", 0)),
-                ask=float(info.get("ask", 0)),
-                timestamp=datetime.now(UTC),
-                broker="yahoo",
-                instrument_type=InstrumentType.EQ,
-                strike_price=None,
-                expiry_date=None,
-                option_type=None,
-            ))
-        return quotes
+        results = await asyncio.gather(*[_fetch_one_quote(loop, s, ys) for s, ys in zip(symbols, yahoo_symbols)])
+        return [q for q in results if q is not None]
     except Exception as e:
         logger.warning("Yahoo fetch_quotes failed: %s", e)
         return []

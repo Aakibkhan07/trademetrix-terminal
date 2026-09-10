@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, friendlyApiError } from '@/lib/api'
 import { useApi } from '@/lib/use-api'
 import { useToast } from '@/lib/use-toast'
 
@@ -177,7 +177,7 @@ export default function MarketplacePage() {
           background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)',
           borderRadius: 'var(--radius-md)', padding: '10px 12px', color: 'var(--text-red)', fontSize: 12,
         }}>
-          {error.message}
+          {friendlyApiError(error)}
         </div>
       )}
 

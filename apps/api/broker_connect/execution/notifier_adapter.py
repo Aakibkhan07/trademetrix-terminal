@@ -15,6 +15,9 @@ from supabase import create_client, Client
 from ..config import get_settings
 from core.notifications import send_email_resend
 from core.telegram import TelegramGateway
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -35,8 +38,8 @@ async def _email_for(user_id: str) -> str | None:
         )
         if res.data:
             return res.data[0].get("email")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("notifier email lookup failed: %s", e)
     return None
 
 
@@ -46,9 +49,9 @@ class PlatformNotifier:
             email = await _email_for(user_id)
             if email:
                 await send_email_resend(email, f"Trade Metrix — {kind}", message)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("notifier email send failed: %s", e)
         try:
             await TelegramGateway().notify_user(user_id, message)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("notifier telegram send failed: %s", e)

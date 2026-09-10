@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { api } from '@/lib/api'
+import { api, friendlyApiError } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { usePolling } from '@/lib/use-polling'
 import { useAuth } from '@/lib/auth-context'
@@ -29,6 +29,7 @@ export default function PositionsPage() {
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [funds, setFunds] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -41,21 +42,29 @@ export default function PositionsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [p, o, f] = await Promise.all([
-        api.engine.positions().catch(() => ({ positions: [] })),
-        api.engine.orders().catch(() => ({ orders: [] })),
-        api.engine.funds().catch(() => ({ funds: null })),
+      const results = await Promise.allSettled([
+        api.engine.positions(),
+        api.engine.orders(),
+        api.engine.funds(),
       ])
-      const pos = (p as any).positions || []
+      const [p, o, f] = results
+      if (p.status === 'rejected' && o.status === 'rejected' && f.status === 'rejected') {
+        setLoadError(friendlyApiError(p.reason))
+        return
+      }
+      setLoadError(null)
+      const pos = (p.status === 'fulfilled' ? (p.value as any).positions : []) || []
       setPositions(pos)
-      setOrders((o as any).orders || [])
-      setFunds((f as any).funds || null)
+      setOrders((o.status === 'fulfilled' ? (o.value as any).orders : []) || [])
+      setFunds((f.status === 'fulfilled' ? (f.value as any).funds : null) || null)
       setLastRefresh(new Date().toLocaleTimeString())
       subscribe(pos.map((x: PositionRow) => x.symbol))
-    } catch (e) { console.error('Failed to load positions', e) } finally { setLoading(false) }
+    } catch (e) {
+      setLoadError(friendlyApiError(e))
+    } finally { setLoading(false) }
   }, [subscribe])
 
-  usePolling(loadData, 10000, !!token)
+  usePolling(loadData, 30000, !!token)
 
   const ltpFor = (p: PositionRow) => {
     const live = ticks[p.symbol]
@@ -339,7 +348,19 @@ export default function PositionsPage() {
           </div>
         ) : (
           <div className="t-panel-body" style={{ textAlign: 'center', padding: 20 }}>
-            <span className="t-faint">{loading ? 'Loading...' : 'No open positions'}</span>
+            {loadError ? (
+              <span>
+                <span className="t-error">{loadError}</span>{' '}
+                <button className="t-btn t-btn-xs" onClick={loadData}>Retry</button>
+              </span>
+            ) : (
+              <span className="t-faint">{loading ? 'Loading...' : 'No open positions — place a paper order to see it here'}</span>
+            )}
+            {!loading && !loadError && positions.length === 0 && (
+              <div style={{ marginTop: 8 }}>
+                <a className="t-btn t-btn-xs t-btn-primary" href="/trade">Place Paper Order</a>
+              </div>
+            )}
           </div>
         )}
       </div>

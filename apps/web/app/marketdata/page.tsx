@@ -130,7 +130,7 @@ export default function MarketDataPage() {
         })
         return changed ? updated : prev
       })
-    }, 2000)
+    }, 10000)
     return () => clearInterval(interval)
   }, [])
 

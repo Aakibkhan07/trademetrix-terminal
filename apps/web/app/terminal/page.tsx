@@ -93,7 +93,7 @@ export default function TerminalPage() {
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { if (symbol) subscribe([symbol]) }, [symbol])
-  usePolling(refreshQuotes, 5000)
+  usePolling(refreshQuotes, 15000)
 
   const liveTick = symbol ? ticks[symbol] : null
   const quoteFor = (sym: string): QuoteData | undefined => quotes[sym]

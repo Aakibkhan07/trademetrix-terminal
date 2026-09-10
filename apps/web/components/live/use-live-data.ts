@@ -1,44 +1,45 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { friendlyApiError, ApiError } from '@/lib/api'
 
-/**
- * Self-refreshing data hook for Live Dashboard panels: fetches `loader()`,
- * refreshes every `intervalMs` while online, skips refresh when the market is
- * closed (last-good-data stays visible), and never throws — errors surface as
- * the `error` state for WidgetFrame to render.
- */
 export function useLiveData<T>(
   loader: () => Promise<T>,
-  { intervalMs = 5000, enabled = true }: { intervalMs?: number, enabled?: boolean } = {},
+  { intervalMs = 15000, enabled = true }: { intervalMs?: number, enabled?: boolean } = {},
 ) {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [halted, setHalted] = useState(false)
   const loaderRef = useRef(loader)
   loaderRef.current = loader
 
   const run = useCallback(async () => {
+    if (typeof document !== 'undefined' && document.hidden) return
+    if (!navigator.onLine) return
     try {
       const res = await loaderRef.current()
       setData(res)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      if (e instanceof ApiError && (e.status === 401 || e.status === 429)) {
+        setHalted(true)
+      }
+      setError(friendlyApiError(e))
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    if (!enabled) {
-      setLoading(false)
+    if (!enabled || halted) {
+      if (!enabled) setLoading(false)
       return
     }
     run()
     const id = setInterval(run, intervalMs)
     return () => clearInterval(id)
-  }, [enabled, intervalMs, run])
+  }, [enabled, halted, intervalMs, run])
 
   return { data, loading, error }
 }

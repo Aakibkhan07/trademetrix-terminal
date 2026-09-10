@@ -4,7 +4,7 @@ import Script from 'next/script'
 
 export default function ClarityScript() {
   const projectId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID
-  if (!projectId) return null
+  if (!projectId || !/^[a-z0-9]+$/i.test(projectId)) return null
 
   return (
     <Script

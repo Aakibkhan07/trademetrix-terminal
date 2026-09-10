@@ -104,7 +104,7 @@ export default function StrategyDetailPage() {
 
   if (!detail) return null
 
-  const catLabel = detail.category.charAt(0).toUpperCase() + detail.category.slice(1).replace('_', ' ')
+  const catLabel = (detail.category ?? '').charAt(0).toUpperCase() + detail.category.slice(1).replace('_', ' ')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -161,12 +161,12 @@ export default function StrategyDetailPage() {
           <MetricCard label="Total Trades" value={String(detail.total_trades)} />
           <MetricCard label="Win Rate" value={`${detail.win_rate}%`} color="var(--text-green)" />
           <MetricCard label="Avg Return" value={detail.avg_return > 0 ? `+${detail.avg_return}%` : `${detail.avg_return}%`} color={detail.avg_return >= 0 ? 'var(--text-green)' : 'var(--text-red)'} />
-          <MetricCard label="Total P&L" value={`₹${detail.total_pnl.toLocaleString()}`} color={detail.total_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)'} />
+          <MetricCard label="Total P&L" value={`₹${Number(detail.total_pnl ?? 0).toLocaleString()}`} color={detail.total_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)'} />
         </div>
       </div>
 
       {/* Recent Trades */}
-      {detail.recent_trades.length > 0 && (
+      {(detail.recent_trades ?? []).length > 0 && (
         <div>
           <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
             Recent Trades
@@ -221,7 +221,7 @@ export default function StrategyDetailPage() {
         </div>
       )}
 
-      {detail.recent_trades.length === 0 && (
+      {(detail.recent_trades ?? []).length === 0 && (
         <div style={{
           background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.1)',
           borderRadius: 'var(--radius-md)', padding: 24, textAlign: 'center',

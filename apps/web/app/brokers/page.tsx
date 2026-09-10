@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Dialog } from '@/components/ui/dialog'
-import { api, type BrokerMeta } from '@/lib/api'
+import { api, friendlyApiError, type BrokerMeta } from '@/lib/api'
 import { BrokerLogo } from '@/components/broker-logos'
 
 interface BrokerCred {
@@ -32,6 +32,9 @@ export default function BrokersPage() {
   const [totpSecret, setTotpSecret] = useState('')
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'success' | 'error'>('success')
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [wizardStep, setWizardStep] = useState(1)
 
   const msgTimer = useRef<ReturnType<typeof setTimeout>>()
 
@@ -61,8 +64,9 @@ export default function BrokersPage() {
       const mm: MetadataMap = {}
       metaArr.forEach(m => { mm[m.broker] = m })
       setMetadataMap(mm)
+      setLoadError(null)
     } catch (e) {
-      console.error('Failed to load brokers:', e)
+      setLoadError(friendlyApiError(e))
     } finally {
       setLoading(false)
     }
@@ -114,6 +118,7 @@ export default function BrokersPage() {
     setClientCode('')
     setSecretKey('')
     setTotpSecret('')
+    setWizardStep(broker ? 2 : 1)
     setShowAdd(true)
   }
 
@@ -124,15 +129,37 @@ export default function BrokersPage() {
     setClientCode('')
     setSecretKey('')
     setTotpSecret('')
+    setWizardStep(2)
     setShowAdd(true)
   }
 
   const handleSave = async () => {
+    if (saving) return false
+    if (!selectedBroker && !editBroker) { showMsg('Choose a broker first', 'error'); return false }
+    if (!apiKey.trim() || !secretKey.trim()) { showMsg('API key + secret are required', 'error'); return false }
+    setSaving(true)
     try {
       const additional_params: Record<string, string> = {}
       if (totpSecret) additional_params.totp_secret = totpSecret
       if (clientCode) additional_params.client_code = clientCode
-      await api.brokers.saveCredentials({ broker: selectedBroker, api_key: apiKey, secret_key: secretKey, additional_params: Object.keys(additional_params).length ? additional_params : undefined })
+      const savedBroker = selectedBroker || editBroker
+      await api.brokers.saveCredentials({ broker: savedBroker, api_key: apiKey, secret_key: secretKey, additional_params: Object.keys(additional_params).length ? additional_params : undefined })
+      if (metadataMap[savedBroker]?.oauth_available) {
+        const data = await api.brokers.fyersAuthUrl() as { auth_url: string }
+        if (data.auth_url) {
+          showMsg(`${displayName(savedBroker)} saved! OAuth link opened in new tab.`)
+          window.open(data.auth_url, '_blank')
+        } else {
+          showMsg(`${displayName(savedBroker)} connected successfully`)
+        }
+      } else {
+        showMsg(`${displayName(savedBroker)} connected successfully`)
+      }
+      load()
+      if (!editBroker) {
+        setWizardStep(3)
+        return true
+      }
       setShowAdd(false)
       setEditBroker('')
       setSelectedBroker('')
@@ -140,21 +167,24 @@ export default function BrokersPage() {
       setClientCode('')
       setSecretKey('')
       setTotpSecret('')
-      if (metadataMap[selectedBroker]?.oauth_available) {
-        const data = await api.brokers.fyersAuthUrl() as { auth_url: string }
-        if (data.auth_url) {
-          showMsg(`${displayName(selectedBroker)} saved! OAuth link opened in new tab.`)
-          window.open(data.auth_url, '_blank')
-        } else {
-          showMsg(`${displayName(selectedBroker)} connected successfully`)
-        }
-      } else {
-        showMsg(`${displayName(selectedBroker)} connected successfully`)
-      }
-      load()
+      return true
     } catch (e: any) {
-      showMsg(e?.message || 'Failed to save credentials', 'error')
+      showMsg(friendlyApiError(e), 'error')
+      return false
+    } finally {
+      setSaving(false)
     }
+  }
+
+  const closeWizard = () => {
+    setShowAdd(false)
+    setEditBroker('')
+    setSelectedBroker('')
+    setApiKey('')
+    setClientCode('')
+    setSecretKey('')
+    setTotpSecret('')
+    setWizardStep(1)
   }
 
   const handleReAuth = async (broker: string) => {
@@ -219,6 +249,12 @@ export default function BrokersPage() {
   }
   return (
     <div>
+      {loadError && (
+        <div className="t-panel" style={{ marginBottom: 12, padding: '10px 14px', borderColor: 'var(--red)' }}>
+          <span className="t-error">{loadError}</span>{' '}
+          <button className="t-btn t-btn-xs" onClick={load}>Retry</button>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--text)', letterSpacing: '-0.02em' }}>Brokers</h1>
@@ -275,14 +311,15 @@ export default function BrokersPage() {
       )}
 
       {showAdd && (
-        <Dialog onClose={() => setShowAdd(false)} title={<div className="t-modal-title">{editBroker ? `Edit ${displayName(editBroker)}` : 'Connect Broker'}</div>}>
-            {!editBroker && (
+        <Dialog onClose={() => setShowAdd(false)} title={<div className="t-modal-title">{editBroker ? `Edit ${displayName(editBroker)}` : `Connect Broker — Step ${wizardStep} of 3`}</div>}>
+            {!editBroker && wizardStep === 1 && (
               <div style={{ marginBottom: 16 }}>
+                <p className="t-faint" style={{ fontSize: 12, margin: '0 0 8px' }}>Step 1 — Choose your broker</p>
                 <div className="t-grid-2" style={{ gap: 8 }}>
                   {unconnected.map((b) => (
                     <div
                       key={b}
-                      onClick={() => setSelectedBroker(b)}
+                      onClick={() => { setSelectedBroker(b); setWizardStep(2) }}
                       className={`t-chip${selectedBroker === b ? ' active' : ''}`}
                       style={{ textAlign: 'center', padding: '10px', cursor: 'pointer' }}
                     >
@@ -300,8 +337,9 @@ export default function BrokersPage() {
                 </div>
               </div>
             )}
-            {(selectedBroker || editBroker) && (
+            {(selectedBroker || editBroker) && (editBroker || wizardStep >= 2) && (
               <div style={{ marginBottom: 16 }}>
+                {!editBroker && <p className="t-faint" style={{ fontSize: 12, margin: '0 0 8px' }}>Step 2 — Paste API keys from your broker dashboard</p>}
                 {(metaForBroker(selectedBroker || editBroker)?.fields || []).map(field => {
                   if (field.key === 'client_code') {
                     return (
@@ -354,12 +392,30 @@ export default function BrokersPage() {
                 ))}
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="t-btn t-btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
-              <button className="t-btn t-btn-primary" onClick={handleSave} disabled={!selectedBroker && !editBroker}>
-                {editBroker ? 'Update' : 'Connect'}
-              </button>
+            {(!editBroker && wizardStep === 3) ? (
+              <div>
+                <div className="t-panel" style={{ marginBottom: 12, padding: '10px 14px' }}>
+                  <p style={{ fontSize: 12, margin: 0 }}>Step 3 — Connected. Verify funds, then go live:</p>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <a className="t-btn t-btn-xs" href="/funds">Check Funds</a>
+                    <a className="t-btn t-btn-xs t-btn-primary" href="/go-live">Go Live</a>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button className="t-btn t-btn-primary" onClick={closeWizard}>Done</button>
+                </div>
+              </div>
+            ) : (
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+              <button className="t-btn t-btn-ghost" onClick={() => { if (!editBroker && wizardStep === 2) setWizardStep(1); else setShowAdd(false) }}>Back</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="t-btn t-btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+                <button className="t-btn t-btn-primary" onClick={handleSave} disabled={(!selectedBroker && !editBroker) || saving}>
+                  {saving ? 'Connecting...' : editBroker ? 'Update' : 'Connect'}
+                </button>
+              </div>
             </div>
+            )}
         </Dialog>
       )}
 

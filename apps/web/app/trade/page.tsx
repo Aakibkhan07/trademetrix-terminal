@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { api } from '@/lib/api'
+import { api, friendlyApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { useMarketData } from '@/lib/use-market-data'
 import { buildContract, groupExpiries, indexMeta, marginLeg } from '@/lib/options-contracts'
@@ -86,7 +86,7 @@ export default function TradePage() {
       const d = await api.brokers.credentials() as { credentials: BrokerCred[] }
       setCreds(d.credentials || [])
     } catch (e) {
-      setCredsError(String(e))
+      setCredsError(friendlyApiError(e))
     } finally {
       setCredsLoading(false)
     }
@@ -115,7 +115,7 @@ export default function TradePage() {
       setChain({ optionChain: rows, expiries: exps })
       setLiveSource(rows.some(r => r.call.ltp > 0 || r.put.ltp > 0))
     } catch (e) {
-      setChainError(String(e))
+      setChainError(friendlyApiError(e))
       setChain(EMPTY_CHAIN)
     } finally {
       setChainLoading(false)
@@ -207,7 +207,7 @@ export default function TradePage() {
       setMode('live')
       setConfirmingLive(false)
     } catch (e) {
-      setOrderError(String(e))
+      setOrderError(friendlyApiError(e))
       setConfirmingLive(false)
     }
   }
@@ -236,7 +236,7 @@ export default function TradePage() {
       }) as { result: OrderResult }
       setOrderResult(res.result)
     } catch (e) {
-      setOrderError(String(e))
+      setOrderError(friendlyApiError(e))
     } finally {
       setPlacing(false)
     }
@@ -300,7 +300,7 @@ export default function TradePage() {
               <button
                 key={c.broker}
                 className={`t-btn t-btn-sm ${c.is_active ? 't-btn-primary' : 't-btn-ghost'}`}
-                onClick={() => !c.is_active && api.brokers.activate(c.broker).then(loadCreds).catch(e => setCredsError(String(e)))}
+                onClick={() => !c.is_active && api.brokers.activate(c.broker).then(loadCreds).catch(e => setCredsError(friendlyApiError(e)))}
                 disabled={c.is_active}
               >
                 {c.is_active && <span className="live-dot active" />}
@@ -375,6 +375,7 @@ export default function TradePage() {
                 handleToggleLive()
               }}
               onPlace={handlePlace}
+              placing={placing}
             />
 
             {confirmingLive && (

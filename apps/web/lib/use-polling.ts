@@ -10,7 +10,11 @@ export function usePolling(callback: () => void, intervalMs: number, enabled = t
   useEffect(() => {
     if (!enabled) return
     savedCallback.current()
-    const id = setInterval(() => savedCallback.current(), intervalMs)
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return
+      savedCallback.current()
+    }, intervalMs)
     return () => clearInterval(id)
   }, [intervalMs, enabled])
 }

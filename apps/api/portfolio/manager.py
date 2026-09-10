@@ -141,42 +141,41 @@ class PortfolioManager:
             portfolio_metrics.record_sync(broker, (time.monotonic() - sync_start) * 1000, False)
             return state
 
-        try:
-            broker_positions = await adapter.get_positions()
-            self._sync_positions(state, broker_positions, user_id, broker)
+        import asyncio
+        pos_res, hold_res, funds_res, orders_res = await asyncio.gather(
+            adapter.get_positions(), adapter.get_holdings(),
+            adapter.get_funds(), adapter.get_orders(),
+            return_exceptions=True,
+        )
+        if isinstance(pos_res, Exception):
+            logger.error("Position sync failed for %s/%s: %s", user_id, broker, pos_res)
+            state.sync_status.positions_sync_status = SyncStatus.FAILED
+            state.sync_status.error_message = str(pos_res)
+        else:
+            self._sync_positions(state, pos_res, user_id, broker)
             state.sync_status.last_positions_sync = datetime.now(UTC)
             state.sync_status.positions_sync_status = SyncStatus.SYNCED
-        except Exception as e:
-            logger.error("Position sync failed for %s/%s: %s", user_id, broker, e)
-            state.sync_status.positions_sync_status = SyncStatus.FAILED
-            state.sync_status.error_message = str(e)
-
-        try:
-            broker_holdings = await adapter.get_holdings()
-            self._sync_holdings(state, broker_holdings, user_id, broker)
+        if isinstance(hold_res, Exception):
+            logger.error("Holding sync failed for %s/%s: %s", user_id, broker, hold_res)
+            state.sync_status.holdings_sync_status = SyncStatus.FAILED
+        else:
+            self._sync_holdings(state, hold_res, user_id, broker)
             state.sync_status.last_holdings_sync = datetime.now(UTC)
             state.sync_status.holdings_sync_status = SyncStatus.SYNCED
-        except Exception as e:
-            logger.error("Holding sync failed for %s/%s: %s", user_id, broker, e)
-            state.sync_status.holdings_sync_status = SyncStatus.FAILED
-
-        try:
-            broker_funds = await adapter.get_funds()
-            self._sync_funds(state, broker_funds, user_id, broker)
+        if isinstance(funds_res, Exception):
+            logger.error("Funds sync failed for %s/%s: %s", user_id, broker, funds_res)
+            state.sync_status.funds_sync_status = SyncStatus.FAILED
+        else:
+            self._sync_funds(state, funds_res, user_id, broker)
             state.sync_status.last_funds_sync = datetime.now(UTC)
             state.sync_status.funds_sync_status = SyncStatus.SYNCED
-        except Exception as e:
-            logger.error("Funds sync failed for %s/%s: %s", user_id, broker, e)
-            state.sync_status.funds_sync_status = SyncStatus.FAILED
-
-        try:
-            broker_orders = await adapter.get_orders()
-            state.orders = [o.model_dump(mode="json") if hasattr(o, "model_dump") else o for o in broker_orders]
+        if isinstance(orders_res, Exception):
+            logger.error("Orders sync failed for %s/%s: %s", user_id, broker, orders_res)
+            state.sync_status.orders_sync_status = SyncStatus.FAILED
+        else:
+            state.orders = [o.model_dump(mode="json") if hasattr(o, "model_dump") else o for o in orders_res]
             state.sync_status.last_orders_sync = datetime.now(UTC)
             state.sync_status.orders_sync_status = SyncStatus.SYNCED
-        except Exception as e:
-            logger.error("Orders sync failed for %s/%s: %s", user_id, broker, e)
-            state.sync_status.orders_sync_status = SyncStatus.FAILED
 
         await self._reconcile(state, user_id, broker)
         await self._compute_pnl(state, user_id, broker)

@@ -6,6 +6,7 @@ LOT_SIZES: dict[str, int] = {
     "SENSEX": 20,
     "BANKNIFTY": 30,
     "FINNIFTY": 60,
+    "MIDCPNIFTY": 75,
 }
 
 STRIKE_INTERVALS: dict[str, int] = {
@@ -13,6 +14,7 @@ STRIKE_INTERVALS: dict[str, int] = {
     "BANKNIFTY": 100,
     "FINNIFTY": 50,
     "SENSEX": 100,
+    "MIDCPNIFTY": 25,
 }
 
 # NIFTY weekly expiry changed from Thu(3)→Tue(1) post-Sept 2025 circular.
@@ -60,7 +62,8 @@ def format_fyers_option_symbol(symbol: str, strike: float, option_type: str, exp
     dd = f"{expiry_date.day:02d}"
     month_code = MONTH_CODES[expiry_date.month]
     strike_int = int(strike)
-    return f"NSE:{symbol.upper()}{dd}{month_code}{strike_int}{option_type.upper()}"
+    exch = "BSE" if symbol.upper() == "SENSEX" else "NSE"
+    return f"{exch}:{symbol.upper()}{dd}{month_code}{strike_int}{option_type.upper()}"
 
 
 def format_fyers_future_symbol(symbol: str, expiry_date: date | None = None) -> str:
@@ -68,4 +71,5 @@ def format_fyers_future_symbol(symbol: str, expiry_date: date | None = None) -> 
         expiry_date = get_weekly_expiry(symbol)
     yy = str(expiry_date.year)[-2:]
     month_code = MONTH_CODES[expiry_date.month]
-    return f"NSE:{symbol.upper()}{yy}{month_code}FUT"
+    exch = "BSE" if symbol.upper() == "SENSEX" else "NSE"
+    return f"{exch}:{symbol.upper()}{yy}{month_code}FUT"

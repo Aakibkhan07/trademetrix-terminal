@@ -306,7 +306,7 @@ class StrategyRuntimeManager:
             return None
         status = record.status()
         status.stats = record.stats
-        body = status.model_dump()
+        body = status.model_dump(mode="json")
         body["confirmed"] = record.spec.confirmed
         body["account"] = record.spec.account
         body["broker"] = record.spec.broker

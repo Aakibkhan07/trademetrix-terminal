@@ -59,7 +59,7 @@ class BuyerConfig:
     or_start: time = time(9, 15)
     or_end: time = time(9, 30)
     last_entry: time = time(14, 30)
-    square_off: time = time(15, 10)
+    square_off: time = time(15, 40)
     vol_mult: float = 1.5
     vol_lookback: int = 20
     itm_offset_steps: int = 0
@@ -67,8 +67,14 @@ class BuyerConfig:
     risk_per_trade_pct: float = 1.0
     max_outlay_pct: float = 10.0
     sl_pct: float = 30.0
-    rr_target: float = 1.5
+    rr_target: float = 3.0
+    rr_min: float = 2.0
+    rr_max: float = 5.0
+    analysis_interval: str = "15m"
+    execution_interval: str = "5m"
     trail_giveback_pct: float = 25.0
+    use_15m_analysis: bool = True
+    use_5m_execution: bool = True
     time_stop_min: int = 30
     time_stop_min_R: float = 0.5
     max_trades_per_day: int = 2
@@ -109,6 +115,8 @@ class BuyerBase(BaseStrategy):
         self._backtest_trades: list[dict] = []
         self._backtest_equity: list[dict] = []
         self._backtest_capital = self.bc.backtest_initial_capital
+        self._five_buffer: list[Candle] = []
+        self._last_rr: float = 3.0
 
     @property
     def riskguard(self) -> Optional[RiskGuard]:
@@ -145,8 +153,48 @@ class BuyerBase(BaseStrategy):
     async def on_tick(self, tick) -> Optional[SignalResult]:
         return None
 
-    @abstractmethod
+    def _aggregate_5m_to_15m(self, candles: list[Candle]) -> Candle:
+        if not candles:
+            raise ValueError("No candles to aggregate")
+        first, last = candles[0], candles[-1]
+        agg = Candle(
+            symbol=first.symbol,
+            exchange=first.exchange,
+            interval="15m",
+            open=first.open,
+            high=max(c.high for c in candles),
+            low=min(c.low for c in candles),
+            close=last.close,
+            volume=sum(c.volume for c in candles),
+            timestamp=last.timestamp,
+            oi=getattr(last, "oi", 0),
+        )
+        return agg
+
     async def on_candle(self, candle: Candle) -> Optional[SignalResult]:
+        interval = getattr(candle, "interval", "") or ""
+        if self.bc.use_5m_execution and interval == "5m":
+            if self.phase == Phase.IN_TRADE:
+                await self._manage(candle)
+                await self._persist()
+                return None
+            self._five_buffer.append(candle)
+            if len(self._five_buffer) < 3:
+                self.vols.append(candle.volume)
+                self.vols = self.vols[-self.bc.vol_lookback:]
+                await self._persist()
+                return None
+            agg = self._aggregate_5m_to_15m(self._five_buffer)
+            self._five_buffer = []
+            return await self._on_15m(agg)
+        if self.bc.use_15m_analysis and interval == "15m":
+            return await self._on_15m(candle)
+        if self.bc.use_15m_analysis and self.bc.use_5m_execution and interval not in ("5m", "15m"):
+            return await self._on_15m(candle)
+        return await self._on_15m(candle)
+
+    @abstractmethod
+    async def _on_15m(self, candle: Candle) -> Optional[SignalResult]:
         ...
 
     # ---------- shared helpers ----------
@@ -215,6 +263,12 @@ class BuyerBase(BaseStrategy):
             return 0, 0, 0.0
         r_points = entry_premium - sl_premium
         return lots, lots * lot_size, r_points
+
+    def _get_rr(self) -> float:
+        import random
+        rr = random.uniform(self.bc.rr_min, self.bc.rr_max)
+        self._last_rr = round(rr, 2)
+        return self._last_rr
 
     async def _place_order(self, symbol: str, side: str, qty: int, tag: str, premium: float | None = None) -> None:
         if self.bc.backtest_mode:

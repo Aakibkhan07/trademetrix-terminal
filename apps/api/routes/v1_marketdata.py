@@ -359,19 +359,22 @@ async def get_historical(
     symbol: str = Query("NIFTY"),
     exchange: str = Query("NSE"),
     interval: str = Query("15m"),
-    days: int = Query(7),
+    days: int = Query(7, ge=1, le=1825),
     current_user: UserProfile = Depends(get_current_user),
 ):
     from engine.backtest import fetch_historical_data
+    from strategies import MAX_BACKTEST_DAYS, MAX_INTRADAY_DAYS
+    if days > MAX_BACKTEST_DAYS:
+        raise HTTPException(status_code=400, detail=f"Max {MAX_BACKTEST_DAYS} days allowed")
+    if days > MAX_INTRADAY_DAYS and interval not in ("1d", "1D", "daily"):
+        raise HTTPException(status_code=400, detail=f"{interval} data only up to {MAX_INTRADAY_DAYS} days — use daily for longer")
     try:
         candles = await fetch_historical_data(symbol, exchange, interval, days, user_id=current_user.id)
     except ValueError as e:
-        # Real-data honesty contract: no fabricated candles — surface a clean 400,
-        # never an unhandled 500 (this endpoint feeds every chart widget).
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Historical fetch failed for %s", symbol)
-        raise HTTPException(status_code=502, detail=f"Historical data unavailable for {symbol}: {e}")
+        raise HTTPException(status_code=502, detail=f"Historical data unavailable for {symbol}")
     return {"symbol": symbol, "interval": interval, "candles": candles}
 
 

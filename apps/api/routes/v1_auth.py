@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import secrets
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from core.audit import record_audit
 from core.cache import cache
@@ -94,18 +94,18 @@ async def _throttle_login(request: Request, email: str, failed: bool) -> None:
 
 
 class SignUpRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
     full_name: str = ""
 
 
 class SignInRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class UpdateProfileRequest(BaseModel):
@@ -180,10 +180,14 @@ async def signup(req: SignUpRequest, response: Response, background_tasks: Backg
         user_data = resp.json()
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create user: {str(e)}")
+    except Exception:
+        logger.exception("signup GoTrue create failed")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
 
-    user_id = user_data["id"]
+    user_id = user_data.get("id")
+    if not user_id:
+        logger.error("signup GoTrue response missing id: %s", user_data)
+        raise HTTPException(status_code=502, detail="User provider returned invalid response")
 
     try:
         client = await get_http_client()

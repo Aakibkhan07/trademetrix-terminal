@@ -9,9 +9,13 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 @router.post("/daily/send")
 async def send_daily_reports(request: Request):
     secret = request.headers.get("X-Cron-Secret") or request.query_params.get("secret")
-    expected = os.getenv("CRON_SECRET") or settings.secret_key[:16]
-    # In dev, allow without secret; in prod, require it if CRON_SECRET is set
-    if os.getenv("CRON_SECRET") and secret != expected:
+    expected = os.getenv("CRON_SECRET")
+    if not expected:
+        if settings.env == "development" and settings.debug:
+            pass
+        else:
+            raise HTTPException(status_code=401, detail="Cron secret not configured")
+    elif secret != expected:
         raise HTTPException(status_code=401, detail="Invalid cron secret")
 
     # Scaffold: in production this would iterate over active users and push

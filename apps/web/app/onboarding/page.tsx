@@ -51,6 +51,7 @@ function StepAccount({ onDone }: { onDone: () => void }) {
   const [fullName, setFullName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const passwordHint = mode === 'signup' ? 'Min 8 chars, with uppercase, lowercase, number + symbol' : ''
 
   useEffect(() => {
     if (!authLoading && token) onDone()
@@ -76,7 +77,8 @@ function StepAccount({ onDone }: { onDone: () => void }) {
       }
       onDone()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Authentication failed')
+      const { friendlyApiError } = await import('@/lib/api')
+      setError(friendlyApiError(err))
     } finally {
       setLoading(false)
     }
@@ -97,7 +99,8 @@ function StepAccount({ onDone }: { onDone: () => void }) {
         </div>
         <div style={{ marginBottom: 20 }}>
           <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Password</label>
-          <input className="t-input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+          <input className="t-input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+          {passwordHint && <p className="t-faint" style={{ fontSize: 11, margin: '4px 0 0' }}>{passwordHint}</p>}
         </div>
 
         {error && (
@@ -155,11 +158,13 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       const creds = (credData as { credentials: BrokerCred[] }).credentials || []
       setCredentials(creds)
       setAvailable((brokerData as { brokers: string[] }).brokers || [])
+      setError('')
       if (creds.some(c => c.is_active)) {
         onDone()
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load brokers')
+      const { friendlyApiError } = await import('@/lib/api')
+      setError(friendlyApiError(e))
     } finally {
       setLoading(false)
     }
@@ -188,7 +193,8 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
   const unconnected = available.filter(b => !credentials.some(c => c.broker === b))
 
   const handleSave = async () => {
-    if (!selectedBroker) return
+    if (!selectedBroker || saving) return
+    if (!apiKey.trim() || !secretKey.trim()) { setError('API key + secret are required'); return }
     setSaving(true)
     setError('')
     try {
@@ -197,8 +203,8 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       if (clientCode) additional.client_code = clientCode
       await api.brokers.saveCredentials({
         broker: selectedBroker,
-        api_key: apiKey,
-        secret_key: secretKey,
+        api_key: apiKey.trim(),
+        secret_key: secretKey.trim(),
         additional_params: Object.keys(additional).length ? additional : undefined,
       })
       if (selectedBroker === 'fyers') {
@@ -216,7 +222,8 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       setTotpSecret('')
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save credentials')
+      const { friendlyApiError } = await import('@/lib/api')
+      setError(friendlyApiError(e))
     } finally {
       setSaving(false)
     }
@@ -361,12 +368,33 @@ function StepDone() {
   const { data: assignedData, loading, error } = useApi<{ strategies: AssignedStrategy[] }>('/strategies/assigned')
   const assigned = assignedData?.strategies || []
   const profileUpdated = useRef(false)
+  const [checks, setChecks] = useState({ broker: false, funds: false, paperTrade: false, alerts: false })
 
   useEffect(() => {
     if (!profileUpdated.current) {
       profileUpdated.current = true
       api.patch('/auth/profile', { onboarding_completed: true }).catch(() => {})
     }
+    let alive = true
+    Promise.allSettled([
+      api.brokers.credentials(),
+      api.engine.funds().catch(() => null),
+      api.paper.trades(1).catch(() => null),
+      api.notifications.telegramStatus().catch(() => null),
+    ]).then(([c, f, t, tg]) => {
+      if (!alive) return
+      const creds = (c.status === 'fulfilled' ? (c.value as { credentials?: BrokerCred[] }).credentials : []) || []
+      const funds = f.status === 'fulfilled' ? (f.value as { funds?: { available_margin?: number } })?.funds : null
+      const trades = t.status === 'fulfilled' ? (t.value as { trades?: unknown[] })?.trades : null
+      const linked = tg.status === 'fulfilled' ? (tg.value as { linked?: boolean })?.linked : false
+      setChecks({
+        broker: creds.some(x => x.is_active),
+        funds: Number((funds as { available_margin?: number })?.available_margin ?? 0) > 0 || !!funds,
+        paperTrade: Array.isArray(trades) && trades.length > 0,
+        alerts: linked === true,
+      })
+    })
+    return () => { alive = false }
   }, [])
 
   return (
@@ -428,6 +456,22 @@ function StepDone() {
           </p>
         </div>
       )}
+
+      <div className="t-panel" style={{ padding: 16, marginBottom: 20 }}>
+        <h3 className="t-panel-title" style={{ fontSize: 13, marginBottom: 10 }}>Launch checklist</h3>
+        {[
+          { done: checks.broker, label: 'Broker connected', href: '/brokers' },
+          { done: checks.funds, label: 'Funds visible', href: '/funds' },
+          { done: checks.paperTrade, label: 'First paper trade placed', href: '/trade' },
+          { done: checks.alerts, label: 'Telegram alerts linked', href: '/settings' },
+        ].map(c => (
+          <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
+            <span style={{ width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: c.done ? 'var(--green)' : 'var(--bg-tertiary)', color: c.done ? '#052a14' : 'var(--text-faint)' }}>{c.done ? '✓' : '·'}</span>
+            <span style={{ flex: 1, fontSize: 12, color: 'var(--text)' }}>{c.label}</span>
+            {!c.done && <a href={c.href} style={{ fontSize: 11, color: 'var(--cyan)' }}>Do it</a>}
+          </div>
+        ))}
+      </div>
 
       <button
         className="t-btn-primary"

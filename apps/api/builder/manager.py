@@ -333,12 +333,12 @@ class BuilderManager:
             "changes": changes,
         }
 
-    async def set_status(self, strategy_id: str, status: StrategyStatus) -> StrategyDSL | None:
+    async def set_status(self, strategy_id: str, status: StrategyStatus | str) -> StrategyDSL | None:
         await _ensure_db()
         dsl = await self.get(strategy_id)
         if not dsl:
             return None
-        dsl.status = status
+        dsl.status = status if isinstance(status, StrategyStatus) else StrategyStatus(str(status))
         dsl.updated_at = datetime.now(UTC).isoformat()
         _strategies[strategy_id] = dsl.model_dump(mode="json")
         await _persist(_strategies[strategy_id])

@@ -12,16 +12,11 @@ from core.models import (
 
 logger = logging.getLogger(__name__)
 
-# Known intervals and lot sizes (from marketdata)
-STRIKE_INTERVALS: dict[str, int] = {
-    "NIFTY": 50, "BANKNIFTY": 100, "FINNIFTY": 50, "SENSEX": 100,
-}
-LOT_SIZES: dict[str, int] = {
-    "NIFTY": 65, "BANKNIFTY": 30, "FINNIFTY": 60, "SENSEX": 20,
-}
-WEEKDAY_EXPIRY: dict[str, int] = {
-    "NIFTY": 1, "BANKNIFTY": 1, "FINNIFTY": 1, "SENSEX": 3,
-}
+from core.constants import LOT_SIZES as CORE_LOT_SIZES, STRIKE_INTERVALS as CORE_STRIKE_INTERVALS, WEEKLY_EXPIRY_MAP as CORE_WEEKLY_EXPIRY
+
+STRIKE_INTERVALS: dict[str, int] = dict(CORE_STRIKE_INTERVALS)
+LOT_SIZES: dict[str, int] = dict(CORE_LOT_SIZES)
+WEEKDAY_EXPIRY: dict[str, int] = dict(CORE_WEEKLY_EXPIRY)
 
 MAX_LOTS: int = 10
 MARKET_OPEN = time(9, 15)

@@ -22,7 +22,8 @@ function NavIcon({ href, active }: { href: string; active?: boolean }) {
   if (href === '/portfolio') return <svg {...common}><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></svg>
   if (href === '/funds') return <svg {...common}><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 10h.01"/><path d="M2 10h20"/></svg>
   if (href === '/paper') return <svg {...common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>
-  if (href === '/portal/brokers') return <svg {...common}><path d="M3 21h18"/><path d="M5 21V7l8-4 8 4v14"/><path d="M9 21v-6h6v6"/></svg>
+  if (href === '/portal/brokers' || href === '/brokers') return <svg {...common}><path d="M3 21h18"/><path d="M5 21V7l8-4 8 4v14"/><path d="M9 21v-6h6v6"/></svg>
+  if (href === '/marketplace') return <svg {...common}><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6L5 3H2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
   if (href === '/strategies/builder') return <svg {...common}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M14 6h3"/><path d="M6 14v3"/></svg>
   if (href === '/backtest') return <svg {...common}><path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M15 3h4a2 2 0 0 1 2 2v4"/><path d="M9 21H5a2 2 0 0 1-2-2v-4"/><path d="M15 21h4a2 2 0 0 1 2-2v-4"/><path d="M9 9h6v6H9z"/></svg>
   if (href === '/analytics') return <svg {...common}><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
@@ -42,46 +43,42 @@ const USER_SECTIONS = [
   {
     label: 'Home',
     items: [
-      { href: '/live', label: 'Live Dashboard' },
+      { href: '/live', label: 'Dashboard' },
       { href: '/go-live', label: 'Go Live' },
+      { href: '/portfolio', label: 'Portfolio' },
+      { href: '/funds', label: 'Funds' },
     ],
   },
   {
     label: 'Trade',
     items: [
-      { href: '/trade', label: 'Orders' },
+      { href: '/trade', label: 'Trade' },
       { href: '/positions', label: 'Positions' },
-      { href: '/portfolio', label: 'Portfolio' },
-      { href: '/funds', label: 'Funds' },
       { href: '/paper', label: 'Paper Trading' },
-      { href: '/portal/brokers', label: 'Brokers' },
-    ],
-  },
-  {
-    label: 'Build & Analyze',
-    items: [
-      { href: '/strategies/builder', label: 'Strategy Builder' },
-      { href: '/backtest', label: 'Backtest' },
-      { href: '/analytics', label: 'Analytics' },
-      { href: '/marketdata', label: 'Market Analyzer' },
-      { href: '/terminal', label: 'Terminal' },
-    ],
-  },
-  {
-    label: 'Manage',
-    items: [
-      { href: '/reports/daily', label: 'Daily Report' },
+      { href: '/brokers', label: 'Brokers' },
       { href: '/alerts', label: 'Alerts' },
-      { href: '/risk', label: 'Risk Control' },
+    ],
+  },
+  {
+    label: 'Algos',
+    items: [
+      { href: '/strategies', label: 'Strategies' },
+      { href: '/strategies/builder', label: 'Builder' },
+      { href: '/backtest', label: 'Backtest' },
+      { href: '/marketplace', label: 'Marketplace' },
+    ],
+  },
+  {
+    label: 'More',
+    items: [
+      { href: '/analytics', label: 'Analytics' },
+      { href: '/marketdata', label: 'Markets' },
+      { href: '/terminal', label: 'Terminal' },
+      { href: '/risk', label: 'Risk' },
+      { href: '/ai', label: 'AI Assistant' },
+      { href: '/reports/daily', label: 'Daily Report' },
       { href: '/settings', label: 'Settings' },
       { href: '/help', label: 'Help' },
-    ],
-  },
-  {
-    label: 'Platform',
-    items: [
-      { href: '/ai', label: 'AI Assistant' },
-      { href: '/strategies', label: 'Strategies' },
     ],
   },
 ]
@@ -240,8 +237,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setSearchLoading(true)
     searchTimer.current = setTimeout(async () => {
       try {
-        const data = await api.get<{ results: { symbol: string; name: string; instrument_type: string; exchange: string }[] }>(`/market/instruments?query=${encodeURIComponent(searchQuery)}&limit=8`)
-        setSearchResults(data.results || [])
+        const data = await api.get<{ results?: { symbol: string; name: string; instrument_type: string; exchange: string }[]; instruments?: { symbol: string; name: string; instrument_type: string; exchange: string }[] }>(`/marketdata/instruments?query=${encodeURIComponent(searchQuery)}&limit=8`)
+        setSearchResults(data?.results || (data as { instruments?: { symbol: string; name: string; instrument_type: string; exchange: string }[] })?.instruments || [])
       } catch { setSearchResults([]) }
       setSearchLoading(false)
     }, 300)
@@ -792,6 +789,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
 
+        {/* Mobile bottom nav — 4 core destinations */}
+        <nav aria-label="Primary" className="tm-bottomnav" style={{
+          display: 'none', position: 'sticky', bottom: 0, zIndex: 50,
+          background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}>
+          {[
+            { href: '/live', label: 'Home' },
+            { href: '/trade', label: 'Trade' },
+            { href: '/strategies', label: 'Algos' },
+            { href: '/settings', label: 'More' },
+          ].map(t => {
+            const active = isActive_(t.href)
+            return (
+              <Link key={t.href} href={t.href} aria-current={active ? 'page' : undefined} style={{
+                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                padding: '8px 0 6px', textDecoration: 'none',
+                color: active ? 'var(--cyan)' : 'var(--text-sub)',
+                fontSize: 10, fontWeight: 700, minHeight: 56,
+              }}>
+                <span style={{ display: 'flex' }}><NavIcon href={t.href} active={active} /></span>
+                {t.label}
+              </Link>
+            )
+          })}
+        </nav>
+
         {/* Status Bar */}
         <StatusBar />
       </div>
@@ -859,11 +883,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           }
         }
 
-        @media (min-width: 861px) {
-          .tm-hamburger {
-            display: none !important;
+          @media (min-width: 861px) {
+            .tm-hamburger {
+              display: none !important;
+            }
+            .tm-bottomnav {
+              display: none !important;
+            }
           }
-        }
+          @media (max-width: 860px) {
+            .tm-bottomnav {
+              display: flex !important;
+            }
+            .t-content {
+              padding-bottom: calc(56px + env(safe-area-inset-bottom)) !important;
+            }
+            .t-btn, .t-chip, button.t-btn {
+              min-height: 44px !important;
+            }
+            .t-btn-xs, .t-btn-sm {
+              min-height: 44px !important;
+              padding: 10px 14px !important;
+            }
+            input.t-input, .t-input, select, textarea {
+              font-size: 16px !important;
+            }
+          }
       `}</style>
     </div>
   )

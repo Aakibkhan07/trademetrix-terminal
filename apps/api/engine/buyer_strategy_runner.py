@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-BUYER_KEYS = frozenset({"momentum_breakout_buyer", "trend_rider_buyer", "long_straddle"})
+BUYER_KEYS = frozenset({"momentum_breakout_buyer", "trend_rider_buyer", "long_straddle", "hero_zero"})
 CACHE_ACTIVE_KEY = "buyer_runner:active"
 CACHE_CONFIG_PREFIX = "buyer_runner:config:"
 CACHE_INDEX_PREFIX = "buyer_runner:index:"
@@ -72,6 +72,30 @@ AUTO_CONFIGS: dict[str, dict] = {
         "time_stop_min": 45,
         "combined_loss_pct": 10,
         "leg_target_multiple": 1.2,
+    },
+    "HZ-nifty": {
+        "strategy_id": "HZ-nifty",
+        "strategy_key": "hero_zero",
+        "user_id": DEFAULT_USER_ID,
+        "index": "NIFTY",
+        "backtest_mode": True,
+        "capital": 50000.0,
+        "risk_per_trade_pct": 1.0,
+        "max_outlay_pct": 10.0,
+        "sl_pct": 40.0,
+        "rr_target": 3.5,
+    },
+    "HZ-sensex": {
+        "strategy_id": "HZ-sensex",
+        "strategy_key": "hero_zero",
+        "user_id": DEFAULT_USER_ID,
+        "index": "SENSEX",
+        "backtest_mode": True,
+        "capital": 50000.0,
+        "risk_per_trade_pct": 1.0,
+        "max_outlay_pct": 10.0,
+        "sl_pct": 40.0,
+        "rr_target": 3.5,
     },
 }
 

@@ -264,8 +264,20 @@ class PaperBroker:
         return await self.get_orders()
 
     async def get_positions(self) -> list:
+        import random
+        from market.status import market_status_service
+        is_open = market_status_service.is_market_open()
         positions = []
         for symbol, pos in self._positions.items():
+            base = pos.last_price if pos.last_price and pos.last_price > 0 else pos.average_buy_price if pos.average_buy_price > 0 else pos.average_sell_price if pos.average_sell_price > 0 else 80.0
+            sl = pos.average_buy_price * 0.7 if pos.average_buy_price > 0 else 0
+            target = pos.average_buy_price + (pos.average_buy_price - sl) * 3.0 if pos.average_buy_price > 0 else 0
+            hit = (base <= sl and sl > 0) or (base >= target and target > 0)
+            if is_open and not hit and base and base > 0:
+                jitter = random.uniform(-0.015, 0.015)
+                pos.last_price = round(max(5.0, base * (1 + jitter)), 2)
+                pos.unrealised_pnl = pos.quantity * (pos.last_price - pos.average_buy_price) if pos.quantity > 0 else abs(pos.quantity) * (pos.average_sell_price - pos.last_price) if pos.quantity < 0 else 0.0
+                pos.m2m = pos.realised_pnl + pos.unrealised_pnl
             positions.append(self._to_position_model(pos))
         return positions
 
@@ -361,9 +373,10 @@ class PaperBroker:
         return True
 
     def _to_position_model(self, pos: PaperPosition) -> Position:
+        exch = Exchange.BSE if "SENSEX" in (pos.symbol or "").upper() else Exchange.NSE
         return Position(
             symbol=pos.symbol,
-            exchange=Exchange.NSE,
+            exchange=exch,
             quantity=pos.quantity,
             buy_quantity=pos.buy_quantity,
             sell_quantity=pos.sell_quantity,
@@ -375,6 +388,7 @@ class PaperBroker:
             product=ProductType.INTRADAY,
             multiplier=pos.multiplier,
             broker=PAPER_BROKER,
+            last_price=pos.last_price,
         )
 
     def _persist_order(self, order: NormalizedOrder, fill: PaperFill) -> None:

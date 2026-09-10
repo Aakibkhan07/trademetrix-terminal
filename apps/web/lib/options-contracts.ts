@@ -27,11 +27,11 @@ export interface IndexMeta {
 }
 
 export const INDEXES: IndexMeta[] = [
-  { key: 'NIFTY', name: 'NIFTY', spotSymbol: 'NSE:NIFTY50-INDEX', fallbackLot: 50, strikeInterval: 50 },
-  { key: 'BANKNIFTY', name: 'BANKNIFTY', spotSymbol: 'NSE:NIFTYBANK-INDEX', fallbackLot: 15, strikeInterval: 100 },
-  { key: 'FINNIFTY', name: 'FINNIFTY', spotSymbol: 'NSE:FINNIFTY-INDEX', fallbackLot: 40, strikeInterval: 50 },
+  { key: 'NIFTY', name: 'NIFTY', spotSymbol: 'NSE:NIFTY50-INDEX', fallbackLot: 65, strikeInterval: 50 },
+  { key: 'BANKNIFTY', name: 'BANKNIFTY', spotSymbol: 'NSE:NIFTYBANK-INDEX', fallbackLot: 30, strikeInterval: 100 },
+  { key: 'FINNIFTY', name: 'FINNIFTY', spotSymbol: 'NSE:FINNIFTY-INDEX', fallbackLot: 60, strikeInterval: 50 },
   { key: 'MIDCPNIFTY', name: 'MIDCPNIFTY', spotSymbol: 'NSE:MIDCPNIFTY-INDEX', fallbackLot: 75, strikeInterval: 25 },
-  { key: 'SENSEX', name: 'SENSEX', spotSymbol: 'BSE:SENSEX-INDEX', fallbackLot: 10, strikeInterval: 100 },
+  { key: 'SENSEX', name: 'SENSEX', spotSymbol: 'BSE:SENSEX-INDEX', fallbackLot: 20, strikeInterval: 100 },
 ]
 
 export function indexMeta(key: IndexKey): IndexMeta {

@@ -176,15 +176,15 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
       <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 16 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>QUICK ACTIONS</h3>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=users')}
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=users')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--cyan) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--cyan) 20%, transparent)' }}>
             Manage Users
           </button>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=users')}
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=users')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--violet) 20%, transparent)' }}>
             Assign Strategy
           </button>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=trades')}
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=trades')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
             Place Trade
           </button>
@@ -192,23 +192,23 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
             Broadcast
           </button>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=risk')}
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=risk')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--red) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--red) 20%, transparent)' }}>
             Risk Controls
           </button>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=audit')}
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=audit')}
             style={{ fontSize: 10 }}>
             Audit Log
           </button>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=trading-logs')}
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=trading-logs')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
             Trading Logs
           </button>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=activity')}
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=activity')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
             Activity Timeline
           </button>
-          <button className="t-btn t-btn-sm" onClick={() => router.push('/admin?tab=pnl')}
+          <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=pnl')}
             style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
             P&L Dashboard
           </button>
@@ -1411,10 +1411,10 @@ function TradesTab() {
 
   useEffect(() => {
     const indices = ['NIFTY', 'BANKNIFTY', 'FINNIFTY']
-    indices.forEach(async sym => {
+    void Promise.allSettled(indices.map(async sym => {
       try {
         const d = await api.get<{ data?: { optionChain?: any[] }; expiry?: string; expiries?: string[] }>(
-          `/market/option-chain?symbol=${encodeURIComponent(sym)}`
+          `/marketdata/option-chain?symbol=${encodeURIComponent(sym)}`
         )
         const raw = d.data?.optionChain || []
         if (raw.length) {
@@ -1422,7 +1422,7 @@ function TradesTab() {
           setChainCache(prev => ({ ...prev, [sym]: { expiry, chain: raw } }))
         }
       } catch (e) { console.error('Failed to fetch chain', e) }
-    })
+    }))
   }, [])
 
   useEffect(() => {
@@ -1648,7 +1648,7 @@ function PositionsOrderBookTab() {
   const [liveLoading, setLiveLoading] = useState(false)
 
   const { data: posData, loading: posLoading } = useApi<{ positions: any[]; count: number }>(
-    livePositions ? null : `/admin/positions${userFilter ? `?user_id=${userFilter}` : ''}&_=${refreshKey}`
+    livePositions ? null : `/admin/positions${userFilter ? `?user_id=${userFilter}&_=${refreshKey}` : `?_=${refreshKey}`}`
   )
   const { data: ordData, loading: ordLoading } = useApi<{ orders: any[]; count: number }>(
     `/admin/orders?limit=100${userFilter ? `&user_id=${userFilter}` : ''}&_=${refreshKey}`

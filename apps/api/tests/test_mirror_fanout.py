@@ -112,7 +112,10 @@ def _cleanup(sb=None):
 def _psql(sql: str):
     """Execute raw SQL on the Supabase postgres database."""
     import subprocess
-    env = {**os.environ, "PGPASSWORD": "Aakibkhan1@23"}
+    _pw = os.environ.get("SUPABASE_DB_PASSWORD")
+    if not _pw:
+        raise RuntimeError("SUPABASE_DB_PASSWORD must be set for manual E2E (test_mirror_fanout)")
+    env = {**os.environ, "PGPASSWORD": _pw}
     r = subprocess.run(
         ["psql", "-h", "db.nwutlfuowiulfpbsrldn.supabase.co", "-U", "postgres", "-d", "postgres", "-c", sql],
         env=env, capture_output=True, text=True, timeout=15,

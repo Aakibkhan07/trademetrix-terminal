@@ -50,23 +50,27 @@ class ZerodhaConnector(BrokerConnector):
             f"{self._c.app_id}{request_token}{self._c.secret}".encode()
         ).hexdigest()
 
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(
-                f"{API}/session/token",
-                headers={"X-Kite-Version": "3"},
-                data={
-                    "api_key": self._c.app_id,
-                    "request_token": request_token,
-                    "checksum": checksum,
-                },
-            )
-            body = resp.json()
-            if body.get("status") != "success" or not body.get("data", {}).get("access_token"):
-                raise ValueError(f"Zerodha token exchange failed: {body}")
-            data = body["data"]
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.post(
+                    f"{API}/session/token",
+                    headers={"X-Kite-Version": "3"},
+                    data={
+                        "api_key": self._c.app_id,
+                        "request_token": request_token,
+                        "checksum": checksum,
+                    },
+                )
+                resp.raise_for_status()
+                body = resp.json()
+        except httpx.HTTPError as e:
+            raise ValueError(f"Zerodha token exchange request failed: {e}") from e
+        data = body.get("data") or {}
+        if body.get("status") != "success" or not data.get("access_token"):
+            raise ValueError("Zerodha token exchange failed")
 
         return BrokerToken(
-            access_token=data["access_token"],
+            access_token=data.get("access_token") or "",
             refresh_token=None,  # Kite has no refresh token; daily re-login
             broker_user_id=data.get("user_id"),
             expires_at=default_daily_expiry(hour_ist=6),

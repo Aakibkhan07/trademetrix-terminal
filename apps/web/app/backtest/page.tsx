@@ -797,7 +797,7 @@ function BacktestContent() {
     setCandlesErr('')
     let cancelled = false
     setCandles(null)
-    api.backtest.candles(result.config.symbol, result.config.interval, result.config.days || 60)
+    api.backtest.candles((result.config?.symbol ?? '—'), result.config.interval, result.config.days || 60)
       .then((d) => {
         if (cancelled) return
         const data = d as { candles?: BTCandle[] } | undefined

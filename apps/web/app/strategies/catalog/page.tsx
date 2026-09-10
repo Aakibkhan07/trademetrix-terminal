@@ -1,4 +1,5 @@
 'use client'
+import { friendlyApiError } from '@/lib/api'
 
 import React, { useState, useMemo } from 'react'
 import { useApi } from '@/lib/use-api'
@@ -159,7 +160,7 @@ export default function StrategyCatalogPage() {
 
       {error && (
         <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>
-          {error.message}
+          {friendlyApiError(error)}
         </div>
       )}
 

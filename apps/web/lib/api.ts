@@ -151,6 +151,22 @@ export class ApiError extends Error {
   }
 }
 
+export function friendlyApiError(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.status === 401) return 'Session expired — please sign in again'
+    if (e.status === 403) return 'Action not allowed — please refresh and try again'
+    if (e.status === 404) return 'Not found — it may have been removed'
+    if (e.status === 422) return e.message || 'Invalid input — please check the form'
+    if (e.status === 429) return 'Too many requests — slowing down, please retry shortly'
+    if (e.status >= 500) return 'Server temporarily unavailable — please retry'
+    return e.message || 'Something went wrong — please retry'
+  }
+  if (e instanceof DOMException && e.name === 'AbortError') return 'Request timed out — please retry'
+  if (e instanceof TypeError) return "You're offline — check your connection"
+  if (e instanceof Error) return e.message || 'Something went wrong — please retry'
+  return 'Something went wrong — please retry'
+}
+
 interface ApiOptions {
   method?: string
   body?: unknown
@@ -180,7 +196,8 @@ async function _ensureCSRF(): Promise<void> {
         signal: ctrl.signal,
       })
       clearTimeout(t)
-    } catch {
+    } catch (e) {
+      console.warn('[csrf] bootstrap failed', e)
     } finally {
       _csrfFetching = false
       _csrfPromise = null
@@ -244,6 +261,12 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     } catch (e) {
       clearTimeout(t)
       if (signal) signal.removeEventListener('abort', onAbort)
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        throw new ApiError(0, 'Request timed out — please retry')
+      }
+      if (e instanceof TypeError) {
+        throw new ApiError(0, "You're offline — check your connection")
+      }
       throw e
     }
   }
@@ -515,7 +538,7 @@ export const api = {
 
   market: {
     optionChain: (symbol: string, expiry = '') =>
-      request(`/market/option-chain?symbol=${symbol}${expiry ? `&expiry=${expiry}` : ''}`),
+      request(`/marketdata/option-chain?symbol=${symbol}${expiry ? `&expiry=${expiry}` : ''}`),
     status: () => request('/market/status'),
   },
 

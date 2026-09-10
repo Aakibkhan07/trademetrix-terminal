@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false)
         return
       } catch (err: any) {
-        if (err?.status === 401) {
+        if (err?.status === 401 || err?.status === 429 || (err?.status ?? 0) >= 500 || err?.status === 0) {
           setUser(null)
           setLoading(false)
           return

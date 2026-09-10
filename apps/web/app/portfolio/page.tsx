@@ -7,6 +7,7 @@ import { usePolling } from '@/lib/use-polling'
 import { useOrders, usePositions } from '@/lib/queries/orders'
 import { useBrokerCredentials } from '@/lib/queries/misc'
 import { api } from '@/lib/api'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/lib/auth-context'
 import { useUIStore } from '@/lib/stores/ui-store'
 import Logo from '@/components/logo'
@@ -58,6 +59,7 @@ export default function PortfolioPage() {
   const openQuickOrder = useUIStore(s => s.openQuickOrder)
   const { data: ordersData } = useOrders()
   const { data: positionsData } = usePositions()
+  const { data: paperPositionsData } = useQuery({ queryKey: ['paperPositions'], queryFn: () => api.paper.positions(), refetchInterval: 15000, staleTime: 2000 })
   const { data: credsData } = useBrokerCredentials()
   const [watchItems, setWatchItems] = useState<WatchItem[]>([])
   const [customItems, setCustomItems] = useState<WatchItem[]>([])
@@ -67,7 +69,9 @@ export default function PortfolioPage() {
   useEffect(() => { setNow(new Date()) }, [])
 
   const orders = (ordersData as { orders?: Order[] } | undefined)?.orders || []
-  const positions = (positionsData as { positions?: Position[] } | undefined)?.positions || []
+  const enginePositions = (positionsData as { positions?: Position[] } | undefined)?.positions || []
+  const paperPositions = (paperPositionsData as { positions?: Position[] } | undefined)?.positions || []
+  const positions = enginePositions.length > 0 ? enginePositions : paperPositions
   const credentials = (credsData as { credentials?: Credential[] } | undefined)?.credentials || []
 
   const tickChangePct = (t: TickData) => (typeof t.change_pct === 'number' ? t.change_pct : null)
@@ -110,7 +114,7 @@ export default function PortfolioPage() {
     if (syms.length) subscribe(syms)
   }, [positions, subscribe])
 
-  usePolling(refreshQuotes, 5000)
+  usePolling(refreshQuotes, 15000)
 
   useEffect(() => {
     let cancelled = false
@@ -118,7 +122,11 @@ export default function PortfolioPage() {
       try {
         const data = await api.marketdata.watchlist() as { indices: WatchItem[]; stocks: WatchItem[] }
         if (cancelled) return
-        const custom: WatchItem[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+        let custom: WatchItem[] = []
+        try {
+          custom = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+          if (!Array.isArray(custom)) custom = []
+        } catch { custom = [] }
         const all = [...(data.indices || []), ...(data.stocks || []), ...custom]
         setWatchItems(all)
         setCustomItems(custom)

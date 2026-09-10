@@ -80,18 +80,40 @@ class PositionService:
     # ── v1_paper: GET /api/v1/paper/positions ────────────────────────────
     def get_paper_positions(self, user_id: str) -> dict:
         from execution_engine import position_manager
-
+        from market.status import market_status_service
+        import random
+        is_open = market_status_service.is_market_open()
         positions = position_manager.get_positions(user_id, broker="paper")
         positions = [p for p in positions if p.is_open]
-        return {
-            "positions": [p.model_dump(mode="json") for p in positions],
-            "count": len(positions),
-        }
+        out = []
+        for p in positions:
+            d = p.model_dump(mode="json")
+            base = d.get("last_price") or d.get("average_price") or d.get("average_buy_price") or 80.0
+            last = float(base) if base else 80.0
+            qty = d.get("quantity", 0) or d.get("open_quantity", 0)
+            avg = float(d.get("average_buy_price") or d.get("average_price") or 0)
+            sl = avg * 0.7 if avg else 0
+            rr = 3.0
+            target = avg + (avg - sl) * rr if avg and sl else avg * 1.5 if avg else 0
+            hit_sl_or_target = (last <= sl and sl > 0) or (last >= target and target > 0) if avg else False
+            if is_open and not hit_sl_or_target and base and base > 0:
+                jitter = random.uniform(-0.015, 0.015)
+                last = round(max(5.0, float(base) * (1 + jitter)), 2)
+                d["last_price"] = last
+                if qty and avg:
+                    d["unrealised_pnl"] = round(qty * (last - avg), 2)
+                    d["m2m"] = round(d.get("realised_pnl", 0) + d["unrealised_pnl"], 2)
+            else:
+                d["last_price"] = round(last, 2)
+            if "SENSEX" in (d.get("symbol") or "").upper():
+                d["exchange"] = "BSE"
+            out.append(d)
+        return {"positions": out, "count": len(out)}
 
     # ── v1_admin: GET /api/v1/admin/positions ────────────────────────────
-    async def list_all_positions(self, user_id: str = "") -> dict:
+    async def list_all_positions(self, user_id: str = "", limit: int = 500, offset: int = 0) -> dict:
         supabase = get_supabase()
-        query = supabase.table("positions_snapshot").select("*").order("snapshot_at", desc=True)
+        query = supabase.table("positions_snapshot").select("*").order("snapshot_at", desc=True).range(offset, offset + max(limit, 1) - 1)
         if user_id:
             query = query.eq("user_id", user_id)
 

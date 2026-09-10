@@ -17,6 +17,7 @@ from strategies.mean_reversion_pro import MeanReversionPro
 from strategies.breakout_scanner import BreakoutScanner
 from strategies.option_wheel import OptionWheel
 from strategies.arbitrage_hunter import ArbitrageHunter
+from strategies.hero_zero import HeroZero
 from strategies.intraday_momentum import IntradayMomentum
 
 _strategy_registry: dict[str, type[BaseStrategy]] = {}
@@ -99,6 +100,7 @@ _STRATEGY_CATEGORIES: dict[str, str] = {
     "smc_sniper": "trend",
     "orb_pro": "breakout",
     "expiry_hunter": "options",
+    "hero_zero": "options",
     "rsi_mean_reversion": "mean_reversion",
     "bollinger_bandit": "mean_reversion",
     "vwap_band": "scalping",
@@ -170,6 +172,9 @@ _STRATEGY_TIERS: dict[str, StrategyInfo] = {
     "intraday_momentum": StrategyInfo(
         key="intraday_momentum", name="Intraday Momentum", description="Fast intraday momentum scalper using VWAP cross, RSI divergence and volume thrust", required_tier="free",
     ),
+    "hero_zero": StrategyInfo(
+        key="hero_zero", name="Hero Zero", description="Expiry Hero Zero — far OTM 5-15 premium, 3-5x target, 40% SL, 15m/5m", required_tier="pro",
+    ),
 }
 
 register_strategy("trend_rider", TrendRider)
@@ -188,6 +193,7 @@ register_strategy("mean_reversion_pro", MeanReversionPro)
 register_strategy("breakout_scanner", BreakoutScanner)
 register_strategy("option_wheel", OptionWheel)
 register_strategy("arbitrage_hunter", ArbitrageHunter)
+register_strategy("hero_zero", HeroZero)
 register_strategy("intraday_momentum", IntradayMomentum)
 
 
@@ -198,6 +204,7 @@ __all__ = [
     "ORBPro",
     "SMCSniper",
     "ExpiryHunter",
+    "HeroZero",
     "RSIMeanReversion",
     "BollingerBandit",
     "MACDCross",
