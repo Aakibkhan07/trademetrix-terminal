@@ -2,7 +2,7 @@
 Token encryption with key-rotation support.
 
 Uses cryptography.fernet.MultiFernet:
-  - The FIRST key in ENCRYPTION_KEYS is always used to ENCRYPT new tokens.
+  - The FIRST key in ENCRYPTION_KEY is always used to ENCRYPT new tokens.
   - ALL keys are tried when DECRYPTING, so old ciphertext keeps working after
     you rotate. To rotate: prepend a fresh key, keep old ones for a grace
     period, then re-encrypt live rows and drop the retired key.
@@ -11,7 +11,7 @@ Generate a new key:
     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
 .env:
-    ENCRYPTION_KEYS=<newest_key>,<older_key>,<oldest_key>
+    ENCRYPTION_KEY=<newest_key>,<older_key>,<oldest_key>
 """
 
 from __future__ import annotations
@@ -28,16 +28,17 @@ class TokenCryptoError(RuntimeError):
 
 @lru_cache(maxsize=1)
 def _cipher() -> MultiFernet:
-    raw = os.environ.get("ENCRYPTION_KEYS", "").strip()
+    raw = os.environ.get("ENCRYPTION_KEY", "") or os.environ.get("ENCRYPTION_KEYS", "")
+    raw = raw.strip()
     if not raw:
-        raise TokenCryptoError("ENCRYPTION_KEYS env var is empty.")
+        raise TokenCryptoError("ENCRYPTION_KEY env var is empty.")
     keys = [k.strip() for k in raw.split(",") if k.strip()]
     if not keys:
-        raise TokenCryptoError("No usable keys in ENCRYPTION_KEYS.")
+        raise TokenCryptoError("No usable keys in ENCRYPTION_KEY.")
     try:
         return MultiFernet([Fernet(k.encode()) for k in keys])
     except Exception as exc:  # invalid key material
-        raise TokenCryptoError(f"Invalid Fernet key in ENCRYPTION_KEYS: {exc}") from exc
+        raise TokenCryptoError(f"Invalid Fernet key in ENCRYPTION_KEY: {exc}") from exc
 
 
 def encrypt(plaintext: str) -> str:
