@@ -234,19 +234,32 @@ class TelegramGateway:
 
     async def _poll_loop(self) -> None:
         logger.info("Telegram link poller started")
+        consecutive_failures = 0
         while self._running:
             try:
                 payload = {"timeout": 25, "offset": self._poll_offset, "allowed_updates": ["message"]}
                 data = await self._call("getUpdates", payload, timeout=35.0)
                 if data and data.get("ok"):
+                    consecutive_failures = 0
                     for update in data.get("result", []):
                         self._poll_offset = max(self._poll_offset, update["update_id"] + 1)
                         await self._handle_update(update)
+                elif data:
+                    # Token invalid or API error — back off aggressively
+                    consecutive_failures += 1
+                    backoff = _POLL_INTERVAL * min(2 ** consecutive_failures, 64)
+                    logger.warning("Telegram getUpdates error: %s — backoff %.1fs", str(data.get("description", ""))[:120], backoff)
+                    await asyncio.sleep(backoff)
+                else:
+                    consecutive_failures = 0
+                    await asyncio.sleep(_POLL_INTERVAL)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.warning("Telegram poll error: %s", e)
-                await asyncio.sleep(_POLL_INTERVAL)
+                consecutive_failures += 1
+                backoff = _POLL_INTERVAL * min(2 ** consecutive_failures, 64)
+                logger.warning("Telegram poll error: %s — backoff %.1fs", e, backoff)
+                await asyncio.sleep(backoff)
         logger.info("Telegram link poller stopped")
 
     async def _handle_update(self, update: dict) -> None:

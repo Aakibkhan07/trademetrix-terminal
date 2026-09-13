@@ -10,6 +10,11 @@ from core.models import Candle, Exchange, InstrumentType, Quote, Tick
 
 logger = logging.getLogger(__name__)
 
+# Suppress noisy yfinance 404 warnings from expired/stale option symbols
+_yf_logger = logging.getLogger("yfinance")
+_yf_logger.addFilter(lambda record: "Quote not found" not in str(record.getMessage))
+_yf_logger.setLevel(logging.ERROR)
+
 YAHOO_SYMBOL_MAP: dict[str, str] = {
     "NSE:NIFTY50-INDEX": "^NSEI",
     "NSE:NIFTYBANK-INDEX": "^NSEBANK",
