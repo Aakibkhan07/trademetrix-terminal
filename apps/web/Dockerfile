@@ -4,6 +4,7 @@ COPY package*.json ./
 RUN npm ci --cache /tmp/npm-cache
 COPY . .
 RUN npm run build
+RUN mkdir -p .next/static/css/app && cp "$(ls -S .next/static/css/*.css | head -1)" .next/static/css/app/layout.css
 
 FROM node:20-alpine AS runner
 WORKDIR /app
