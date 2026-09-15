@@ -6,11 +6,9 @@ import { usePathname } from 'next/navigation'
 const ITEMS = [
   { href: '/portfolio', label: 'Home', icon: '🏠' },
   { href: '/workspace', label: 'Trade', icon: '⚡' },
-  { href: '/workspace?analyze=1', label: 'Analyze', icon: '🔬' },
   { href: '/terminal', label: 'Terminal', icon: '💻' },
   { href: '/marketdata', label: 'Option Chain', icon: '📡' },
   { href: '/strategies', label: 'Automate', icon: '🤖' },
-  { href: '/portfolio', label: 'Portfolio', icon: '📊' },
   { href: '/settings', label: 'Settings', icon: '⚙' },
 ]
 

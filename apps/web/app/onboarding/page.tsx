@@ -276,10 +276,10 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
         </div>
       )}
 
-      {fyersPopup && (
-        <div className="t-panel" style={{ padding: 12, marginBottom: 16, background: 'color-mix(in srgb, var(--violet) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text)' }}>
-            Fyers login opened in a new tab. Complete the auth there and the page will update automatically.
+      {selectedBroker === 'fyers' && credentials.some(c => c.broker === 'fyers' && !c.is_active) && (
+        <div className="t-panel" style={{ padding: 8, marginBottom: 16, background: 'color-mix(in srgb, var(--violet) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--violet) 10%, transparent)', fontSize: 11 }}>
+          <p style={{ margin: 0, color: 'var(--text-sub)' }}>
+            Complete Fyers authorization in the new tab, then the broker will connect automatically.
           </p>
         </div>
       )}
@@ -345,7 +345,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
               Cancel
             </button>
             <button className="t-btn t-btn-sm t-btn-primary" onClick={handleSave} disabled={!apiKey || saving}>
-              {saving ? 'Saving...' : selectedBroker === 'fyers' ? 'Save & Login to Fyers' : 'Connect'}
+              {saving ? 'Connecting...' : 'Connect'}
             </button>
           </div>
         </div>

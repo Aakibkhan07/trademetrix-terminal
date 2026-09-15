@@ -76,6 +76,7 @@ def upsert_connection(user_id: str, broker: str, token: BrokerToken) -> dict:
         "user_id": user_id,
         "broker": broker,
         "encrypted_access_token": encrypt(token.access_token),
+        "encrypted_secret_key": encrypt(self._creds.app_id) if hasattr(self, '_creds') else encrypt(broker),
         "additional_params": extra,
         "is_active": True,
         "token_status": "valid",   # matches your existing vocab (valid / needs_attention / revoked)
@@ -83,24 +84,25 @@ def upsert_connection(user_id: str, broker: str, token: BrokerToken) -> dict:
         "last_token_refresh_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    # Persist a broker "api key" (Kotak Neo consumer_key) so client_id stays
-    # populated for the execution engine even though we authenticate with the
-    # trade token + sid rather than an OAuth client secret.
+    # For brokers like Fyers that don't have per-user secrets in extra,
+    # use the app_id from settings so the NOT NULL columns are satisfied.
+    secret_enc = None
     api_key_enc = None
     if token.extra:
         api_key = token.extra.get("api_key") or token.extra.get("consumer_key")
         if api_key:
             api_key_enc = encrypt(api_key)
-    # For brokers like Fyers that don't have a per-user api_key in extra,
-    # use the app_id from settings so the NOT NULL column is satisfied.
     if api_key_enc is None and broker:
         try:
             from ..config import get_settings
             creds = getattr(get_settings(), broker, None)
             if creds and hasattr(creds, "app_id"):
-                api_key_enc = encrypt(creds.app_id)
+                secret_enc = encrypt(creds.app_id)
+                api_key_enc = secret_enc
         except Exception:
             pass
+    if secret_enc:
+        row["encrypted_secret_key"] = secret_enc
     if api_key_enc:
         row["encrypted_api_key"] = api_key_enc
     # Requires a unique/constraint on (user_id, broker). If your table allows
