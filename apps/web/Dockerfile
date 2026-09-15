@@ -4,7 +4,6 @@ COPY package*.json ./
 RUN npm ci --cache /tmp/npm-cache
 COPY . .
 RUN npm run build
-RUN mkdir -p public/_next/static/css/app && cp "$(ls -S .next/static/css/*.css | head -1)" public/_next/static/css/app/layout.css
 
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -15,7 +14,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.js ./
+COPY --from=builder /app/server.js ./
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000 HOSTNAME=0.0.0.0 NODE_ENV=production
-CMD ["node_modules/.bin/next", "start"]
+CMD ["node", "server.js"]
