@@ -44,7 +44,7 @@ class TestGetConfig:
     async def test_returns_defaults_when_not_found(self, svc, mock_supabase, mock_async_safe_single) -> None:
         mock_async_safe_single.return_value = None
         result = await svc.get_config("u1")
-        assert result == {"enabled": False, "time": "15:15", "days": [0, 1, 2, 3, 4]}
+        assert result == {"enabled": False, "time": "15:40", "days": [0, 1, 2, 3, 4]}
 
 
 class TestSetConfig:

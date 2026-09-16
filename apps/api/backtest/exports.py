@@ -8,7 +8,7 @@ import json
 from backtest.models import BacktestResult
 
 try:
-    from reportlab.lib import colors
+    from reportlab.lib import colors as _rl_colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
@@ -16,8 +16,16 @@ try:
         Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
     )
     _REPORTLAB = True
+    _ACCENT = _rl_colors.HexColor("#0284c7")
+    _HEAD = _rl_colors.HexColor("#0f172a")
+    _GOOD = _rl_colors.HexColor("#16a34a")
+    _BAD = _rl_colors.HexColor("#dc2626")
 except ImportError:
     _REPORTLAB = False
+    _ACCENT = None
+    _HEAD = None
+    _GOOD = None
+    _BAD = None
 
 
 def export_json(result: BacktestResult) -> str:
@@ -89,10 +97,10 @@ def export_csv(result: BacktestResult) -> str:
     return buf.getvalue()
 
 
-_ACCENT = colors.HexColor("#0284c7")
-_HEAD = colors.HexColor("#0f172a")
-_GOOD = colors.HexColor("#16a34a")
-_BAD = colors.HexColor("#dc2626")
+_ACCENT = _rl_colors.HexColor("#0284c7")
+_HEAD = _rl_colors.HexColor("#0f172a")
+_GOOD = _rl_colors.HexColor("#16a34a")
+_BAD = _rl_colors.HexColor("#dc2626")
 
 
 def _pdf_chart(values: list, stroke: str, fill: str) -> "object | None":
@@ -110,7 +118,7 @@ def _pdf_chart(values: list, stroke: str, fill: str) -> "object | None":
         lp.width = 402
         lp.height = 112
         lp.data = [[(i, float(v)) for i, v in enumerate(values)]]
-        lp.lines[0].strokeColor = colors.HexColor(stroke)
+        lp.lines[0].strokeColor = _rl_colors.HexColor(stroke)
         lp.lines[0].strokeWidth = 1.4
         lp.yValueAxis.labelTextFormat = "%0.0f"
         lp.xValueAxis.visibleTicks = 0
@@ -174,7 +182,7 @@ def export_pdf(result: BacktestResult) -> bytes:
     def _footer(canvas, _doc):
         canvas.saveState()
         canvas.setFont("Helvetica", 7)
-        canvas.setFillColor(colors.grey)
+        canvas.setFillColor(_rl_colors.grey)
         canvas.drawString(14 * mm, 8 * mm,
                           f"TradeMetrix Backtest Report — {result.run_id} — generated "
                           f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · read-only")
@@ -185,13 +193,13 @@ def export_pdf(result: BacktestResult) -> bytes:
     title = ParagraphStyle("TitleMain", parent=styles["Title"], fontSize=17,
                            textColor=_HEAD, spaceAfter=2)
     subtitle = ParagraphStyle("Subtitle", parent=styles["Normal"], fontSize=8.5,
-                              textColor=colors.grey, spaceAfter=6)
+                              textColor=_rl_colors.grey, spaceAfter=6)
     h2 = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=12,
                         textColor=_ACCENT, spaceBefore=8, spaceAfter=4)
     body = ParagraphStyle("Body", parent=styles["Normal"], fontSize=8.8, leading=12.5)
-    caption = ParagraphStyle("Caption", parent=styles["Normal"], fontSize=7.5, textColor=colors.grey)
+    caption = ParagraphStyle("Caption", parent=styles["Normal"], fontSize=7.5, textColor=_rl_colors.grey)
     kpi_lbl = ParagraphStyle("KpiLbl", parent=styles["Normal"], fontSize=7.5,
-                             textColor=colors.grey, alignment=1)
+                             textColor=_rl_colors.grey, alignment=1)
     kpi_val = ParagraphStyle("KpiVal", parent=styles["Normal"], fontSize=9.5,
                              textColor=_HEAD, alignment=1)
 
@@ -231,9 +239,9 @@ def export_pdf(result: BacktestResult) -> bytes:
     kpi_table = Table(kpi_rows, colWidths=[34 * mm, 57 * mm, 34 * mm, 57 * mm])
     kpi_style = TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f1f5f9")),
-        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("BACKGROUND", (0, 0), (-1, -1), _rl_colors.HexColor("#f1f5f9")),
+        ("BOX", (0, 0), (-1, -1), 0.5, _rl_colors.HexColor("#cbd5e1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, _rl_colors.HexColor("#e2e8f0")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
@@ -265,9 +273,9 @@ def export_pdf(result: BacktestResult) -> bytes:
         mtable.setStyle(TableStyle([
             ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
             ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+            ("BACKGROUND", (0, 0), (-1, 0), _rl_colors.HexColor("#0f172a")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), _rl_colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.25, _rl_colors.HexColor("#cbd5e1")),
         ]))
         story.append(mtable)
 
@@ -300,9 +308,9 @@ def export_pdf(result: BacktestResult) -> bytes:
             rej_table.setStyle(TableStyle([
                 ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
                 ("FONTSIZE", (0, 0), (-1, -1), 6.5),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+                ("BACKGROUND", (0, 0), (-1, 0), _rl_colors.HexColor("#0f172a")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), _rl_colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.25, _rl_colors.HexColor("#cbd5e1")),
             ]))
             story.append(rej_table)
 
@@ -321,9 +329,9 @@ def export_pdf(result: BacktestResult) -> bytes:
         trade_style = [
             ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
             ("FONTSIZE", (0, 0), (-1, -1), 6.5),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+            ("BACKGROUND", (0, 0), (-1, 0), _rl_colors.HexColor("#0f172a")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), _rl_colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.25, _rl_colors.HexColor("#cbd5e1")),
         ]
         for i, t in enumerate(result.trades, 1):
             if t.pnl > 0:

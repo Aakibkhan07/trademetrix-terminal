@@ -76,6 +76,8 @@ class _ConcreteBuyer:
             description = "test"
             async def on_candle(self, candle):
                 return None
+            async def _on_15m(self, candle):
+                return None
 
         b = _T(config or {
             "strategy_id": "b1", "user_id": "u1",

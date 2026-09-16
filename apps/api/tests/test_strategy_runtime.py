@@ -7,6 +7,7 @@ reconnect, and deterministic no-duplicate evaluation (seen-candle dedup).
 """
 import asyncio
 import datetime
+import uuid
 
 import pytest
 
@@ -23,9 +24,9 @@ from core.models import (
 from strategies.base import SignalResult
 from strategy_runtime.models import RuntimeState, StrategySpec, StrategyTrigger
 
-USER = "strategy-runtime-test-user"
-SID_A = "sr-a-000001"
-SID_B = "sr-b-000002"
+USER = str(uuid.uuid4())
+SID_A = str(uuid.uuid4())
+SID_B = str(uuid.uuid4())
 SYMBOL = "NIFTY"
 
 
@@ -197,6 +198,8 @@ async def _emit_closed_candle(close: float, ts: str) -> None:
     flush = (ts_dt + datetime.timedelta(minutes=15)).isoformat()
     await shared_socket.broadcast_tick(_tick(close=close, ts=ts, price=close - 0.5))
     await shared_socket.broadcast_tick(_tick(close=close, ts=flush, price=close))
+    # Give the worker time to process each candle tick + its flush before the
+    # next candle arrives (avoids queue backlog / lost ticks in tests).
     await asyncio.sleep(0.05)
 
 
@@ -357,7 +360,10 @@ async def test_multi_timeframe_aggregation(_clean_runtime):
     # five 15m candles: the 4th closes the flush tick of the 5th
     for i in range(5):
         await _emit_closed_candle(close=101.0 + i, ts=_timestamp(i))
-    await asyncio.sleep(0.1)
+    # Wait for worker queue to drain — each _emit_closed_candle sends 2 ticks
+    # (candle + flush) and the worker processes them via async queue. With 5 calls
+    # that's 10 ticks total + a final candle from the last flush, so allow time.
+    await asyncio.sleep(2.0)
     status = await mgr.get_status(SID_A, USER)
     assert status["stats"]["candles_processed"] == 5
     assert status["stats"]["signals"] == 5

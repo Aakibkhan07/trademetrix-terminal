@@ -86,6 +86,7 @@ class StrategyWorker:
         self._paused = False
         self._consecutive_errors = 0
         self._last_price = 0.0
+        self._last_candle: Candle | None = None
         self._seen_ids: dict[str, set] = {}
         self._tick_window_start = time.monotonic()
         self._tick_window_count = 0
@@ -178,6 +179,9 @@ class StrategyWorker:
         if key in self._seen(tf):
             return
         self._seen(tf).add(key)
+        # Keep _last_candle for risk-limit date tracking (must be set BEFORE
+        # _evaluate so _execute_orders can read the candle date).
+        self._last_candle = candle
         if self._evaluation_allowed:
             await self._evaluate(candle, execute=True)
 
@@ -269,6 +273,17 @@ class StrategyWorker:
             stats["avg_latency_ms"] = round(
                 stats["avg_latency_ms"] + (elapsed_ms - stats["avg_latency_ms"]) / n, 2
             )
+            # Derive trade date from candle timestamp for daily limit tracking.
+            # Only reset the daily counter when the trade date changes — a new
+            # candle on the same date must not reset the already-incremented counter.
+            ts_val = candle.timestamp
+            if isinstance(ts_val, str):
+                ts_val = datetime.fromisoformat(ts_val)
+            candle_date = ts_val.date().isoformat()
+            stored_date = stats.get("daily_trades_date")
+            if stored_date != candle_date:
+                stats["daily_trades_date"] = candle_date
+                stats["daily_trades"] = 0
             if self._lifecycle:
                 await self._lifecycle._record_evaluation(self.record, elapsed_ms)
 
@@ -404,11 +419,9 @@ class StrategyWorker:
         except ModeGuardError as e:
             return False, str(e), e.code
 
-        today = datetime.now(UTC).date().isoformat()
+        # Trade date is set by _evaluate when the candle is processed.
+        # _enforce_order_limits runs after _evaluate, so _last_candle is set.
         stats = self.record.stats
-        if stats.get("daily_trades_date") != today:
-            stats["daily_trades_date"] = today
-            stats["daily_trades"] = 0
         if self.spec.max_daily_trades > 0 and stats.get("daily_trades", 0) >= self.spec.max_daily_trades:
             return False, f"Max daily trades reached ({self.spec.max_daily_trades})", "MAX_DAILY_TRADES"
 
@@ -479,8 +492,13 @@ class StrategyWorker:
                 continue
             if result and result.success:
                 stats["orders_placed"] += 1
-                if stats.get("daily_trades_date") == datetime.now(UTC).date().isoformat():
-                    stats["daily_trades"] = stats.get("daily_trades", 0) + 1
+                if self._last_candle:
+                    _ts = self._last_candle.timestamp
+                    if isinstance(_ts, str):
+                        _ts = datetime.fromisoformat(_ts)
+                    cd = _ts.date().isoformat()
+                    if stats.get("daily_trades_date") == cd:
+                        stats["daily_trades"] = stats.get("daily_trades", 0) + 1
                 if (result.status or "").lower() in ("filled", "complete", "traded"):
                     stats["orders_filled"] += 1
                 await self._audit(

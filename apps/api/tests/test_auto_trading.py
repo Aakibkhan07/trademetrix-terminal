@@ -6,6 +6,8 @@ LIVE confirmation, persisted trading mode, kill switch / emergency stop halts
 everything, and per-strategy risk limits (max daily trades / max positions /
 max exposure) are enforced at order time.
 """
+import asyncio
+import asyncio
 import pytest
 
 from strategy_runtime.mode import (
@@ -195,6 +197,9 @@ async def test_max_daily_trades_blocks_patiently(_runtime_clean):
     await mgr.start_strategy(spec)
     await _emit_closed_candle(close=101.0, ts="2026-08-04T09:15:00")
     await _emit_closed_candle(close=102.0, ts="2026-08-04T09:30:00")
+    # Wait for worker to process both candles' ticks through the queue.
+    # Each _emit_closed_candle sends 2 ticks (candle + flush), so 4 ticks total.
+    await asyncio.sleep(0.5)
     status = await mgr.get_status(SID_A, user_id=USER)
     assert status["stats"]["orders_placed"] == 1
     assert status["stats"]["orders_rejected"] >= 1

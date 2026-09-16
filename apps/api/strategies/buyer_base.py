@@ -67,7 +67,7 @@ class BuyerConfig:
     risk_per_trade_pct: float = 1.0
     max_outlay_pct: float = 10.0
     sl_pct: float = 30.0
-    rr_target: float = 3.0
+    rr_target: float = 1.5
     rr_min: float = 2.0
     rr_max: float = 5.0
     analysis_interval: str = "15m"

@@ -1,9 +1,18 @@
 import httpx
 import asyncio
+import os
 
-BASE = "https://api.ai.trademetrix.tech"
+BASE = os.getenv("TRADEMETRIX_API_URL", "https://api.ai.trademetrix.tech")
 
 async def main():
+    email = os.getenv("TRADEMETRIX_TEST_EMAIL")
+    password = os.getenv("TRADEMETRIX_TEST_PASSWORD")
+
+    if not email or not password:
+        print("ERROR: Set TRADEMETRIX_TEST_EMAIL and TRADEMETRIX_TEST_PASSWORD env vars.")
+        print("Do NOT hardcode credentials in this file.")
+        return
+
     async with httpx.AsyncClient(base_url=BASE) as c:
         # --- AUTH ---
         r = await c.get("/api/v1/auth/csrf")
@@ -12,7 +21,7 @@ async def main():
         print(f"[AUTH] CSRF: {csrf_token[:16]}...")
 
         r = await c.post("/api/v1/auth/signin",
-            json={"email": "Aakibkhn2@gmail.com", "password": "Aakibkhan1@23"},
+            json={"email": email, "password": password},
             cookies={"csrf_token": csrf_cookie}, headers={"x-csrf-token": csrf_token})
         session = dict(c.cookies)
         print(f"[AUTH] Signin: {'OK' if r.status_code == 200 else 'FAIL'}")

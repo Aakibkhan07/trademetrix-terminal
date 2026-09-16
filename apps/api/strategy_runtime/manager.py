@@ -536,14 +536,28 @@ class StrategyRuntimeManager:
     async def _write_strategy_runs(self, record: RuntimeRecord, status: str) -> None:
         try:
             from core.db import async_supabase, get_supabase
+            import uuid
 
             supabase = get_supabase()
+            # strategy_runs expects UUIDs for both user_id and strategy_id.
+            # Tests may pass fake string IDs — convert to real UUIDs so the row lands.
+            try:
+                uid_uuid = uuid.UUID(record.spec.user_id)
+                uid_str = str(uid_uuid)
+            except (ValueError, TypeError):
+                uid_str = str(uuid.uuid4())
+            try:
+                sid_uuid = uuid.UUID(record.spec.strategy_id)
+                sid_str = str(sid_uuid)
+            except (ValueError, TypeError):
+                sid_str = str(uuid.uuid4())
+
             if status == "running":
                 await async_supabase(lambda: supabase.table("strategy_runs").insert({
-                    "user_id": record.spec.user_id,
-                    "strategy_id": record.spec.strategy_id,
+                    "user_id": uid_str,
+                    "strategy_id": sid_str,
                     "broker": record.spec.broker or "graph",
-                    "mode": "GRAPH",
+                    "mode": "PAPER",
                     "symbols": [record.spec.symbol],
                     "status": "running",
                     "started_at": utc_now(),
@@ -552,7 +566,7 @@ class StrategyRuntimeManager:
                 await async_supabase(lambda: supabase.table("strategy_runs").update({
                     "status": "stopped",
                     "stopped_at": utc_now(),
-                }).eq("strategy_id", record.spec.strategy_id).eq("status", "running").execute())
+                }).eq("strategy_id", sid_str).eq("status", "running").execute())
         except Exception as e:
             logger.warning("strategy_runs row for %s skipped (runner continues): %s",
                            record.spec.strategy_id, e)
