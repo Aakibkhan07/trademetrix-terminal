@@ -17,6 +17,24 @@ if len(settings.encryption_key) != 44:
         "Generate one with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
     )
 _fernet = Fernet(settings.encryption_key.encode())
+_old_fernets: list[Fernet] | None = None
+
+
+def _get_old_fernets() -> list[Fernet]:
+    """Return Fernet instances for any old/rotated encryption keys.
+
+    Supports gradual key rotation: new credentials are encrypted with the primary
+    ENCRYPTION_KEY; old credentials encrypted with previously-active keys can still
+    be decrypted.  Old keys are read from the ENCRYPTION_KEYS env var (comma-separated
+    base64 Fernet keys).
+    """
+    global _old_fernets
+    if _old_fernets is not None:
+        return _old_fernets
+    raw = getattr(settings, "encryption_keys", "") or ""
+    keys = [k.strip() for k in raw.split(",") if k.strip()]
+    _old_fernets = [Fernet(k.encode()) for k in keys if len(k) == 44]
+    return _old_fernets
 
 
 def hash_password(password: str) -> str:
@@ -39,11 +57,19 @@ def encrypt_broker_credentials(plaintext: str) -> str:
 def decrypt_broker_credentials(ciphertext: str) -> str:
     if not ciphertext:
         return ""
+    # Try primary key first
     try:
         return _fernet.decrypt(ciphertext.encode()).decode()
-    except Exception as e:
-        logger.error("Failed to decrypt broker credentials: %s", e)
-        raise
+    except Exception:
+        pass
+    # Fall back to old/rotated keys
+    for old_fernet in _get_old_fernets():
+        try:
+            return old_fernet.decrypt(ciphertext.encode()).decode()
+        except Exception:
+            continue
+    logger.error("Failed to decrypt broker credentials with primary and all old keys")
+    raise ValueError("Cannot decrypt broker credentials — key rotation may be incomplete")
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:

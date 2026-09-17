@@ -160,28 +160,36 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   const [brokers, setBrokers] = useState<BrokerInfo[]>([])
   const [availBrokers, setAvailBrokers] = useState<string[]>([])
   const [brokerMeta, setBrokerMeta] = useState<BrokerMeta[]>([])
+  const [plan, setPlan] = useState<{ tier: string; tier_label: string; capabilities: Record<string, unknown> } | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'positions' | 'orders' | 'performance' | 'strategies' | 'brokers'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'plan' | 'positions' | 'orders' | 'performance' | 'strategies' | 'brokers'>('overview')
   const [orderPage, setOrderPage] = useState(0)
   const [positionPage, setPositionPage] = useState(0)
   const PAGE_SIZE = 20
 
   const loadData = useCallback(async () => {
     try {
-      const [p, o, f, s, bc, bl, bm] = await Promise.all([
-        api.engine.positions().catch((e: unknown) => { console.error('load positions', e); return { positions: [] } }),
-        api.engine.orders().catch((e: unknown) => { console.error('load orders', e); return { orders: [] } }),
-        api.engine.funds().catch((e: unknown) => { console.error('load funds', e); return { funds: null } }),
-        api.strategies.assigned().catch((e: unknown) => { console.error('load strategies', e); return { strategies: [] } }),
-        api.brokers.credentials().catch((e: unknown) => { console.error('load credentials', e); return { credentials: [] } }),
-        api.brokers.list().catch((e: unknown) => { console.error('load broker list', e); return { brokers: [] } }),
-        api.brokers.metadata().catch((e: unknown) => { console.error('load broker metadata', e); return { brokers: [] } }),
-      ])
+      const portal = await api.portal.me().catch((e: unknown) => { console.error('load portal', e); return null })
+      const p = await api.engine.positions().catch((e: unknown) => { console.error('load positions', e); return { positions: [] } })
+      const o = await api.engine.orders().catch((e: unknown) => { console.error('load orders', e); return { orders: [] } })
+      const f = await api.engine.funds().catch((e: unknown) => { console.error('load funds', e); return { funds: null } })
+      const bc = await api.brokers.credentials().catch((e: unknown) => { console.error('load credentials', e); return { credentials: [] } })
+      const bl = await api.brokers.list().catch((e: unknown) => { console.error('load broker list', e); return { brokers: [] } })
+      const bm = await api.brokers.metadata().catch((e: unknown) => { console.error('load broker metadata', e); return { brokers: [] } })
+
+      if (portal) {
+        setPlan(portal.plan)
+        setStrategies((portal.strategies.strategies || []).map(s => ({
+          strategy_key: s.strategy_key, name: s.name, description: s.description, required_tier: s.required_tier,
+        })))
+        setBrokers((portal.brokers.connections || []).map(c => ({
+          id: c.id, broker: c.broker, is_active: c.is_active, created_at: c.created_at,
+        })))
+      }
+
       setPositions((p as { positions: Position[] }).positions || [])
       setOrders((o as { orders: Order[] }).orders || [])
       setFunds((f as { funds: Funds }).funds || null)
-      setStrategies((s as { strategies: Strategy[] }).strategies || [])
-      setBrokers((bc as { credentials: BrokerInfo[] }).credentials || [])
       setAvailBrokers((bl as { brokers: string[] }).brokers || [])
       setBrokerMeta((bm as { brokers: BrokerMeta[] }).brokers || [])
     } catch (e) { console.error('loadData', e) } finally { setLoading(false) }
@@ -334,6 +342,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       <div style={{ padding: '8px 16px 0', borderBottom: '1px solid var(--border)', display: 'flex', gap: 0, overflowX: 'auto' }}>
         {[
           { key: 'overview' as const, label: 'Overview' },
+          { key: 'plan' as const, label: 'My Plan' },
           { key: 'positions' as const, label: 'Positions' },
           { key: 'orders' as const, label: 'Orders' },
           { key: 'performance' as const, label: 'Performance' },
@@ -764,6 +773,105 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                   <span className="t-faint">No strategies assigned yet. Contact your admin to get started.</span>
                 </div>
               )}
+            </div>
+          </>
+        )}
+
+        {/* ============= MY PLAN ============= */}
+        {activeTab === 'plan' && plan && (
+          <>
+            {/* Plan Header */}
+            <div className="t-panel" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, color-mix(in srgb, var(--violet) 8%, transparent), color-mix(in srgb, var(--cyan) 8%, transparent))', border: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-sub)', marginBottom: 4 }}>YOUR PLAN</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--violet)' }}>{plan.tier_label}</span>
+                    <span style={{ padding: '3px 10px', borderRadius: 6, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', color: 'var(--violet)', fontSize: 10, fontWeight: 600, border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)' }}>
+                      {plan.tier}
+                    </span>
+                  </div>
+                </div>
+                <a href="/pricing" style={{ fontSize: 11, fontWeight: 600, color: 'var(--cyan)', textDecoration: 'none' }}>
+                  Upgrade Plan
+                </a>
+              </div>
+            </div>
+
+            {/* Capabilities Grid */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
+                PLAN CAPABILITIES
+              </div>
+              <div className="t-grid-3" style={{ gap: 10 }}>
+                {[
+                  { label: 'Max Active Strategies', value: String((plan.capabilities.max_active_strategies as number) || 1), desc: 'Number of strategies you can run simultaneously' },
+                  { label: 'Live Trading', value: (plan.capabilities.live_trading_allowed as boolean) ? 'Enabled' : 'Disabled', desc: 'Deploy strategies in live markets', color: (plan.capabilities.live_trading_allowed as boolean) ? 'var(--green)' : 'var(--text-sub)' },
+                  { label: 'Backtest Allowed', value: (plan.capabilities.backtest_allowed as boolean) ? 'Yes' : 'No', desc: 'Run historical strategy tests', color: (plan.capabilities.backtest_allowed as boolean) ? 'var(--green)' : 'var(--text-sub)' },
+                  { label: 'Backtest Years', value: String((plan.capabilities.backtest_years as number) || 0), desc: 'Historical data depth for backtests' },
+                  { label: 'Builder Allowed', value: (plan.capabilities.builder_allowed as boolean) ? 'Yes' : 'No', desc: 'Create custom strategies', color: (plan.capabilities.builder_allowed as boolean) ? 'var(--green)' : 'var(--text-sub)' },
+                  { label: 'Daily Loss Floor', value: `₹${(plan.capabilities.daily_loss_floor as number) || 0}`, desc: 'Maximum daily loss before auto-stop' },
+                  { label: 'Trailing SL', value: (plan.capabilities.trailing_sl_allowed as boolean) ? 'Enabled' : 'Disabled', desc: 'Use trailing stop-loss orders', color: (plan.capabilities.trailing_sl_allowed as boolean) ? 'var(--green)' : 'var(--text-sub)' },
+                  { label: 'Paper Crypto/Forex', value: (plan.capabilities.paper_crypto_forex_allowed as boolean) ? 'Yes' : 'No', desc: 'Paper trade crypto and forex pairs', color: (plan.capabilities.paper_crypto_forex_allowed as boolean) ? 'var(--green)' : 'var(--text-sub)' },
+                  { label: 'Reentry Squareoff', value: (plan.capabilities.reentry_squareoff_allowed as boolean) ? 'Yes' : 'No', desc: 'Re-enter after squareoff', color: (plan.capabilities.reentry_squareoff_allowed as boolean) ? 'var(--green)' : 'var(--text-sub)' },
+                ].map(item => (
+                  <div key={item.label} className="t-panel" style={{ padding: '12px 14px' }}>
+                    <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, marginBottom: 4, letterSpacing: '0.03em' }}>{item.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: item.color || 'var(--text)', marginBottom: 2 }}>
+                      {item.value}
+                    </div>
+                    <div className="t-faint" style={{ fontSize: 9, lineHeight: 1.3 }}>{item.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Active Strategies Summary */}
+            {strategies.length > 0 && (
+              <div className="t-panel" style={{ padding: '14px 16px' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
+                  ASSIGNED STRATEGIES ({strategies.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {strategies.map(s => (
+                    <div key={s.strategy_key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--panel-2)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 12 }}>{s.name}</div>
+                        <div className="t-faint" style={{ fontSize: 9 }}>{s.description}</div>
+                      </div>
+                      <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 600, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', color: 'var(--violet)', border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)', textTransform: 'capitalize' }}>
+                        {s.required_tier}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Broker Connections Summary */}
+            <div className="t-panel" style={{ padding: '14px 16px' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
+                BROKER CONNECTIONS
+              </div>
+              <div className="t-grid-3" style={{ gap: 10 }}>
+                <div className="t-panel" style={{ padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>{brokers.length}</div>
+                  <div className="t-faint" style={{ fontSize: 9 }}>Total Connected</div>
+                </div>
+                <div className="t-panel" style={{ padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>{brokers.filter(b => b.is_active).length}</div>
+                  <div className="t-faint" style={{ fontSize: 9 }}>Active</div>
+                </div>
+                <div className="t-panel" style={{ padding: '12px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>{brokers.length - brokers.filter(b => b.is_active).length}</div>
+                  <div className="t-faint" style={{ fontSize: 9 }}>Inactive</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <a href="/portal/brokers" style={{ fontSize: 11, fontWeight: 600, color: 'var(--cyan)', textDecoration: 'none' }}>
+                  Manage Broker Connections →
+                </a>
+              </div>
             </div>
           </>
         )}

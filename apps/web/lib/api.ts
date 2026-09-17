@@ -472,6 +472,14 @@ export const api = {
     ),
   },
 
+  portal: {
+    me: () => request<{
+      user: { id: string; email: string; full_name: string; phone: string; subscription_tier: string; is_admin: boolean; created_at: string };
+      plan: { tier: string; tier_label: string; capabilities: Record<string, unknown> };
+      strategies: { strategies: { strategy_key: string; name: string; description: string; required_tier: string }[] };
+      brokers: { connections: { id: string; broker: string; is_active: boolean; created_at: string }[]; count: number; active_count: number };
+    }>('/portal/me'),
+  },
   engine: {
     start: (data: { strategy_id: string; broker: string; mode?: string; symbols?: string[] }) =>
       request('/engine/start', { method: 'POST', body: data }),

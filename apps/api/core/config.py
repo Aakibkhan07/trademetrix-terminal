@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     secret_key: str
     encryption_key: str
+    encryption_keys: str = ""
     cors_origins: str = "http://localhost:3000"
     cookie_domain: str = ""
 
