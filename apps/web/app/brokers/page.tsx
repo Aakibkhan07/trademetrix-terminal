@@ -145,7 +145,7 @@ export default function BrokersPage() {
       const savedBroker = selectedBroker || editBroker
       await api.brokers.saveCredentials({ broker: savedBroker, api_key: apiKey, secret_key: secretKey, additional_params: Object.keys(additional_params).length ? additional_params : undefined })
       if (metadataMap[savedBroker]?.oauth_available) {
-        const data = await api.brokers.fyersAuthUrl() as { auth_url: string }
+        const data = await api.brokers.authUrl(savedBroker) as { auth_url: string }
         if (data.auth_url) {
           showMsg(`${displayName(savedBroker)} saved! OAuth link opened in new tab.`)
           window.open(data.auth_url, '_blank')

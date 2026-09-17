@@ -350,7 +350,9 @@ export const api = {
       additional_params?: Record<string, string>;
     }) => request('/brokers/credentials', { method: 'POST', body: data }),
     deleteCredentials: (broker: string) => request(`/brokers/credentials/${broker}`, { method: 'DELETE' }),
-    fyersAuthUrl: () => request('/brokers/fyers/auth-url'),
+    authUrl: (broker: string) => request(`/brokers/${broker}/auth-url`),
+    zerodhaLoginUrl: () => request('/brokers/zerodha/login-url'),
+    zerodhaExchangeRequestToken: (requestToken: string) => request('/brokers/zerodha/exchange-request-token', { method: 'POST', body: { request_token: requestToken } }),
     fyersExchangeCode: (authCode: string) => request('/brokers/fyers/exchange-code', { method: 'POST', body: { auth_code: authCode } }),
     fyersReAuth: () => request('/brokers/fyers/re-auth', { method: 'POST' }),
     reAuth: (broker: string) => request(`/brokers/${broker}/re-auth`, { method: 'POST' }),

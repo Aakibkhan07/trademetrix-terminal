@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     fyers_redirect_uri: str = ""
     dhan_redirect_uri: str = ""
     upstox_redirect_uri: str = ""
+    zerodha_redirect_uri: str = ""
 
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""

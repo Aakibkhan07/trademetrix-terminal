@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+import httpx
 
 from application.services.broker_service import BrokerService
 from brokers import list_brokers
@@ -10,6 +11,8 @@ from brokers.registry import get_broker_metadata
 from core.config import settings
 from core.deps import get_current_user, require_admin
 from core.models import UserProfile
+from core.safe_query import safe_single
+from core.security import decrypt_broker_credentials
 from infrastructure.repositories.broker_repository import SupabaseBrokerRepository
 
 logger = logging.getLogger(__name__)
@@ -246,3 +249,122 @@ async def broker_capabilities():
     """Runtime capability discovery (never a static table)."""
     from brokers.sdk.capabilities import get_capabilities
     return {"brokers": {name: get_capabilities(name).to_dict() for name in list_brokers()}}
+
+
+# ── Zerodha Kite Connect (request_token flow — not OAuth) ──────────────────
+
+ZERODHA_LOGIN_URL = "https://kite.trade/connect/login"
+ZERODHA_REDIRECT_URI = settings.zerodha_redirect_uri or f"{settings.frontend_url or 'https://ai.trademetrix.tech'}/brokers/zerodha/callback"
+
+
+@router.get("/zerodha/login-url")
+async def zerodha_login_url(current_user: UserProfile = Depends(get_current_user)):
+    supabase = get_supabase()
+    cred = safe_single(
+        supabase.table("broker_credentials")
+        .select("encrypted_api_key")
+        .eq("user_id", current_user.id)
+        .eq("broker", "zerodha")
+    )
+    api_key = decrypt_broker_credentials(cred["encrypted_api_key"]) if cred else ""
+    return {"login_url": f"{ZERODHA_LOGIN_URL}?api_key={api_key}"}
+
+
+class ZerodhaRequestTokenInput(BaseModel):
+    request_token: str
+
+
+@router.post("/zerodha/exchange-request-token")
+async def zerodha_exchange_request_token(
+    req: ZerodhaRequestTokenInput,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    import httpx
+
+    supabase = get_supabase()
+    cred = safe_single(
+        supabase.table("broker_credentials")
+        .select("*")
+        .eq("user_id", current_user.id)
+        .eq("broker", "zerodha")
+    )
+    if not cred:
+        raise HTTPException(status_code=400, detail="No Zerodha credentials found. Save them first.")
+
+    api_key = decrypt_broker_credentials(cred["encrypted_api_key"])
+    secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
+
+    from core.http_client import get_http_client
+
+    client = await get_http_client()
+    resp = await client.post(
+        "https://api.kite.trade/session/token",
+        data={
+            "api_key": api_key,
+            "request_token": req.request_token,
+            "checksum": api_key + req.request_token + secret_key,
+        },
+        headers={"X-Kite-Version": "3"},
+        timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+    )
+    data = resp.json()
+    if data.get("status") == "error":
+        raise HTTPException(status_code=400, detail=f"Zerodha auth failed: {data.get('message', '')}")
+
+    access_token = data["data"]["access_token"]
+    encrypted = encrypt_broker_credentials(access_token)
+    supabase.table("broker_credentials").update(
+        {"encrypted_access_token": encrypted, "is_active": True}
+    ).eq("id", cred["id"]).execute()
+
+    return {"message": "Zerodha authenticated successfully!"}
+
+
+@router.get("/zerodha/callback")
+async def zerodha_callback(
+    request_token: str = Query(alias="request_token"),
+    state: str | None = Query(None),
+):
+    import httpx
+    from urllib.parse import quote
+
+    FRONTEND_URL = ZERODHA_REDIRECT_URI.rsplit("/", 1)[0]  # strip /callback → base URL
+    user_id = state or ""
+
+    supabase = get_supabase()
+    cred = safe_single(
+        supabase.table("broker_credentials")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("broker", "zerodha")
+    )
+    if not cred:
+        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=No+Zerodha+credentials+found")
+
+    api_key = decrypt_broker_credentials(cred["encrypted_api_key"])
+    secret_key = decrypt_broker_credentials(cred["encrypted_secret_key"])
+
+    from core.http_client import get_http_client
+
+    client = await get_http_client()
+    resp = await client.post(
+        "https://api.kite.trade/session/token",
+        data={
+            "api_key": api_key,
+            "request_token": request_token,
+            "checksum": api_key + request_token + secret_key,
+        },
+        headers={"X-Kite-Version": "3"},
+        timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout),
+    )
+    data = resp.json()
+    if data.get("status") == "error":
+        return RedirectResponse(url=f"{FRONTEND_URL}?auth_error=Zerodha+auth+failed")
+
+    access_token = data["data"]["access_token"]
+    encrypted = encrypt_broker_credentials(access_token)
+    supabase.table("broker_credentials").update(
+        {"encrypted_access_token": encrypted, "is_active": True}
+    ).eq("id", cred["id"]).execute()
+
+    return RedirectResponse(url=f"{FRONTEND_URL}?auth_success=1")
