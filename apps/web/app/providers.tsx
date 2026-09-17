@@ -30,6 +30,12 @@ function StoreInitializer() {
 }
 
 export function Providers({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const caps = window.__TMCLIENT_CAPABILITIES__ || {}
+    queryClient.setQueryData(['tm/capabilities'], caps)
+  }, [queryClient])
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

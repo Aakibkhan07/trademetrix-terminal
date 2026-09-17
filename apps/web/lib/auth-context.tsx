@@ -12,10 +12,11 @@ export interface User {
   subscription_tier?: string
   is_admin?: boolean
   created_at?: string
+  token?: string
 }
 
 export interface AuthContextType {
-  token: boolean
+  token: string | null
   user: User | null
   tier: string
   isAdmin: boolean
@@ -32,10 +33,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const setStoreUser = useAuthStore(s => s.setUser)
   const router = useRouter()
+  const [caps, setCaps] = useState<Record<string, unknown>>({})
 
   const tier = user?.subscription_tier || 'free'
   const isAdmin = user?.is_admin === true
-  const token: boolean = user !== null
+
+  // Read token from localStorage (where signin/signup store it)
+  const token: string | null = typeof window !== 'undefined'
+    ? window.localStorage.getItem('tm_auth_token') || null
+    : null
 
   const fetchUser = useCallback(async () => {
     let attempt = 0
@@ -62,8 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Restore session from localStorage on mount (survival across page refresh)
   useEffect(() => {
-    fetchUser()
+    if (typeof window === 'undefined') return
+    const saved = window.localStorage.getItem('tm_auth_token')
+    if (saved) {
+      fetchUser()
+    } else {
+      setLoading(false)
+    }
   }, [fetchUser])
 
   useEffect(() => {
@@ -72,6 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signin = useCallback(async (email: string, password: string) => {
     const data = await api.auth.signin({ email, password }) as { access_token: string; user?: User }
+    if (data.access_token) {
+      window.localStorage.setItem('tm_auth_token', data.access_token)
+    }
     if (data.user) {
       setUser(data.user as User)
     } else {
@@ -81,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = useCallback(async (email: string, password: string, full_name?: string) => {
     const data = await api.auth.signup({ email, password, full_name }) as { access_token: string; user?: User }
+    if (data.access_token) {
+      window.localStorage.setItem('tm_auth_token', data.access_token)
+    }
     if (data.user) {
       setUser(data.user as User)
     } else {
@@ -95,7 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn('Signout API call failed, clearing local state anyway:', e)
     }
     setUser(null)
-    router.push('/auth')
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('tm_auth_token')
+      window.localStorage.removeItem('tm_auth_expiry')
+    }
+    router.push('/auth/page')
   }, [router])
 
   const value = useMemo<AuthContextType>(() => ({

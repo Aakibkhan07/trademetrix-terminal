@@ -14,7 +14,7 @@ export interface User {
 export interface AuthState {
   user: User | null
   loading: boolean
-  token: boolean
+  hasSession: boolean
   tier: string
   isAdmin: boolean
   signin: (email: string, password: string) => Promise<void>
@@ -27,7 +27,7 @@ export interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   loading: true,
-  token: false,
+  hasSession: false,
   tier: 'free',
   isAdmin: false,
 
@@ -35,9 +35,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const u = await api.auth.me()
       const user = u as User
-      set({ user, loading: false, token: true, tier: user.subscription_tier || 'free', isAdmin: user.is_admin === true })
+      set({ user, loading: false, hasSession: true, tier: user.subscription_tier || 'free', isAdmin: user.is_admin === true })
     } catch {
-      set({ user: null, loading: false, token: false })
+      set({ user: null, loading: false, hasSession: false })
     }
   },
 
@@ -45,7 +45,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const data = await api.auth.signin({ email, password }) as { access_token: string; user?: User }
     if (data.user) {
       const user = data.user as User
-      set({ user, token: true, tier: user.subscription_tier || 'free', isAdmin: user.is_admin === true })
+      set({ user, hasSession: true, tier: user.subscription_tier || 'free', isAdmin: user.is_admin === true })
     } else {
       await get().fetchUser()
     }
@@ -55,7 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const data = await api.auth.signup({ email, password, full_name }) as { access_token: string; user?: User }
     if (data.user) {
       const user = data.user as User
-      set({ user, token: true, tier: user.subscription_tier || 'free', isAdmin: user.is_admin === true })
+      set({ user, hasSession: true, tier: user.subscription_tier || 'free', isAdmin: user.is_admin === true })
     } else {
       await get().fetchUser()
     }
@@ -65,8 +65,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await api.auth.signout()
     } catch (e) { console.error('Failed to sign out', e) }
-    set({ user: null, token: false, tier: 'free', isAdmin: false })
+    set({ user: null, hasSession: false, tier: 'free', isAdmin: false })
   },
 
-  setUser: (user) => set({ user, token: user !== null, tier: user?.subscription_tier || 'free', isAdmin: user?.is_admin === true }),
+  setUser: (user) => set({ user, hasSession: user !== null, tier: user?.subscription_tier || 'free', isAdmin: user?.is_admin === true }),
 }))

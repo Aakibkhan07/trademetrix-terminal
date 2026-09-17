@@ -22,6 +22,11 @@ SAFE_PATHS = {
     "/api/v1/subscriptions/webhook/",
     "/api/v1/marketdata/feed/start",
     "/api/v1/marketdata/feed/stop",
+    "/api/v1/marketdata/quote",
+    "/api/v1/marketdata/historical",
+    "/api/v1/marketdata/option-chain",
+    "/api/v1/marketdata/simulator/start",
+    "/api/v1/marketdata/simulator/stop",
     "/api/v1/admin/assignments",
     "/api/v1/admin/broadcast",
     "/api/v1/admin/broadcast/recipients",
@@ -29,6 +34,12 @@ SAFE_PATHS = {
     "/api/v1/brokers/fyers/callback",
     "/api/v1/brokers/dhan/callback",
     "/api/v1/brokers/upstox/callback",
+    "/api/v1/broker/connect",
+    "/api/v1/broker/connect-credentials",
+    "/api/v1/broker/status",
+    "/api/v1/broker/available",
+    "/api/v1/broker/disconnect",
+    "/api/v1/broker/callback",
 }
 
 CSRF_COOKIE_NAME = "csrf_token"

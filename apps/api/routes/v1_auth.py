@@ -423,7 +423,7 @@ async def change_password(req: ChangePasswordRequest, current_user: UserProfile 
 async def get_csrf_token(request: Request):
     """Return CSRF token for clients that don't have one yet (CSRF bootstrap).
     Middleware sets the cookie + X-CSRF-Token header on every response."""
-    token = secrets.token_hex(32)
+    token = getattr(request.state, 'csrf_token', None) or secrets.token_hex(32)
     request.state.csrf_token = token
     return {"csrf_token": token}
 

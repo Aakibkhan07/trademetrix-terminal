@@ -83,6 +83,16 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'unsubscribe', symbols }))
     }
+    if (subscribedRef.current.size === 0 && feedMode !== 'idle') {
+      stopFeed().catch(() => {})
+    }
+  }, [feedMode, stopFeed])
+
+  const reconnect = useCallback(() => {
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectAttemptRef.current++
+      connectRef.current?.()
+    }, Math.min(1000 * Math.pow(2, reconnectAttemptRef.current), 30000))
   }, [])
 
   const connectRef = useRef<() => void>()
@@ -111,9 +121,7 @@ export function MarketDataProvider({ children }: { children: ReactNode }) {
       }
       ws.onclose = () => {
         setConnected(false)
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current), 30000)
-        reconnectAttemptRef.current++
-        reconnectTimerRef.current = setTimeout(() => connectRef.current?.(), delay)
+        reconnect()
       }
       ws.onerror = () => { ws.close() }
       wsRef.current = ws

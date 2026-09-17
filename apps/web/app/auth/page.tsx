@@ -13,6 +13,7 @@ export default function AuthPage() {
   const [authMode, setAuthMode] = useState<'password' | 'otp'>('password')
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
   const [email, setEmail] = useState('')
+  const [otpEmail, setOtpEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [error, setError] = useState('')
@@ -25,7 +26,6 @@ export default function AuthPage() {
 
   const [otpStep, setOtpStep] = useState<'email' | 'register' | 'verify'>('email')
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
-  const [otpEmail, setOtpEmail] = useState('')
   const [otpPassword, setOtpPassword] = useState('')
   const [otpName, setOtpName] = useState('')
   const [otpPhone, setOtpPhone] = useState('')
@@ -86,7 +86,7 @@ export default function AuthPage() {
           router.push('/live')
         }
       }
-    } catch (err: unknown) {
+     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError('Request timed out — server slow or unreachable. Please try again.')
       } else {
@@ -94,6 +94,10 @@ export default function AuthPage() {
       }
     } finally {
       setLoading(false)
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('tm_auth_expiry')
+        window.localStorage.removeItem('tm_auth_token')
+      }
     }
   }
 
