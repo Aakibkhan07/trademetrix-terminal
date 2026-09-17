@@ -265,11 +265,9 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       const meta = getBrokerMeta(connectForm.broker)
       if (meta?.oauth_available) {
         try {
-          if (connectForm.broker === 'fyers') {
-            const authRes = await api.brokers.fyersAuthUrl() as { auth_url: string }
-            setAuthUrl(authRes.auth_url)
-          }
-        } catch (e) { console.error('fyers auth url', e) }
+          const authRes = await api.brokers.authUrl(connectForm.broker) as { auth_url: string }
+          setAuthUrl(authRes.auth_url)
+        } catch (e) { console.error('broker auth url', e) }
       }
       await loadData()
       setConnectForm(null)
@@ -908,10 +906,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                               onClick={async () => {
                                 try {
                                   let url = ''
-                                  if (b.broker === 'fyers') {
-                                    const r = await api.brokers.fyersAuthUrl() as { auth_url: string }
-                                    url = r.auth_url
-                                  }
+                                  const r = await api.brokers.authUrl(b.broker) as { auth_url: string }
+                                  url = r.auth_url
                                   if (url) window.open(url, '_blank')
                                 } catch (e) { console.error('authorize broker', e) }
                               }}>

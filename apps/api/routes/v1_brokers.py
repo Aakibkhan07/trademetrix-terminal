@@ -10,6 +10,7 @@ from brokers import list_brokers
 from brokers.registry import get_broker_metadata
 from core.config import settings
 from core.deps import get_current_user, require_admin
+from core.db import get_supabase
 from core.models import UserProfile
 from core.safe_query import safe_single
 from core.security import decrypt_broker_credentials

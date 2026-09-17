@@ -207,12 +207,14 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
         secret_key: secretKey.trim(),
         additional_params: Object.keys(additional).length ? additional : undefined,
       })
-      if (selectedBroker === 'fyers') {
-        const data = await api.brokers.fyersAuthUrl() as { auth_url: string }
+      try {
+        const data = await api.brokers.authUrl(selectedBroker) as { auth_url: string }
         if (data.auth_url) {
           window.open(data.auth_url, '_blank')
           setFyersPopup(true)
         }
+      } catch {
+        // Non-OAuth broker or auth URL unavailable — skip
       }
       await api.brokers.activate(selectedBroker)
       setSelectedBroker('')
@@ -262,7 +264,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
                   {c.broker === 'fyers' && !c.is_active && (
                     <button className="t-btn t-btn-sm" style={{ fontSize: 10 }} onClick={async () => {
                       try {
-                        const data = await api.brokers.fyersAuthUrl() as { auth_url: string }
+                        const data = await api.brokers.authUrl('fyers') as { auth_url: string }
                         if (data.auth_url) { window.open(data.auth_url, '_blank'); setFyersPopup(true) }
                       } catch (e) { setError(e instanceof Error ? e.message : 'Fyers re-auth failed') }
                     }}>
