@@ -253,6 +253,25 @@ BROKER_CAPABILITY_MATRIX: dict[str, set[CapabilityFlag]] = {
     # Every capability-gated call raises UnsupportedFeatureError until real
     # endpoints ship; flip flags there + here together when activating live.
     "lemonn": set(),
+    # HDFC Securities: EMPTY set — no public API exists yet (see brokers/hdfc_adapter.py).
+    "hdfc": set(),
+    # IIFL Securities: EMPTY set — no public API exists yet (see brokers/iifl_adapter.py).
+    "iifl": set(),
+    # Motilal Oswal: EMPTY set — no public API exists yet (see brokers/motilal_adapter.py).
+    "motilal": set(),
+    # Geojit: EMPTY set — no public API exists yet (see brokers/geojit_adapter.py).
+    "geojit": set(),
+    # Reliance Securities: EMPTY set — no public API exists yet (see brokers/reliance_adapter.py).
+    "reliance": set(),
+    # Axis Securities: EMPTY set — no public API exists yet (see brokers/axis_adapter.py).
+    "axis": set(),
+    "icici": set(),
+    "binance": set(),
+    "bybit": set(),
+    "okx": set(),
+    "oanda": set(),
+    "interactive_brokers": set(),
+    "alpaca": set(),
     "paper": _COMMON
     | {
         CapabilityFlag.WEBSOCKET,

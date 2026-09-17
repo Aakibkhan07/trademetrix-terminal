@@ -1,15 +1,28 @@
 from brokers.aliceblue_adapter import AliceBlueAdapter
+from brokers.alpaca_adapter import AlpacaAdapter
 from brokers.angelone_adapter import AngelOneAdapter
+from brokers.axis_adapter import AxisSecuritiesAdapter
 from brokers.base import BaseBroker
+from brokers.binance_adapter import BinanceAdapter
+from brokers.bybit_adapter import BybitAdapter
 from brokers.circuit_breaker_broker import CircuitBreakerBroker
 from brokers.dhan_adapter import DhanAdapter
 from brokers.finvasia_adapter import FinvasiaAdapter
 from brokers.fivepaisa_adapter import FivePaisaAdapter
 from brokers.flattrade_adapter import FlattradeAdapter
 from brokers.fyers_adapter import FyersAdapter
+from brokers.geojit_adapter import GeojitAdapter
 from brokers.groww_adapter import GrowwAdapter
+from brokers.hdfc_adapter import HDFCSecuritiesAdapter
+from brokers.interactive_brokers_adapter import InteractiveBrokersAdapter
+from brokers.iifl_adapter import IIFLSecuritiesAdapter
 from brokers.kotakneo_adapter import KotakNeoAdapter
 from brokers.lemonn_adapter import LemonnAdapter
+from brokers.icici_adapter import ICICIDirectAdapter
+from brokers.motilal_adapter import MotilalOswalAdapter
+from brokers.oanda_adapter import OandaAdapter
+from brokers.okx_adapter import OkxAdapter
+from brokers.reliance_adapter import RelianceSecuritiesAdapter
 from brokers.sdk.registry import BrokerSpec, registry as _sdk_registry
 from brokers.upstox_adapter import UpstoxAdapter
 from brokers.zerodha_adapter import ZerodhaAdapter
@@ -80,21 +93,47 @@ register_broker("finvasia", FinvasiaAdapter)
 register_broker("flattrade", FlattradeAdapter)
 register_broker("kotakneo", KotakNeoAdapter)
 register_broker("lemonn", LemonnAdapter)
+register_broker("binance", BinanceAdapter)
+register_broker("bybit", BybitAdapter)
+register_broker("okx", OkxAdapter)
+register_broker("oanda", OandaAdapter)
+register_broker("interactive_brokers", InteractiveBrokersAdapter)
+register_broker("alpaca", AlpacaAdapter)
+register_broker("icici", ICICIDirectAdapter)
+register_broker("hdfc", HDFCSecuritiesAdapter)
+register_broker("iifl", IIFLSecuritiesAdapter)
+register_broker("motilal", MotilalOswalAdapter)
+register_broker("geojit", GeojitAdapter)
+register_broker("reliance", RelianceSecuritiesAdapter)
+register_broker("axis", AxisSecuritiesAdapter)
 
 
 __all__ = [
+    "AxisSecuritiesAdapter",
     "BaseBroker",
     "AliceBlueAdapter",
+    "AlpacaAdapter",
     "AngelOneAdapter",
+    "BinanceAdapter",
+    "BybitAdapter",
     "CircuitBreakerBroker",
     "DhanAdapter",
     "FinvasiaAdapter",
     "FivePaisaAdapter",
     "FlattradeAdapter",
     "FyersAdapter",
+    "GeojitAdapter",
     "GrowwAdapter",
+    "HDFCSecuritiesAdapter",
+    "ICICIDirectAdapter",
+    "IIFLSecuritiesAdapter",
+    "InteractiveBrokersAdapter",
     "KotakNeoAdapter",
     "LemonnAdapter",
+    "MotilalOswalAdapter",
+    "OandaAdapter",
+    "OkxAdapter",
+    "RelianceSecuritiesAdapter",
     "UpstoxAdapter",
     "ZerodhaAdapter",
     "register_broker",

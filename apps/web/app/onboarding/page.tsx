@@ -25,20 +25,6 @@ interface AssignedStrategy {
   active: boolean
 }
 
-const BROKER_INFO: Record<string, { name: string }> = {
-  zerodha: { name: 'Zerodha (Kite)' },
-  angelone: { name: 'Angel One' },
-  upstox: { name: 'Upstox' },
-  dhan: { name: 'Dhan' },
-  fyers: { name: 'Fyers' },
-  fivepaisa: { name: '5Paisa' },
-  kotakneo: { name: 'Kotak Neo' },
-  finvasia: { name: 'Shoonya' },
-  flattrade: { name: 'Flattrade' },
-  aliceblue: { name: 'Alice Blue' },
-  lemonn: { name: 'Lemonn (API pending)' },
-}
-
 const STEPS = ['Account', 'Connect Broker', 'Done']
 
 /* ========== Step 1: Account ========== */
@@ -239,6 +225,39 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
     )
   }
 
+  const displayName = (broker: string) => {
+    const nm = broker.charAt(0).toUpperCase() + broker.slice(1)
+    // Special cases for known display names
+    const special: Record<string, string> = {
+      zerodha: 'Zerodha (Kite)',
+      fyers: 'Fyers',
+      angelone: 'Angel One',
+      dhan: 'Dhan',
+      upstox: 'Upstox',
+      fivepaisa: '5Paisa',
+      kotakneo: 'Kotak Neo',
+      finvasia: 'Finvasia',
+      flattrade: 'Flattrade',
+      aliceblue: 'Alice Blue',
+      groww: 'Groww',
+      icici: 'ICICI Direct',
+      hdfc: 'HDFC Securities',
+      iifl: 'IIFL Securities',
+      motilal: 'Motilal Oswal',
+      geojit: 'Geojit',
+      reliance: 'Reliance Securities',
+      axis: 'Axis Securities',
+      binance: 'Binance',
+      bybit: 'Bybit',
+      okx: 'OKX',
+      oanda: 'OANDA',
+      interactive_brokers: 'Interactive Brokers',
+      alpaca: 'Alpaca',
+      lemonn: 'Lemonn',
+    }
+    return special[broker] || nm
+  }
+
   return (
     <div>
       {error && <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>{error}</div>}
@@ -246,35 +265,32 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       {credentials.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 10px', color: 'var(--text)' }}>Connected Brokers</h3>
-          {credentials.map(c => {
-            const info = BROKER_INFO[c.broker]
-            return (
-              <div key={c.id} className="t-panel" style={{ padding: '10px 14px', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <BrokerLogo broker={c.broker} size={32} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{info?.name || c.broker}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>
-                      Connected {new Date(c.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
-                    {c.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                  {c.broker === 'fyers' && !c.is_active && (
-                    <button className="t-btn t-btn-sm" style={{ fontSize: 10 }} onClick={async () => {
-                      try {
-                        const data = await api.brokers.authUrl('fyers') as { auth_url: string }
-                        if (data.auth_url) { window.open(data.auth_url, '_blank'); setFyersPopup(true) }
-                      } catch (e) { setError(e instanceof Error ? e.message : 'Fyers re-auth failed') }
-                    }}>
-                      Auth
-                    </button>
-                  )}
+          {credentials.map(c => (
+            <div key={c.id} className="t-panel" style={{ padding: '10px 14px', marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <BrokerLogo broker={c.broker} size={32} />
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{displayName(c.broker)}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>
+                    Connected {new Date(c.created_at).toLocaleDateString()}
+                  </p>
                 </div>
+                <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
+                  {c.is_active ? 'Active' : 'Inactive'}
+                </span>
+                {c.broker === 'fyers' && !c.is_active && (
+                  <button className="t-btn t-btn-sm" style={{ fontSize: 10 }} onClick={async () => {
+                    try {
+                      const data = await api.brokers.authUrl('fyers') as { auth_url: string }
+                      if (data.auth_url) { window.open(data.auth_url, '_blank'); setFyersPopup(true) }
+                    } catch (e) { setError(e instanceof Error ? e.message : 'Fyers re-auth failed') }
+                  }}>
+                    Auth
+                  </button>
+                )}
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -290,25 +306,21 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
         <div>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 10px', color: 'var(--text)' }}>Connect a Broker</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginBottom: 16 }}>
-            {unconnected.map(b => {
-              const info = BROKER_INFO[b]
-              if (!info) return null
-              return (
-                <div
-                  key={b}
-                  onClick={() => setSelectedBroker(b)}
-                  style={{
-                    padding: '10px', borderRadius: 8, cursor: 'pointer',
-                    border: selectedBroker === b ? '1px solid #8b5cf6' : '1px solid color-mix(in srgb, var(--violet) 12%, transparent)',
-                    background: selectedBroker === b ? 'color-mix(in srgb, var(--violet) 8%, transparent)' : 'transparent',
-                    textAlign: 'center', transition: 'all 150ms ease',
-                  }}
-                >
-                  <BrokerLogo broker={b} size={28} />
-                  <p style={{ margin: 0, fontSize: 10, fontWeight: 600 }}>{info.name}</p>
-                </div>
-              )
-            })}
+            {unconnected.map(b => (
+              <div
+                key={b}
+                onClick={() => setSelectedBroker(b)}
+                style={{
+                  padding: '10px', borderRadius: 8, cursor: 'pointer',
+                  border: selectedBroker === b ? '1px solid #8b5cf6' : '1px solid color-mix(in srgb, var(--violet) 12%, transparent)',
+                  background: selectedBroker === b ? 'color-mix(in srgb, var(--violet) 8%, transparent)' : 'transparent',
+                  textAlign: 'center', transition: 'all 150ms ease',
+                }}
+              >
+                <BrokerLogo broker={b} size={28} />
+                <p style={{ margin: 0, fontSize: 10, fontWeight: 600 }}>{b.charAt(0).toUpperCase() + b.slice(1)}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -316,7 +328,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       {selectedBroker && (
         <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
           <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: 'var(--text)' }}>
-            {BROKER_INFO[selectedBroker]?.name || selectedBroker} Credentials
+            {displayName(selectedBroker)} Credentials
           </h4>
           <div style={{ marginBottom: 12 }}>
             <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>
@@ -412,7 +424,7 @@ function StepDone() {
           ✓
         </div>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, margin: '0 0 8px', color: 'var(--text)' }}>
-          You’re all set!
+          You&apos;re all set!
         </h2>
         <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 13 }}>
           Your terminal is ready. Start trading with your connected broker.
@@ -587,7 +599,6 @@ export default function OnboardingPage() {
           {step === 2 && <StepDone />}
         </div>
 
-        
       </div>
     </div>
   )

@@ -181,6 +181,174 @@ _register_broker_meta("lemonn", {
     "oauth_available": False,
 })
 
+_register_broker_meta("hdfc", {
+    "display_name": "HDFC Securities",
+    "auth_type": "credentials",
+    "description": "Save your HDFC Securities credentials now — live trading activates when HDFC Securities launches its public API",
+    "fields": [
+        {"key": "client_code", "label": "Client ID", "placeholder": "Your HDFC Securities Client ID", "required": True},
+        {"key": "secret_key", "label": "Password", "type": "password", "placeholder": "Your HDFC Securities Password", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. HDFC Securities has NOT launched a public trading API yet\n2. Save your Client ID + Password now to pre-connect your account\n3. Credentials are stored encrypted and activated automatically once the API is available",
+    "oauth_available": False,
+})
+
+_register_broker_meta("iifl", {
+    "display_name": "IIFL Securities",
+    "auth_type": "credentials",
+    "description": "Save your IIFL Securities credentials now — live trading activates when IIFL Securities launches its public API",
+    "fields": [
+        {"key": "client_code", "label": "Client Code", "placeholder": "Your IIFL Securities Client Code", "required": True},
+        {"key": "secret_key", "label": "Password", "type": "password", "placeholder": "Your IIFL Securities Password", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. IIFL Securities has NOT launched a public trading API yet\n2. Save your Client Code + Password now to pre-connect your account\n3. Credentials are stored encrypted and activated automatically once the API is available",
+    "oauth_available": False,
+})
+
+_register_broker_meta("motilal", {
+    "display_name": "Motilal Oswal",
+    "auth_type": "credentials",
+    "description": "Save your Motilal Oswal credentials now — live trading activates when Motilal Oswal launches its public API",
+    "fields": [
+        {"key": "client_code", "label": "Client Code", "placeholder": "Your Motilal Oswal Client Code", "required": True},
+        {"key": "secret_key", "label": "Password", "type": "password", "placeholder": "Your Motilal Oswal Password", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Motilal Oswal has NOT launched a public trading API yet\n2. Save your Client Code + Password now to pre-connect your account\n3. Credentials are stored encrypted and activated automatically once the API is available",
+    "oauth_available": False,
+})
+
+_register_broker_meta("geojit", {
+    "display_name": "Geojit",
+    "auth_type": "credentials",
+    "description": "Save your Geojit credentials now — live trading activates when Geojit launches its public API",
+    "fields": [
+        {"key": "client_code", "label": "Client ID", "placeholder": "Your Geojit Client ID", "required": True},
+        {"key": "secret_key", "label": "Password", "type": "password", "placeholder": "Your Geojit Password", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Geojit has NOT launched a public trading API yet\n2. Save your Client ID + Password now to pre-connect your account\n3. Credentials are stored encrypted and activated automatically once the API is available",
+    "oauth_available": False,
+})
+
+_register_broker_meta("reliance", {
+    "display_name": "Reliance Securities",
+    "auth_type": "credentials",
+    "description": "Save your Reliance Securities credentials now — live trading activates when Reliance Securities launches its public API",
+    "fields": [
+        {"key": "client_code", "label": "Client Code", "placeholder": "Your Reliance Securities Client Code", "required": True},
+        {"key": "secret_key", "label": "Password", "type": "password", "placeholder": "Your Reliance Securities Password", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Reliance Securities has NOT launched a public trading API yet\n2. Save your Client Code + Password now to pre-connect your account\n3. Credentials are stored encrypted and activated automatically once the API is available",
+    "oauth_available": False,
+})
+
+_register_broker_meta("axis", {
+    "display_name": "Axis Securities",
+    "auth_type": "credentials",
+    "description": "Save your Axis Securities credentials now — live trading activates when Axis Securities launches its public API",
+    "fields": [
+        {"key": "client_code", "label": "Client Code", "placeholder": "Your Axis Securities Client Code", "required": True},
+        {"key": "secret_key", "label": "Password", "type": "password", "placeholder": "Your Axis Securities Password", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Axis Securities has NOT launched a public trading API yet\n2. Save your Client Code + Password now to pre-connect your account\n3. Credentials are stored encrypted and activated automatically once the API is available",
+    "oauth_available": False,
+})
+
+_register_broker_meta("binance", {
+    "display_name": "Binance",
+    "auth_type": "credentials",
+    "description": "Save your Binance credentials now — live trading activates when the crypto integration is certified",
+    "fields": [
+        {"key": "api_key", "label": "API Key", "placeholder": "Your Binance API Key", "required": True},
+        {"key": "secret_key", "label": "API Secret", "type": "password", "placeholder": "Your Binance API Secret", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Binance has a public REST API but is not activated in this India-focused platform\n2. Save your API Key + Secret now to pre-connect your account\n3. Credentials are stored encrypted and activated once the integration is certified",
+    "oauth_available": False,
+})
+
+_register_broker_meta("bybit", {
+    "display_name": "Bybit",
+    "auth_type": "credentials",
+    "description": "Save your Bybit credentials now — live trading activates when the crypto integration is certified",
+    "fields": [
+        {"key": "api_key", "label": "API Key", "placeholder": "Your Bybit API Key", "required": True},
+        {"key": "secret_key", "label": "API Secret", "type": "password", "placeholder": "Your Bybit API Secret", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Bybit has a public REST API but is not activated in this India-focused platform\n2. Save your API Key + Secret now to pre-connect your account\n3. Credentials are stored encrypted and activated once the integration is certified",
+    "oauth_available": False,
+})
+
+_register_broker_meta("okx", {
+    "display_name": "OKX",
+    "auth_type": "credentials",
+    "description": "Save your OKX credentials now — live trading activates when the crypto integration is certified",
+    "fields": [
+        {"key": "api_key", "label": "API Key", "placeholder": "Your OKX API Key", "required": True},
+        {"key": "secret_key", "label": "API Secret", "type": "password", "placeholder": "Your OKX API Secret", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. OKX has a public REST API but is not activated in this India-focused platform\n2. Save your API Key + Secret now to pre-connect your account\n3. Credentials are stored encrypted and activated once the integration is certified",
+    "oauth_available": False,
+})
+
+_register_broker_meta("oanda", {
+    "display_name": "OANDA",
+    "auth_type": "credentials",
+    "description": "Save your OANDA credentials now — live trading activates when the forex integration is certified",
+    "fields": [
+        {"key": "api_key", "label": "API Key", "placeholder": "Your OANDA API Key", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. OANDA has a public API for forex/CFD but is not activated in this India-focused platform\n2. Save your API Key now to pre-connect your account\n3. Credentials are stored encrypted and activated once the integration is certified",
+    "oauth_available": False,
+})
+
+_register_broker_meta("interactive_brokers", {
+    "display_name": "Interactive Brokers",
+    "auth_type": "credentials",
+    "description": "Save your Interactive Brokers credentials now — live trading activates when the global broker integration is certified",
+    "fields": [
+        {"key": "client_code", "label": "Client Code", "placeholder": "Your Interactive Brokers Client Code", "required": True},
+        {"key": "secret_key", "label": "Password / Secret", "type": "password", "placeholder": "Your Interactive Brokers Password or Secret", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Interactive Brokers offers a global API (TWS / Client Portal) but is not activated in this India-focused platform\n2. Save your Client Code + Secret now to pre-connect your account\n3. Credentials are stored encrypted and activated once the integration is certified",
+    "oauth_available": False,
+})
+
+_register_broker_meta("alpaca", {
+    "display_name": "Alpaca",
+    "auth_type": "credentials",
+    "description": "Save your Alpaca credentials now — live trading activates when the US-broker integration is certified",
+    "fields": [
+        {"key": "api_key", "label": "API Key", "placeholder": "Your Alpaca API Key", "required": True},
+        {"key": "secret_key", "label": "API Secret", "type": "password", "placeholder": "Your Alpaca API Secret", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Alpaca has a public API for US stocks but is not activated in this India-focused platform\n2. Save your API Key + Secret now to pre-connect your account\n3. Credentials are stored encrypted and activated once the integration is certified",
+    "oauth_available": False,
+})
+
+_register_broker_meta("icici", {
+    "display_name": "ICICI Direct",
+    "auth_type": "credentials",
+    "description": "Save your ICICI Direct credentials — public API pending",
+    "fields": [
+        {"key": "client_code", "label": "Client Code", "placeholder": "Your ICICI Direct Client Code", "required": True},
+        {"key": "secret_key", "label": "Password", "type": "password", "placeholder": "Your ICICI Direct Password", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. ICICI Direct does not yet offer a public trading API\n2. Save your credentials now to pre-connect\n3. Activated automatically once API is available",
+    "oauth_available": False,
+})
+
 
 def get_broker_metadata(broker: str | None = None) -> list[dict] | dict:
     """Legacy facade — data now lives in the Unified Broker SDK v2 registry.
