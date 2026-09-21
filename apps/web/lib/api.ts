@@ -8,6 +8,54 @@ export interface BrokerFieldMeta {
   required: boolean
 }
 
+export interface ForwardTestItem {
+  id: string
+  backtest_run_id: string
+  strategy_id: string
+  symbol: string
+  interval: string
+  mode: string
+  status: string
+  initial_capital: number
+  max_duration_hours: number
+  deviation_threshold_pct: number
+  current_equity: number
+  peak_equity: number
+  drawdown_pct: number
+  trades_count: number
+  signals_count: number
+  started_at: string | null
+  stopped_at: string | null
+  estimated_trend: string
+  backtest_stats: Record<string, unknown> | null
+}
+
+export interface ForwardTestStatus {
+  id: string
+  status: string
+  current_equity: number
+  peak_equity: number
+  drawdown_pct: number
+  trades_count: number
+  signals_count: number
+  deviation_pct: number | null
+  estimated_trend: string
+  last_signal_at: string | null
+  runtime_stats: Record<string, unknown> | null
+  started_at: string | null
+  stopped_at: string | null
+}
+
+export interface MarginEstimateResponse {
+  supported: boolean
+  broker: string
+  total_margin: number
+  span_margin: number
+  exposure_margin: number
+  currency: string
+  error: string | null
+}
+
 export interface BrokerMeta {
   broker: string
   display_name: string
@@ -18,6 +66,15 @@ export interface BrokerMeta {
   additional_params_fields?: BrokerFieldMeta[]
   instructions: string
   oauth_available: boolean
+}
+
+export interface BrokerCred {
+  id: string
+  broker: string
+  is_active: boolean
+  created_at: string
+  token_status?: string
+  token_expires_at?: string
 }
 
 export interface AdminUser {
@@ -339,7 +396,7 @@ export const api = {
   brokers: {
     list: () => request('/brokers/list'),
     metadata: () => request<{ brokers: BrokerMeta[] }>('/brokers/metadata'),
-    credentials: () => request('/brokers/credentials'),
+    credentials: () => request<{ credentials: BrokerCred[] }>('/brokers/credentials'),
     saveCredentials: (data: {
       broker: string;
       api_key?: string;
@@ -357,6 +414,7 @@ export const api = {
     fyersReAuth: () => request('/brokers/fyers/re-auth', { method: 'POST' }),
     reAuth: (broker: string) => request(`/brokers/${broker}/re-auth`, { method: 'POST' }),
     activate: (broker: string) => request('/brokers/activate', { method: 'POST', body: { broker } }),
+    connections: () => request<{ credentials: BrokerCred[] }>('/brokers/credentials'),
   },
 
   risk: {
@@ -717,9 +775,37 @@ export const api = {
   },
 
   marginEstimate: (data: { index_symbol: string; legs: Record<string, unknown>[]; broker?: string }) =>
-    request('/margin-estimate/', { method: 'POST', body: data }),
+    request<MarginEstimateResponse>('/margin-estimate/', { method: 'POST', body: data }),
+
+  forwardTests: {
+    list: () => request<ForwardTestItem[]>('/forward-tests/'),
+    get: (ftId: string) => request<ForwardTestStatus>(`/forward-tests/${ftId}`),
+    create: (data: { backtest_run_id: string; strategy_id: string; symbol?: string; interval?: string; initial_capital?: number; max_duration_hours?: number; deviation_threshold_pct?: number }) =>
+      request<ForwardTestItem>('/forward-tests/', { method: 'POST', body: data }),
+    start: (ftId: string) => request<ForwardTestStatus>(`/forward-tests/${ftId}/start`, { method: 'POST' }),
+    stop: (ftId: string) => request<ForwardTestStatus>(`/forward-tests/${ftId}/stop`, { method: 'POST' }),
+    compare: (ftId: string) => request<Record<string, unknown>>(`/forward-tests/${ftId}/compare`),
+  },
 
   events: {
     stream: () => `${API_BASE}/events/stream`,
   },
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Map credentials from /brokers/credentials to BrokerConnection-style shape. */
+export function connectionsFromCredentials(creds: BrokerCred[]): Array<{
+  broker: string
+  status: string
+  is_live: boolean
+  broker_user_id?: string | null
+  token_expires_at?: string | null
+}> {
+  return creds.map(c => ({
+    broker: c.broker,
+    status: c.is_active ? 'active' : 'revoked',
+    is_live: !!c.token_expires_at,
+    token_expires_at: c.token_expires_at ?? null,
+  }))
 }
