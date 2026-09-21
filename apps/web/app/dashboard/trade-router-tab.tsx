@@ -152,7 +152,7 @@ export function TradeRouterTab() {
                     </button>
                     <button onClick={() => { setLotSize(r.lotSize); buyStrike(r.symbol, r.strike, 'PE', r.lotSize, r.expiry) }}
                       disabled={placing !== null || !r.pe}
-                      style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.pe ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--red) 12%, transparent)', color: 'var(--red)' }}>
+                      style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.pe ? 'pointer' : 'default', background: 'var(--red-dim)', color: 'var(--red)' }}>
                       {placing === `${r.symbol}-${r.strike}-PE` ? '...' : 'PE Buy'}
                     </button>
                   </div>

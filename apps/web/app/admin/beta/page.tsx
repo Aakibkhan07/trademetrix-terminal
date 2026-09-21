@@ -60,8 +60,8 @@ export default function BetaDashboardPage() {
       <div>
         <h1 className="t-page-title">Beta Dashboard</h1>
         <div className="t-panel" style={{ padding: 20 }}>
-          <div style={{ height: 12, width: '50%', background: 'rgba(139,92,246,0.08)', borderRadius: 4, marginBottom: 8 }} />
-          <div style={{ height: 12, width: '70%', background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
+          <div style={{ height: 12, width: '50%', background: 'var(--violet-dim)', borderRadius: 4, marginBottom: 8 }} />
+          <div style={{ height: 12, width: '70%', background: 'var(--violet-dim)', borderRadius: 4 }} />
         </div>
       </div>
     )
@@ -91,7 +91,7 @@ function BetaDashboard() {
           Real-user evidence: product analytics, journey, funnel, retention, crashes, and feedback
         </p>
       </div>
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid rgba(139,92,246,0.15)', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--violet-dim)', overflowX: 'auto' }}>
         {TABS.map(t => (
           <button
             key={t}
@@ -146,7 +146,7 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
 
 function Bar({ pct, color = 'var(--violet)' }: { pct: number; color?: string }) {
   return (
-    <div style={{ background: 'rgba(139,92,246,0.1)', borderRadius: 3, height: 8, overflow: 'hidden' }}>
+    <div style={{ background: 'var(--violet-dim)', borderRadius: 3, height: 8, overflow: 'hidden' }}>
       <div style={{ background: color, height: '100%', borderRadius: 3, width: `${Math.min(100, pct)}%` }} />
     </div>
   )
@@ -194,7 +194,7 @@ function OverviewSection() {
               {dauSeries.map(([day, n]) => (
                 <div key={day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                   <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>{n}</div>
-                  <div style={{ width: '100%', background: 'rgba(139,92,246,0.12)', borderRadius: '3px 3px 0 0' }}>
+                  <div style={{ width: '100%', background: 'var(--violet-dim)', borderRadius: '3px 3px 0 0' }}>
                     <div style={{ background: 'var(--violet)', width: '100%', height: `${Math.max(3, (n / Math.max(1, ...dauSeries.map(([, v]) => v))) * 90)}px`, borderRadius: '3px 3px 0 0' }} />
                   </div>
                 </div>
@@ -299,7 +299,7 @@ function RetentionSection() {
               </thead>
               <tbody>
                 {data.cohorts.map(c => (
-                  <tr key={String(c.cohort)} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                  <tr key={String(c.cohort)} style={{ borderBottom: '1px solid var(--violet-dim)' }}>
                     <td style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{String(c.cohort)}</td>
                     <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600 }}>{String(c.users)}</td>
                     {Object.entries(c).filter(([k]) => k.startsWith('w')).map(([k, v]) => {
@@ -376,8 +376,8 @@ function SessionsSection() {
                 key={s.session_id}
                 onClick={() => setSelected(s.session_id)}
                 style={{
-                  display: 'block', width: '100%', textAlign: 'left', background: selected === s.session_id ? 'rgba(139,92,246,0.08)' : 'none',
-                  border: 'none', borderBottom: '1px solid rgba(139,92,246,0.06)', padding: '10px 14px', cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'block', width: '100%', textAlign: 'left', background: selected === s.session_id ? 'var(--violet-dim)' : 'none',
+                  border: 'none', borderBottom: '1px solid var(--violet-dim)', padding: '10px 14px', cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-faint)' }}>
@@ -402,7 +402,7 @@ function SessionsSection() {
         {!replayLoading && replay && replay.count > 0 && (
           <div style={{ maxHeight: 560, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {replay.events.map((e, i) => (
-              <div key={i} style={{ fontSize: 10, borderLeft: '2px solid rgba(139,92,246,0.3)', paddingLeft: 10, fontFamily: 'var(--font-mono)' }}>
+              <div key={i} style={{ fontSize: 10, borderLeft: '2px solid var(--violet-dim)', paddingLeft: 10, fontFamily: 'var(--font-mono)' }}>
                 <div style={{ color: 'var(--text-faint)' }}>{String(e.created_at).slice(11, 19)}</div>
                 <div style={{ color: '#f0f0f5', fontWeight: 600, marginTop: 2 }}>{e.event}</div>
                 {Object.entries(e.properties || {}).slice(0, 6).map(([k, v]) => (
@@ -478,7 +478,7 @@ function FeedbackSection() {
         {['', 'new', 'triaged', 'resolved', 'wontfix'].map(s => (
           <button key={s} onClick={() => setFilter(s)} style={{
             padding: '5px 12px', fontSize: 11, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
-            background: filter === s ? 'var(--violet)' : 'rgba(139,92,246,0.08)',
+            background: filter === s ? 'var(--violet)' : 'var(--violet-dim)',
             color: filter === s ? '#fff' : 'var(--text-faint)', border: 'none',
           }}>{s === '' ? 'All' : s}</button>
         ))}
@@ -492,7 +492,7 @@ function FeedbackSection() {
         <div className="t-panel" style={{ padding: 0, overflow: 'hidden' }}>
           <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
+              <tr style={{ borderBottom: '1px solid var(--violet-dim)' }}>
                 <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-faint)', fontSize: 9 }}>CATEGORY</th>
                 <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-faint)', fontSize: 9 }}>TITLE</th>
                 <th style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text-faint)', fontSize: 9 }}>FROM</th>
@@ -502,7 +502,7 @@ function FeedbackSection() {
             </thead>
             <tbody>
               {data.feedback.map(f => (
-                <tr key={f.id} style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
+                <tr key={f.id} style={{ borderBottom: '1px solid var(--violet-dim)' }}>
                   <td style={{ padding: '8px 12px' }}>
                     <span style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', color: '#22d3ee' }}>{f.category}</span>
                   </td>
@@ -514,7 +514,7 @@ function FeedbackSection() {
                   <td style={{ padding: '8px 12px', textAlign: 'center' }}>
                     <span style={{
                       display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 600,
-                      background: f.status === 'resolved' ? 'rgba(34,197,94,0.15)' : f.status === 'triaged' ? 'rgba(245,158,11,0.15)' : f.status === 'wontfix' ? 'rgba(239,68,68,0.15)' : 'rgba(139,92,246,0.15)',
+                      background: f.status === 'resolved' ? 'rgba(34,197,94,0.15)' : f.status === 'triaged' ? 'rgba(245,158,11,0.15)' : f.status === 'wontfix' ? 'rgba(239,68,68,0.15)' : 'var(--violet-dim)',
                       color: f.status === 'resolved' ? '#22c55e' : f.status === 'triaged' ? '#f59e0b' : f.status === 'wontfix' ? 'var(--red)' : 'var(--violet)',
                     }}>{f.status}</span>
                   </td>

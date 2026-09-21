@@ -33,9 +33,9 @@ function DashboardInner() {
         <div className="t-grid-4" style={{ gap: 10 }}>
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="t-panel" style={{ padding: '14px 16px' }}>
-              <div style={{ width: '40%', height: 12, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
+              <div style={{ width: '40%', height: 12, background: 'var(--violet-dim)', borderRadius: 4 }} />
               <div style={{ height: 8 }} />
-              <div style={{ width: '60%', height: 12, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
+              <div style={{ width: '60%', height: 12, background: 'var(--violet-dim)', borderRadius: 4 }} />
             </div>
           ))}
         </div>

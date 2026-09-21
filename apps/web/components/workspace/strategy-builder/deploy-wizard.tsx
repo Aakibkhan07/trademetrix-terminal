@@ -133,7 +133,7 @@ export default function DeployWizard({
           </div>
 
           {liveNeedsConfirm && (
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 25%, transparent)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'var(--red-dim)', border: '1px solid color-mix(in srgb, var(--red) 25%, transparent)' }}>
               <input
                 type="checkbox"
                 id="confirm-live"

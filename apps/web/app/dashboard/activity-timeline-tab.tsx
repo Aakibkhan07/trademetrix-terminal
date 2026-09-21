@@ -139,9 +139,9 @@ export function ActivityTimelineTab() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[1, 2, 3, 4].map(i => (
               <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'color-mix(in srgb, var(--violet) 8%, transparent)' }} />
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--violet-dim)' }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ width: '40%', height: 10, background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4 }} />
+                  <div style={{ width: '40%', height: 10, background: 'var(--violet-dim)', borderRadius: 4 }} />
                   <div style={{ height: 4 }} />
                   <div style={{ width: '60%', height: 8, background: 'color-mix(in srgb, var(--violet) 6%, transparent)', borderRadius: 4 }} />
                 </div>
@@ -188,7 +188,7 @@ export function ActivityTimelineTab() {
                         position: 'absolute', left: -26, top: 10,
                         width: 20, height: 20, borderRadius: '50%',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'color-mix(in srgb, var(--violet) 10%, transparent)',
+                        background: 'var(--violet-dim)',
                         border: '2px solid color-mix(in srgb, var(--violet) 15%, transparent)',
                       }}>
                         <ActionIcon action={e.action} />

@@ -329,7 +329,7 @@ export default function QuickOrderDrawer() {
         <div className="t-drawer-header" style={{ borderTop: '1px solid var(--border)', borderBottom: 'none' }}>
           <button
             className="t-btn t-btn-primary"
-            style={{ flex: 1, background: side === 'BUY' ? 'rgba(52,211,153,.9)' : 'rgba(248,113,113,.9)', color: '#0a0a12' }}
+            style={{ flex: 1, background: side === 'BUY' ? 'var(--green-dim)' : 'var(--red-dim)', color: '#0a0a12' }}
             onClick={submit}
             disabled={submitting}
           >

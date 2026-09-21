@@ -199,7 +199,7 @@ export default function PaperTradingPage() {
       </div>
 
       {notice && (
-        <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 12, color: 'var(--cyan)' }}>
+        <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 12, color: 'var(--cyan)' }}>
           {notice}
         </div>
       )}

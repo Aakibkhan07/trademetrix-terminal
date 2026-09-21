@@ -107,7 +107,7 @@ export function UserStrategiesTab() {
                     <button onClick={() => handleDelete(s.id)} disabled={deleting === s.id}
                       style={{
                         padding: '2px 8px', fontSize: 8, borderRadius: 3, border: 'none', cursor: 'pointer',
-                        background: 'color-mix(in srgb, var(--red) 12%, transparent)', color: 'var(--red)',
+                        background: 'var(--red-dim)', color: 'var(--red)',
                       }}>
                       {deleting === s.id ? '...' : 'Delete'}
                     </button>

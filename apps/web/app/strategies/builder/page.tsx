@@ -244,7 +244,7 @@ function BuilderInner() {
           value={dsl?.name || ''}
           onChange={e => patchName(e.target.value)}
           placeholder="Untitled Strategy"
-          style={{ background: 'none', border: 'none', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, outline: 'none', width: 220 }}
+          style={{ background: 'none', border: 'none', color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 700, outline: 'none', width: 220 }}
         />
         {dsl?.status && (
           <span className={`t-badge ${statusBadge(dsl.status)}`} style={{ fontSize: 9, textTransform: 'uppercase' }}>

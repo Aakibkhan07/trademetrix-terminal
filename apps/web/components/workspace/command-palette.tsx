@@ -188,7 +188,7 @@ export default function CommandPalette({ onOpenAlert }: { onOpenAlert: (symbol: 
                     onClick={() => { h.run(); inputRef.current?.blur() }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
-                      background: gi === idx ? 'rgba(139,92,246,.16)' : 'transparent',
+                      background: gi === idx ? 'var(--violet-dim)' : 'transparent',
                     }}
                   >
                     <span>{h.icon}</span>

@@ -94,7 +94,7 @@ export default function AnalyticsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div>
-        <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Analytics</h1>
+        <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Analytics</h1>
         <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>Performance metrics and trade analysis</p>
       </div>
 
@@ -195,7 +195,7 @@ export default function AnalyticsPage() {
               { label: 'Drawdown', value: pnlState?.drawdown_pct ?? null, fmt: (v: number) => `${v.toFixed(2)}%` },
               { label: 'MTM Exposure', value: mtm, fmt: (v: number) => `₹${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
             ].map(m => (
-              <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'color-mix(in srgb, var(--violet) 4%, transparent)' }}>
+              <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--violet-dim)' }}>
                 <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.value === null ? 'var(--text-faint)' : (m.label === 'Drawdown' || m.label === 'MTM Exposure' || m.label === 'Current Equity' ? 'var(--text)' : ((m.value as number) >= 0 ? 'var(--text-green)' : 'var(--text-red)')) }}>
                   {m.value === null ? '—' : m.fmt(m.value as number)}

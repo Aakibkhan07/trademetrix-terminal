@@ -468,7 +468,7 @@ function RiskChart({ timeline, height = 190 }: { timeline: BTRiskTimelinePoint[]
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: colorVar('--text-sub', '#8888a0'),
         fontSize: 10,
-        fontFamily: 'var(--font-body)',
+        fontFamily: 'var(--font-sans)',
       },
       grid: {
         vertLines: { color: mix(colorVar('--violet'), 6) },
@@ -1161,7 +1161,7 @@ function BacktestContent() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Backtest Engine</h1>
+          <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Backtest Engine</h1>
           <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>Institutional-grade backtesting for Indian markets — costs, corporate actions, continuous futures</p>
         </div>
         {result?.run_id && (
@@ -1250,7 +1250,7 @@ function BacktestContent() {
       </div>
 
       {error && (
-        <div style={{ background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 15%, transparent)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12 }}>{error}</div>
+        <div style={{ background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12 }}>{error}</div>
       )}
 
       {s && (
@@ -1481,7 +1481,7 @@ function BacktestContent() {
                           {optResult.results.map((c, idx) => {
                             const isBest = bestCombo === c
                             return (
-                              <tr key={idx} style={isBest ? { background: 'color-mix(in srgb, var(--cyan) 4%, transparent)' } : {}}>
+                              <tr key={idx} style={isBest ? { background: 'var(--cyan-dim)' } : {}}>
                                 <td style={{ fontWeight: 700, fontSize: 11 }}>
                                   {Object.entries(c.params).map(([k, v]) => `${k}=${v}`).join(' ')}
                                   {isBest && <span style={{ color: 'var(--cyan)' }}> ✓</span>}
@@ -1585,7 +1585,7 @@ function BacktestContent() {
                 </div>
               </div>
               {shareErr && (
-                <div style={{ background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 15%, transparent)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12 }}>{shareErr}</div>
+                <div style={{ background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12 }}>{shareErr}</div>
               )}
 
               {execSummary && (
@@ -1703,7 +1703,7 @@ function BacktestContent() {
                   <tbody>
                     {result!.trades.map((t, idx) => (
                       <tr key={idx} onClick={() => setSelectedIdx(idx)}
-                        style={{ cursor: 'pointer', ...(selectedIdx === idx ? { background: 'color-mix(in srgb, var(--cyan) 8%, transparent)' } : {}) }}>
+                        style={{ cursor: 'pointer', ...(selectedIdx === idx ? { background: 'var(--cyan-dim)' } : {}) }}>
                         <td className="t-faint">{idx + 1}</td>
                         <td style={{ fontWeight: 600 }}>{t.symbol}</td>
                         <td><span className={t.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{t.side}</span></td>

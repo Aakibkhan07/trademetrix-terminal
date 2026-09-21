@@ -91,7 +91,7 @@ export default function FeedbackPage() {
         <p className="t-sub" style={{ fontSize: 13 }}>Help us improve TradeMetrix Terminal — your submissions are tracked and reviewed</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid rgba(139,92,246,0.15)' }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--violet-dim)' }}>
         {(['bug', 'feature', 'nps'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} style={{
             padding: '8px 16px', fontSize: 12, fontWeight: activeTab === tab ? 600 : 400,

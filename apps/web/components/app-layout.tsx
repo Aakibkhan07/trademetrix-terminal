@@ -14,7 +14,7 @@ import BrokerStatusWidget from '@/components/BrokerStatusWidget'
 
 function NavIcon({ href, active }: { href: string; active?: boolean }) {
   const s = active ? 'var(--cyan)' : 'currentColor'
-  const common = { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: s, strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  const common = { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: s, strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   if (href === '/live') return <svg {...common}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
   if (href === '/go-live') return <svg {...common}><path d="M12 2l3 7h7l-5.5 4 2 7L12 16 5.5 20l2-7L2 9h7z"/><path d="M12 16v4"/></svg>
   if (href === '/trade') return <svg {...common}><path d="M9 5h6"/><path d="M9 12h6"/><path d="M9 19h6"/><path d="M5 5h.01"/><path d="M5 12h.01"/><path d="M5 19h.01"/></svg>
@@ -273,7 +273,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <nav className={`tm-sidebar${mobileOpen ? ' tm-open' : ''}`} style={{
         width: collapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)',
-        background: 'var(--bg-secondary)',
+        background: 'var(--panel)',
         borderRight: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column', flexShrink: 0,
         overflow: 'hidden',
@@ -283,17 +283,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Logo + Toggle */}
         <div style={{
           display: 'flex', alignItems: 'center',
-          padding: collapsed ? '10px 8px' : '10px 12px',
+          padding: collapsed ? '8px 6px' : '8px 10px',
           borderBottom: '1px solid var(--border)',
-          gap: 8, height: 48, boxSizing: 'border-box',
+          gap: 6, height: 40, boxSizing: 'border-box',
         }}>
           {!collapsed && (
             <Link href={isAdmin ? '/dashboard' : '/live'} style={{
-              display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flex: 1, minWidth: 0,
+              display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', flex: 1, minWidth: 0,
             }}>
-              <Logo size={24} />
+              <Logo size={20} />
               <span style={{
-                fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700,
+                fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700,
                 background: 'var(--gradient-primary)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -303,7 +303,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           )}
           {collapsed && (
-            <Logo size={24} />
+            <Logo size={20} />
           )}
           {!collapsed && (
             <button
@@ -312,9 +312,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className="tm-collapse-btn"
               style={{
                 background: 'none', border: 'none', color: 'var(--text-faint)',
-                cursor: 'pointer', fontSize: 14, padding: 4, flexShrink: 0,
+                cursor: 'pointer', fontSize: 12, padding: 2, flexShrink: 0,
                 fontFamily: 'var(--font-sans)',
-                transition: 'color 150ms ease',
+                transition: 'color var(--transition-fast)',
               }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-faint)' }}
@@ -326,29 +326,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               aria-label="Expand sidebar"
               className="tm-collapse-btn"
               style={{
-                position: 'absolute', right: -12, top: 12, zIndex: 20,
-                width: 20, height: 20, borderRadius: '50%',
-                background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-                color: 'var(--text-sub)', cursor: 'pointer', fontSize: 10,
+                position: 'absolute', right: -10, top: 10, zIndex: 20,
+                width: 18, height: 18, borderRadius: '50%',
+                background: 'var(--bg-3)', border: '1px solid var(--border)',
+                color: 'var(--text-sub)', cursor: 'pointer', fontSize: 9,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: 0,
-                transition: 'all 150ms ease',
+                transition: 'all var(--transition-fast)',
               }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--cyan)'; e.currentTarget.style.borderColor = 'var(--border-accent)' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--cyan)'; e.currentTarget.style.borderColor = 'var(--border-hi)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-sub)'; e.currentTarget.style.borderColor = 'var(--border)' }}
             >▷</button>
           )}
         </div>
 
         {/* Navigation */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '2px 0' }}>
           {sections.map((section) => (
             <div key={section.label}>
               {(!collapsed || mobileOpen) && (
-                <div style={{ padding: '8px 12px 2px' }}>
+                <div style={{ padding: '6px 10px 1px' }}>
                   <div style={{
-                    fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                    letterSpacing: '0.12em', color: 'var(--text-faint)',
+                    fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+                    letterSpacing: '0.10em', color: 'var(--text-faint)',
                   }}>{section.label}</div>
                 </div>
               )}
@@ -361,15 +361,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                      aria-current={active ? 'page' : undefined}
                      onClick={() => setMobileOpen(false)}
                       style={{
-                       display: 'flex', alignItems: 'center', gap: 8,
-                       padding: collapsed && !mobileOpen ? '8px' : '6px 12px',
-                       margin: collapsed && !mobileOpen ? '2px 6px' : '0 6px',
+                       display: 'flex', alignItems: 'center', gap: 6,
+                       padding: collapsed && !mobileOpen ? '6px' : '4px 10px',
+                       margin: collapsed && !mobileOpen ? '1px 4px' : '0 4px',
                        borderRadius: 'var(--radius-sm)',
                        color: active ? 'var(--cyan)' : 'var(--text-sub)',
-                       fontSize: active ? 12 : 11, fontWeight: 700,
+                       fontSize: active ? 11 : 10, fontWeight: 700,
                        textDecoration: 'none',
-                       background: active ? 'var(--bg-active)' : 'transparent',
-                       transition: 'all 150ms ease',
+                       background: active ? 'var(--cyan-dim)' : 'transparent',
+                       transition: 'all var(--transition-fast)',
                        justifyContent: collapsed && !mobileOpen ? 'center' : 'flex-start',
                      }}
                     onMouseEnter={e => {
@@ -380,9 +380,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     }}
                   >
                     <span style={{
-                      width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0, opacity: active ? 1 : 0.6,
-                    }}>{(item as any).icon ? <span style={{ fontSize: 14 }}>{(item as any).icon}</span> : <NavIcon href={item.href} active={active} />}</span>
+                      width: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, opacity: active ? 1 : 0.55,
+                    }}>{(item as any).icon ? <span style={{ fontSize: 12 }}>{(item as any).icon}</span> : <NavIcon href={item.href} active={active} />}</span>
                     {(!collapsed || mobileOpen) && (
                       <span style={{
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -392,29 +392,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 )
               })}
             </div>
-          ))}
+          ) )}
         </div>
 
         {/* Footer */}
         <div style={{
-          padding: collapsed && !mobileOpen ? 4 : 8, borderTop: '1px solid var(--border)',
+          padding: collapsed && !mobileOpen ? 2 : 6, borderTop: '1px solid var(--border)',
         }}>
           <button
             onClick={signout}
             aria-label="Sign out"
             style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: collapsed && !mobileOpen ? '8px' : '6px 8px',
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: collapsed && !mobileOpen ? '6px' : '4px 8px',
               width: '100%', borderRadius: 'var(--radius-sm)',
               border: 'none', background: 'none', color: 'var(--text-sub)',
-              fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 700,
-              cursor: 'pointer', transition: 'all 150ms ease',
+              fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 700,
+              cursor: 'pointer', transition: 'all var(--transition-fast)',
               justifyContent: collapsed && !mobileOpen ? 'center' : 'flex-start',
             }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-sub)'; e.currentTarget.style.background = 'none' }}
           >
-            <span style={{ fontSize: 14, opacity: 0.5 }}>⏻</span>
+            <span style={{ fontSize: 12, opacity: 0.5 }}>⏻</span>
             {(!collapsed || mobileOpen) && <span>Sign Out</span>}
           </button>
         </div>
@@ -434,8 +434,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Top Navbar */}
         <header className="tm-topbar" style={{
           height: 'var(--header-height)', display: 'flex', alignItems: 'center',
-          padding: '0 12px', background: 'var(--bg-secondary)',
-          borderBottom: '1px solid var(--border)', gap: 8, flexShrink: 0,
+          padding: '0 var(--space-2)', background: 'var(--bg-2)',
+          borderBottom: '1px solid var(--border)', gap: 6, flexShrink: 0,
         }}>
           {/* Hamburger (mobile) */}
           <button
@@ -445,9 +445,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             className="tm-hamburger"
             style={{
               display: 'none', alignItems: 'center', justifyContent: 'center',
-              width: 30, height: 30, borderRadius: 'var(--radius-sm)',
+              width: 28, height: 28, borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)', background: 'transparent',
-              color: 'var(--text-sub)', cursor: 'pointer', flexShrink: 0, fontSize: 16,
+              color: 'var(--text-sub)', cursor: 'pointer', flexShrink: 0, fontSize: 14,
             }}
           >☰</button>
 
@@ -458,21 +458,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             aria-label="Search symbols, strategies, pages (⌘K)"
             className="tm-search-btn"
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)', padding: '0 10px',
-              height: 30, width: 240, cursor: 'pointer', flexShrink: 0,
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: 'var(--bg-3)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)', padding: '0 8px',
+              height: 28, width: 200, cursor: 'pointer', flexShrink: 0,
               fontFamily: 'var(--font-sans)', textAlign: 'left',
-              transition: 'border-color 150ms ease',
+              transition: 'border-color var(--transition-fast)',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hi)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
           >
-            <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>🔍</span>
-            <span style={{ color: 'var(--text-faint)', fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>🔍</span>
+            <span style={{ color: 'var(--text-faint)', fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {searchQuery || 'Search...'}
             </span>
-            <span style={{ color: 'var(--text-faint)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>⌘K</span>
+            <span style={{ color: 'var(--text-faint)', fontSize: 9, fontFamily: 'var(--font-mono)' }}>⌘K</span>
           </button>
 
           {/* Market Ticker */}
@@ -482,17 +482,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* AI Assistant button */}
           <Link href="/ai" className="tm-ai-btn" style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '4px 10px', borderRadius: 'var(--radius-sm)',
-            background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.15)',
-            color: 'var(--cyan)', fontSize: 11, fontWeight: 600,
-            textDecoration: 'none', height: 28, flexShrink: 0,
-            transition: 'all 150ms ease',
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '3px 8px', borderRadius: 'var(--radius-sm)',
+            background: 'var(--cyan-dim)', border: '1px solid var(--cyan-dim)',
+            color: 'var(--cyan)', fontSize: 10, fontWeight: 700,
+            textDecoration: 'none', height: 24, flexShrink: 0,
+            transition: 'all var(--transition-fast)',
           }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,212,255,0.12)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(0,212,255,0.15)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,212,255,0.08)'; e.currentTarget.style.boxShadow = 'none' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--cyan-dim)'; e.currentTarget.style.boxShadow = 'var(--shadow-glow)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--cyan-dim)'; e.currentTarget.style.boxShadow = 'none' }}
           >
-            <span style={{ fontSize: 14 }}>✦</span>
+            <span style={{ fontSize: 12 }}>✦</span>
             AI
           </Link>
 
@@ -501,12 +501,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Theme toggle */}
           <button onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} style={{
-            width: 28, height: 28, borderRadius: 'var(--radius-sm)',
+            width: 26, height: 26, borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border)', background: 'transparent',
             color: 'var(--text-sub)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, flexShrink: 0,
-            transition: 'all 150ms ease',
+            fontSize: 12, flexShrink: 0,
+            transition: 'all var(--transition-fast)',
           }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-hi)' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-sub)'; e.currentTarget.style.borderColor = 'var(--border)' }}
@@ -518,39 +518,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Notifications */}
           <div style={{ position: 'relative' }}>
             <button onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen) }} aria-label="Notifications" aria-expanded={notifOpen} aria-controls="notifications-popover" style={{
-              width: 28, height: 28, borderRadius: 'var(--radius-sm)',
+              width: 26, height: 26, borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)', background: 'transparent',
               color: 'var(--text-sub)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, position: 'relative', flexShrink: 0,
-              transition: 'all 150ms ease',
+              fontSize: 12, position: 'relative', flexShrink: 0,
+              transition: 'all var(--transition-fast)',
             }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-hi)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-sub)'; e.currentTarget.style.borderColor = 'var(--border)' }}
             >
               🔔
               <span style={{
-                position: 'absolute', top: 2, right: 2, width: 6, height: 6,
+                position: 'absolute', top: 2, right: 2, width: 5, height: 5,
                 borderRadius: '50%', background: 'var(--red)',
               }} />
             </button>
             {notifOpen && (
               <div id="notifications-popover" role="menu" aria-label="Notifications" onClick={e => e.stopPropagation()} style={{
                 position: 'absolute', top: '100%', right: 0, marginTop: 4,
-                width: 280, background: 'var(--bg-secondary)',
+                width: 240, background: 'var(--bg-2)',
                 border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                boxShadow: 'var(--shadow-lg)',
                 zIndex: 100, overflow: 'hidden',
               }}>
-                <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>Notifications</div>
+                <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600 }}>Notifications</div>
                 </div>
-                <div style={{ padding: '16px 12px', textAlign: 'center' }}>
-                  <span className="t-faint" style={{ fontSize: 11 }}>No new notifications</span>
+                <div style={{ padding: '12px 10px', textAlign: 'center' }}>
+                  <span className="t-faint" style={{ fontSize: 10 }}>No new notifications</span>
                 </div>
                 <Link href="/alerts" style={{
-                  display: 'block', padding: '8px 12px', borderTop: '1px solid var(--border)',
-                  color: 'var(--cyan)', fontSize: 11, fontWeight: 600, textDecoration: 'none', textAlign: 'center',
+                  display: 'block', padding: '6px 10px', borderTop: '1px solid var(--border)',
+                  color: 'var(--cyan)', fontSize: 10, fontWeight: 600, textDecoration: 'none', textAlign: 'center',
                 }}>View all alerts →</Link>
               </div>
             )}
@@ -562,86 +562,86 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               onClick={(e) => { e.stopPropagation(); setProfileOpen(!profileOpen) }}
               aria-label="Account menu" aria-expanded={profileOpen} aria-controls="profile-popover"
               style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '2px 8px 2px 2px', borderRadius: 'var(--radius-sm)',
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '1px 6px 1px 1px', borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--border)', background: 'transparent',
-                cursor: 'pointer', height: 30,
-                transition: 'all 150ms ease', flexShrink: 0,
+                cursor: 'pointer', height: 26,
+                transition: 'all var(--transition-fast)', flexShrink: 0,
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hi)' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
             >
               <div style={{
-                width: 22, height: 22, borderRadius: '50%',
+                width: 20, height: 20, borderRadius: '50%',
                 background: 'var(--gradient-primary)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 10, fontWeight: 700, color: '#fff',
+                fontSize: 9, fontWeight: 700, color: '#fff',
               }}>
                 {user?.email?.[0]?.toUpperCase() || '?'}
               </div>
-              <span className="tm-profile-email" style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
+              <span className="tm-profile-email" style={{ color: 'var(--text)', fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
                 {user?.email?.split('@')[0] || '—'}
               </span>
-              <span className={`t-dot ${connected ? 't-dot-green' : 't-dot-red'}`} style={{ width: 5, height: 5 }} />
+              <span className={`t-dot ${connected ? 't-dot-green' : 't-dot-red'}`} style={{ width: 4, height: 4 }} />
             </button>
 
             {profileOpen && (
               <div id="profile-popover" role="menu" aria-label="Account" onClick={e => e.stopPropagation()} style={{
                 position: 'absolute', top: '100%', right: 0, marginTop: 4,
-                minWidth: 180, background: 'var(--bg-secondary)',
+                minWidth: 160, background: 'var(--bg-2)',
                 border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                boxShadow: 'var(--shadow-lg)',
                 zIndex: 100, overflow: 'hidden',
               }}>
-                <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>{user?.email}</div>
-                  <div style={{ color: 'var(--text-faint)', fontSize: 10, marginTop: 2 }}>
+                <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600 }}>{user?.email}</div>
+                  <div style={{ color: 'var(--text-faint)', fontSize: 9, marginTop: 1 }}>
                     {isAdmin ? 'Administrator' : 'Trader'}
                   </div>
                 </div>
                 <Link href="/settings" style={{
-                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
-                  fontSize: 12, textDecoration: 'none',
+                  display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
+                  fontSize: 11, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
                 >Settings</Link>
                 <Link href="/account" style={{
-                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
-                  fontSize: 12, textDecoration: 'none',
+                  display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
+                  fontSize: 11, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
                 >Account</Link>
                 <Link href="/feedback" style={{
-                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
-                  fontSize: 12, textDecoration: 'none',
+                  display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
+                  fontSize: 11, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
                 >Feedback</Link>
                 <Link href="/changelog" style={{
-                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
-                  fontSize: 12, textDecoration: 'none',
+                  display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
+                  fontSize: 11, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
                 >Changelog</Link>
                 <Link href="/transparency" style={{
-                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
-                  fontSize: 12, textDecoration: 'none',
+                  display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
+                  fontSize: 11, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-sub)' }}
                 >Transparency</Link>
                 <Link href="/status" style={{
-                  display: 'block', padding: '8px 12px', color: 'var(--text-sub)',
-                  fontSize: 12, textDecoration: 'none',
+                  display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
+                  fontSize: 11, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
@@ -649,8 +649,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >Status</Link>
                 <button onClick={signout} style={{
                   display: 'block', width: '100%', textAlign: 'left',
-                  padding: '8px 12px', color: 'var(--red)',
-                  fontSize: 12, background: 'none', border: 'none',
+                  padding: '6px 10px', color: 'var(--red)',
+                  fontSize: 11, background: 'none', border: 'none',
                   cursor: 'pointer', fontFamily: 'var(--font-sans)',
                   transition: 'all 100ms ease',
                 }}
@@ -667,15 +667,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div data-search-overlay role="dialog" aria-modal="true" aria-label="Global search"
             style={{
             position: 'fixed', inset: 0, zIndex: 200,
-            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-            display: 'flex', justifyContent: 'center', paddingTop: '15vh',
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex', justifyContent: 'center', paddingTop: '12vh',
           }} onClick={closeSearch}>
             <div className="t-panel" style={{
-              width: 480, maxWidth: '90vw', padding: 0, maxHeight: '60vh', overflow: 'hidden',
+              width: 440, maxWidth: '90vw', padding: 0, maxHeight: '65vh', overflow: 'hidden',
               display: 'flex', flexDirection: 'column',
             }} onClick={e => e.stopPropagation()}>
-              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ color: 'var(--text-faint)', fontSize: 14 }}>🔍</span>
+              <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>🔍</span>
                 <input
                   ref={searchRef}
                   value={searchQuery}
@@ -684,97 +684,97 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   style={{
                     background: 'none', border: 'none', outline: 'none',
                     color: 'var(--text)', fontFamily: 'var(--font-sans)',
-                    fontSize: 14, width: '100%',
+                    fontSize: 13, width: '100%',
                   }}
                 />
-                <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>ESC</span>
+                <span style={{ color: 'var(--text-faint)', fontSize: 9 }}>ESC</span>
               </div>
-              <div style={{ flex: 1, overflow: 'auto', padding: 8 }}>
+              <div style={{ flex: 1, overflow: 'auto', padding: 6 }}>
                 {searchQuery.length < 2 ? (
-                  <div style={{ padding: '16px', textAlign: 'center' }}>
-                    <span className="t-faint" style={{ fontSize: 12 }}>Type at least 2 characters to search</span>
+                  <div style={{ padding: '14px', textAlign: 'center' }}>
+                    <span className="t-faint" style={{ fontSize: 11 }}>Type at least 2 characters to search</span>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {searchLoading && (
-                      <div style={{ padding: '12px', textAlign: 'center' }}>
-                        <span className="t-faint" style={{ fontSize: 11 }}>Searching...</span>
+                      <div style={{ padding: '10px', textAlign: 'center' }}>
+                        <span className="t-faint" style={{ fontSize: 10 }}>Searching...</span>
                       </div>
                     )}
                     {searchResults.length > 0 && (
                       <>
-                        <div style={{ padding: '4px 12px' }}>
-                          <span className="t-faint" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Symbols</span>
+                        <div style={{ padding: '3px 10px' }}>
+                          <span className="t-faint" style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Symbols</span>
                         </div>
                         {searchResults.map((r: any, i: number) => (
                           <Link key={i} href={`/terminal?symbol=${r.symbol}`} onClick={() => setSearchOpen(false)} style={{
-                            display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px',
-                            borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 12,
+                            display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px',
+                            borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 11,
                             textDecoration: 'none', transition: 'all 100ms ease',
                           }}
                             onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
                             onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                           >
-                            <span style={{ fontSize: 12, width: 20, textAlign: 'center', color: 'var(--cyan)' }}>
+                            <span style={{ fontSize: 11, width: 18, textAlign: 'center', color: 'var(--cyan)' }}>
                               {r.instrument_type === 'option' ? '⚡' : r.instrument_type === 'future' ? '📊' : '📈'}
                             </span>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 600 }}>{r.symbol}</div>
-                              <span className="t-faint" style={{ fontSize: 10 }}>{r.name}</span>
+                              <span className="t-faint" style={{ fontSize: 9 }}>{r.name}</span>
                             </div>
-                            <span style={{ fontSize: 10, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
+                            <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
                               {r.instrument_type?.toUpperCase()}
                             </span>
                           </Link>
                         ))}
-                        <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                        <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
                       </>
                     )}
                     {!searchLoading && searchQuery.length >= 2 && searchResults.length === 0 && (
-                      <div style={{ padding: '8px 12px', textAlign: 'center' }}>
-                        <span className="t-faint" style={{ fontSize: 11 }}>No matching symbols found</span>
+                      <div style={{ padding: '6px 10px', textAlign: 'center' }}>
+                        <span className="t-faint" style={{ fontSize: 10 }}>No matching symbols found</span>
                       </div>
                     )}
                     <Link href={`/terminal?symbol=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 12,
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 11,
                       textDecoration: 'none', transition: 'all 100ms ease',
                     }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                     >
-                      <span style={{ fontSize: 14 }}>▶</span>
+                      <span style={{ fontSize: 12 }}>▶</span>
                       <div>
                         <div style={{ fontWeight: 600 }}>Trade {searchQuery}</div>
-                        <span className="t-faint" style={{ fontSize: 10 }}>Open in terminal</span>
+                        <span className="t-faint" style={{ fontSize: 9 }}>Open in terminal</span>
                       </div>
                     </Link>
                     <Link href={`/marketdata?symbol=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 12,
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 11,
                       textDecoration: 'none', transition: 'all 100ms ease',
                     }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                     >
-                      <span style={{ fontSize: 14 }}>▲</span>
+                      <span style={{ fontSize: 12 }}>▲</span>
                       <div>
                         <div style={{ fontWeight: 600 }}>Analyze {searchQuery}</div>
-                        <span className="t-faint" style={{ fontSize: 10 }}>Market analysis & chart</span>
+                        <span className="t-faint" style={{ fontSize: 9 }}>Market analysis & chart</span>
                       </div>
                     </Link>
                     <Link href={`/strategies?search=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 12,
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 11,
                       textDecoration: 'none', transition: 'all 100ms ease',
                     }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                     >
-                      <span style={{ fontSize: 14 }}>◈</span>
+                      <span style={{ fontSize: 12 }}>◈</span>
                       <div>
                         <div style={{ fontWeight: 600 }}>Strategies</div>
-                        <span className="t-faint" style={{ fontSize: 10 }}>Search strategies</span>
+                        <span className="t-faint" style={{ fontSize: 9 }}>Search strategies</span>
                       </div>
                     </Link>
                   </div>
@@ -792,7 +792,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Mobile bottom nav — 4 core destinations */}
         <nav aria-label="Primary" className="tm-bottomnav" style={{
           display: 'none', position: 'sticky', bottom: 0, zIndex: 50,
-          background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)',
+          background: 'var(--bg-2)', borderTop: '1px solid var(--border)',
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}>
           {[
@@ -804,10 +804,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             const active = isActive_(t.href)
             return (
               <Link key={t.href} href={t.href} aria-current={active ? 'page' : undefined} style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                padding: '8px 0 6px', textDecoration: 'none',
+                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+                padding: '6px 0 4px', textDecoration: 'none',
                 color: active ? 'var(--cyan)' : 'var(--text-sub)',
-                fontSize: 10, fontWeight: 700, minHeight: 56,
+                fontSize: 9, fontWeight: 700, minHeight: 48,
               }}>
                 <span style={{ display: 'flex' }}><NavIcon href={t.href} active={active} /></span>
                 {t.label}
@@ -837,7 +837,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             z-index: 61 !important;
             transform: translateX(-100%);
             transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+            box-shadow: var(--shadow-lg);
           }
           .tm-sidebar.tm-open {
             transform: translateX(0);
@@ -848,20 +848,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           }
           .tm-hamburger {
             display: flex !important;
-            width: 44px !important;
-            height: 44px !important;
-            min-width: 44px !important;
-            min-height: 44px !important;
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px !important;
+            min-height: 40px !important;
           }
           .tm-topbar {
-            padding: 0 8px !important;
-            gap: 6px !important;
+            padding: 0 6px !important;
+            gap: 4px !important;
           }
           .tm-search-btn {
-            width: 44px !important;
-            height: 44px !important;
-            min-width: 44px !important;
-            min-height: 44px !important;
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px !important;
+            min-height: 40px !important;
             padding: 0 !important;
             justify-content: center !important;
           }
@@ -877,7 +877,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           .tm-ai-btn > span:last-child {
             display: none !important;
           }
-          .tm-ai-btn, .tm-topbar button { min-height: 44px !important; }
+          .tm-ai-btn, .tm-topbar button { min-height: 40px !important; }
           .tm-profile-email {
             display: none !important;
           }
@@ -896,18 +896,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               display: flex !important;
             }
             .t-content {
-              padding-bottom: calc(56px + env(safe-area-inset-bottom)) !important;
+              padding-bottom: calc(48px + env(safe-area-inset-bottom)) !important;
             }
             .t-btn, .t-chip, button.t-btn {
-              min-height: 44px !important;
+              min-height: 40px !important;
             }
             .t-btn-xs, .t-btn-sm {
-              min-height: 44px !important;
-              padding: 10px 14px !important;
+              min-height: 40px !important;
+              padding: 8px 12px !important;
             }
             .chart-btn, .chain-panel .t-btn-sm, .t-trade-grid .t-btn-sm {
-              min-height: 44px !important;
-              min-width: 44px !important;
+              min-height: 40px !important;
+              min-width: 40px !important;
             }
             input.t-input, .t-input, select, textarea {
               font-size: 16px !important;

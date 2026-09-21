@@ -238,3 +238,22 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--panel-brd);
 }
+
+/* status messages */
+.tm-bc__msg {
+  font-size: 12.5px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+.tm-bc__msg--success {
+  color: var(--ok);
+  background: rgba(34, 211, 238, 0.08);
+  border-color: rgba(34, 211, 238, 0.25);
+}
+.tm-bc__msg--error {
+  color: var(--err);
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.25);
+}

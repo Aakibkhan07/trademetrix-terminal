@@ -74,45 +74,45 @@ export default function LivePage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header style={{
-        height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 24px', borderBottom: '1px solid var(--border)', flexShrink: 0,
+        height: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px', borderBottom: '1px solid var(--border)', flexShrink: 0,
       }}>
-        <Link href="/live" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700 }}>
-          <Logo size={22} />
+        <Link href="/live" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700 }}>
+          <Logo size={18} />
           <span style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>TradeMetrix</span>
-          <span className="t-badge t-badge-cyan" style={{ fontSize: 9, marginLeft: 4 }}>LIVE</span>
+          <span className="t-badge t-badge-cyan" style={{ fontSize: 8, marginLeft: 3 }}>LIVE</span>
         </Link>
-        <nav style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 12, fontWeight: 600 }}>
+        <nav style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 11, fontWeight: 600 }}>
           <Chip label="Market" ok={conn.isMarketOpen} text={conn.isMarketOpen ? 'OPEN' : 'CLOSED'} />
           <Chip label="Stream" ok={conn.sseConnected} text={conn.sseConnected ? 'live' : 'reconnecting'} />
           <Chip label="Online" ok={!conn.isOffline} text={conn.isOffline ? 'offline' : 'online'} />
           <Link href="/workspace" style={{ color: 'var(--text-sub)', textDecoration: 'none' }}>Workspace</Link>
-          <span className="t-faint" style={{ fontSize: 11 }}>{user?.full_name || user?.email || ''}</span>
+          <span className="t-faint" style={{ fontSize: 10 }}>{user?.full_name || user?.email || ''}</span>
         </nav>
       </header>
 
-      <div style={{ flex: 1, maxWidth: 1480, width: '100%', margin: '0 auto', padding: '16px 24px 40px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      <div style={{ flex: 1, maxWidth: 1440, width: '100%', margin: '0 auto', padding: '12px 16px 32px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: conn.sseConnected ? 'var(--green)' : 'var(--amber)', boxShadow: conn.sseConnected ? '0 0 8px var(--green)' : 'none', display: 'inline-block' }} />
+            <h1 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: conn.sseConnected ? 'var(--green)' : 'var(--amber)', boxShadow: conn.sseConnected ? '0 0 6px var(--green)' : 'none', display: 'inline-block' }} />
               Live
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', padding: '2px 6px', borderRadius: 4, background: conn.isMarketOpen ? 'rgba(52,211,153,.12)' : 'rgba(251,191,36,.12)', border: `1px solid ${conn.isMarketOpen ? 'rgba(52,211,153,.2)' : 'rgba(251,191,36,.2)'}`, color: conn.isMarketOpen ? 'var(--green)' : 'var(--amber)' }}>{conn.isMarketOpen ? 'MARKET OPEN' : 'MARKET CLOSED'}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', padding: '1px 5px', borderRadius: 3, background: conn.isMarketOpen ? 'var(--green-dim)' : 'var(--amber-dim)', border: `1px solid ${conn.isMarketOpen ? 'var(--green-dim)' : 'var(--amber-dim)'}`, color: conn.isMarketOpen ? 'var(--green)' : 'var(--amber)' }}>{conn.isMarketOpen ? 'MARKET OPEN' : 'MARKET CLOSED'}</span>
             </h1>
-            <div className="t-faint" style={{ fontSize: 12, marginTop: 4 }}>
+            <div className="t-faint" style={{ fontSize: 11, marginTop: 3 }}>
               Institutional cockpit — positions, orders, signals and risk in one view · <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} IST</span>
             </div>
           </div>
-          <div className="t-faint" style={{ fontSize: 11, display: 'flex', gap: 12, alignItems: 'center' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span className={`t-dot ${conn.sseConnected ? 't-dot-green t-dot-pulse' : 't-dot-amber'}`} /> Stream {conn.sseConnected ? 'live' : 'reconnecting'}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span className={`t-dot ${!conn.isOffline ? 't-dot-green' : 't-dot-red'}`} /> {conn.isOffline ? 'offline' : 'online'}</span>
+          <div className="t-faint" style={{ fontSize: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span className={`t-dot ${conn.sseConnected ? 't-dot-green t-dot-pulse' : 't-dot-amber'}`} /> Stream {conn.sseConnected ? 'live' : 'reconnecting'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span className={`t-dot ${!conn.isOffline ? 't-dot-green' : 't-dot-red'}`} /> {conn.isOffline ? 'offline' : 'online'}</span>
           </div>
         </div>
 
         <MarketOverview market={conn.market} marketLoading={conn.marketLoading} isOffline={conn.isOffline} />
 
-        <div className="t-live-grid" style={{ display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 320px', gap: 10, alignItems: 'start' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+        <div className="t-live-grid" style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr) 280px', gap: 8, alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
             <div className="t-seg" style={{ gap: 0 }}>
               {(['positions', 'orders', 'portfolio'] as PrimaryTab[]).map(t => (
                 <button
@@ -120,7 +120,7 @@ export default function LivePage() {
                   type="button"
                   className={`t-seg-btn ${primaryTab === t ? 'active' : ''}`}
                   onClick={() => setPrimaryTab(t)}
-                  style={{ fontSize: 11, textTransform: 'capitalize' }}
+                  style={{ fontSize: 10, textTransform: 'capitalize' }}
                 >
                   {t}
                 </button>
@@ -132,29 +132,29 @@ export default function LivePage() {
           </div>
 
           <div style={{ minHeight: 0 }}>
-            <div className="t-panel" style={{ padding: 12, marginBottom: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div className="t-panel" style={{ padding: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 {symbolOptions.map(o => (
                   <button
                     key={o.symbol}
                     type="button"
                     className={`t-chip ${activeSymbol === o.symbol ? 'active' : ''}`}
                     onClick={() => { setActiveSymbol(o.symbol); setActiveName(o.name) }}
-                    style={{ fontSize: 10 }}
+                    style={{ fontSize: 9 }}
                   >
                     {o.name}
                   </button>
                 ))}
-                <button type="button" className="t-btn t-btn-sm t-btn-primary" style={{ fontSize: 11, marginLeft: 'auto' }} onClick={tradeActive}>
+                <button type="button" className="t-btn t-btn-sm t-btn-primary" style={{ fontSize: 10, marginLeft: 'auto' }} onClick={tradeActive}>
                   Quick Trade
                 </button>
               </div>
-              <div className="t-faint" style={{ fontSize: 10, marginTop: 6 }}>{activeSymbol}</div>
+              <div className="t-faint" style={{ fontSize: 9, marginTop: 4 }}>{activeSymbol}</div>
             </div>
-            <Chart symbol={activeSymbol.replace(/^NSE:/, '')} height={420} />
+            <Chart symbol={activeSymbol.replace(/^NSE:/, '')} height={360} />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
             <TradingControls offline={conn.isOffline} isAdmin={isAdmin} marketClosed={!conn.isMarketOpen} />
             <LiveSignals conn={{ online: !conn.isOffline, sseConnected: conn.sseConnected, subscribe: conn.subscribe }} />
           </div>

@@ -12,6 +12,12 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs &&
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
+# Fix chunk resolution: Next.js webpack runtime (loaded via pages/_document.js
+# as require("../webpack-runtime.js")) has f.require("./chunks/1072.js") which
+# resolves relative to pages/ (the runtime's effective cwd), NOT server/.
+# The build only populates server/chunks/. Copy chunks into pages/chunks/ too.
+RUN cp -r /app/.next/server/chunks/. /app/.next/server/pages/chunks/ && \
+    cp -r /app/.next/server/chunks/. /app/.next/server/
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.js ./
 COPY --from=builder /app/server.js ./

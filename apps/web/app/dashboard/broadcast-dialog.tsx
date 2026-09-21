@@ -103,7 +103,7 @@ export function BroadcastDialog({ onClose }: BroadcastDialogProps) {
             <button className="t-btn t-btn-sm" onClick={handleSend} disabled={sending || !title.trim() || !message.trim()}
               style={{
                 fontSize: 10,
-                background: 'color-mix(in srgb, var(--violet) 15%, transparent)',
+                background: 'var(--violet-dim)',
                 border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)',
                 color: 'var(--violet)',
               }}>

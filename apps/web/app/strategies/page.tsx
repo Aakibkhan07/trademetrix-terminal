@@ -211,7 +211,7 @@ export default function StrategiesPage() {
       </div>
 
       {strategies.length === 0 && builderStrategies.length === 0 && !loading && (
-        <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--cyan)', fontWeight: 500 }}>No strategies yet</p>
             <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>Create your first strategy or explore the built-in types below.</p>
@@ -221,7 +221,7 @@ export default function StrategiesPage() {
       )}
 
       {showCreate && (
-        <Dialog onClose={() => setShowCreate(false)} maxWidth={400} title={<h2 style={{ fontFamily: 'var(--font-body)', fontSize: 18, margin: '0 0 16px' }}>Create Strategy</h2>}>
+        <Dialog onClose={() => setShowCreate(false)} maxWidth={400} title={<h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 18, margin: '0 0 16px' }}>Create Strategy</h2>}>
           <div style={{ marginBottom: 12 }}>
             <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Name</label>
             <input className="t-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Strategy" />
@@ -244,7 +244,7 @@ export default function StrategiesPage() {
             <input className="t-input" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="NIFTY" />
           </div>
           {createError && (
-            <div style={{ background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--red)' }}>
+            <div style={{ background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--red)' }}>
               {createError}
             </div>
           )}
@@ -323,7 +323,7 @@ export default function StrategiesPage() {
             </div>
           )}
 
-          <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 15, margin: '0 0 14px', color: 'var(--text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 15, margin: '0 0 14px', color: 'var(--text)' }}>
             Saved Strategies ({builderStrategies.length + strategies.length})
           </h2>
 
@@ -339,7 +339,7 @@ export default function StrategiesPage() {
                     <div style={{ padding: '18px', flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                         <div>
-                          <h3 style={{ fontFamily: 'var(--font-body)', fontSize: 14, margin: 0 }}>{s.name || s.id}</h3>
+                          <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, margin: 0 }}>{s.name || s.id}</h3>
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>
                             {s.type || s.template || 'visual'} · v{new Date(s.updated_at || Date.now()).toLocaleDateString()}
                           </p>
@@ -401,7 +401,7 @@ export default function StrategiesPage() {
 
           {strategies.length > 0 && (
             <>
-              <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 13, margin: '0 0 10px', color: 'var(--text-faint)' }}>
+              <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 13, margin: '0 0 10px', color: 'var(--text-faint)' }}>
                 Legacy Strategies ({strategies.length})
               </h2>
               <div className="t-grid-auto" style={{ marginBottom: 28 }}>
@@ -411,7 +411,7 @@ export default function StrategiesPage() {
                       <div style={{ padding: '18px', flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                           <div>
-                            <h3 style={{ fontFamily: 'var(--font-body)', fontSize: 14, margin: 0 }}>{s.name}</h3>
+                            <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, margin: 0 }}>{s.name}</h3>
                             <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>{s.type}</p>
                           </div>
                           <span className={`t-badge ${s.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>

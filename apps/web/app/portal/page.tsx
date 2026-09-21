@@ -369,7 +369,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               <div style={{
                 padding: '14px 18px', borderRadius: 10,
                 background: 'linear-gradient(135deg, color-mix(in srgb, var(--cyan) 8%, transparent), color-mix(in srgb, var(--violet) 8%, transparent))',
-                border: '1px solid color-mix(in srgb, var(--cyan) 10%, transparent)',
+                border: '1px solid rgba(34,211,238,0.2)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontSize: 10, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.04em' }}>

@@ -330,9 +330,7 @@ async def _quotes_with_broker_first(symbols: list[str], current_user) -> list:
         else:
             missing.append(s)
 
-    if missing and not result:
-        logger.warning("Market data unavailable — all sources failed for %s", symbols)
-        raise HTTPException(status_code=503, detail=f"Market data unavailable for {', '.join(symbols)}")
+    if missing:
         try:
             yahoo = await fetch_quotes(missing)
             for q in yahoo:
@@ -340,6 +338,11 @@ async def _quotes_with_broker_first(symbols: list[str], current_user) -> list:
                     result.append(q)
         except Exception as e:
             logger.warning("Yahoo quote fill failed for %s: %s", missing, e)
+
+    if not result:
+        logger.warning("Market data unavailable — all sources failed for %s", symbols)
+        raise HTTPException(status_code=503, detail=f"Market data unavailable for {', '.join(symbols)}")
+
     return result
 
 

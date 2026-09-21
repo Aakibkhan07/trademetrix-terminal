@@ -91,7 +91,7 @@ export default function OptionChainPanel({ symbol, name, onClose }: OptionChainP
                 const itmCe = ltp ? r.strikePrice <= ltp : false
                 const itmPe = ltp ? r.strikePrice >= ltp : false
                 return (
-                  <tr key={r.strikePrice} style={{ background: isAtm ? 'rgba(34,211,238,.07)' : undefined }}>
+                  <tr key={r.strikePrice} style={{ background: isAtm ? 'var(--cyan-dim)' : undefined }}>
                     <td>
                       <span className="t-num" style={{ fontSize: 10, color: itmCe ? 'var(--green)' : undefined }}>{fmt(r.call?.ltp)}</span>
                       <button className="t-btn t-btn-xs t-btn-ghost" title="Buy CE" style={{ marginLeft: 4, padding: 0, fontSize: 10, color: 'var(--green)' }}

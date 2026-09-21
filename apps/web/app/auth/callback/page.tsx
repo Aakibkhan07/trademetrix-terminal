@@ -64,7 +64,7 @@ export default function AuthCallbackPage() {
         ) : (
           <>
             <span style={{
-              width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(139,92,246,0.25)',
+              width: 28, height: 28, borderRadius: '50%', border: '3px solid var(--violet-dim)',
               borderTopColor: '#8b5cf6', display: 'inline-block', animation: 'spin 0.7s linear infinite',
               marginBottom: 16,
             }} />

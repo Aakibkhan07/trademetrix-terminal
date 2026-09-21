@@ -90,7 +90,7 @@ function StepAccount({ onDone }: { onDone: () => void }) {
         </div>
 
         {error && (
-          <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>{error}</div>
+          <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>{error}</div>
         )}
 
         <button type="submit" className="t-btn-primary" style={{ width: '100%', padding: '10px 20px' }} disabled={loading}>
@@ -260,7 +260,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
 
   return (
     <div>
-      {error && <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
       {credentials.length > 0 && (
         <div style={{ marginBottom: 20 }}>
@@ -295,7 +295,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       )}
 
       {selectedBroker === 'fyers' && credentials.some(c => c.broker === 'fyers' && !c.is_active) && (
-        <div className="t-panel" style={{ padding: 8, marginBottom: 16, background: 'color-mix(in srgb, var(--violet) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--violet) 10%, transparent)', fontSize: 11 }}>
+        <div className="t-panel" style={{ padding: 8, marginBottom: 16, background: 'var(--violet-dim)', border: '1px solid rgba(139,92,246,0.2)', fontSize: 11 }}>
           <p style={{ margin: 0, color: 'var(--text-sub)' }}>
             Complete Fyers authorization in the new tab, then the broker will connect automatically.
           </p>
@@ -314,7 +314,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
                   padding: '10px', borderRadius: 8, cursor: 'pointer',
                   border: selectedBroker === b ? '1px solid #8b5cf6' : '1px solid color-mix(in srgb, var(--violet) 12%, transparent)',
                   background: selectedBroker === b ? 'color-mix(in srgb, var(--violet) 8%, transparent)' : 'transparent',
-                  textAlign: 'center', transition: 'all 150ms ease',
+                  textAlign: 'center', transition: 'all var(--transition-fast)',
                 }}
               >
                 <BrokerLogo broker={b} size={28} />
@@ -438,7 +438,7 @@ function StepDone() {
       )}
 
       {error && (
-        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>
           Could not load strategy assignments
         </div>
       )}

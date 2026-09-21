@@ -70,7 +70,7 @@ function SkeletonCard() {
 export function NotAuthorized() {
   return (
     <div>
-      <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13 }}>
+      <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13 }}>
         You do not have admin access.
       </div>
     </div>
@@ -177,7 +177,7 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
         <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>QUICK ACTIONS</h3>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=users')}
-            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--cyan) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--cyan) 20%, transparent)' }}>
+            style={{ fontSize: 10, background: 'var(--cyan-dim)', borderColor: 'color-mix(in srgb, var(--cyan) 20%, transparent)' }}>
             Manage Users
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=users')}
@@ -193,7 +193,7 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
             Broadcast
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=risk')}
-            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--red) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--red) 20%, transparent)' }}>
+            style={{ fontSize: 10, background: 'var(--red-dim)', borderColor: 'color-mix(in srgb, var(--red) 20%, transparent)' }}>
             Risk Controls
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=audit')}
@@ -383,7 +383,7 @@ function UsersTab() {
   return (
     <div>
       {tierError && (
-        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 12, marginBottom: 12 }}>
+        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 12, marginBottom: 12 }}>
           {tierError}
         </div>
       )}
@@ -403,7 +403,7 @@ function UsersTab() {
           />
           {usersLoading && Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
           {!usersLoading && filteredUsers.length === 0 && (
-            <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)', borderRadius: 10, padding: '12px 16px' }}>
+            <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 10, padding: '12px 16px' }}>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--cyan)', fontWeight: 500 }}>
                 {search ? 'No matching users' : 'No users found'}
               </p>
@@ -427,7 +427,7 @@ function UsersTab() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{u.email}</span>
-                <span style={{ fontSize: 9, color: 'var(--text-sub)', background: 'color-mix(in srgb, var(--violet) 8%, transparent)', borderRadius: 4, padding: '1px 6px' }}>
+                <span style={{ fontSize: 9, color: 'var(--text-sub)', background: 'var(--violet-dim)', borderRadius: 4, padding: '1px 6px' }}>
                   {u.active_assignments}/{u.max_active_strategies}
                 </span>
               </div>
@@ -1536,7 +1536,7 @@ function TradesTab() {
                       </button>
                       <button onClick={() => { setLotSize(r.lotSize); buyStrike(r.symbol, r.strike, 'PE', r.lotSize, r.expiry) }}
                         disabled={placing !== null || !r.pe}
-                        style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.pe ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--red) 12%, transparent)', color: 'var(--red)' }}>
+                        style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.pe ? 'pointer' : 'default', background: 'var(--red-dim)', color: 'var(--red)' }}>
                         {placing === `${r.symbol}-${r.strike}-PE` ? '...' : 'PE Buy'}
                       </button>
                     </div>

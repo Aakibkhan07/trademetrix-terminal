@@ -91,7 +91,7 @@ export default function MarketplacePage() {
 
       <div className="t-grid-3" style={{ marginBottom: 4 }}>
         <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(139,92,246,.12)', border: '1px solid rgba(139,92,246,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--violet-dim)', border: '1px solid var(--violet-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" strokeWidth="1.7"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
           <div>
@@ -100,7 +100,7 @@ export default function MarketplacePage() {
           </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(52,211,153,.12)', border: '1px solid rgba(52,211,153,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--green-dim)', border: '1px solid var(--green-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.7"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
           </div>
           <div>
@@ -109,7 +109,7 @@ export default function MarketplacePage() {
           </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(34,211,238,.12)', border: '1px solid rgba(34,211,238,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--cyan-dim)', border: '1px solid var(--cyan-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="1.7"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
           </div>
           <div>
@@ -174,7 +174,7 @@ export default function MarketplacePage() {
 
       {error && (
         <div style={{
-          background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)',
+          background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.2)',
           borderRadius: 'var(--radius-md)', padding: '10px 12px', color: 'var(--text-red)', fontSize: 12,
         }}>
           {friendlyApiError(error)}
@@ -316,7 +316,7 @@ export default function MarketplacePage() {
 
       {!loading && !error && filtered.length === 0 && strategies.length > 0 && (
         <div style={{
-          background: 'color-mix(in srgb, var(--cyan) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 10%, transparent)',
+          background: 'var(--cyan-dim)', border: '1px solid rgba(34,211,238,0.2)',
           borderRadius: 'var(--radius-md)', padding: 24, textAlign: 'center',
         }}>
           <p style={{ color: 'var(--text-sub)', fontSize: 13, margin: '0 0 4px' }}>

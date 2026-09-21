@@ -86,7 +86,7 @@ export default function RiskPage() {
         </div>
       )}
       <div>
-        <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Risk Control</h1>
+        <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Risk Control</h1>
         <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
           Manage trading risk and safety controls
         </p>
@@ -126,8 +126,8 @@ export default function RiskPage() {
                 border: 'none', cursor: 'pointer',
                 background: killSwitch ? 'var(--red)' : 'var(--green)',
                 color: 'var(--text-inverse)', fontSize: 12, fontWeight: 700,
-                fontFamily: 'var(--font-body)',
-                transition: 'all 150ms ease',
+                fontFamily: 'var(--font-sans)',
+                transition: 'all var(--transition-fast)',
               }}
             >
               {killSwitch ? 'Disable' : 'Enable'}
@@ -145,7 +145,7 @@ export default function RiskPage() {
         {killSwitch && (
           <div style={{
             marginTop: 12, padding: '8px 12px',
-            background: 'color-mix(in srgb, var(--red) 8%, transparent)', borderRadius: 'var(--radius-sm)',
+            background: 'var(--red-dim)', borderRadius: 'var(--radius-sm)',
             fontSize: 11, color: 'var(--text-red)', fontWeight: 600,
           }}>
             ⚠ Kill switch is ACTIVE — all order placement is blocked

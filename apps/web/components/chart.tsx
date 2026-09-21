@@ -63,7 +63,7 @@ export default function Chart({ symbol, height = 400, interval: controlledInterv
   useEffect(() => {
     if (!containerRef.current) return
     const chart = createChart(containerRef.current, {
-      ...chartOptions({ height, fontFamily: 'var(--font-body)' }),
+      ...chartOptions({ height, fontFamily: 'var(--font-sans)' }),
     })
 
     const candleSeries = chart.addSeries(CandlestickSeries, {

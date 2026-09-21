@@ -83,7 +83,7 @@ export default function PricingPage() {
       {msg && (
         <div style={{
           padding: '10px 14px', borderRadius: 8, marginBottom: 20, fontSize: 13,
-          background: 'color-mix(in srgb, var(--violet) 10%, transparent)',
+          background: 'var(--violet-dim)',
           border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)',
           color: 'var(--text)',
           textAlign: 'center',

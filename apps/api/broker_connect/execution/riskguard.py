@@ -5,9 +5,9 @@ RiskSettingsGuard reads:
   risk_settings(user_id, max_capital, max_position_size, max_open_positions,
                 max_daily_loss, max_drawdown_pct, kill_switch_enabled, is_live)
 
-Enforced now: kill_switch_enabled, max_position_size, max_capital (notional).
-TODO hooks (need your live P&L / positions source): max_daily_loss,
-max_drawdown_pct, max_open_positions — wire to your pnl store and enable.
+Enforced now: kill_switch_enabled, max_position_size, max_capital (notional),
+  max_daily_loss (via strategy_runs daily_pnl), max_open_positions (via orders count).
+TODO: max_drawdown_pct — needs peak-equity tracking in Supabase (not yet available).
 
 AllowAllRiskGuard is kept only for PAPER smoke tests.
 """
@@ -60,12 +60,43 @@ class RiskSettingsGuard:
         if mc and notional > float(mc):
             return False, "max_capital_exceeded"
 
-        # --- TODO: enable once wired to your live P&L / positions ------------
-        # today_pnl = await pnl_store.today(profile.user_id)
-        # if rk.get("max_daily_loss") and today_pnl <= -float(rk["max_daily_loss"]):
-        #     return False, "max_daily_loss_hit"
-        # open_pos = await positions.count(profile.user_id)
-        # if rk.get("max_open_positions") and open_pos >= int(rk["max_open_positions"]):
-        #     return False, "max_open_positions"
+        # --- Daily loss, open positions checks ---
+        # Wired to your Supabase data (strategy_runs for P&L, orders for positions).
+        today_pnl = 0.0
+        sr = (
+            _sb()
+            .table("strategy_runs")
+            .select("daily_pnl, total_pnl")
+            .eq("user_id", profile.user_id)
+            .in_("status", ["running", "open"])
+            .execute()
+        )
+        if sr.data:
+            for r in sr.data:
+                if isinstance(r, dict):
+                    dl = r.get("daily_pnl")
+                    tl = r.get("total_pnl")
+                    if isinstance(dl, (int, float)):
+                        today_pnl += dl
+                    if isinstance(tl, (int, float)):
+                        today_pnl += tl
+
+        if rk.get("max_daily_loss") and today_pnl <= -float(rk["max_daily_loss"]):
+            return False, "max_daily_loss_hit"
+
+        open_pos = 0
+        op = (
+            _sb()
+            .table("orders")
+            .select("id")
+            .eq("user_id", profile.user_id)
+            .in_("status", ["open", "pending", "partial"])
+            .execute()
+        )
+        if op.data:
+            open_pos = sum(1 for r in op.data if isinstance(r, dict))
+
+        if rk.get("max_open_positions") and open_pos >= int(rk["max_open_positions"]):
+            return False, "max_open_positions"
 
         return True, None

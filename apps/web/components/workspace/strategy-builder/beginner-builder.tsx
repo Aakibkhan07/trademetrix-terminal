@@ -48,7 +48,7 @@ export default function BeginnerBuilder({ onResult, onError }: Props) {
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
           placeholder="e.g. Buy NIFTY when EMA 9 crosses above EMA 21, exit at +1% target with 0.5% SL, only 09:30–14:30 on weekdays"
-          style={{ width: '100%', minHeight: 84, fontSize: 12, resize: 'vertical', fontFamily: 'var(--font-body)' }}
+          style={{ width: '100%', minHeight: 84, fontSize: 12, resize: 'vertical', fontFamily: 'var(--font-sans)' }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
           <button className="t-btn t-btn-primary t-btn-sm" onClick={generate} disabled={busy || !prompt.trim()}>

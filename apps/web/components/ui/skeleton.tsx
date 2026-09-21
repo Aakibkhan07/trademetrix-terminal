@@ -64,8 +64,8 @@ export function SkeletonTable({ rows }: { rows: number }) {
 export function SkeletonPanel() {
   return (
     <div className="t-panel" style={{ padding: 20 }}>
-      <div style={{ height: 12, width: '40%', background: 'rgba(139,92,246,0.08)', borderRadius: 4, marginBottom: 8 }} />
-      <div style={{ height: 12, width: '65%', background: 'rgba(139,92,246,0.08)', borderRadius: 4 }} />
+      <div style={{ height: 12, width: '40%', background: 'var(--violet-dim)', borderRadius: 4, marginBottom: 8 }} />
+      <div style={{ height: 12, width: '65%', background: 'var(--violet-dim)', borderRadius: 4 }} />
     </div>
   )
 }

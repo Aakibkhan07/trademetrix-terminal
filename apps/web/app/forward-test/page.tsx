@@ -20,7 +20,7 @@ function ForwardTests() {
   if (loading) return <div style={{ padding: 20 }}><SkeletonCard /></div>
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px', fontFamily: 'var(--font-body)' }}>
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px', fontFamily: 'var(--font-sans)' }}>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 6px', color: 'var(--text)' }}>Forward Testing</h1>
         <p style={{ fontSize: 13, color: 'var(--text-dim)', margin: 0, lineHeight: 1.5 }}>
@@ -187,7 +187,7 @@ function ForwardTestCard({ item }: { item: ForwardTestItem }) {
                 {' '}({(comparison.forward.pnl_pct as number).toFixed(1)}%)
               </div>
             </div>
-            <div style={{ textAlign: 'center', padding: '8px', borderRadius: 8, background: (comparison.deviation_alert as boolean) ? 'rgba(248,113,113,0.1)' : 'rgba(34,211,238,0.08)', border: `1px solid ${(comparison.deviation_alert as boolean) ? 'rgba(248,113,113,0.3)' : 'rgba(34,211,238,0.2)'}` }}>
+            <div style={{ textAlign: 'center', padding: '8px', borderRadius: 8, background: (comparison.deviation_alert as boolean) ? 'var(--red-dim)' : 'var(--cyan-dim)', border: `1px solid ${(comparison.deviation_alert as boolean) ? 'var(--red-dim)' : 'var(--cyan-dim)'}` }}>
               <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 2 }}>Deviation Alert</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: (comparison.deviation_alert as boolean) ? 'var(--err)' : 'var(--ok)' }}>
                 {(comparison.deviation_alert as boolean) ? '⚠ Exceeded' : '✓ Within range'}

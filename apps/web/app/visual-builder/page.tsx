@@ -58,10 +58,10 @@ function shortSymbol(sym: string | null | undefined): string {
 }
 
 function legColor(position: 'buy' | 'sell'): string {
-  return position === 'buy' ? 'rgba(34,211,238,0.12)' : 'rgba(248,113,113,0.12)'
+  return position === 'buy' ? 'var(--cyan-dim)' : 'var(--red-dim)'
 }
 function legBorder(position: 'buy' | 'sell'): string {
-  return position === 'buy' ? 'rgba(34,211,238,0.4)' : 'rgba(248,113,113,0.4)'
+  return position === 'buy' ? 'var(--cyan-dim)' : 'var(--red-dim)'
 }
 function legTextColor(position: 'buy' | 'sell'): string {
   return position === 'buy' ? 'var(--cyan)' : 'var(--err)'
@@ -140,7 +140,7 @@ function Builder() {
   const lotSize = LOT_SIZES[indexSymbol] ?? 50
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 20px', fontFamily: 'var(--font-body)' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 20px', fontFamily: 'var(--font-sans)' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 6px', color: 'var(--text)' }}>Visual Leg Builder</h1>
         <p style={{ fontSize: 13, color: 'var(--text-dim)', margin: 0, lineHeight: 1.5 }}>

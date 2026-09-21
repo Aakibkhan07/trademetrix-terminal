@@ -65,8 +65,8 @@ export function WebhookTesterTab() {
         </div>
         {showInfo && (
           <div style={{ fontSize: 10, lineHeight: 1.6 }}>
-            <p style={{ margin: 0 }}><strong>URL:</strong> <code style={{ background: 'color-mix(in srgb, var(--violet) 8%, transparent)', padding: '1px 6px', borderRadius: 3, fontSize: 10 }}>POST /api/v1/tradingview/webhook</code></p>
-            <p style={{ margin: '4px 0' }}><strong>Header:</strong> <code style={{ background: 'color-mix(in srgb, var(--violet) 8%, transparent)', padding: '1px 6px', borderRadius: 3, fontSize: 10 }}>X-TradingView-Signature: &lt;your_sha256_hmac&gt;</code></p>
+            <p style={{ margin: 0 }}><strong>URL:</strong> <code style={{ background: 'var(--violet-dim)', padding: '1px 6px', borderRadius: 3, fontSize: 10 }}>POST /api/v1/tradingview/webhook</code></p>
+            <p style={{ margin: '4px 0' }}><strong>Header:</strong> <code style={{ background: 'var(--violet-dim)', padding: '1px 6px', borderRadius: 3, fontSize: 10 }}>X-TradingView-Signature: &lt;your_sha256_hmac&gt;</code></p>
             <p style={{ margin: '4px 0 0', color: 'var(--amber)' }}>Leave <code>user_id</code> empty + set <code>strategy_id</code> to mirror-trade; or set <code>user_id</code> to target a specific user.</p>
           </div>
         )}

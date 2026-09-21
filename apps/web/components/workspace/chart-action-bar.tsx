@@ -22,7 +22,7 @@ export default function ChartActionBar({ onAnalyze, onOpenChain }: ChartActionBa
       className="t-btn t-btn-sm"
       onClick={onClick}
       style={tone === 'green'
-        ? { borderColor: 'rgba(52,211,153,.35)', color: 'var(--green)', fontWeight: 800 }
+        ? { borderColor: 'var(--green-dim)', color: 'var(--green)', fontWeight: 800 }
         : tone === 'red'
           ? { borderColor: 'hsla(0,91%,71%,.35)', color: 'var(--red)', fontWeight: 800 }
           : undefined}

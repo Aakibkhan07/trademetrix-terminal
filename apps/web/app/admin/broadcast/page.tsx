@@ -46,7 +46,7 @@ const PRODUCTS = ['INTRADAY', 'NRML']
 /* -------- Skeleton -------- */
 
 function SkeletonLine({ w, h = 12 }: { w: string; h?: number }) {
-  return <SkeletonBar w={w} h={h} background="rgba(139,92,246,0.08)" />
+  return <SkeletonBar w={w} h={h} background="var(--violet-dim)" />
 }
 
 /* -------- Not authorized -------- */

@@ -200,8 +200,8 @@ export default function AuthPage() {
       <div style={{
         position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
         background: `
-          radial-gradient(900px 900px at -260px -420px, rgba(139,92,246,.13), transparent 62%),
-          radial-gradient(800px 800px at calc(100% + 220px) calc(100% + 420px), rgba(34,211,238,.09), transparent 62%)
+          radial-gradient(900px 900px at -260px -420px, var(--violet-dim), transparent 62%),
+          radial-gradient(800px 800px at calc(100% + 220px) calc(100% + 420px), var(--cyan-dim), transparent 62%)
         `,
       }} />
 
@@ -334,10 +334,10 @@ export default function AuthPage() {
                     style={{
                       width: '100%', height: 44, padding: '0 14px',
                       background: 'var(--bg-tertiary)',
-                      border: `1px solid ${error && !fullName.trim() ? 'rgba(248,113,113,0.3)' : focusedField === 'name' ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                      border: `1px solid ${error && !fullName.trim() ? 'var(--red-dim)' : focusedField === 'name' ? 'var(--violet-dim)' : 'var(--border)'}`,
                       borderRadius: 8, color: 'var(--text)', fontSize: 13,
                       outline: 'none', transition: 'border-color 150ms ease, box-shadow 150ms ease',
-                      boxShadow: focusedField === 'name' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
+                      boxShadow: focusedField === 'name' ? '0 0 0 3px var(--violet-dim)' : 'none',
                     }} />
                 </div>
               )}
@@ -353,10 +353,10 @@ export default function AuthPage() {
                   style={{
                     width: '100%', height: 44, padding: '0 14px',
                     background: 'var(--bg-tertiary)',
-                    border: `1px solid ${!validEmail && email ? 'rgba(248,113,113,0.3)' : focusedField === 'email' ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                    border: `1px solid ${!validEmail && email ? 'var(--red-dim)' : focusedField === 'email' ? 'var(--violet-dim)' : 'var(--border)'}`,
                     borderRadius: 8, color: 'var(--text)', fontSize: 13,
                     outline: 'none', transition: 'border-color 150ms ease, box-shadow 150ms ease',
-                    boxShadow: focusedField === 'email' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
+                    boxShadow: focusedField === 'email' ? '0 0 0 3px var(--violet-dim)' : 'none',
                   }} />
                 {!validEmail && email && (
                   <p style={{ color: 'var(--text-red)', fontSize: 11, margin: '4px 0 0' }}>Invalid email format</p>
@@ -377,10 +377,10 @@ export default function AuthPage() {
                       style={{
                         width: '100%', height: 44, padding: '0 40px 0 14px',
                         background: 'var(--bg-tertiary)',
-                        border: `1px solid ${!validPassword && password ? 'rgba(248,113,113,0.3)' : focusedField === 'password' ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                        border: `1px solid ${!validPassword && password ? 'var(--red-dim)' : focusedField === 'password' ? 'var(--violet-dim)' : 'var(--border)'}`,
                         borderRadius: 8, color: 'var(--text)', fontSize: 13,
                         outline: 'none', transition: 'border-color 150ms ease, box-shadow 150ms ease',
-                        boxShadow: focusedField === 'password' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
+                        boxShadow: focusedField === 'password' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
                       style={{
@@ -413,7 +413,7 @@ export default function AuthPage() {
 
               {error && (
                 <div style={{
-                  background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)',
+                  background: 'var(--red-dim)', border: '1px solid var(--red-dim)',
                   borderRadius: 8, padding: '10px 14px', marginBottom: 16,
                 }}>
                   <p style={{ color: 'var(--text-red)', fontSize: 12, margin: 0 }}>{error}</p>
@@ -421,7 +421,7 @@ export default function AuthPage() {
               )}
               {success && (
                 <div style={{
-                  background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.15)',
+                  background: 'var(--green-dim)', border: '1px solid var(--green-dim)',
                   borderRadius: 8, padding: '10px 14px', marginBottom: 16,
                 }}>
                   <p style={{ color: 'var(--text-green)', fontSize: 12, margin: 0 }}>{success}</p>
@@ -431,11 +431,11 @@ export default function AuthPage() {
               <button type="submit" disabled={loading}
                 style={{
                   width: '100%', height: 44,
-                  background: loading ? 'rgba(139,92,246,0.5)' : 'var(--gradient-primary)',
+                  background: loading ? 'var(--violet-dim)' : 'var(--gradient-primary)',
                   border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
-                  cursor: loading ? 'default' : 'pointer', transition: 'all 150ms ease',
+                  cursor: loading ? 'default' : 'pointer', transition: 'all var(--transition-fast)',
                 }}
-                onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px rgba(139,92,246,0.35)' }}
+                onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px var(--violet-dim)' }}
                 onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}>
                 {loading ? (
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -495,20 +495,20 @@ export default function AuthPage() {
                       style={{
                         width: '100%', height: 44, padding: '0 14px',
                         background: 'var(--bg-tertiary)',
-                        border: `1px solid ${focusedField === 'otp-email' ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                        border: `1px solid ${focusedField === 'otp-email' ? 'var(--violet-dim)' : 'var(--border)'}`,
                         borderRadius: 8, color: 'var(--text)', fontSize: 13,
                         outline: 'none', transition: 'border-color 150ms ease, box-shadow 150ms ease',
-                        boxShadow: focusedField === 'otp-email' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
+                        boxShadow: focusedField === 'otp-email' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
                   </div>
                   <button onClick={handleSendOTP} disabled={loading || !otpEmail}
                     style={{
                       width: '100%', height: 44,
-                      background: loading ? 'rgba(139,92,246,0.5)' : 'var(--gradient-primary)',
+                      background: loading ? 'var(--violet-dim)' : 'var(--gradient-primary)',
                       border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
-                      cursor: loading || !otpEmail ? 'default' : 'pointer', transition: 'all 150ms ease',
+                      cursor: loading || !otpEmail ? 'default' : 'pointer', transition: 'all var(--transition-fast)',
                     }}
-                    onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px rgba(139,92,246,0.35)' }}
+                    onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px var(--violet-dim)' }}
                     onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}>
                     {loading ? 'Sending...' : 'Send OTP'}
                   </button>
@@ -528,9 +528,9 @@ export default function AuthPage() {
                       onBlur={() => setFocusedField(null)}
                       style={{
                         width: '100%', height: 44, padding: '0 14px',
-                        background: 'var(--bg-tertiary)', border: `1px solid ${focusedField === 'otp-name' ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                        background: 'var(--bg-tertiary)', border: `1px solid ${focusedField === 'otp-name' ? 'var(--violet-dim)' : 'var(--border)'}`,
                         borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none',
-                        transition: 'border-color 150ms ease', boxShadow: focusedField === 'otp-name' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
+                        transition: 'border-color var(--transition-fast)', boxShadow: focusedField === 'otp-name' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
                   </div>
                   <div style={{ marginBottom: 12 }}>
@@ -544,9 +544,9 @@ export default function AuthPage() {
                       onBlur={() => setFocusedField(null)}
                       style={{
                         width: '100%', height: 44, padding: '0 14px',
-                        background: 'var(--bg-tertiary)', border: `1px solid ${focusedField === 'otp-pw' ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                        background: 'var(--bg-tertiary)', border: `1px solid ${focusedField === 'otp-pw' ? 'var(--violet-dim)' : 'var(--border)'}`,
                         borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none',
-                        transition: 'border-color 150ms ease', boxShadow: focusedField === 'otp-pw' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
+                        transition: 'border-color var(--transition-fast)', boxShadow: focusedField === 'otp-pw' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
                   </div>
                   <div style={{ marginBottom: 20 }}>
@@ -560,19 +560,19 @@ export default function AuthPage() {
                       onBlur={() => setFocusedField(null)}
                       style={{
                         width: '100%', height: 44, padding: '0 14px',
-                        background: 'var(--bg-tertiary)', border: `1px solid ${focusedField === 'otp-phone' ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`,
+                        background: 'var(--bg-tertiary)', border: `1px solid ${focusedField === 'otp-phone' ? 'var(--violet-dim)' : 'var(--border)'}`,
                         borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none',
-                        transition: 'border-color 150ms ease', boxShadow: focusedField === 'otp-phone' ? '0 0 0 3px rgba(139,92,246,0.15)' : 'none',
+                        transition: 'border-color var(--transition-fast)', boxShadow: focusedField === 'otp-phone' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
                   </div>
                   <button onClick={handleOtpRegister} disabled={loading || !otpPassword}
                     style={{
                       width: '100%', height: 44,
-                      background: loading ? 'rgba(139,92,246,0.5)' : 'var(--gradient-primary)',
+                      background: loading ? 'var(--violet-dim)' : 'var(--gradient-primary)',
                       border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
-                      cursor: loading || !otpPassword ? 'default' : 'pointer', transition: 'all 150ms ease',
+                      cursor: loading || !otpPassword ? 'default' : 'pointer', transition: 'all var(--transition-fast)',
                     }}
-                    onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px rgba(139,92,246,0.35)' }}
+                    onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px var(--violet-dim)' }}
                     onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}>
                     {loading ? 'Creating account...' : 'Create Account & Send OTP'}
                   </button>
@@ -611,12 +611,12 @@ export default function AuthPage() {
                   <button onClick={handleVerifyOTP} disabled={loading || otp.join('').length !== 6}
                     style={{
                       width: '100%', height: 44,
-                      background: loading ? 'rgba(139,92,246,0.5)' : 'var(--gradient-primary)',
+                      background: loading ? 'var(--violet-dim)' : 'var(--gradient-primary)',
                       border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
                       cursor: loading || otp.join('').length !== 6 ? 'default' : 'pointer',
-                      transition: 'all 150ms ease', marginBottom: 12,
+                      transition: 'all var(--transition-fast)', marginBottom: 12,
                     }}
-                    onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px rgba(139,92,246,0.35)' }}
+                    onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px var(--violet-dim)' }}
                     onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}>
                     {loading ? 'Verifying...' : 'Verify & Sign In'}
                   </button>
@@ -635,7 +635,7 @@ export default function AuthPage() {
 
               {error && (
                 <div style={{
-                  background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)',
+                  background: 'var(--red-dim)', border: '1px solid var(--red-dim)',
                   borderRadius: 8, padding: '10px 14px', marginTop: 16,
                 }}>
                   <p style={{ color: 'var(--text-red)', fontSize: 12, margin: 0 }}>{error}</p>

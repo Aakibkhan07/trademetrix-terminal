@@ -44,7 +44,7 @@ export default function FundsPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Funds</h1>
+          <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Funds</h1>
           <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
             Available capital and margin {broker ? `· ${broker}` : ''}
           </p>
@@ -95,7 +95,7 @@ export default function FundsPage() {
                 { label: 'Collateral', value: funds.collateral ?? 0 },
                 { label: 'MTM (Unrealized)', value: funds.m2m_unrealised ?? 0 },
               ].map(m => (
-                <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'color-mix(in srgb, var(--violet) 4%, transparent)' }}>
+                <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--violet-dim)' }}>
                   <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.value >= 0 ? 'var(--text)' : 'var(--text-red)' }}>
                     ₹{m.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -114,7 +114,7 @@ export default function FundsPage() {
                   { label: 'Realized', value: pnl.realised_pnl ?? 0, color: (pnl.realised_pnl ?? 0) >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
                   { label: 'Unrealized', value: pnl.unrealised_pnl ?? 0, color: (pnl.unrealised_pnl ?? 0) >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
                 ].map(m => (
-                  <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'color-mix(in srgb, var(--violet) 4%, transparent)' }}>
+                  <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--violet-dim)' }}>
                     <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.color }}>
                       {m.value >= 0 ? '+' : ''}{m.value.toFixed(0)}

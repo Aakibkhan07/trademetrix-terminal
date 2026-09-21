@@ -214,7 +214,7 @@ export default function AccountPage() {
       {loadError && (
         <div style={{
           padding: '10px 14px', borderRadius: 8, fontSize: 12,
-          background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)',
+          background: 'var(--red-dim)', border: '1px solid var(--red-dim)',
           color: 'var(--text-red)',
         }}>
           {loadError}

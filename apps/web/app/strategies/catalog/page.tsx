@@ -159,7 +159,7 @@ export default function StrategyCatalogPage() {
       )}
 
       {error && (
-        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>
           {friendlyApiError(error)}
         </div>
       )}
@@ -174,7 +174,7 @@ export default function StrategyCatalogPage() {
 
       {!loading && !error && filtered.length === 0 && (
         <div style={{
-          background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--cyan) 12%, transparent)',
+          background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid rgba(34,211,238,0.25)',
           borderRadius: 10, padding: '12px 16px', marginBottom: 20,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
@@ -200,7 +200,7 @@ export default function StrategyCatalogPage() {
               <div style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12,
               }}>
-                <h3 style={{ fontFamily: 'var(--font-body)', fontSize: 14, margin: 0 }}>
+                <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, margin: 0 }}>
                   {s.name}
                 </h3>
                 <TierBadge tier={s.required_tier} />

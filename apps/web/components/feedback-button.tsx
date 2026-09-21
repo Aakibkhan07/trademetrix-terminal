@@ -103,7 +103,7 @@ export default function FeedbackButton() {
           width: 40, height: 40, borderRadius: '50%',
           background: 'var(--violet)', border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 2px 12px rgba(139,92,246,0.4)',
+          boxShadow: '0 2px 12px var(--violet-dim)',
           transition: 'transform 0.2s',
           color: '#fff',
         }}

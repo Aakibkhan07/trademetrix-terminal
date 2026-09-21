@@ -130,7 +130,7 @@ export default function AdminsPage() {
       </div>
 
       {error && (
-        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, color: 'var(--red)', fontSize: 12, marginBottom: 12 }}>
+        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 12, marginBottom: 12 }}>
           {error}
         </div>
       )}

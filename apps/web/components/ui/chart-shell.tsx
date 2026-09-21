@@ -28,7 +28,7 @@ export function chartOptions({ height, rightScaleMargins, crosshairMode, fontFam
       background: { type: ColorType.Solid, color: 'transparent' },
       textColor: colorVar('--text-sub'),
       fontSize: 10,
-      fontFamily: fontFamily || 'var(--font-body)',
+      fontFamily: fontFamily || 'var(--font-sans)',
     },
     grid: {
       vertLines: { color: mix(colorVar('--violet'), 6) },

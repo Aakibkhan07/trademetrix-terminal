@@ -1,14 +1,10 @@
 "use client";
 
-// Compact, always-visible connection status for the portal header/topbar.
-// Green = at least one broker live. Amber = linked but token expired (reconnect).
-// Grey = nothing linked. Clicking routes to the full connect page.
-
 import { useEffect, useState } from "react";
-import { getConnections, type BrokerConnection } from "../lib/brokerApi";
+import { api, connectionsFromCredentials, type BrokerCred } from "../lib/api";
 
 interface Props {
-  /** where the full "Connect broker" page lives, e.g. "/portal/brokers" */
+  /** where the full "Connect broker" page lives, e.g. "/brokers" */
   href?: string;
   /** poll interval ms (0 = no polling) */
   pollMs?: number;
@@ -16,30 +12,26 @@ interface Props {
 
 type Health = "live" | "reconnect" | "off";
 
-export default function BrokerStatusWidget({ href = "/portal/brokers", pollMs = 60000 }: Props) {
-  const [conns, setConns] = useState<BrokerConnection[]>([]);
+export default function BrokerStatusWidget({ href = "/brokers", pollMs = 60000 }: Props) {
+  const [creds, setCreds] = useState<BrokerCred[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
     const load = () =>
-      getConnections()
-        .then(({ connections }) => alive && setConns(connections))
+      api.brokers.credentials()
+        .then(({ credentials }) => alive && setCreds(credentials || []))
         .catch(() => {});
-    load();
+    load().finally(() => setLoading(false));
     if (pollMs > 0) {
       const t = setInterval(load, pollMs);
-      return () => {
-        alive = false;
-        clearInterval(t);
-      };
+      return () => { alive = false; clearInterval(t); };
     }
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [pollMs]);
 
-  const linked = conns.filter((c) => c.status !== "revoked");
-  const live = linked.filter((c) => c.is_live);
+  const linked = creds.filter(c => c.is_active);
+  const live = linked.filter(c => c.token_expires_at);
   const health: Health =
     live.length > 0 ? "live" : linked.length > 0 ? "reconnect" : "off";
 

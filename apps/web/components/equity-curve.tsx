@@ -44,7 +44,7 @@ export default function EquityCurve({ points, height = 200 }: EquityCurveProps) 
         const y = padding.top + (i / yTicks) * chartH
         return (
           <g key={i}>
-            <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="rgba(139,92,246,0.08)" strokeWidth={1} />
+            <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="var(--violet-dim)" strokeWidth={1} />
               <text x={padding.left - 8} y={y + 4} textAnchor="end" fill="var(--text-faint)" fontSize={10} fontFamily="var(--font-body)">
               {Math.round(min + yStep * (yTicks - i)).toLocaleString()}
             </text>

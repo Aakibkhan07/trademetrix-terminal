@@ -94,7 +94,7 @@ export default function StrategyDetailPage() {
   if (error) {
     return (
       <div style={{
-        background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)',
+        background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.2)',
         borderRadius: 'var(--radius-md)', padding: '10px 12px', color: 'var(--text-red)', fontSize: 12,
       }}>
         {error}
@@ -127,7 +127,7 @@ export default function StrategyDetailPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <h1 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 20, margin: 0, color: 'var(--text)' }}>
+              <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20, margin: 0, color: 'var(--text)' }}>
                 {detail.name}
               </h1>
               <TierPill tier={detail.required_tier} borderMix="15%" />
@@ -154,7 +154,7 @@ export default function StrategyDetailPage() {
 
       {/* Performance Metrics */}
       <div>
-        <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+        <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
           Performance Metrics
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
@@ -168,7 +168,7 @@ export default function StrategyDetailPage() {
       {/* Recent Trades */}
       {(detail.recent_trades ?? []).length > 0 && (
         <div>
-          <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
             Recent Trades
           </h2>
           <div style={{
@@ -223,7 +223,7 @@ export default function StrategyDetailPage() {
 
       {(detail.recent_trades ?? []).length === 0 && (
         <div style={{
-          background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.1)',
+          background: 'var(--cyan-dim)', border: '1px solid var(--cyan-dim)',
           borderRadius: 'var(--radius-md)', padding: 24, textAlign: 'center',
         }}>
           <p style={{ color: 'var(--text-sub)', fontSize: 13, margin: '0 0 4px' }}>No trades yet</p>

@@ -166,7 +166,7 @@ export default function NotificationsPopover() {
           {events.slice(0, 30).map(e => (
             <div key={`${e.id}-${e.at}`} style={{
               display: 'flex', gap: 8, padding: '7px 8px', borderRadius: 8, fontSize: 11, alignItems: 'flex-start',
-              opacity: e.seen ? .55 : 1, background: e.seen ? 'transparent' : 'rgba(139,92,246,.07)',
+              opacity: e.seen ? .55 : 1, background: e.seen ? 'transparent' : 'var(--violet-dim)',
             }}>
               <span style={{ fontSize: 13 }}>{ICONS[e.kind] || '•'}</span>
               <div style={{ minWidth: 0 }}>

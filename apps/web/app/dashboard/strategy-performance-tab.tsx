@@ -153,7 +153,7 @@ export function StrategyPerformanceTab() {
                 fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)',
                 color: s.win_rate >= 60 ? 'var(--green)' : s.win_rate >= 40 ? 'var(--amber)' : 'var(--red)',
               }}>{s.win_rate}%</div>
-              <div style={{ width: '100%', height: 3, background: 'color-mix(in srgb, var(--violet) 10%, transparent)', borderRadius: 2, marginTop: 2 }}>
+              <div style={{ width: '100%', height: 3, background: 'var(--violet-dim)', borderRadius: 2, marginTop: 2 }}>
                 <div style={{ width: `${Math.min(s.win_rate, 100)}%`, height: '100%', background: s.win_rate >= 60 ? 'var(--green)' : s.win_rate >= 40 ? 'var(--amber)' : 'var(--red)', borderRadius: 2 }} />
               </div>
             </div>

@@ -79,7 +79,7 @@ function Estimator() {
   ]
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 20px', fontFamily: 'var(--font-body)' }}>
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 20px', fontFamily: 'var(--font-sans)' }}>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 6px', color: 'var(--text)' }}>Margin Estimator</h1>
         <p style={{ fontSize: 13, color: 'var(--text-dim)', margin: 0, lineHeight: 1.5 }}>

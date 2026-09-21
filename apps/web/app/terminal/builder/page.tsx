@@ -583,7 +583,7 @@ function PayoffPreview({
       <div className="t-panel-header" style={{ padding: '8px 12px', minHeight: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span className="t-panel-title" style={{ fontSize: 11, letterSpacing: '0.08em' }}>PAYOFF LAB — EXPIRY</span>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', background: 'rgba(34,211,238,.08)', border: '1px solid rgba(34,211,238,.15)', padding: '2px 6px', borderRadius: 4 }}>Spot {fmtNum(spotPrice)}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', background: 'var(--cyan-dim)', border: '1px solid var(--cyan-dim)', padding: '2px 6px', borderRadius: 4 }}>Spot {fmtNum(spotPrice)}</span>
           {isSimulated && <span className="t-badge t-badge-amber" style={{ fontSize: 8 }}>SIMULATED</span>}
         </div>
       </div>

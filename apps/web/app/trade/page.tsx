@@ -276,25 +276,25 @@ export default function TradePage() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="t-page-header">
         <div>
-          <h1 className="page-title">Trade Desk</h1>
-          <p className="page-subtitle">Index options execution — NIFTY · BANKNIFTY · FINNIFTY · MIDCPNIFTY · SENSEX</p>
+          <h1 className="t-page-title">Trade Desk</h1>
+          <p className="t-page-subtitle">Index options execution — NIFTY · BANKNIFTY · FINNIFTY · MIDCPNIFTY · SENSEX</p>
         </div>
       </div>
 
       {credsLoading && (
-        <div className="t-panel" style={{ padding: '10px 16px', marginBottom: 12 }}>
+        <div className="t-panel" style={{ padding: '8px 12px', marginBottom: 8 }}>
           <div className="t-faint" style={{ fontSize: 10 }}>Loading broker…</div>
         </div>
       )}
-      {credsError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{credsError}</div>}
+      {credsError && <div className="alert alert-error" style={{ marginBottom: 8 }}>{credsError}</div>}
       {!credsLoading && (
-        <div className="t-panel" style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 12px' }}>
-            <span className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em' }}>BROKER</span>
+        <div className="t-panel" style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 10px' }}>
+            <span className="t-faint" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em' }}>BROKER</span>
             {creds.length === 0 && (
-              <span className="t-faint" style={{ fontSize: 11 }}>No brokers connected — paper orders work without one. Add credentials for live orders.</span>
+              <span className="t-faint" style={{ fontSize: 10 }}>No brokers connected — paper orders work without one. Add credentials for live orders.</span>
             )}
             {creds.map(c => (
               <button
@@ -303,7 +303,7 @@ export default function TradePage() {
                 onClick={() => !c.is_active && api.brokers.activate(c.broker).then(loadCreds).catch(e => setCredsError(friendlyApiError(e)))}
                 disabled={c.is_active}
               >
-                {c.is_active && <span className="live-dot active" />}
+                {c.is_active && <span className="live-dot" />}
                 {c.broker}
               </button>
             ))}
@@ -316,27 +316,27 @@ export default function TradePage() {
         onApply={applyPreset}
       />
 
-      <div style={{ marginBottom: 12 }}>
+      <div style={{ marginBottom: 8 }}>
         <IndexStrip index={index} onIndexChange={onIndexChange} spot={spot} changePct={changePct} connected={connected} />
       </div>
 
-      {chainError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{chainError}</div>}
+      {chainError && <div className="alert alert-error" style={{ marginBottom: 8 }}>{chainError}</div>}
       {chainLoading && (
-        <div className="t-panel" style={{ padding: 14 }}>
+        <div className="t-panel" style={{ padding: 10 }}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{ height: 14, marginBottom: 8, borderRadius: 6, background: 'color-mix(in srgb, var(--violet) 10%, transparent)' }} />
+            <div key={i} style={{ height: 10, marginBottom: 6, borderRadius: 'var(--radius-sm)', background: 'var(--panel-2)' }} />
           ))}
         </div>
       )}
 
       {!chainLoading && !chainError && (
-        <div className="t-trade-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 12, alignItems: 'start' }}>
+        <div className="t-trade-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 280px', gap: 8, alignItems: 'start' }}>
           <div>
-            <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
               {!liveSource && chain.optionChain.length > 0 && (
-                <span className="t-badge t-badge-amber" style={{ fontSize: 9 }}>SIMULATED</span>
+                <span className="t-badge t-badge-amber" style={{ fontSize: 8 }}>SIMULATED</span>
               )}
-              <span className="t-faint" style={{ fontSize: 10 }}>
+              <span className="t-faint" style={{ fontSize: 9 }}>
                 {chain.optionChain.length} strikes · {chain.expiries.length} expiries
               </span>
             </div>
@@ -352,14 +352,14 @@ export default function TradePage() {
                 notionalLots={form.lots}
               />
             ) : (
-              <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--t-faint)' }}>No option chain data available for {index}.</p>
+              <div className="t-panel" style={{ padding: 18, textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>No option chain data available for {index}.</p>
               </div>
             )}
             <FillsTicker load={loadFills} />
           </div>
 
-          <div className="t-trade-order-card" style={{ position: 'sticky', top: 12 }}>
+          <div className="t-trade-order-card" style={{ position: 'sticky', top: 8 }}>
             <OrderCard
               form={form}
               onChange={p => setForm(f => ({ ...f, ...p }))}
@@ -379,24 +379,24 @@ export default function TradePage() {
             />
 
             {confirmingLive && (
-              <div style={{ marginTop: 10, background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', borderRadius: 8, padding: '10px 12px' }}>
-                <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--red)', fontWeight: 500 }}>
+              <div style={{ marginTop: 8, background: 'var(--red-dim)', border: '1px solid var(--red-dim)', borderRadius: 'var(--radius-sm)', padding: '8px 10px' }}>
+                <p style={{ margin: '0 0 6px', fontSize: 10, color: 'var(--text-red)', fontWeight: 500 }}>
                   Live trading is not enabled. Enable live mode to place real orders?
                 </p>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 4 }}>
                   <button className="t-btn t-btn-sm t-btn-danger" onClick={confirmLive}>Enable Live</button>
                   <button className="t-btn t-btn-sm t-btn-ghost" onClick={() => setConfirmingLive(false)}>Cancel</button>
                 </div>
               </div>
             )}
 
-            {orderError && <div className="alert alert-error" style={{ marginBottom: 12, marginTop: 10 }}>{orderError}</div>}
+            {orderError && <div className="alert alert-error" style={{ marginBottom: 8, marginTop: 8 }}>{orderError}</div>}
             {orderResult && (
-              <div className={`alert ${orderResult.success ? 'alert-success' : 'alert-error'}`} style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 11 }}>
+              <div className={`alert ${orderResult.success ? 'alert-success' : 'alert-error'}`} style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 10 }}>
                   {orderResult.success ? 'Order placed successfully' : 'Order rejected'}
-                  {orderResult.broker_order_id && <span style={{ display: 'block', fontSize: 10, color: 'var(--t-faint)', marginTop: 2 }}>ID: {orderResult.broker_order_id}</span>}
-                  {orderResult.message && <span style={{ display: 'block', fontSize: 10, marginTop: 2 }}>{orderResult.message}</span>}
+                  {orderResult.broker_order_id && <span style={{ display: 'block', fontSize: 9, color: 'var(--text-faint)', marginTop: 1 }}>ID: {orderResult.broker_order_id}</span>}
+                  {orderResult.message && <span style={{ display: 'block', fontSize: 9, marginTop: 1 }}>{orderResult.message}</span>}
                 </div>
               </div>
             )}
