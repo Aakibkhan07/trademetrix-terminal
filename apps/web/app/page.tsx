@@ -116,7 +116,7 @@ export default function LandingPage() {
             { title: '10+ Brokers', desc: 'Fyers, Zerodha, Angel One, Dhan, Upstox, 5Paisa & more', icon: (
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/><path d="M12 11v4"/><path d="M9 15h6"/></svg>
             )},
-            { title: '8 Strategies', desc: 'Trend Rider, MACD Cross, VWAP Band, ORB Pro & more', icon: (
+            { title: '10 Strategies', desc: 'Trend Rider, MACD Cross, VWAP Band, ORB Pro & more', icon: (
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
             )},
             { title: 'AI Trading Desk', desc: 'Gemini-powered analysis and trade suggestions', icon: (
