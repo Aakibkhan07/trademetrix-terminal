@@ -52,10 +52,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false)
         return
       } catch (err: any) {
-        if (err?.status === 401 || err?.status === 429 || (err?.status ?? 0) >= 500 || err?.status === 0) {
+        // 401 = token invalid/expired — definitely logged out
+        // 429 = rate limited — retry
+        // 5xx = server error — retry, don't logout
+        // status 0 = network error — retry, don't logout
+        if (err?.status === 401) {
           setUser(null)
           setLoading(false)
           return
+        }
+        if (err?.status === 429 || (err?.status ?? 0) >= 500 || err?.status === 0) {
+          attempt += 1
+          if (attempt >= 3) {
+            setUser(null)
+            setLoading(false)
+          } else {
+            await new Promise(r => setTimeout(r, 1000 * attempt))
+          }
+          continue
         }
         attempt += 1
         if (attempt >= 3) {

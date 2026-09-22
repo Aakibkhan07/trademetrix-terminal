@@ -10,11 +10,11 @@ interface BrokerCred { broker: string; name?: string; is_active: boolean; create
 interface AssignedStrategy { strategy_key: string; name: string; description: string; required_tier: string }
 interface Order { id: string; symbol: string; side: string; quantity: number; price: number; status: string; created_at: string }
 
-const TIER_STYLES: Record<string, { color: string; bg: string }> = {
-  free: { color: '#9aa0a6', bg: 'rgba(154,160,166,0.12)' },
-  starter: { color: '#00e5ff', bg: 'rgba(0,229,255,0.12)' },
-  pro: { color: '#7c5cfc', bg: 'rgba(124,92,252,0.12)' },
-  enterprise: { color: '#ffd600', bg: 'rgba(255,214,0,0.12)' },
+const TIER_STYLES: Record<string, { color: string; bg: string; border: string }> = {
+  free: { color: 'var(--text-faint)', bg: 'var(--panel)', border: 'var(--border)' },
+  starter: { color: 'var(--cyan)', bg: 'var(--cyan-dim)', border: 'var(--cyan-dim)' },
+  pro: { color: 'var(--violet)', bg: 'var(--violet-dim)', border: 'var(--violet-dim)' },
+  enterprise: { color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'var(--amber-dim)' },
 }
 
 const TIER_LIMITS: Record<string, { strategies: number; data: string }> = {

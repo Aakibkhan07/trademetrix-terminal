@@ -1,5 +1,14 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null
+  // Cookie-based session (primary)
+  const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)
+  if (csrfMatch) return null // CSRF cookie present = session is active via cookie
+  // Fallback: localStorage token (used when cookie is lost)
+  return window.localStorage.getItem('tm_auth_token') || null
+}
+
 export interface BrokerFieldMeta {
   key: string
   label: string
@@ -282,6 +291,12 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     await _ensureCSRF()
     const csrf = getCSRFToken()
     if (csrf) finalHeaders['X-CSRF-Token'] = csrf
+  }
+
+  // Attach auth token as fallback when cookie session is not available
+  const authToken = getAuthToken()
+  if (authToken) {
+    finalHeaders['Authorization'] = `Bearer ${authToken}`
   }
 
   const _doFetch = async (): Promise<T> => {
