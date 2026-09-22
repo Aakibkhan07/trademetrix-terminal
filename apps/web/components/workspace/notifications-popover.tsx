@@ -146,7 +146,7 @@ export default function NotificationsPopover() {
         🔔
         {unread > 0 && (
           <span style={{
-            position: 'absolute', top: -2, right: -2, background: 'var(--red)', color: '#fff',
+            position: 'absolute', top: -2, right: -2, background: 'var(--red)', color: 'var(--text-inverse)',
             fontSize: 9, fontWeight: 800, borderRadius: 10, minWidth: 16, height: 16,
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
           }}>{unread > 9 ? '9+' : unread}</span>

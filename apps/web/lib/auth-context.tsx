@@ -44,42 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     : null
 
   const fetchUser = useCallback(async () => {
-    let attempt = 0
-    while (attempt < 3) {
-      try {
-        const u = await api.auth.me()
-        setUser(u as User)
-        setLoading(false)
+    // Best-effort session restoration — failures are ambient (network blip, server hiccup),
+    // not proof that the session is invalid. Only a 401 proves logout.
+    try {
+      const u = await api.auth.me()
+      setUser(u as User)
+    } catch (err: any) {
+      if (err?.status === 401) {
+        setUser(null)
         return
-      } catch (err: any) {
-        // 401 = token invalid/expired — definitely logged out
-        // 429 = rate limited — retry
-        // 5xx = server error — retry, don't logout
-        // status 0 = network error — retry, don't logout
-        if (err?.status === 401) {
-          setUser(null)
-          setLoading(false)
-          return
-        }
-        if (err?.status === 429 || (err?.status ?? 0) >= 500 || err?.status === 0) {
-          attempt += 1
-          if (attempt >= 3) {
-            setUser(null)
-            setLoading(false)
-          } else {
-            await new Promise(r => setTimeout(r, 1000 * attempt))
-          }
-          continue
-        }
-        attempt += 1
-        if (attempt >= 3) {
-          setUser(null)
-          setLoading(false)
-        } else {
-          await new Promise(r => setTimeout(r, 1000 * attempt))
-        }
       }
+      // 429 / 5xx / network error — keep existing user state, don't logout.
+      // Mark as "verifying" so the UI can show a subtle indicator if desired.
     }
+    setLoading(false)
   }, [])
 
   // Restore session from localStorage on mount (survival across page refresh)

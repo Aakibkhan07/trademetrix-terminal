@@ -2,11 +2,13 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:800
 
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null
-  // Cookie-based session (primary)
-  const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)
-  if (csrfMatch) return null // CSRF cookie present = session is active via cookie
-  // Fallback: localStorage token (used when cookie is lost)
-  return window.localStorage.getItem('tm_auth_token') || null
+  // Prefer localStorage token (always available after signin/signup)
+  const localToken = window.localStorage.getItem('tm_auth_token')
+  if (localToken) return localToken
+  // Fallback: session cookie (for cookie-based sessions)
+  const sessionMatch = document.cookie.match(/(?:^|;\s*)tm_session=([^;]*)/)
+  if (sessionMatch) return sessionMatch[1]
+  return null
 }
 
 export interface BrokerFieldMeta {

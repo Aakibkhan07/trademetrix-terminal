@@ -73,7 +73,7 @@ export function BackupsTab() {
         <button onClick={runBackup} disabled={running}
           style={{
             padding: '6px 16px', fontSize: 11, fontWeight: 600, borderRadius: 5, cursor: running ? 'wait' : 'pointer',
-            background: running ? 'var(--bg)' : 'var(--violet)', color: running ? 'var(--text-faint)' : '#fff',
+            background: running ? 'var(--bg)' : 'var(--violet)', color: running ? 'var(--text-faint)' : 'var(--text-inverse)',
             border: running ? '1px solid var(--border)' : 'none',
           }}>
           {running ? 'Running...' : 'Run Backup Now'}

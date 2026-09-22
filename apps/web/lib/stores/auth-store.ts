@@ -36,8 +36,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const u = await api.auth.me()
       const user = u as User
       set({ user, loading: false, hasSession: true, tier: user.subscription_tier || 'free', isAdmin: user.is_admin === true })
-    } catch {
-      set({ user: null, loading: false, hasSession: false })
+    } catch (err: any) {
+      // Only clear session on 401 — network blips, 429, 5xx are not proof of invalid session.
+      if (err?.status === 401) {
+        set({ user: null, loading: false, hasSession: false })
+      }
+      // Otherwise keep existing state; the ambient error is logged but doesn't kill the session.
     }
   },
 

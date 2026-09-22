@@ -8,7 +8,7 @@
   --bg-2: #0a0a10;
   --bg-3: #0e0e16;
   --bg-hover: rgba(255, 255, 255, 0.035);
-  --bg-active: rgba(34, 211, 238, 0.08);
+  --bg-active: rgba(245, 158, 11, 0.08);
 
   /* ---- Panels & surfaces ---- */
   --panel: rgba(255, 255, 255, 0.025);
@@ -18,12 +18,12 @@
   /* ---- Borders ---- */
   --border: rgba(255, 255, 255, 0.07);
   --border-2: rgba(255, 255, 255, 0.10);
-  --border-hi: rgba(34, 211, 238, 0.20);
-  --border-accent: rgba(34, 211, 238, 0.35);
+  --border-hi: rgba(245, 158, 11, 0.20);
+  --border-accent: rgba(245, 158, 11, 0.35);
 
-  /* ---- Palette — single accent (cyan), muted violet secondary ---- */
-  --cyan: #22d3ee;
-  --cyan-dim: rgba(34, 211, 238, 0.12);
+  /* ---- Palette — amber primary accent, muted violet secondary ---- */
+  --cyan: #f59e0b;
+  --cyan-dim: rgba(245, 158, 11, 0.12);
   --violet: #8b5cf6;
   --violet-dim: rgba(139, 92, 246, 0.12);
   --green: #34d399;
@@ -46,7 +46,7 @@
   --text-amber: #fbbf24;
 
   /* ---- Gradient (sparing use — accents, logos, highlights only) ---- */
-  --gradient-accent: linear-gradient(135deg, #8b5cf6, #22d3ee);
+  --gradient-accent: linear-gradient(135deg, #8b5cf6, #f59e0b);
   --gradient-primary: var(--gradient-accent);
 
   /* ---- Spacing (4px base grid) ---- */
@@ -59,6 +59,10 @@
   --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-3xl: 120px;
 
   /* ---- Radii — sharper, consistent ---- */
   --radius-xs: 3px;
@@ -75,6 +79,8 @@
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Fira Code', monospace;
 
   --text-xs: 0.7rem;
+  --text-xs-mobile: 0.6875rem;
+  --text-xxs: 0.625rem;
   --text-sm: 0.75rem;
   --text-base: 0.8125rem;
   --text-md: 0.875rem;
@@ -82,6 +88,7 @@
   --text-xl: 1.125rem;
   --text-2xl: 1.375rem;
   --text-3xl: 1.625rem;
+  --text-xxl: 2rem;
 
   --leading-tight: 1.25;
   --leading-normal: 1.45;
@@ -91,7 +98,7 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --shadow-glow: 0 0 20px rgba(34, 211, 238, 0.12);
+  --shadow-glow: 0 0 20px rgba(245, 158, 11, 0.12);
 
   /* ---- Transitions ---- */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -105,8 +112,9 @@
   --sidebar-collapsed: 56px;
   --header-height: 48px;
   --statusbar-height: 24px;
+  --sidebar-header-h: 40px;
 
-  /* ---- Semantic aliases (keep old names for gradual migration) ---- */
+  /* ---- Viewport units (mobile-safe) ---- */
   --bg-secondary: var(--bg-2);
   --bg-tertiary: var(--bg-3);
   --bg-sub: var(--bg-2);
@@ -129,14 +137,14 @@
   --bg-2: #eef0f4;
   --bg-3: #e4e6ec;
   --bg-hover: rgba(0, 0, 0, 0.03);
-  --bg-active: rgba(34, 211, 238, 0.10);
+  --bg-active: rgba(245, 158, 11, 0.10);
   --panel: rgba(0, 0, 0, 0.02);
   --panel-2: rgba(0, 0, 0, 0.035);
   --panel-raised: rgba(0, 0, 0, 0.04);
   --border: rgba(0, 0, 0, 0.08);
   --border-2: rgba(0, 0, 0, 0.12);
-  --border-hi: rgba(34, 211, 238, 0.25);
-  --border-accent: rgba(34, 211, 238, 0.40);
+  --border-hi: rgba(245, 158, 11, 0.25);
+  --border-accent: rgba(245, 158, 11, 0.40);
   --text: #14141f;
   --text-2: #3a3a4a;
   --text-sub: #6b6b7a;
@@ -144,12 +152,12 @@
   --text-inverse: #f5f6f8;
   --text-green: #0f7a5a;
   --text-red: #c53030;
-  --text-amber: #a06000;
-  --gradient-accent: linear-gradient(135deg, #0099b0, #7c5cfc);
+  --text-amber: #7a4f00;
+  --gradient-accent: linear-gradient(135deg, #7c5cfc, #f59e0b);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --shadow-glow: 0 0 20px rgba(34, 211, 238, 0.15);
+  --shadow-glow: 0 0 20px rgba(245, 158, 11, 0.15);
 }
 
 /* ---- Base reset ---- */
@@ -219,7 +227,7 @@ a:hover { color: var(--text-2); }
 
 /* ---- Selection ---- */
 ::selection {
-  background: rgba(34, 211, 238, 0.25);
+  background: rgba(245, 158, 11, 0.25);
   color: var(--text);
 }
 

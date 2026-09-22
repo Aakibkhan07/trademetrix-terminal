@@ -147,7 +147,7 @@ function nearestCandleIdx(candles: BTCandle[], ts: string): number {
   return best
 }
 
-function BacktestChart({ points, height = 170, color = '#34d399', mode = 'equity', trades = [], onSelectTrade }: {
+function BacktestChart({ points, height = 170, color = 'var(--green)', mode = 'equity', trades = [], onSelectTrade }: {
   points: { time: Time; value: number }[]
   height?: number
   color?: string
@@ -375,10 +375,10 @@ function TradeChart({ candles, view, replaying, onReplayEnd }: {
     priceLinesRef.current.forEach(l => series.removePriceLine(l))
     priceLinesRef.current = []
     if (view.sl != null) {
-      priceLinesRef.current.push(series.createPriceLine({ price: view.sl, color: '#f59e0b', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }))
+      priceLinesRef.current.push(series.createPriceLine({ price: view.sl, color: 'var(--amber)', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' }))
     }
     if (view.target != null) {
-      priceLinesRef.current.push(series.createPriceLine({ price: view.target, color: '#22d3ee', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TGT' }))
+      priceLinesRef.current.push(series.createPriceLine({ price: view.target, color: 'var(--cyan)', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TGT' }))
     }
 
     const markers: SeriesMarker<Time>[] = []
@@ -389,7 +389,7 @@ function TradeChart({ candles, view, replaying, onReplayEnd }: {
       markers.push({ time: data[view.exitIdx].time, position: 'aboveBar', color: view.pnl >= 0 ? colorVar('--green', '#34d399') : colorVar('--red', '#ef4444'), shape: 'arrowDown', text: `X ${view.pnlText}`, size: 1 })
     }
     if (currentIdx != null && data[currentIdx]) {
-      markers.push({ time: data[currentIdx].time, position: 'inBar', color: '#22d3ee', shape: 'circle', text: '▶', size: 1 })
+      markers.push({ time: data[currentIdx].time, position: 'inBar', color: 'var(--cyan)', shape: 'circle', text: '▶', size: 1 })
     }
     plugin.setMarkers(markers)
   }, [view, currentIdx])
@@ -502,9 +502,9 @@ function RiskChart({ timeline, height = 190 }: { timeline: BTRiskTimelinePoint[]
     capitalSeries.setData(series.capital)
 
     const exposureSeries: ISeriesApi<'Area'> = chart.addSeries(AreaSeries, {
-      lineColor: colorVar('--cyan', '#22d3ee'),
-      topColor: mix(colorVar('--cyan', '#22d3ee'), 18),
-      bottomColor: mix(colorVar('--cyan', '#22d3ee'), 0),
+      lineColor: colorVar('--cyan', '#f59e0b'),
+      topColor: mix(colorVar('--cyan', '#f59e0b'), 18),
+      bottomColor: mix(colorVar('--cyan', '#f59e0b'), 0),
       lineWidth: 1,
       priceLineVisible: false,
       priceFormat: {
@@ -1762,8 +1762,8 @@ function BacktestContent() {
                   <div style={{ display: 'flex', gap: 14, fontSize: 9, color: 'var(--text-faint)', marginTop: 6, flexWrap: 'wrap' }}>
                     <span style={{ color: colorVar('--green', '#34d399') }}>▲ entry</span>
                     <span style={{ color: colorVar('--red', '#ef4444') }}>▼ exit</span>
-                    {selection.sl != null && <span style={{ color: '#f59e0b' }}>-- SL {selection.sl.toFixed(2)} (derived from risk amount)</span>}
-                    {selection.target != null && <span style={{ color: '#22d3ee' }}>-- Target {selection.target.toFixed(2)} (exit reason: target)</span>}
+                    {selection.sl != null && <span style={{ color: 'var(--amber)' }}>-- SL {selection.sl.toFixed(2)} (derived from risk amount)</span>}
+                    {selection.target != null && <span style={{ color: 'var(--cyan)' }}>-- Target {selection.target.toFixed(2)} (exit reason: target)</span>}
                     {selection.sl == null && selection.target == null && <span>no SL/Target on this trade</span>}
                     <span>replay starts from entry candle</span>
                   </div>
@@ -1800,7 +1800,7 @@ function BacktestContent() {
                 <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Risk State Over Time</div>
                 <div style={{ display: 'flex', gap: 14, fontSize: 10, color: 'var(--text-faint)', marginBottom: 6, flexWrap: 'wrap' }}>
                   <span style={{ color: colorVar('--green', '#34d399') }}>— capital remaining</span>
-                  <span style={{ color: colorVar('--cyan', '#22d3ee') }}>— exposure</span>
+                  <span style={{ color: colorVar('--cyan', '#f59e0b') }}>— exposure</span>
                   <span style={{ color: colorVar('--red', '#ef4444') }}>— drawdown %</span>
                 </div>
                 <RiskChart timeline={risk.timeline} />

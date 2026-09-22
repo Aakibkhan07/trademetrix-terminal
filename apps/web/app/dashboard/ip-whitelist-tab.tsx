@@ -63,7 +63,7 @@ export function IPWhitelistTab() {
         <button onClick={addIP} disabled={adding || !newIP.trim()}
           style={{
             padding: '5px 14px', fontSize: 11, fontWeight: 600, borderRadius: 4,
-            background: newIP.trim() ? 'var(--violet)' : 'var(--bg)', color: newIP.trim() ? '#fff' : 'var(--text-faint)',
+            background: newIP.trim() ? 'var(--violet)' : 'var(--bg)', color: newIP.trim() ? 'var(--text-inverse)' : 'var(--text-faint)',
             border: 'none', cursor: adding ? 'wait' : newIP.trim() ? 'pointer' : 'not-allowed',
           }}>
           {adding ? 'Adding...' : 'Add IP'}

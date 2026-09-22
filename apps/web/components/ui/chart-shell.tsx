@@ -4,8 +4,24 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { ColorType, type DeepPartial, type TimeChartOptions } from 'lightweight-charts'
 
 /** Resolve a CSS variable to its computed value (chart.tsx helper, verbatim). */
-export const colorVar = (name: string, fallback = '#8888a0'): string =>
-  typeof window !== 'undefined' ? (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback) : fallback
+// ---- Token colour fallbacks (dev/SSR only — resolved at runtime via CSS var) ----
+const tokenFallback: Record<string, string> = {
+  '--cyan': '#f59e0b',
+  '--amber': '#f59e0b',
+  '--violet': '#8b5cf6',
+  '--green': '#22c55e',
+  '--red': '#ef4444',
+  '--orange': '#f97316',
+  '--text-sub': '#8888a0',
+}
+
+/** Resolve a CSS variable to its computed value (chart.tsx helper, verbatim). */
+export const colorVar = (name: string, fallback?: string): string => {
+  const f = fallback || tokenFallback[name] || '#8888a0'
+  return typeof window !== 'undefined'
+    ? (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || f)
+    : f
+}
 
 /** Hex + alpha → rgba string (chart.tsx helper, verbatim). */
 export const mix = (hex: string, pct: number): string => {

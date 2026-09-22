@@ -105,7 +105,7 @@
 .t-header-nav-item.active {
   background: var(--cyan-dim);
   color: var(--cyan);
-  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.30);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.30);
 }
 .t-header-user {
   display: flex;
@@ -241,7 +241,7 @@
 .t-nav-item.active {
   color: var(--text);
   background: var(--cyan-dim);
-  border-color: rgba(34, 211, 238, 0.25);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 .t-nav-icon {
   width: 16px;
@@ -448,7 +448,7 @@
 .t-btn-group .t-btn.active {
   background: var(--cyan-dim);
   color: var(--cyan);
-  border-color: rgba(34, 211, 238, 0.30);
+  border-color: rgba(245, 158, 11, 0.30);
 }
 
 /* ===== INPUTS ===== */
@@ -466,7 +466,7 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   height: 28px;
 }
-.t-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.15); }
+.t-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15); }
 .t-input::placeholder { color: var(--text-faint); }
 .t-select {
   width: 100%;
@@ -488,7 +488,7 @@
   background-position: right 8px center;
   padding-right: 24px;
 }
-.t-select:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.15); }
+.t-select:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15); }
 .t-label {
   font-size: 10px;
   color: var(--text-sub);
@@ -604,7 +604,7 @@
   letter-spacing: 0.06em;
   line-height: 1.4;
 }
-.t-badge-cyan { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(34, 211, 238, 0.25); }
+.t-badge-cyan { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(245, 158, 11, 0.25); }
 .t-badge-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(52, 211, 153, 0.28); }
 .t-badge-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(248, 113, 113, 0.28); }
 .t-badge-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.28); }
@@ -681,7 +681,7 @@
 .t-chip.active {
   background: var(--cyan-dim);
   color: var(--cyan);
-  border-color: rgba(34, 211, 238, 0.25);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
 /* ===== KILL SWITCH ===== */
@@ -753,7 +753,7 @@
 .t-tab.active {
   background: var(--cyan-dim);
   color: var(--cyan);
-  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.30);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.30);
   border-bottom: none;
 }
 
@@ -843,7 +843,7 @@
 .t-chart-btn.active {
   background: var(--cyan-dim);
   color: var(--cyan);
-  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.30);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.30);
 }
 .t-chart-area {
   padding: var(--space-1) var(--space-2) var(--space-3);
@@ -1186,7 +1186,7 @@
 .t-btn-active {
   background: var(--cyan-dim);
   color: var(--cyan);
-  border-color: rgba(34, 211, 238, 0.30);
+  border-color: rgba(245, 158, 11, 0.30);
 }
 .t-input-xs {
   height: 22px;
@@ -1219,7 +1219,7 @@
 .t-mode-btn.active-paper {
   background: var(--cyan-dim);
   color: var(--cyan);
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.20), inset 0 0 0 1px rgba(34, 211, 238, 0.30);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.20), inset 0 0 0 1px rgba(245, 158, 11, 0.30);
 }
 .t-mode-btn.active-live {
   background: var(--red-dim);
@@ -1308,7 +1308,7 @@
 .t-seg-btn.active {
   background: var(--cyan-dim);
   color: var(--cyan);
-  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.30);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.30);
 }
 .t-seg-btn.buy.active {
   background: var(--green-dim);

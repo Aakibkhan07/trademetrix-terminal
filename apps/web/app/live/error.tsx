@@ -22,7 +22,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           style={{
             padding: '8px 16px', borderRadius: 'var(--radius-md)',
             background: 'var(--gradient-primary)', border: 'none',
-            color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            color: 'var(--text-inverse)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
           }}
         >
           Try again

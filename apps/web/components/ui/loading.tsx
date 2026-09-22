@@ -19,7 +19,7 @@ export function PageLoading() {
 }
 
 /** Small button spinner (auth page submit state, verbatim). */
-export function Spinner({ size = 14, border = '2px rgba(255,255,255,.3)', top = '#fff', speed = '0.6s' }: {
+export function Spinner({ size = 14, border = '2px var(--spinner-track)', top = 'var(--spinner-thumb)', speed = 'var(--spinner-speed)' }: {
   size?: number
   border?: string
   top?: string

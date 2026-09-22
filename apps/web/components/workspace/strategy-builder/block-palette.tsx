@@ -66,7 +66,7 @@ export default function BlockPalette({ blocks, onAdd, onAddAtCenter }: Props) {
         {shown.map(g => (
           <div key={g.category}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 3, background: CATEGORY_META[g.category]?.color || '#888' }} />
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: CATEGORY_META[g.category]?.color || 'var(--text-faint)' }} />
               <span className="t-faint" style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>
                 {CATEGORY_META[g.category]?.label || g.category}
               </span>
@@ -88,7 +88,7 @@ export default function BlockPalette({ blocks, onAdd, onAddAtCenter }: Props) {
                     display: 'flex', alignItems: 'center', gap: 6,
                   }}
                 >
-                  <span style={{ width: 5, height: 5, borderRadius: 3, background: CATEGORY_META[b.category]?.color || '#888', flexShrink: 0 }} />
+                  <span style={{ width: 5, height: 5, borderRadius: 3, background: CATEGORY_META[b.category]?.color || 'var(--text-faint)', flexShrink: 0 }} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {b.display_name || b.name}

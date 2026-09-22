@@ -575,7 +575,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 width: 20, height: 20, borderRadius: '50%',
                 background: 'var(--gradient-primary)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 9, fontWeight: 700, color: '#fff',
+                fontSize: 'var(--text-xxs)', fontWeight: 700, color: 'var(--text-inverse)',
               }}>
                 {user?.email?.[0]?.toUpperCase() || '?'}
               </div>

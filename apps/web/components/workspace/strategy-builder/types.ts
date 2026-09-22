@@ -75,7 +75,7 @@ export interface BlockMeta {
 }
 
 export const CATEGORY_META: Record<string, { label: string; color: string }> = {
-  input: { label: 'Inputs', color: '#22d3ee' },
+  input: { label: 'Inputs', color: 'var(--cyan)' },
   indicator: { label: 'Indicators', color: '#38bdf8' },
   pattern: { label: 'Patterns', color: '#818cf8' },
   math: { label: 'Math', color: '#2dd4bf' },
@@ -88,7 +88,7 @@ export const CATEGORY_META: Record<string, { label: string; color: string }> = {
   order: { label: 'Orders', color: '#4ade80' },
   portfolio: { label: 'Portfolio', color: '#f87171' },
   risk: { label: 'Risk', color: 'var(--red)' },
-  time: { label: 'Time', color: '#f59e0b' },
+  time: { label: 'Time', color: 'var(--amber)' },
   variable: { label: 'Variables', color: '#94a3b8' },
   function: { label: 'Functions', color: '#60a5fa' },
   group: { label: 'Groups', color: '#a3e635' },

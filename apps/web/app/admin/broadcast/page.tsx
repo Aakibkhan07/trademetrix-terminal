@@ -269,7 +269,7 @@ function BroadcastDashboard() {
                 <p style={{ fontSize: 11, color: 'var(--red)', fontWeight: 500, margin: '0 0 4px' }}>Rejections:</p>
                 {rejected.map(r => (
                   <div key={r.user_id} className="glass-card" style={{ padding: '6px 10px', marginBottom: 4, fontSize: 11 }}>
-                    <span style={{ color: '#f0f0f5', fontWeight: 600 }}>{r.email}</span>
+                    <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{r.email}</span>
                     <span style={{ color: 'var(--text-faint)', marginLeft: 8 }}>{r.message}</span>
                   </div>
                 ))}
@@ -287,7 +287,7 @@ function BroadcastDashboard() {
             <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
               Confirm LIVE Broadcast
             </p>
-            <p style={{ margin: '0 0 10px', fontSize: 11, color: '#aaaac0' }}>
+            <p style={{ margin: '0 0 var(--space-xs)', fontSize: 'var(--text-xs-mobile)', color: 'var(--text-faint)' }}>
               Real orders will be placed in <strong>{recipients.length} user account{recipients.length !== 1 ? 's' : ''}</strong>,
               each through their own broker gate. This uses real capital.
             </p>
@@ -364,7 +364,7 @@ function BroadcastDashboard() {
             return (
               <div key={i} className="glass-card" style={{ padding: '8px 12px', margin: '0 12px 8px', fontSize: 11 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600, color: '#f0f0f5' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-2)' }}>
                     {b.count} users
                   </span>
                   <span style={{ color: b.paper ? '#22c55e' : 'var(--red)', fontWeight: 600 }}>
@@ -372,7 +372,7 @@ function BroadcastDashboard() {
                   </span>
                 </div>
                 <div style={{ marginTop: 4 }}>
-                  <span style={{ color: '#22c55e' }}>{p} placed</span>
+                  <span style={{ color: 'var(--green)' }}>{p} placed</span>
                   {rj > 0 && <span style={{ color: 'var(--red)', marginLeft: 8 }}>{rj} rejected</span>}
                 </div>
               </div>

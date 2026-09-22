@@ -1,0 +1,46 @@
+/* ===== ADDITIONAL DESIGN TOKENS ===== */
+/* Extends tokens.css with tokens needed across the app */
+
+:root {
+  /* ---- Input & surface variants ---- */
+  --bg-input: #0d1117;
+  --surface-2: #11131a;
+  --border-default: #2a2d3a;
+
+  /* ---- Text on accent backgrounds (dark text on green/amber/violet) ---- */
+  --text-on-accent: #052a14;
+  --text-on-violet: #fff;
+  --text-on-amber: #0a0a12;
+
+  /* ---- PCR / option-chain sentiment colors ---- */
+  --pcr-bearish: #ff6d00;
+  --pcr-bullish: #69f0ae;
+
+  /* ---- Spinner ---- */
+  --spinner-border: rgba(255, 255, 255, 0.3);
+
+  /* ---- State colors (for status indicators) ---- */
+  --state-live: var(--cyan);
+  --state-reconnect: var(--amber);
+  --state-off: var(--text-faint);
+
+  /* ---- Chart fallbacks (used when CSS var is unavailable) ---- */
+  --chart-green: var(--green);
+  --chart-red: var(--red);
+  --chart-cyan: var(--cyan);
+  --chart-violet: var(--violet);
+  --chart-amber: var(--amber);
+  --chart-bg: var(--bg-secondary);
+  --chart-text: var(--text);
+  --chart-text-sub: var(--text-sub);
+
+  /* ---- Admin page text on dark panels ---- */
+  --admin-text: #f0f0f5;
+  --admin-text-muted: #aaaac0;
+  --admin-green: var(--green);
+  --admin-red: var(--red);
+
+  /* ---- Generic white/black aliases ---- */
+  --white: #ffffff;
+  --black: #000000;
+}

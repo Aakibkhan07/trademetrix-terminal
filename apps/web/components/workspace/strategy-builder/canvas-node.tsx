@@ -93,7 +93,7 @@ function Port({ port, dir }: { port: PortDef; dir: 'in' | 'out' }) {
 export default function CanvasNode({ node, meta, selected, onDrag, onDelete, onParamChange, onPortClick }: Props) {
   const headerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ px: number; py: number } | null>(null)
-  const color = CATEGORY_META[meta?.category || '']?.color || '#888'
+  const color = CATEGORY_META[meta?.category || '']?.color || 'var(--text-faint)'
 
   const startDrag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button, select, input, .sb-port')) return

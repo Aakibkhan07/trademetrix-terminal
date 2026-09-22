@@ -113,7 +113,7 @@ export default function PricingPage() {
                     fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
                     padding: '2px 8px', borderRadius: 4,
                     background: 'var(--gradient-primary)',
-                    color: '#fff',
+                    color: 'var(--text-inverse)',
                   }}>
                     Most Popular
                   </div>

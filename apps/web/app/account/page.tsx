@@ -158,7 +158,7 @@ export default function AccountPage() {
             width: 64, height: 64, borderRadius: '50%',
             background: `linear-gradient(135deg, ${tierStyle.color}, ${tierStyle.color}88)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, fontWeight: 700, color: '#000',
+            fontSize: 'var(--text-xxl)', fontWeight: 700, color: 'var(--text-inverse)',
             border: '3px solid var(--bg-secondary)',
             boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
           }}>
@@ -457,7 +457,7 @@ export default function AccountPage() {
                   <span style={{
                     position: 'absolute', top: 2,
                     width: 16, height: 16, borderRadius: '50%',
-                    background: '#fff',
+                    background: 'var(--text-inverse)',
                     transition: 'left 0.2s, box-shadow 0.2s',
                     left: notifPrefs[item.key] ? 18 : 2,
                     boxShadow: '0 1px 3px rgba(0,0,0,0.2)',

@@ -1701,7 +1701,7 @@ function PositionsOrderBookTab() {
               style={{
                 padding: '4px 14px', fontSize: 10, fontWeight: 600, borderRadius: 4, border: 'none', cursor: 'pointer',
                 background: tab === t ? 'var(--violet)' : 'transparent',
-                color: tab === t ? '#fff' : 'var(--text-sub)',
+                color: tab === t ? 'var(--text-inverse)' : 'var(--text-sub)',
                 textTransform: 'capitalize',
               }}>{t} {t === 'positions' ? `(${positions.length})` : `(${orders.length})`}</button>
           ))}

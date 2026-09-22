@@ -64,9 +64,9 @@ function fmtInt(n: number) {
 
 function pcrZone(pcr: number): { label: string; color: string } {
   if (pcr < 0.5) return { label: 'Deep Bearish', color: 'var(--text-red)' }
-  if (pcr < 0.8) return { label: 'Bearish', color: '#ff6d00' }
+  if (pcr < 0.8) return { label: 'Bearish', color: 'var(--orange)' }
   if (pcr < 1.2) return { label: 'Neutral', color: 'var(--amber)' }
-  if (pcr < 1.5) return { label: 'Bullish', color: '#69f0ae' }
+  if (pcr < 1.5) return { label: 'Bullish', color: 'var(--green)' }
   return { label: 'Deep Bullish', color: 'var(--text-green)' }
 }
 

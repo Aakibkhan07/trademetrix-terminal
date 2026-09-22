@@ -36,7 +36,7 @@ export default function BrokerStatusWidget({ href = "/brokers", pollMs = 60000 }
     live.length > 0 ? "live" : linked.length > 0 ? "reconnect" : "off";
 
   const color =
-    health === "live" ? "#22d3ee" : health === "reconnect" ? "#f5a524" : "#8b90a0";
+    health === "live" ? "var(--cyan)" : health === "reconnect" ? "var(--amber)" : "var(--text-faint)";
   const label =
     health === "live"
       ? `${live.length} broker${live.length > 1 ? "s" : ""} live`
@@ -53,9 +53,9 @@ export default function BrokerStatusWidget({ href = "/brokers", pollMs = 60000 }
         gap: 8,
         padding: "6px 12px",
         borderRadius: 999,
-        fontFamily: '"DM Sans", sans-serif',
+        fontFamily: 'var(--font-sans)',
         fontStyle: "normal",
-        fontSize: 12.5,
+        fontSize: "var(--text-sm)",
         fontWeight: 500,
         textDecoration: "none",
         color: color,
@@ -67,11 +67,11 @@ export default function BrokerStatusWidget({ href = "/brokers", pollMs = 60000 }
     >
       <span
         style={{
-          width: 7,
-          height: 7,
+          width: "var(--dot-size)",
+          height: "var(--dot-size)",
           borderRadius: "50%",
           background: color,
-          boxShadow: `0 0 8px ${color}`,
+          boxShadow: `0 0 var(--dot-glow) ${color}`,
         }}
       />
       {label}

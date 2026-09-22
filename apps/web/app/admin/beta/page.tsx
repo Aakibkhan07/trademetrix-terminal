@@ -173,20 +173,20 @@ function OverviewSection() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
         <div className="t-panel" style={{ padding: 16 }}>
-          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Activation Funnel</h3>
+          <h3 style={{ fontFamily: 'Outfit', fontSize: 'var(--text-xs)', margin: '0 0 var(--space-sm)', color: 'var(--text-2)' }}>Activation Funnel</h3>
           {funnel.map(f => (
             <div key={f.step} style={{ marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
                 <span>{f.label}</span>
                 <span style={{ color: 'var(--text-faint)' }}>{fmtNum(f.count)}</span>
               </div>
-              <Bar pct={(f.count / maxCount) * 100} color={f.step === 'live_traded' ? '#22c55e' : undefined} />
+              <Bar pct={(f.count / maxCount) * 100} color={f.step === 'live_traded' ? 'var(--green)' : undefined} />
             </div>
           ))}
         </div>
 
         <div className="t-panel" style={{ padding: 16 }}>
-          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Daily Active Users (14d)</h3>
+          <h3 style={{ fontFamily: 'Outfit', fontSize: 'var(--text-xs)', margin: '0 0 var(--space-sm)', color: 'var(--text-2)' }}>Daily Active Users (14d)</h3>
           {dauSeries.length === 0 ? (
             <EmptyNote>No tracked activity yet — the tracker starts collecting once web traffic flows.</EmptyNote>
           ) : (
@@ -204,7 +204,7 @@ function OverviewSection() {
         </div>
 
         <div className="t-panel" style={{ padding: 16 }}>
-          <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Most Tracked Events (15)</h3>
+          <h3 style={{ fontFamily: 'Outfit', fontSize: 'var(--text-xs)', margin: '0 0 var(--space-sm)', color: 'var(--text-2)' }}>Most Tracked Events (15)</h3>
           {data.event_counts.length === 0 ? (
             <EmptyNote>No events yet.</EmptyNote>
           ) : (
@@ -214,7 +214,7 @@ function OverviewSection() {
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>{f.event}</span>
                   <span style={{ color: 'var(--text-faint)' }}>{fmtNum(f.count)} · {f.users}u</span>
                 </div>
-                <Bar pct={(f.count / Math.max(1, data.event_counts[0].count)) * 100} color="#22d3ee" />
+                <Bar pct={(f.count / Math.max(1, data.event_counts[0].count)) * 100} color="var(--cyan)" />
               </div>
             ))
           )}
@@ -307,7 +307,7 @@ function RetentionSection() {
                       return (
                         <td key={k} style={{ padding: '6px 10px', textAlign: 'right' }}>
                           <span style={{
-                            color: pct >= 50 ? '#22c55e' : pct >= 20 ? '#f59e0b' : 'var(--text-faint)',
+                            color: pct >= 50 ? 'var(--green)' : pct >= 20 ? 'var(--amber)' : 'var(--text-faint)',
                             background: pct >= 50 ? 'rgba(34,197,94,0.12)' : pct >= 20 ? 'rgba(245,158,11,0.12)' : 'transparent',
                             borderRadius: 4, padding: '2px 6px',
                           }}>{pct}%</span>
@@ -348,7 +348,7 @@ function FeaturesSection() {
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>{f.event}</span>
               <span style={{ color: 'var(--text-faint)' }}>{fmtNum(f.count)} events · {fmtNum(f.users)} users</span>
             </div>
-            <Bar pct={(f.count / max) * 100} color="#22d3ee" />
+            <Bar pct={(f.count / max) * 100} color="var(--cyan)" />
           </div>
         ))}
       </div>
@@ -385,7 +385,7 @@ function SessionsSection() {
                   <span>{s.count} events</span>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>{s.first?.slice(0, 19)} → {s.last?.slice(0, 19)}</div>
-                <div style={{ fontSize: 10, marginTop: 4, color: '#22d3ee', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ fontSize: 10, marginTop: 4, color: 'var(--cyan)', fontFamily: 'var(--font-mono)' }}>
                   {(s.pages || []).slice(0, 5).join(' · ') || '—'}
                 </div>
               </button>
@@ -394,7 +394,7 @@ function SessionsSection() {
         )}
       </div>
       <div className="t-panel" style={{ padding: 16 }}>
-        <h3 style={{ fontFamily: 'Outfit', fontSize: 13, margin: '0 0 12px', color: '#f0f0f5' }}>Session Replay {selected ? '' : '— select a session'}</h3>
+        <h3 style={{ fontFamily: 'Outfit', fontSize: 'var(--text-xs)', margin: '0 0 var(--space-sm)', color: 'var(--text-2)' }}>Session Replay {selected ? '' : '— select a session'}</h3>
         {replayLoading && <LoadState />}
         {!replayLoading && replay && replay.count === 0 && selected && (
           <EmptyNote>No events for this session.</EmptyNote>
@@ -404,10 +404,10 @@ function SessionsSection() {
             {replay.events.map((e, i) => (
               <div key={i} style={{ fontSize: 10, borderLeft: '2px solid var(--violet-dim)', paddingLeft: 10, fontFamily: 'var(--font-mono)' }}>
                 <div style={{ color: 'var(--text-faint)' }}>{String(e.created_at).slice(11, 19)}</div>
-                <div style={{ color: '#f0f0f5', fontWeight: 600, marginTop: 2 }}>{e.event}</div>
+                <div style={{ color: 'var(--text-2)', fontWeight: 600, marginTop: 'var(--space-xs)' }}>{e.event}</div>
                 {Object.entries(e.properties || {}).slice(0, 6).map(([k, v]) => (
                   <div key={k} style={{ color: 'var(--text-faint)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 520 }}>
-                    <span style={{ color: '#22d3ee' }}>{k}:</span> {JSON.stringify(v)}
+                    <span style={{ color: 'var(--cyan)' }}>{k}:</span> {JSON.stringify(v)}
                   </div>
                 ))}
               </div>
@@ -479,7 +479,7 @@ function FeedbackSection() {
           <button key={s} onClick={() => setFilter(s)} style={{
             padding: '5px 12px', fontSize: 11, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
             background: filter === s ? 'var(--violet)' : 'var(--violet-dim)',
-            color: filter === s ? '#fff' : 'var(--text-faint)', border: 'none',
+            color: filter === s ? 'var(--text-inverse)' : 'var(--text-faint)', border: 'none',
           }}>{s === '' ? 'All' : s}</button>
         ))}
       </div>
@@ -504,10 +504,10 @@ function FeedbackSection() {
               {data.feedback.map(f => (
                 <tr key={f.id} style={{ borderBottom: '1px solid var(--violet-dim)' }}>
                   <td style={{ padding: '8px 12px' }}>
-                    <span style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', color: '#22d3ee' }}>{f.category}</span>
+                    <span style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', color: 'var(--cyan)' }}>{f.category}</span>
                   </td>
                   <td style={{ padding: '8px 12px', maxWidth: 340 }}>
-                    <div style={{ fontWeight: 600, color: '#f0f0f5' }}>{f.title || '—'}</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-2)' }}>{f.title || '—'}</div>
                     {f.description && <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2, maxHeight: 32, overflow: 'hidden' }}>{f.description}</div>}
                   </td>
                   <td style={{ padding: '8px 12px', fontSize: 10, color: 'var(--text-faint)' }}>{f.full_name || f.user_email || 'anonymous'}</td>
@@ -515,7 +515,7 @@ function FeedbackSection() {
                     <span style={{
                       display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 600,
                       background: f.status === 'resolved' ? 'rgba(34,197,94,0.15)' : f.status === 'triaged' ? 'rgba(245,158,11,0.15)' : f.status === 'wontfix' ? 'rgba(239,68,68,0.15)' : 'var(--violet-dim)',
-                      color: f.status === 'resolved' ? '#22c55e' : f.status === 'triaged' ? '#f59e0b' : f.status === 'wontfix' ? 'var(--red)' : 'var(--violet)',
+                      color: f.status === 'resolved' ? 'var(--green)' : f.status === 'triaged' ? 'var(--amber)' : f.status === 'wontfix' ? 'var(--red)' : 'var(--violet)',
                     }}>{f.status}</span>
                   </td>
                   <td style={{ padding: '8px 12px', textAlign: 'right' }}>

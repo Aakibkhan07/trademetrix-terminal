@@ -105,7 +105,7 @@ export default function FeedbackButton() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 2px 12px var(--violet-dim)',
           transition: 'transform 0.2s',
-          color: '#fff',
+          color: 'var(--text-inverse)',
         }}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

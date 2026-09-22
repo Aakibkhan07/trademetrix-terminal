@@ -86,7 +86,7 @@ export function WebhookTesterTab() {
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button onClick={sendWebhook} disabled={sending}
-              className="t-btn" style={{ fontSize: 11, background: 'var(--violet)', color: '#fff', border: 'none', padding: '6px 18px', borderRadius: 5, cursor: sending ? 'wait' : 'pointer', opacity: sending ? 0.6 : 1 }}>
+              className="t-btn" style={{ fontSize: 11, background: 'var(--violet)', color: 'var(--text-inverse)', border: 'none', padding: '6px 18px', borderRadius: 5, cursor: sending ? 'wait' : 'pointer', opacity: sending ? 0.6 : 1 }}>
               {sending ? 'Sending...' : 'Send Test Webhook'}
             </button>
             <button onClick={() => setPayload(DEFAULT_PAYLOAD)}

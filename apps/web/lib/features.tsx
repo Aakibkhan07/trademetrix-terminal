@@ -38,10 +38,10 @@ export const TIER_LIMITS: Record<Tier, { strategies: number; label: string; pric
 }
 
 export const TIER_COLORS: Record<Tier, { color: string; bg: string }> = {
-  free: { color: '#9aa0a6', bg: 'rgba(154,160,166,0.12)' },
-  starter: { color: '#00e5ff', bg: 'rgba(0,229,255,0.12)' },
-  pro: { color: '#7c5cfc', bg: 'rgba(124,92,252,0.12)' },
-  enterprise: { color: '#ffd600', bg: 'rgba(255,214,0,0.12)' },
+  free: { color: 'var(--text-faint)', bg: 'rgba(154,160,166,0.12)' },
+  starter: { color: 'var(--cyan)', bg: 'rgba(0,229,255,0.12)' },
+  pro: { color: 'var(--violet)', bg: 'rgba(124,92,252,0.12)' },
+  enterprise: { color: 'var(--amber)', bg: 'rgba(255,214,0,0.12)' },
 }
 
 export function hasFeature(tier: string, featureKey: string): boolean {

@@ -186,7 +186,7 @@ export default function AIPage() {
                       width: 24, height: 24, borderRadius: '50%',
                       background: 'var(--gradient-primary)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, flexShrink: 0, color: '#fff', fontWeight: 700,
+                      fontSize: 11, flexShrink: 0, color: 'var(--text-inverse)', fontWeight: 700,
                     }}>AI</div>
                   )}
                   <div style={{
@@ -239,7 +239,7 @@ export default function AIPage() {
                   width: 24, height: 24, borderRadius: '50%',
                   background: 'var(--gradient-primary)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, flexShrink: 0, color: '#fff', fontWeight: 700,
+                  fontSize: 11, flexShrink: 0, color: 'var(--text-inverse)', fontWeight: 700,
                 }}>AI</div>
                 <div style={{
                   padding: '8px 12px', borderRadius: 'var(--radius-md) var(--radius-md) var(--radius-md) 0',

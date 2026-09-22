@@ -117,7 +117,7 @@ export function PnLDashboardTab() {
               style={{
                 padding: '4px 10px', fontSize: 9, fontWeight: 600, border: 'none', cursor: 'pointer',
                 background: period === p ? 'var(--violet)' : 'transparent',
-                color: period === p ? '#fff' : 'var(--text-sub)',
+                color: period === p ? 'var(--text-inverse)' : 'var(--text-sub)',
               }}>{p.charAt(0).toUpperCase() + p.slice(1)}</button>
           ))}
         </div>

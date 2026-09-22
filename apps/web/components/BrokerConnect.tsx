@@ -216,14 +216,14 @@ export default function BrokerConnect() {
         <h2 className="tm-bc__title">Connect your Trading Account</h2>
         <p className="tm-bc__sub">
           Enter your broker API details below, or use{" "}
-          <b style={{ color: "#e7e9ee" }}>OAuth</b> for one-tap login where available.
+          <b style={{ color: "var(--text-2)" }}>OAuth</b> for one-tap login where available.
           We store only a revocable access token — never your password or PIN.
         </p>
       </div>
 
       {liveCount > 0 && (
         <div className="tm-bc__connected">
-          <span className="tm-bc__dot" style={{ background: "#22d3ee", boxShadow: "0 0 8px #22d3ee" }} />
+          <span className="tm-bc__dot" style={{ background: "var(--cyan)", boxShadow: "0 0 8px var(--cyan)" }} />
           <span className="tm-bc__connected-txt">
             <b>{liveCount}</b> broker{liveCount > 1 ? "s" : ""} live and ready for automated execution.
           </span>
@@ -371,9 +371,9 @@ export default function BrokerConnect() {
       )}
 
       <p className="tm-bc__note">
-        <b style={{ color: "#e7e9ee" }}>API keys:</b> Enter your trading API details and click{" "}
+        <b style={{ color: "var(--text-2)" }}>API keys:</b> Enter your trading API details and click{" "}
         <b>Connect</b> — we encrypt and store only the daily access token.<br />
-        <b style={{ color: "#e7e9ee" }}>OAuth:</b> Or tap <b>Login via Broker</b> to authenticate on your broker&apos;s secure page.<br />
+        <b style={{ color: "var(--text-2)" }}>OAuth:</b> Or tap <b>Login via Broker</b> to authenticate on your broker's secure page.<br />
         Broker tokens reset daily (SEBI 2FA). We&apos;ll remind you each morning to reconnect in one tap.
       </p>
 

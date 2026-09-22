@@ -111,7 +111,7 @@ const WinDonut = memo(function WinDonut({ wins, losses }: { wins: number; losses
   return (
     <svg width={100} height={100} viewBox="0 0 100 100">
       <circle cx={50} cy={50} r={r} fill="none" stroke="var(--panel-2)" strokeWidth={10} />
-      <circle cx={50} cy={50} r={r} fill="none" stroke="#22c55e" strokeWidth={10}
+      <circle cx={50} cy={50} r={r} fill="none" stroke="var(--green)" strokeWidth={10}
         strokeDasharray={circ} strokeDashoffset={wOff} transform="rotate(-90 50 50)" strokeLinecap="round" />
       <text x={50} y={48} textAnchor="middle" fill="var(--text)" fontSize={18} fontWeight={700} fontFamily="var(--font-mono)">
         {pct.toFixed(0)}%

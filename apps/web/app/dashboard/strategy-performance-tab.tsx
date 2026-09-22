@@ -75,7 +75,7 @@ export function StrategyPerformanceTab() {
               style={{
                 padding: '4px 10px', fontSize: 9, fontWeight: 600, border: 'none', cursor: 'pointer',
                 background: sortBy === s ? 'var(--violet)' : 'transparent',
-                color: sortBy === s ? '#fff' : 'var(--text-sub)',
+                color: sortBy === s ? 'var(--text-inverse)' : 'var(--text-sub)',
               }}>{s.replace('_', ' ').toUpperCase()}</button>
           ))}
         </div>

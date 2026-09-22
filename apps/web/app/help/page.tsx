@@ -85,7 +85,7 @@ export default function HelpPage() {
             { n: '7', t: 'Daily Report + Mobile', d: '/reports/daily → aaj ka P&L/Win/Trades → Print/PDF. Roz 18:00 IST pe Email+Telegram auto (keys already VPS me hain). Phone pe Add to Home Screen karo — PWA app ban jayega.' },
           ].map(s => (
             <div key={s.n} style={{ display: 'flex', gap: 12, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'color-mix(in srgb, var(--panel) 96%, transparent)' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gradient-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{s.n}</div>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gradient-primary)', color: 'var(--text-inverse)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{s.n}</div>
               <div>
                 <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 12 }}>{s.t}</div>
                 <div style={{ marginTop: 2 }}>{s.d}</div>

@@ -91,7 +91,7 @@ export default function StrategyCatalogPage() {
           ))}
         </select>
         <button className="t-btn t-btn-sm" onClick={() => setShowCompare(!showCompare)}
-          style={{ fontSize: 10, marginLeft: 'auto', background: showCompare ? 'var(--violet)' : 'color-mix(in srgb, var(--violet) 10%, transparent)', color: showCompare ? '#fff' : 'var(--text)', border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)' }}>
+          style={{ fontSize: 10, marginLeft: 'auto', background: showCompare ? 'var(--violet)' : 'color-mix(in srgb, var(--violet) 10%, transparent)', color: showCompare ? 'var(--text-inverse)' : 'var(--text)', border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)' }}>
           {showCompare ? 'Hide Comparison' : 'Compare All Strategies'}
         </button>
       </div>
@@ -142,7 +142,7 @@ export default function StrategyCatalogPage() {
                                 display: 'inline-block', padding: '3px 12px', borderRadius: 4,
                                 fontSize: 9, fontWeight: 600, textDecoration: 'none',
                                 background: s.required_tier === 'free' ? 'color-mix(in srgb, var(--green) 15%, transparent)' : 'var(--gradient-primary)',
-                                color: s.required_tier === 'free' ? 'var(--green)' : '#fff',
+                                color: s.required_tier === 'free' ? 'var(--green)' : 'var(--text-inverse)',
                               }}>
                               {tierButton(s.required_tier)}
                             </a>
@@ -179,7 +179,7 @@ export default function StrategyCatalogPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
-            <p style={{ margin: 0, fontSize: 13, color: '#22d3ee', fontWeight: 500 }}>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--cyan)', fontWeight: 500 }}>
               {search || tierFilter !== 'all' ? 'No matching strategies' : 'No strategies available'}
             </p>
             <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>

@@ -167,7 +167,7 @@ export function OrderCard({ form, onChange, chain, spot, ltp, lotSize, margin, m
           <button type="button" data-kb="buy" className="t-btn" style={{ background: 'var(--green)', color: '#052a14', fontWeight: 800, opacity: placing || noQuote ? 0.6 : 1 }} disabled={placing || noQuote} onClick={() => tap('BUY')}>
             {placing ? '…' : mode === 'live' && armSide !== 'BUY' ? `TAP TO CONFIRM BUY` : `BUY ${form.optionType}`}
           </button>
-          <button type="button" data-kb="sell" className="t-btn" style={{ background: 'var(--red)', color: '#fff', fontWeight: 800, opacity: placing || noQuote ? 0.6 : 1 }} disabled={placing || noQuote} onClick={() => tap('SELL')}>
+          <button type="button" data-kb="sell" className="t-btn" style={{ background: 'var(--red)', color: 'var(--text-inverse)', fontWeight: 800, opacity: placing || noQuote ? 0.6 : 1 }} disabled={placing || noQuote} onClick={() => tap('SELL')}>
             {placing ? '…' : mode === 'live' && armSide !== 'SELL' ? `TAP TO CONFIRM SELL` : `SELL ${form.optionType}`}
           </button>
         </div>

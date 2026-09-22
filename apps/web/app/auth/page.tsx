@@ -432,7 +432,7 @@ export default function AuthPage() {
                 style={{
                   width: '100%', height: 44,
                   background: loading ? 'var(--violet-dim)' : 'var(--gradient-primary)',
-                  border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
+                  border: 'none', borderRadius: 8, color: 'var(--text-inverse)', fontSize: 'var(--text-xs)', fontWeight: 600,
                   cursor: loading ? 'default' : 'pointer', transition: 'all var(--transition-fast)',
                 }}
                 onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px var(--violet-dim)' }}
@@ -441,7 +441,7 @@ export default function AuthPage() {
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                     <span style={{
                       width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)',
-                      borderTopColor: '#fff', display: 'inline-block', animation: 'spin 0.6s linear infinite',
+                      borderTopColor: 'var(--text-inverse)', display: 'inline-block', animation: 'spin var(--spinner-speed) linear infinite',
                     }} />
                     Processing...
                   </span>
@@ -463,7 +463,7 @@ export default function AuthPage() {
                     style={{
                       width: '100%', padding: '12px 16px', borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                      background: '#fff', color: '#1f1f1f', border: '1px solid #dadce0',
+                      background: 'var(--text-inverse)', color: 'var(--bg)', border: '1px solid var(--border)',
                       fontSize: 14, fontWeight: 500, fontFamily: 'inherit',
                     }}>
                     <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
@@ -505,7 +505,7 @@ export default function AuthPage() {
                     style={{
                       width: '100%', height: 44,
                       background: loading ? 'var(--violet-dim)' : 'var(--gradient-primary)',
-                      border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
+                      border: 'none', borderRadius: 8, color: 'var(--text-inverse)', fontSize: 'var(--text-xs)', fontWeight: 600,
                       cursor: loading || !otpEmail ? 'default' : 'pointer', transition: 'all var(--transition-fast)',
                     }}
                     onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px var(--violet-dim)' }}
@@ -569,7 +569,7 @@ export default function AuthPage() {
                     style={{
                       width: '100%', height: 44,
                       background: loading ? 'var(--violet-dim)' : 'var(--gradient-primary)',
-                      border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
+                      border: 'none', borderRadius: 8, color: 'var(--text-inverse)', fontSize: 'var(--text-xs)', fontWeight: 600,
                       cursor: loading || !otpPassword ? 'default' : 'pointer', transition: 'all var(--transition-fast)',
                     }}
                     onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 0 24px var(--violet-dim)' }}
@@ -612,7 +612,7 @@ export default function AuthPage() {
                     style={{
                       width: '100%', height: 44,
                       background: loading ? 'var(--violet-dim)' : 'var(--gradient-primary)',
-                      border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600,
+                      border: 'none', borderRadius: 8, color: 'var(--text-inverse)', fontSize: 'var(--text-xs)', fontWeight: 600,
                       cursor: loading || otp.join('').length !== 6 ? 'default' : 'pointer',
                       transition: 'all var(--transition-fast)', marginBottom: 12,
                     }}

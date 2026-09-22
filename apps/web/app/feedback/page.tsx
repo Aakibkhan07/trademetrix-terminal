@@ -110,7 +110,7 @@ export default function FeedbackPage() {
                 <button key={n} onClick={() => setNpsScore(n)} style={{
                   width: 36, height: 36, borderRadius: 8, border: '1px solid var(--border)',
                   background: npsScore === n ? 'var(--violet)' : 'var(--panel)',
-                  color: npsScore === n ? '#fff' : 'var(--text)', cursor: 'pointer',
+                  color: npsScore === n ? 'var(--text-inverse)' : 'var(--text)', cursor: 'pointer',
                   fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
                 }}>{n}</button>
               ))}

@@ -105,7 +105,7 @@ function StepAccount({ onDone }: { onDone: () => void }) {
             onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError('') }}
             style={{
               background: 'none', border: 'none',
-              backgroundImage: 'linear-gradient(135deg, #8b5cf6, #22d3ee)',
+              backgroundImage: 'linear-gradient(135deg, var(--violet), var(--cyan))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', fontWeight: 600,
             }}
@@ -512,7 +512,7 @@ function ProgressBar({ current }: { current: number }) {
               <div style={{
                 width: 28, height: 28, borderRadius: '50%', display: 'flex',
                 alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
-                background: done ? 'linear-gradient(135deg, #8b5cf6, #22d3ee)' : active ? 'color-mix(in srgb, var(--violet) 20%, transparent)' : 'color-mix(in srgb, var(--text-inverse) 4%, transparent)',
+                background: done ? 'linear-gradient(135deg, var(--violet), var(--cyan))' : active ? 'color-mix(in srgb, var(--violet) 20%, transparent)' : 'color-mix(in srgb, var(--text-inverse) 4%, transparent)',
                 border: active ? '1px solid #8b5cf6' : done ? 'none' : '1px solid color-mix(in srgb, var(--text-inverse) 8%, transparent)',
                 color: done || active ? 'var(--text)' : 'var(--text-faint)',
                 transition: 'all 200ms ease',
@@ -530,7 +530,7 @@ function ProgressBar({ current }: { current: number }) {
             {i < STEPS.length - 1 && (
               <div style={{
                 width: 32, height: 1,
-                background: done ? 'linear-gradient(90deg, #8b5cf6, #22d3ee)' : 'color-mix(in srgb, var(--text-inverse) 6%, transparent)',
+                background: done ? 'linear-gradient(90deg, var(--violet), var(--cyan))' : 'color-mix(in srgb, var(--text-inverse) 6%, transparent)',
                 margin: '0 8px', transition: 'background 200ms ease',
               }} />
             )}
@@ -581,7 +581,7 @@ export default function OnboardingPage() {
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <h1 style={{
             fontFamily: 'var(--font-display)', fontSize: 26, margin: '0 0 6px',
-            background: 'linear-gradient(135deg, #8b5cf6, #22d3ee)',
+            background: 'linear-gradient(135deg, var(--violet), var(--cyan))',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>
             Welcome to Trade Metrix
