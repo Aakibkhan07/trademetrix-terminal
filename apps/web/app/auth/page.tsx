@@ -230,11 +230,11 @@ export default function AuthPage() {
             color: 'var(--text-sub)', fontSize: 15, lineHeight: 1.6,
             margin: '0 0 32px', maxWidth: 440,
           }}>
-            Build, backtest, and deploy trading strategies across 35+ brokers.
+            Build, backtest, and deploy trading strategies across 25+ brokers.
             AI-powered analytics. Real-time execution. No coding required.
           </p>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            {['Visual Strategy Builder', '35+ Brokers', 'AI Assistant', 'Backtesting'].map((feature) => (
+            {['Visual Strategy Builder', '25+ Brokers', 'AI Assistant', 'Backtesting'].map((feature) => (
               <div key={feature} style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '4px 12px', borderRadius: 999,
