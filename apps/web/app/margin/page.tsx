@@ -82,14 +82,14 @@ function Estimator() {
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 20px', fontFamily: 'var(--font-sans)' }}>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 6px', color: 'var(--text)' }}>Margin Estimator</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-dim)', margin: 0, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-sub)', margin: 0, lineHeight: 1.5 }}>
           Estimate SPAN/exposure margin for multi-leg option strategies before placing orders. Results use live brokerage session data where available.
         </p>
       </div>
 
       <div style={{ marginBottom: 20 }}>
-        <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)', marginBottom: 6, display: 'block' }}>Index</label>
-        <select value={indexSymbol} onChange={e => { setIndexSymbol(e.target.value); setResult(null) }} style={{ width: '100%', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 13, outline: 'none' }}>
+        <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-sub)', marginBottom: 6, display: 'block' }}>Index</label>
+        <select value={indexSymbol} onChange={e => { setIndexSymbol(e.target.value); setResult(null) }} style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 13, outline: 'none' }}>
           {availableIndexes.map((idx) => (
             <option key={idx.id} value={idx.id}>{idx.label} — {idx.id}</option>
           ))}
@@ -97,8 +97,8 @@ function Estimator() {
       </div>
 
       <div style={{ marginBottom: 20 }}>
-        <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-dim)', marginBottom: 6, display: 'block' }}>Broker (optional — uses live session data)</label>
-        <select value={selectedBroker} onChange={e => { setSelectedBroker(e.target.value); setResult(null) }} style={{ width: '100%', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 13, outline: 'none' }}>
+        <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-sub)', marginBottom: 6, display: 'block' }}>Broker (optional — uses live session data)</label>
+        <select value={selectedBroker} onChange={e => { setSelectedBroker(e.target.value); setResult(null) }} style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 13, outline: 'none' }}>
           <option value="">Auto-detect (default: Fyers)</option>
           <option value="fyers">Fyers</option>
           <option value="dhan">Dhan</option>
@@ -110,74 +110,74 @@ function Estimator() {
 
       <div style={{ marginBottom: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {strategyPresets.map(p => (
-          <button key={p.name} onClick={() => { setLegs(p.legs); setLegCount(p.legs.length); setResult(null) }} style={{ padding: '6px 12px', borderRadius: 10, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text-dim)', fontSize: 12, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--panel-hi)'; e.currentTarget.style.color = 'var(--text)' }} onMouseLeave={e => { e.currentTarget.style.background = 'var(--panel)'; e.currentTarget.style.color = 'var(--text-dim)' }}>
+          <button key={p.name} onClick={() => { setLegs(p.legs); setLegCount(p.legs.length); setResult(null) }} style={{ padding: '6px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text-sub)', fontSize: 12, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }} onMouseLeave={e => { e.currentTarget.style.background = 'var(--panel)'; e.currentTarget.style.color = 'var(--text-sub)' }}>
             {p.name}
           </button>
         ))}
       </div>
 
-      <div style={{ marginBottom: 20, borderTop: '1px solid var(--panel-brd)', borderBottom: '1px solid var(--panel-brd)', padding: '14px 0' }}>
+      <div style={{ marginBottom: 20, borderTop: '1px solid var(--border-2)', borderBottom: '1px solid var(--border-2)', padding: '14px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Legs ({legCount})</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={addLeg} disabled={legCount >= 8} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text-dim)', fontSize: 12, cursor: legCount >= 8 ? 'not-allowed' : 'pointer' }}>+ Add</button>
+            <button onClick={addLeg} disabled={legCount >= 8} style={{ padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text-sub)', fontSize: 12, cursor: legCount >= 8 ? 'not-allowed' : 'pointer' }}>+ Add</button>
           </div>
         </div>
         {legs.map((leg, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 0.8fr', gap: 10, marginBottom: i < legs.length - 1 ? 12 : 0, padding: 12, background: 'var(--panel-bg)', borderRadius: 10, border: '1px solid var(--panel-brd)' }}>
-            <select value={leg.segment} onChange={e => handleLegChange(i, 'segment', e.target.value)} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 0.8fr', gap: 10, marginBottom: i < legs.length - 1 ? 12 : 0, padding: 12, background: 'var(--panel-2)', borderRadius: 10, border: '1px solid var(--border-2)' }}>
+            <select value={leg.segment} onChange={e => handleLegChange(i, 'segment', e.target.value)} style={{ padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
               <option value="options">Options</option>
               <option value="futures">Futures</option>
               <option value="spot">Spot</option>
             </select>
-            <select value={leg.position} onChange={e => handleLegChange(i, 'position', e.target.value)} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
+            <select value={leg.position} onChange={e => handleLegChange(i, 'position', e.target.value)} style={{ padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
               <option value="buy">Buy</option>
               <option value="sell">Sell</option>
             </select>
-            <input type="number" value={leg.lots} min={1} max={500} onChange={e => handleLegChange(i, 'lots', Number(e.target.value))} placeholder="Lots" style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none', width: '100%' }} />
-            <select value={leg.optionType} onChange={e => handleLegChange(i, 'optionType', e.target.value)} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
+            <input type="number" value={leg.lots} min={1} max={500} onChange={e => handleLegChange(i, 'lots', Number(e.target.value))} placeholder="Lots" style={{ padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none', width: '100%' }} />
+            <select value={leg.optionType} onChange={e => handleLegChange(i, 'optionType', e.target.value)} style={{ padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
               <option value="CE">CE</option>
               <option value="PE">PE</option>
             </select>
-            <input type="number" value={leg.strikeValue} min={-500} max={5000} onChange={e => handleLegChange(i, 'strikeValue', Number(e.target.value))} placeholder="Offset" style={{ gridColumn: 'span 2', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none', width: '100%' }} />
-            <button onClick={() => removeLeg(i)} disabled={legCount <= 1} style={{ alignSelf: 'top', padding: '4px 10px', borderRadius: 8, border: '1px solid var(--err)', background: 'transparent', color: 'var(--err)', fontSize: 11, cursor: legCount <= 1 ? 'not-allowed' : 'pointer' }}>Remove</button>
+            <input type="number" value={leg.strikeValue} min={-500} max={5000} onChange={e => handleLegChange(i, 'strikeValue', Number(e.target.value))} placeholder="Offset" style={{ gridColumn: 'span 2', padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none', width: '100%' }} />
+            <button onClick={() => removeLeg(i)} disabled={legCount <= 1} style={{ alignSelf: 'top', padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--red)', background: 'transparent', color: 'var(--red)', fontSize: 11, cursor: legCount <= 1 ? 'not-allowed' : 'pointer' }}>Remove</button>
           </div>
         ))}
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 24 }}>
-        <button onClick={handleEstimate} disabled={loading} style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 500, cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+        <button onClick={handleEstimate} disabled={loading} style={{ padding: '9px 22px', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--gradient-primary)', color: 'var(--text-inverse)', fontSize: 13, fontWeight: 500, cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
           {loading ? 'Estimating...' : 'Estimate Margin'}
         </button>
-        {error && <span style={{ fontSize: 12.5, color: 'var(--err)', flex: 1 }}>{error}</span>}
+        {error && <span style={{ fontSize: 12.5, color: 'var(--red)', flex: 1 }}>{error}</span>}
       </div>
 
       {result && (
-        <div style={{ background: 'var(--panel-bg)', borderRadius: 14, border: '1px solid var(--panel-brd)', padding: 20, marginBottom: 20 }}>
+        <div style={{ background: 'var(--panel-2)', borderRadius: 14, border: '1px solid var(--border-2)', padding: 20, marginBottom: 20 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 14px', color: 'var(--text)' }}>
             {result.supported ? `Margin Estimate — ${result.broker} (${result.currency})` : 'Estimate Unavailable'}
           </h3>
           {!result.supported ? (
-            <p style={{ fontSize: 13, color: 'var(--text-dim)', margin: 0, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-sub)', margin: 0, lineHeight: 1.6 }}>
               {result.error ?? 'Broker connection not available. Connect your broker first, or leave Broker empty to use default Fyers session.'}
             </p>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              <div style={{ padding: 14, background: 'var(--panel)', borderRadius: 10, border: '1px solid var(--panel-brd)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Total Margin</div>
+              <div style={{ padding: 14, background: 'var(--panel-2)', borderRadius: 10, border: '1px solid var(--border-2)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 4 }}>Total Margin</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>₹{result.totalMargin.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
               </div>
-              <div style={{ padding: 14, background: 'var(--panel)', borderRadius: 10, border: '1px solid var(--panel-brd)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>SPAN Margin</div>
+              <div style={{ padding: 14, background: 'var(--panel-2)', borderRadius: 10, border: '1px solid var(--border-2)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 4 }}>SPAN Margin</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>₹{result.spanMargin.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
               </div>
-              <div style={{ padding: 14, background: 'var(--panel)', borderRadius: 10, border: '1px solid var(--panel-brd)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Exposure Margin</div>
+              <div style={{ padding: 14, background: 'var(--panel-2)', borderRadius: 10, border: '1px solid var(--border-2)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 4 }}>Exposure Margin</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>₹{result.exposureMargin.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
               </div>
             </div>
           )}
-          <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--panel-brd)', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-2)', lineHeight: 1.5 }}>
             Estimates are indicative. Actual margin may vary based on broker policy, real-time premiums, and SEBI circulars. Use for planning only — not a guarantee.
           </p>
         </div>

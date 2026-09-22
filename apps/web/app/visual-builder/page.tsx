@@ -64,7 +64,7 @@ function legBorder(position: 'buy' | 'sell'): string {
   return position === 'buy' ? 'var(--cyan-dim)' : 'var(--red-dim)'
 }
 function legTextColor(position: 'buy' | 'sell'): string {
-  return position === 'buy' ? 'var(--cyan)' : 'var(--err)'
+  return position === 'buy' ? 'var(--cyan)' : 'var(--red)'
 }
 
 export default function VisualLegBuilderPage() {
@@ -143,7 +143,7 @@ function Builder() {
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 20px', fontFamily: 'var(--font-sans)' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 6px', color: 'var(--text)' }}>Visual Leg Builder</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-dim)', margin: 0, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-sub)', margin: 0, lineHeight: 1.5 }}>
           Drag and drop option legs to build multi-leg strategies visually. Connect legs to form spreads, straddles, condors.
           Margin estimates use live broker session data.
         </p>
@@ -151,37 +151,37 @@ function Builder() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, alignItems: 'start' }}>
         {/* ── Sidebar ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--panel-bg)', borderRadius: 14, border: '1px solid var(--panel-brd)', padding: 16, position: 'sticky', top: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--panel-2)', borderRadius: 14, border: '1px solid var(--border-2)', padding: 16, position: 'sticky', top: 20 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 6, display: 'block' }}>INDEX</label>
-            <select value={indexSymbol} onChange={e => { setIndexSymbol(e.target.value); setMarginResult(null) }} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 6, display: 'block' }}>INDEX</label>
+            <select value={indexSymbol} onChange={e => { setIndexSymbol(e.target.value); setMarginResult(null) }} style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
               {INDEXES.map(m => <option key={m.key} value={m.key}>{m.key} (Lot: {LOT_SIZES[m.key] ?? 50})</option>)}
             </select>
           </div>
 
-          <button onClick={() => setShowPresets(!showPresets)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button onClick={() => setShowPresets(!showPresets)} style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {showPresets ? '▲ Hide Templates' : '▼ Strategy Templates'}
           </button>
 
           {showPresets && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {STRATEGIES.map((t) => (
-                <button key={t.name} onClick={() => { setLegs([]); t.legs.forEach(l => addLeg({ position: l.position, optionType: l.optionType, lots: l.lots, strikeOffset: l.strikeOffset })) }} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text-dim)', fontSize: 11.5, cursor: 'pointer', textAlign: 'left' }}>
+                <button key={t.name} onClick={() => { setLegs([]); t.legs.forEach(l => addLeg({ position: l.position, optionType: l.optionType, lots: l.lots, strikeOffset: l.strikeOffset })) }} style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text-sub)', fontSize: 11.5, cursor: 'pointer', textAlign: 'left' }}>
                   {t.name} ({t.legs.length} legs)
                 </button>
               ))}
             </div>
           )}
 
-          <div style={{ borderTop: '1px solid var(--panel-brd)', paddingTop: 12, marginTop: 4 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}>DRAG TO ADD LEGS</div>
+          <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 12, marginTop: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 8 }}>DRAG TO ADD LEGS</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {LEG_PRESETS.map(p => (
                 <button key={p.name}
                   draggable
                   onDragStart={e => { e.dataTransfer.setData('text/plain', JSON.stringify(p)); }}
                   onClick={() => addLeg(p)}
-                  style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-brd)', background: legColor(p.position), borderColor: legBorder(p.position), color: legTextColor(p.position), fontSize: 11.5, cursor: 'grab', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.1s', WebkitAppearance: 'none' }}
+                  style={{ padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: `1px solid ${legBorder(p.position)}`, background: legColor(p.position), color: legTextColor(p.position), fontSize: 11.5, cursor: 'grab', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.1s', WebkitAppearance: 'none' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.03)'; (e.currentTarget as HTMLButtonElement).style.cursor = 'grabbing' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLButtonElement).style.cursor = 'grab' }}
                 >
@@ -193,16 +193,16 @@ function Builder() {
           </div>
 
           {legs.length > 0 && (
-            <div style={{ borderTop: '1px solid var(--panel-brd)', paddingTop: 12, marginTop: 4 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 6 }}>POSITION SUMMARY</div>
+            <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 12, marginTop: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 6 }}>POSITION SUMMARY</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
                 <div style={{ padding: 8, background: legColor('buy'), borderRadius: 8, border: `1px solid ${legBorder('buy')}` }}>
                   <div style={{ color: legTextColor('buy'), fontWeight: 700 }}>BUY</div>
-                  <div style={{ color: 'var(--text-dim)', fontSize: 10 }}>{totalLots.buy} lots</div>
+                  <div style={{ color: 'var(--text-sub)', fontSize: 10 }}>{totalLots.buy} lots</div>
                 </div>
                 <div style={{ padding: 8, background: legColor('sell'), borderRadius: 8, border: `1px solid ${legBorder('sell')}` }}>
                   <div style={{ color: legTextColor('sell'), fontWeight: 700 }}>SELL</div>
-                  <div style={{ color: 'var(--text-dim)', fontSize: 10 }}>{totalLots.sell} lots</div>
+                  <div style={{ color: 'var(--text-sub)', fontSize: 10 }}>{totalLots.sell} lots</div>
                 </div>
               </div>
               <div style={{ marginTop: 8, fontSize: 10, color: 'var(--text-faint)', textAlign: 'center' }}>
@@ -213,10 +213,10 @@ function Builder() {
           )}
 
           {marginResult && (
-            <div style={{ borderTop: '1px solid var(--panel-brd)', paddingTop: 12, marginTop: 4 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 6 }}>ESTIMATED MARGIN</div>
+            <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 12, marginTop: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 6 }}>ESTIMATED MARGIN</div>
               {!marginResult.supported ? (
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: 8, background: 'var(--panel)', borderRadius: 8 }}>{marginResult.error ?? 'Unavailable'}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-sub)', padding: 8, background: 'var(--panel-2)', borderRadius: 8 }}>{marginResult.error ?? 'Unavailable'}</div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
                   <div style={{ padding: 8, background: 'var(--panel)', borderRadius: 8, textAlign: 'center' }}>
@@ -249,10 +249,10 @@ function Builder() {
               addLeg()
             }
           }}
-          style={{ background: 'var(--panel-bg)', borderRadius: 14, border: '1px solid var(--panel-brd)', minHeight: 420, padding: 20, position: 'relative', overflow: 'auto' }}
+          style={{ background: 'var(--panel-2)', borderRadius: 14, border: '1px solid var(--border-2)', minHeight: 420, padding: 20, position: 'relative', overflow: 'auto' }}
         >
           {legs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-dim)' }}>
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-sub)' }}>
               <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>⊞</div>
               <p style={{ fontSize: 13, margin: 0 }}>Drag option legs from the sidebar or click to add</p>
               <p style={{ fontSize: 11, marginTop: 4, color: 'var(--text-faint)' }}>Try a template above for instant setup</p>
@@ -273,24 +273,24 @@ function Builder() {
           )}
 
           {legs.length > 0 && (
-            <div style={{ display: 'flex', gap: 10, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--panel-brd)' }}>
-              <button onClick={fetchMargin} disabled={marginLoading} style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12.5, fontWeight: 500, cursor: marginLoading ? 'wait' : 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border-2)' }}>
+              <button onClick={fetchMargin} disabled={marginLoading} style={{ padding: '8px 18px', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--gradient-primary)', color: 'var(--text-inverse)', fontSize: 12.5, fontWeight: 500, cursor: marginLoading ? 'wait' : 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
                 {marginLoading ? 'Estimating...' : 'Estimate Margin'}
               </button>
-              <button onClick={() => setLegs([])} style={{ padding: '8px 18px', borderRadius: 10, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text-dim)', fontSize: 12.5, cursor: 'pointer' }}>
+              <button onClick={() => setLegs([])} style={{ padding: '8px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text-sub)', fontSize: 12.5, cursor: 'pointer' }}>
                 Clear All
               </button>
               <div style={{ flex: 1 }} />
-              {marginError && <span style={{ fontSize: 11.5, color: 'var(--err)' }}>{marginError}</span>}
+              {marginError && <span style={{ fontSize: 11.5, color: 'var(--red)' }}>{marginError}</span>}
             </div>
           )}
         </div>
       </div>
 
       {/* ── How it works ── */}
-      <div style={{ marginTop: 36, padding: 20, background: 'var(--panel-bg)', borderRadius: 14, border: '1px solid var(--panel-brd)' }}>
+      <div style={{ marginTop: 36, padding: 20, background: 'var(--panel-2)', borderRadius: 14, border: '1px solid var(--border-2)' }}>
         <h2 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 12px', color: 'var(--text)' }}>How to build a strategy visually</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, fontSize: 12, color: 'var(--text-dim)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, fontSize: 12, color: 'var(--text-sub)' }}>
           <Step num="1" title="Pick Index" desc="Choose NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, or SENSEX" />
           <Step num="2" title="Add Legs" desc="Drag Buy/Sell CE/PE cards onto the canvas, or pick a template" />
           <Step num="3" title="Configure" desc="Set lots, strike offset, expiry for each leg. See live position summary" />
@@ -332,32 +332,32 @@ function LegCard({ leg, index, lotSize, onUpdate, onRemove }: {
         </button>
       </div>
 
-      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 8 }}>
         Leg #{index + 1} · {leg.expiry}
       </div>
 
       <div style={{ display: 'grid', gap: 6 }}>
         <div>
           <label style={{ fontSize: 9, color: 'var(--text-faint)', display: 'block', marginBottom: 2 }}>Lots</label>
-          <input type="number" value={leg.lots} min={1} max={500} onChange={e => onUpdate('lots', Math.max(1, Number(e.target.value)))} style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }} />
+          <input type="number" value={leg.lots} min={1} max={500} onChange={e => onUpdate('lots', Math.max(1, Number(e.target.value)))} style={{ width: '100%', padding: '5px 8px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }} />
         </div>
         <div>
           <label style={{ fontSize: 9, color: 'var(--text-faint)', display: 'block', marginBottom: 2 }}>Qty (lots × {lotSize}) = {qty}</label>
-          <input type="number" value={leg.strikeOffset} min={-500} max={5000} onChange={e => onUpdate('strikeOffset', Number(e.target.value))} style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }} />
+          <input type="number" value={leg.strikeOffset} min={-500} max={5000} onChange={e => onUpdate('strikeOffset', Number(e.target.value))} style={{ width: '100%', padding: '5px 8px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }} />
         </div>
         <div>
           <label style={{ fontSize: 9, color: 'var(--text-faint)', display: 'block', marginBottom: 2 }}>Strike Offset (₹)</label>
-          <select value={leg.expiry} onChange={e => onUpdate('expiry', e.target.value as 'weekly' | 'monthly')} style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--panel-brd)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
+          <select value={leg.expiry} onChange={e => onUpdate('expiry', e.target.value as 'weekly' | 'monthly')} style={{ width: '100%', padding: '5px 8px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-2)', background: 'var(--panel)', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
         </div>
       </div>
 
-      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--panel-brd)', fontSize: 10, color: 'var(--text-faint)', textAlign: 'center' }}>
+      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--border-2)', fontSize: 10, color: 'var(--text-faint)', textAlign: 'center' }}>
         {leg.position === 'buy'
-          ? `Pay ~₹{Math.round(leg.strikeOffset + 20000)} premium`
-          : `Recive ~₹{Math.round(leg.strikeOffset + 20000)} premium`}
+          ? `Pay ~₹${Math.round(leg.strikeOffset + 20000)} premium`
+          : `Recive ~₹${Math.round(leg.strikeOffset + 20000)} premium`}
       </div>
     </div>
   )
@@ -366,7 +366,7 @@ function LegCard({ leg, index, lotSize, onUpdate, onRemove }: {
 function Step({ num, title, desc }: { num: string; title: string; desc: string }) {
   return (
     <div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>{num}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--cyan)', marginBottom: 4 }}>{num}</div>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{title}</div>
       <div style={{ lineHeight: 1.5 }}>{desc}</div>
     </div>
