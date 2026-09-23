@@ -310,6 +310,49 @@ _register_broker_meta("oanda", {
     "oauth_available": False,
 })
 
+_register_broker_meta("mt5", {
+    "display_name": "MT5 (Multi-Broker)",
+    "auth_type": "credentials",
+    "description": "Connect via MetaTrader 5 — choose your broker from the dropdown. Supports XM, Exness, FBS, HF Markets, FXTM, RoboForex, LiteFinance, IBFX and more.",
+    "fields": [
+        {"key": "mt5_broker", "label": "Broker", "type": "select", "options": [
+            {"value": "xm", "label": "XM"},
+            {"value": "exness", "label": "Exness"},
+            {"value": "fbs", "label": "FBS"},
+            {"value": "hfmarkets", "label": "HF Markets"},
+            {"value": "ifx", "label": "IBFX"},
+            {"value": "fxtm", "label": "FXTM"},
+            {"value": "roboforex", "label": "RoboForex"},
+            {"value": "litefinance", "label": "LiteFinance"},
+        ], "required": True},
+        {"key": "mt5_server", "label": "MT5 Server", "placeholder": "e.g. XM Server, Exness-VPS, FBS-Demo", "required": True},
+        {"key": "login", "label": "Login / Account Number", "placeholder": "Your MT5 account number", "required": True},
+        {"key": "password", "label": "Password", "type": "password", "placeholder": "Your MT5 password", "required": True},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Open your MT5 trading platform\n2. Note your broker's MT5 server name (e.g. 'XM Server', 'Exness-VPS')\n3. Enter your login (account number) and password\n4. Select your broker from the dropdown\n5. Click Connect — credentials are stored encrypted",
+    "oauth_available": False,
+    "market_type": "forex_cfd",
+})
+
+_register_broker_meta("delta", {
+    "display_name": "Delta Exchange",
+    "auth_type": "credentials",
+    "description": "Connect your Delta Exchange account for crypto derivatives (futures, perpetuals)",
+    "fields": [
+        {"key": "api_key", "label": "API Key", "placeholder": "Your Delta Exchange API Key", "required": True},
+        {"key": "secret_key", "label": "API Secret", "type": "password", "placeholder": "Your Delta Exchange API Secret", "required": True},
+        {"key": "environment", "label": "Environment", "type": "select", "options": [
+            {"value": "testnet", "label": "Testnet (recommended)"},
+            {"value": "production", "label": "Production"},
+        ], "required": False},
+    ],
+    "has_additional_params": False,
+    "instructions": "1. Go to delta.exchange → Settings → API\n2. Create a new API key (enable Trading + Read permissions)\n3. Copy API Key and Secret here\n4. Choose Testnet or Production\n5. Click Connect",
+    "oauth_available": False,
+    "market_type": "crypto_derivatives",
+})
+
 _register_broker_meta("interactive_brokers", {
     "display_name": "Interactive Brokers",
     "auth_type": "credentials",

@@ -22,6 +22,8 @@ from brokers.icici_adapter import ICICIDirectAdapter
 from brokers.motilal_adapter import MotilalOswalAdapter
 from brokers.oanda_adapter import OandaAdapter
 from brokers.okx_adapter import OkxAdapter
+from brokers.mt5_adapter import MT5Adapter
+from brokers.delta_exchange_adapter import DeltaExchangeAdapter
 from brokers.reliance_adapter import RelianceSecuritiesAdapter
 from brokers.sdk.registry import BrokerSpec, registry as _sdk_registry
 from brokers.upstox_adapter import UpstoxAdapter
@@ -97,6 +99,8 @@ register_broker("binance", BinanceAdapter)
 register_broker("bybit", BybitAdapter)
 register_broker("okx", OkxAdapter)
 register_broker("oanda", OandaAdapter)
+register_broker("mt5", MT5Adapter)
+register_broker("delta", DeltaExchangeAdapter)
 register_broker("interactive_brokers", InteractiveBrokersAdapter)
 register_broker("alpaca", AlpacaAdapter)
 register_broker("icici", ICICIDirectAdapter)
@@ -132,6 +136,8 @@ __all__ = [
     "LemonnAdapter",
     "MotilalOswalAdapter",
     "OandaAdapter",
+    "MT5Adapter",
+    "DeltaExchangeAdapter",
     "OkxAdapter",
     "RelianceSecuritiesAdapter",
     "UpstoxAdapter",
