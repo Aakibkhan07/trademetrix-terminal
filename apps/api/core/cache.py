@@ -117,7 +117,14 @@ class RedisCache:
             return 0
         try:
             count = await self._redis.incr(key)
-            if count == 1:
+            # `count == 1` is the normal path, but it is not sufficient on its
+            # own. If the EXPIRE is ever lost — process killed between the two
+            # calls, a restored dump, a failover — the counter becomes
+            # immortal and permanently rate-limits this client against
+            # /api/v1 until somebody deletes the key by hand. Re-arm whenever
+            # the key reports no expiry so a lost TTL self-heals on the very
+            # next request.
+            if count == 1 or await self._redis.ttl(key) < 0:
                 await self._redis.expire(key, ttl)
             return count
         except Exception as e:
