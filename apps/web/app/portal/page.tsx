@@ -5,12 +5,19 @@ import { api, credRole, BrokerMeta, BrokerFieldMeta, type CredentialRole } from 
 import { getAppVersion } from '@/components/app-version'
 import { BrokerLogo } from '@/components/broker-logos'
 import { useMarketData } from '@/lib/use-market-data'
+import { displayPrice, positionPnl } from '@/lib/positions'
 
 /* ========== Types ========== */
 
 interface Position {
   symbol: string; quantity: number; average_buy_price: number
-  unrealised_pnl: number; product: string; instrument_type: string
+  /**
+   * The basis for a short. Absent from this interface until now, which is *why* the short
+   * P&L was wrong: with no field to price a short off, the code fell back to the long
+   * formula. `PortfolioPosition` has always returned it.
+   */
+  average_sell_price: number
+  unrealised_pnl: number; last_price: number; product: string; instrument_type: string
 }
 interface Order {
   id: string; symbol: string; side: string; quantity: number
@@ -302,11 +309,25 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
   }
 
   /* == P&L by Symbol == */
+  // P&L and LTP come from `lib/positions` rather than being recomputed here.
+  //
+  // The previous inline version was wrong twice over, and both errors were silent:
+  // `p.quantity * (ltp - p.average_buy_price)` is the long formula, so every short
+  // (negative netQty, e.g. the -192 recorded in AGENTS.md v1.5.7) was priced off the
+  // wrong basis and with the sign inverted; and `live?.last_price || 0` treated an
+  // unresolvable symbol's zero price as real, turning one tick into a large fabricated
+  // loss on a live row. Both helpers fall back to the broker's own `unrealised_pnl`.
   const pnlBySymbol = positions.map(p => {
     const live = ticks[p.symbol]
-    const ltp = live?.last_price || 0
-    const pnl = live ? p.quantity * (ltp - p.average_buy_price) : p.unrealised_pnl || 0
-    return { symbol: p.symbol.split(':').pop() || p.symbol, qty: p.quantity, avg: p.average_buy_price, ltp, pnl }
+    const ltp = displayPrice(p, live?.last_price)
+    const pnl = positionPnl(p, live?.last_price)
+    return {
+      symbol: p.symbol.split(':').pop() || p.symbol,
+      qty: p.quantity,
+      avg: p.average_buy_price,
+      ltp,
+      pnl,
+    }
   }).sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
 
   /* === CSV Export === */

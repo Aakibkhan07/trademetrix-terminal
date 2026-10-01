@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:lib": "rm -rf dist-test && tsc lib/positions.ts lib/positions.test.ts --outDir dist-test --module commonjs --target es2020 --moduleResolution node --skipLibCheck --esModuleInterop && node --test dist-test/positions.test.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.2",

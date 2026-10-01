@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useMarketData, type TickData } from '@/lib/use-market-data'
+import { displayPrice, positionPnl } from '@/lib/positions'
 import { usePolling } from '@/lib/use-polling'
 import { useToast } from '@/lib/use-toast'
 
@@ -358,8 +359,13 @@ export default function TerminalPage() {
                       <tbody>
                         {openPositions.map((p) => {
                           const q = positionQuote(p)
-                          const ltp = q?.last_price || p.average_buy_price || 0
-                          const pnl = q ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
+                          // Shared helper, for the same two reasons as /portal: the long
+                          // formula mispriced every short, and falling back to
+                          // `average_buy_price` as the LTP invented a price the broker
+                          // never quoted. `displayPrice` returns null instead of a number
+                          // when there is nothing trustworthy to show.
+                          const ltp = displayPrice(p, q?.last_price) ?? p.average_buy_price
+                          const pnl = positionPnl(p, q?.last_price)
                           const chg = q?.change_pct ?? null
                           const base = p.quantity * p.average_buy_price
                           const pnlPct = base !== 0 ? (pnl / base) * 100 : 0

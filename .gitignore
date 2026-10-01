@@ -11,6 +11,8 @@ __pycache__/
 analyzer/
 logs/
 dist/
+# Compiled output of `npm run test:lib` in apps/web — a build artefact, not source.
+dist-test/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
