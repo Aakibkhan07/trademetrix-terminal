@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
+from application.interfaces.broker_oauth import EXECUTION
 from core.db import get_supabase
 from core.safe_query import async_safe_execute, async_safe_single
 
@@ -184,13 +185,23 @@ async def get_drawdown(user_id: str, initial_capital: float = 100000.0) -> float
         return 0.0
 
 
-async def get_active_broker(user_id: str) -> str | None:
+async def get_active_broker(user_id: str, *, role: str = EXECUTION) -> str | None:
+    """The tenant's active broker for one role.
+
+    Role-scoped on purpose. This function feeds order routing, position reads and risk
+    config, so an unscoped "is_active, limit 1" query would be able to answer with a
+    market-data broker — and orders would be sent to a broker chosen for its prices.
+
+    The filter is covered by `tests/test_broker_credential_roles.py`, which asserts on
+    the query that reaches the database rather than on this signature.
+    """
     try:
         supabase = get_supabase()
         rows = await async_safe_execute(
             supabase.table("broker_credentials")
             .select("broker")
             .eq("user_id", user_id)
+            .eq("role", role)
             .eq("is_active", True)
             .limit(1)
         )

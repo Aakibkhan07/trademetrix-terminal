@@ -3,6 +3,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any, cast
 
+from application.interfaces.broker_oauth import EXECUTION
 from core.db import async_supabase, get_supabase
 from core.exceptions import BrokerTokenExpiredError
 from core.models import NormalizedOrder
@@ -142,9 +143,22 @@ class EngineService:
         ) or []
         return {"notes": data}
 
-    async def get_active_broker(self, user_id: str) -> str | None:
+    async def get_active_broker(self, user_id: str, *, role: str = EXECUTION) -> str | None:
+        """The tenant's active broker for one role.
+
+        `role='execution'` is what every order path means, and it is now stated rather
+        than implied. The query was `is_active = True` with no ordering, which was only
+        unambiguous because a tenant held one credential; now that an execution and a
+        market-data credential can both be active, the unscoped form could return the
+        market-data broker to an order path.
+        """
         creds = await async_safe_single(
-            get_supabase().table("broker_credentials").select("broker").eq("user_id", user_id).eq("is_active", True)
+            get_supabase().table("broker_credentials")
+            .select("broker")
+            .eq("user_id", user_id)
+            .eq("role", role)
+            .eq("is_active", True)
+            .limit(1)
         )
         return creds["broker"] if creds else None
 
