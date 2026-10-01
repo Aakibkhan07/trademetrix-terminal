@@ -86,6 +86,25 @@ export interface BrokerCred {
   created_at: string
   token_status?: string
   token_expires_at?: string
+  /**
+   * What this credential is for: `execution` places orders, `market_data` prices them.
+   *
+   * Optional, and its absence is meaningful rather than unlikely. `list_credentials`
+   * returns every credential, and a deployment whose
+   * `20261002_01000_broker_credentials_market_data_role.sql` has not been applied returns
+   * rows with no `role` at all — the column does not exist yet. Defaulting to `execution`
+   * is the correct reading, and it means this page renders correctly against a database
+   * that has not been migrated.
+   */
+  role?: CredentialRole
+}
+
+/** `execution` places orders; `market_data` prices them. */
+export type CredentialRole = 'execution' | 'market_data'
+
+/** The role a credential row belongs to, defaulting exactly as the field above does. */
+export function credRole(c: BrokerCred): CredentialRole {
+  return c.role === 'market_data' ? 'market_data' : 'execution'
 }
 
 export interface AdminUser {
@@ -413,6 +432,9 @@ export const api = {
   brokers: {
     list: () => request('/brokers/list'),
     metadata: () => request<{ brokers: BrokerMeta[] }>('/brokers/metadata'),
+    // Returns both roles. The `/brokers` page renders one card per row and labels the
+    // role, so a tenant holding a broker for orders and another for prices sees both,
+    // distinguished.
     credentials: () => request<{ credentials: BrokerCred[] }>('/brokers/credentials'),
     saveCredentials: (data: {
       broker: string;
@@ -423,14 +445,19 @@ export const api = {
       access_token?: string;
       additional_params?: Record<string, string>;
     }) => request('/brokers/credentials', { method: 'POST', body: data }),
-    deleteCredentials: (broker: string) => request(`/brokers/credentials/${broker}`, { method: 'DELETE' }),
+    // `role` is a query parameter so the path stays compatible with anything written
+    // before the execution/market-data split. Defaulted to execution: a caller that does
+    // not pass it means the execution credential, which is what it always meant.
+    deleteCredentials: (broker: string, role: string = 'execution') =>
+      request(`/brokers/credentials/${broker}?role=${encodeURIComponent(role)}`, { method: 'DELETE' }),
     authUrl: (broker: string) => request(`/brokers/${broker}/auth-url`),
     zerodhaLoginUrl: () => request('/brokers/zerodha/login-url'),
     zerodhaExchangeRequestToken: (requestToken: string) => request('/brokers/zerodha/exchange-request-token', { method: 'POST', body: { request_token: requestToken } }),
     fyersExchangeCode: (authCode: string) => request('/brokers/fyers/exchange-code', { method: 'POST', body: { auth_code: authCode } }),
     fyersReAuth: () => request('/brokers/fyers/re-auth', { method: 'POST' }),
     reAuth: (broker: string) => request(`/brokers/${broker}/re-auth`, { method: 'POST' }),
-    activate: (broker: string) => request('/brokers/activate', { method: 'POST', body: { broker } }),
+    activate: (broker: string, role: string = 'execution') =>
+      request('/brokers/activate', { method: 'POST', body: { broker, role } }),
     connections: () => request<{ credentials: BrokerCred[] }>('/brokers/credentials'),
   },
 

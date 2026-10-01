@@ -600,3 +600,123 @@ def test_portfolio_reads_still_come_from_the_execution_broker():
     assert "resolve_market_data_broker" not in src, (
         "v1_portfolio reads positions through the market-data broker"
     )
+
+
+# --------------------------------------------------------------------------- #
+# The routes must carry the role to the repository
+# --------------------------------------------------------------------------- #
+
+# The regression this file's first half would have shipped with is entirely in these four
+# places. `list_credentials` returns both roles, so a tenant can hold two rows for one
+# broker; but if `activate`, `delete` and `save` do not accept a role, then:
+#
+#   * disconnecting the market-data card deletes the *execution* credential, and the card
+#     comes back on the next load — which reads to the user as a failed disconnect;
+#   * activating the market-data card switches their execution broker instead;
+#   * saving a market-data credential overwrites the execution one.
+#
+# All three are silent. Nothing errors; the account just stops behaving the way the
+# screen said it would.
+
+
+@pytest.mark.asyncio
+async def test_activate_carries_the_role_through_to_the_repository():
+    from application.services.broker_service import BrokerService  # noqa: PLC0415
+
+    seen: dict = {}
+
+    class SpyRepo:
+        async def activate_broker(self, user_id, broker, *, role="execution"):
+            seen.update(user_id=user_id, broker=broker, role=role)
+            return True
+
+    svc = BrokerService(SpyRepo())
+    assert await svc.activate_broker("u1", "fyers", role=MARKET_DATA) is True
+    assert seen["role"] == MARKET_DATA
+
+    # And the default is execution, which is what a pre-split caller means.
+    await svc.activate_broker("u1", "fyers")
+    assert seen["role"] == EXECUTION
+
+
+@pytest.mark.asyncio
+async def test_delete_carries_the_role_through_to_the_repository():
+    from application.services.broker_service import BrokerService  # noqa: PLC0415
+
+    seen: dict = {}
+
+    class SpyRepo:
+        async def delete_credentials(self, user_id, broker, *, role="execution"):
+            seen.update(role=role)
+            return True
+
+    svc = BrokerService(SpyRepo())
+    await svc.delete_credentials("u1", "fyers", role=MARKET_DATA)
+    assert seen["role"] == MARKET_DATA
+    await svc.delete_credentials("u1", "fyers")
+    assert seen["role"] == EXECUTION
+
+
+@pytest.mark.asyncio
+async def test_save_carries_the_role_through_to_the_repository():
+    from application.services.broker_service import BrokerService  # noqa: PLC0415
+
+    seen: dict = {}
+
+    class SpyRepo:
+        async def upsert_credentials(self, user_id, broker, api_key, secret_key,
+                                     access_token=None, additional_params=None, *, role="execution"):
+            seen.update(role=role)
+            from domain.broker import BrokerCredential  # noqa: PLC0415
+
+            return BrokerCredential(
+                id="x", user_id=user_id, broker=broker,
+                encrypted_api_key="", encrypted_secret_key="", role=role,
+            )
+
+    svc = BrokerService(SpyRepo())
+    svc._broker_supported = lambda broker: True  # type: ignore[method-assign]
+    await svc.save_credentials("u1", "fyers", "k", "s", role=MARKET_DATA)
+    assert seen["role"] == MARKET_DATA
+
+
+def test_the_broker_route_models_accept_a_role():
+    """`save` and `activate` take the role in the body, `delete` in the query.
+
+    Asserted on the models rather than by calling the routes, because the routes need a
+    user dependency and a service. What matters here is that the *inputs* can carry a
+    role at all — without it the frontend has nowhere to put one.
+    """
+    from routes.v1_brokers import ActivateBrokerRequest, BrokerCredentialInput  # noqa: PLC0415
+
+    assert BrokerCredentialInput(broker="fyers").role == EXECUTION
+    assert ActivateBrokerRequest(broker="fyers").role == EXECUTION
+    assert BrokerCredentialInput(broker="fyers", role=MARKET_DATA).role == MARKET_DATA
+
+
+def test_delete_takes_the_role_as_a_query_parameter_not_in_the_path():
+    """The path must stay `/credentials/{broker}`.
+
+    Putting the role in the path would change the route shape and break every existing
+    caller, including anything in the deployed web bundle that has not been rebuilt.
+    """
+    from routes import v1_brokers  # noqa: PLC0415
+
+    route = next(
+        r for r in v1_brokers.router.routes
+        if getattr(r, "name", "") == "delete_credentials"
+    )
+
+    # The path is unchanged: `/brokers/credentials/{broker_name}`. Putting the role in
+    # the path would break every existing caller, including a web bundle that has not
+    # been rebuilt.
+    assert route.path == "/brokers/credentials/{broker_name}", route.path
+
+    # And it arrives as a query parameter, defaulted — so a caller that sends none gets
+    # the execution credential, which is what it has always meant.
+    import inspect  # noqa: PLC0415
+
+    params = inspect.signature(route.endpoint).parameters
+    assert "role" in params, "delete does not accept a role"
+    assert params["role"].default == EXECUTION
+    assert route.path.count("{") == 1, "a second path parameter was introduced"

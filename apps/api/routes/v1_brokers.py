@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import httpx
 
+from application.interfaces.broker_oauth import EXECUTION
 from application.services.broker_service import BrokerService
 from brokers import list_brokers
 from brokers.registry import get_broker_metadata
@@ -30,6 +31,10 @@ class BrokerCredentialInput(BaseModel):
     client_code: str = ""
     access_token: str = ""
     additional_params: dict = {}
+    #: `execution` places orders; `market_data` prices them. Optional and defaulted, so a
+    #: client that predates the split keeps writing the execution credential exactly as
+    #: before — which is what every existing caller means.
+    role: str = EXECUTION
 
 
 class BrokerCredentialResponse(BaseModel):
@@ -40,6 +45,10 @@ class BrokerCredentialResponse(BaseModel):
 
 class ActivateBrokerRequest(BaseModel):
     broker: str
+    #: Which of the tenant's credentials to make active. Defaults to execution, and is
+    #: validated by the repository, so an unknown value is refused rather than silently
+    #: matching no row and reading as "no such broker".
+    role: str = EXECUTION
 
 
 class AuthCodeInput(BaseModel):
@@ -76,7 +85,7 @@ async def get_credentials(current_user: UserProfile = Depends(get_current_user))
 
 @router.post("/activate")
 async def activate_broker(req: ActivateBrokerRequest, current_user: UserProfile = Depends(get_current_user)):
-    ok = await _broker_service.activate_broker(current_user.id, req.broker)
+    ok = await _broker_service.activate_broker(current_user.id, req.broker, role=req.role)
     if not ok:
         raise HTTPException(status_code=404, detail=f"No credentials found for broker '{req.broker}'")
     return {"message": f"Broker '{req.broker}' activated", "broker": req.broker}
@@ -90,6 +99,7 @@ async def save_credentials(req: BrokerCredentialInput, current_user: UserProfile
             current_user.id, req.broker, api_key, req.secret_key,
             access_token=req.access_token or None,
             additional_params=req.additional_params,
+            role=req.role,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -104,8 +114,23 @@ async def save_credentials(req: BrokerCredentialInput, current_user: UserProfile
 
 
 @router.delete("/credentials/{broker_name}", status_code=204)
-async def delete_credentials(broker_name: str, current_user: UserProfile = Depends(get_current_user)):
-    ok = await _broker_service.delete_credentials(current_user.id, broker_name)
+async def delete_credentials(
+    broker_name: str,
+    role: str = EXECUTION,
+    current_user: UserProfile = Depends(get_current_user),
+):
+    """Delete one of the tenant's credentials for one broker.
+
+    `role` is a query parameter rather than part of the path so that a client written
+    before the split still works unchanged — it sends no role, gets the execution
+    credential, which is what it has always meant.
+
+    It has to be addressable. A tenant may hold the same broker for both roles, and a
+    delete that ignored the role would remove the execution credential while leaving the
+    market-data one in place, so the card would reappear on the next load and read as a
+    failed delete.
+    """
+    ok = await _broker_service.delete_credentials(current_user.id, broker_name, role=role)
     if not ok:
         raise HTTPException(status_code=404, detail="Credentials not found")
 

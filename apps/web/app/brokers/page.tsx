@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Dialog } from '@/components/ui/dialog'
-import { api, friendlyApiError, type BrokerMeta, type BrokerCred, type BrokerFieldMeta } from "@/lib/api";
+import { api, credRole, friendlyApiError, type BrokerMeta, type BrokerCred, type BrokerFieldMeta, type CredentialRole } from "@/lib/api";
 import { BrokerLogo } from '@/components/broker-logos'
 
 const PLACEHOLDER_BROKERS = new Set([
@@ -180,10 +180,14 @@ export default function BrokersPage() {
     }
   }
 
-  const handleDelete = async (broker: string) => {
+  // Role-aware, because the page now lists one row per credential and a tenant can hold
+  // the same broker for both jobs. Without the role this deleted the *execution* row
+  // whatever card was clicked, so the market-data card survived the delete and reappeared
+  // on the next load — which reads to the user as a failed disconnect.
+  const handleDelete = async (broker: string, role: CredentialRole = 'execution') => {
     try {
-      await api.brokers.deleteCredentials(broker)
-      showMsg(`${displayName(broker)} disconnected`)
+      await api.brokers.deleteCredentials(broker, role)
+      showMsg(`${displayName(broker)} ${role === 'market_data' ? 'market data' : ''} disconnected`.replace(/  /g, ' '))
       load()
     } catch {
       showMsg('Failed to disconnect', 'error')
@@ -313,7 +317,10 @@ export default function BrokersPage() {
                       {displayName(c.broker)}
                     </h3>
                     <p className="t-faint" style={{ margin: '2px 0 0', fontSize: 11 }}>
-                      Added {new Date(c.created_at).toLocaleDateString()}
+                      {/* Without this, a tenant holding one broker for orders and another
+                          for prices sees the same name twice with nothing to tell them
+                          apart, and cannot tell which card is which. */}
+                      {credRole(c) === 'market_data' ? 'Market data (prices)' : 'Execution (orders)'} &middot; Added {new Date(c.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -327,7 +334,7 @@ export default function BrokersPage() {
                           <button className="t-btn t-btn-sm t-btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => handleReAuth(c.broker)}>
                             Re-auth
                           </button>
-                          <button className="t-btn t-btn-sm t-btn-danger" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => handleDelete(c.broker)}>
+                          <button className="t-btn t-btn-sm t-btn-danger" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => handleDelete(c.broker, credRole(c))}>
                             Disconnect
                           </button>
                         </>

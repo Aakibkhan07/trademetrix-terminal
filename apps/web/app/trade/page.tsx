@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { api, friendlyApiError } from '@/lib/api'
+import { api, credRole, friendlyApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { useMarketData } from '@/lib/use-market-data'
 import { buildContract, groupExpiries, indexMeta, marginLeg } from '@/lib/options-contracts'
@@ -84,7 +84,12 @@ export default function TradePage() {
     setCredsError('')
     try {
       const d = await api.brokers.credentials() as { credentials: BrokerCred[] }
-      setCreds(d.credentials || [])
+      // `Array.isArray` rather than `|| []`: the response is an envelope and `d.credentials`
+      // is expected to be a list, but a truthiness check passes an object straight through
+      // and `.filter` on it throws. A null list is a different fact from a non-list one —
+      // here both degrade to "nothing connected", which is the honest reading.
+      const rows = Array.isArray(d?.credentials) ? d.credentials : []
+      setCreds(rows)
     } catch (e) {
       setCredsError(friendlyApiError(e))
     } finally {
@@ -92,6 +97,9 @@ export default function TradePage() {
     }
   }, [])
   useEffect(() => { if (token) loadCreds() }, [token, loadCreds])
+
+  /// The credentials that can actually place orders. See the note where this is rendered.
+  const tradeBrokers = creds.filter(c => credRole(c) === 'execution')
 
   // ---- spot subscription ----
   useEffect(() => {
@@ -296,17 +304,32 @@ export default function TradePage() {
             {creds.length === 0 && (
               <span className="t-faint" style={{ fontSize: 10 }}>No brokers connected — paper orders work without one. Add credentials for live orders.</span>
             )}
-            {creds.map(c => (
+            {/* Execution credentials only.
+                This row chooses the broker that *places orders*, so a market-data
+                credential does not belong here at all — offering it would invite someone
+                to activate a credential that cannot trade, and `activate` takes a broker
+                name, so it would have quietly switched their *execution* broker instead.
+
+                Filtering also removes the duplicate-React-key case: two rows for one
+                broker both keyed on `c.broker` render two identical buttons labelled
+                identically, and the user has no way to tell which is which. */}
+            {tradeBrokers.map(c => (
               <button
-                key={c.broker}
+                key={c.id}
                 className={`t-btn t-btn-sm ${c.is_active ? 't-btn-primary' : 't-btn-ghost'}`}
-                onClick={() => !c.is_active && api.brokers.activate(c.broker).then(loadCreds).catch(e => setCredsError(friendlyApiError(e)))}
+                onClick={() => !c.is_active && api.brokers.activate(c.broker, credRole(c)).then(loadCreds).catch(e => setCredsError(friendlyApiError(e)))}
                 disabled={c.is_active}
               >
                 {c.is_active && <span className="live-dot" />}
                 {c.broker}
               </button>
             ))}
+            {creds.length > 0 && tradeBrokers.length === 0 && (
+              <span className="t-faint" style={{ fontSize: 10 }}>
+                Only market-data credentials are connected — those price instruments but
+                cannot place orders.
+              </span>
+            )}
           </div>
         </div>
       )}

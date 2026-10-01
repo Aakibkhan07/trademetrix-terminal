@@ -1,7 +1,7 @@
 import logging
 import secrets
 
-from application.interfaces.broker_oauth import BrokerRepository
+from application.interfaces.broker_oauth import EXECUTION, BrokerRepository
 from core.cache import cache
 from domain.broker import BrokerOAuthConfig, BrokerCredential
 from infrastructure.oauth_providers import get_oauth_provider, get_redirect_uri
@@ -34,16 +34,16 @@ class BrokerService:
         """
         return await self._repo.resolve_market_data_broker(user_id)
 
-    async def save_credentials(self, user_id: str, broker: str, api_key: str, secret_key: str, access_token: str | None = None, additional_params: dict | None = None) -> BrokerCredential:
+    async def save_credentials(self, user_id: str, broker: str, api_key: str, secret_key: str, access_token: str | None = None, additional_params: dict | None = None, *, role: str = EXECUTION) -> BrokerCredential:
         if not self._broker_supported(broker):
             raise ValueError(f"Unsupported broker: {broker}")
-        return await self._repo.upsert_credentials(user_id, broker, api_key, secret_key, access_token, additional_params)
+        return await self._repo.upsert_credentials(user_id, broker, api_key, secret_key, access_token, additional_params, role=role)
 
-    async def delete_credentials(self, user_id: str, broker: str) -> bool:
-        return await self._repo.delete_credentials(user_id, broker)
+    async def delete_credentials(self, user_id: str, broker: str, *, role: str = EXECUTION) -> bool:
+        return await self._repo.delete_credentials(user_id, broker, role=role)
 
-    async def activate_broker(self, user_id: str, broker: str) -> bool:
-        return await self._repo.activate_broker(user_id, broker)
+    async def activate_broker(self, user_id: str, broker: str, *, role: str = EXECUTION) -> bool:
+        return await self._repo.activate_broker(user_id, broker, role=role)
 
     async def get_auth_url(self, user_id: str, broker: str) -> str:
         cred = await self._repo.get_by_user_and_broker(user_id, broker)

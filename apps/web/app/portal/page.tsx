@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, memo } from 'react'
-import { api, BrokerMeta, BrokerFieldMeta } from '@/lib/api'
+import { api, credRole, BrokerMeta, BrokerFieldMeta, type CredentialRole } from '@/lib/api'
 import { getAppVersion } from '@/components/app-version'
 import { BrokerLogo } from '@/components/broker-logos'
 import { useMarketData } from '@/lib/use-market-data'
@@ -283,9 +283,13 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     } catch (e) { console.error('disconnect broker', e) }
   }
 
-  const handleActivateBroker = async (broker: string) => {
+  // Role-aware: this panel lists one row per credential, so a tenant holding a broker for
+  // orders and another for prices sees two rows. `activate` resolves a broker *name*, so
+  // without the role it would switch the execution credential while the user believes
+  // they switched something else.
+  const handleActivateBroker = async (broker: string, role: CredentialRole = 'execution') => {
     try {
-      await api.brokers.activate(broker)
+      await api.brokers.activate(broker, role)
       const bc = await api.brokers.credentials()
       setBrokers((bc as { credentials: BrokerInfo[] }).credentials || [])
     } catch (e) { console.error('activate broker', e) }
@@ -894,11 +898,15 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <BrokerLogo broker={b.broker} size={28} />
                           <span style={{ fontWeight: 600, fontSize: 13 }}>{displayName}</span>
+                          {/* Two rows for one broker are otherwise two identical names. */}
+                          <span className="t-faint" style={{ fontSize: 10 }}>
+                            {credRole(b) === 'market_data' ? 'market data' : 'execution'}
+                          </span>
                           {b.is_active && <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>Active</span>}
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
                           {!b.is_active && (
-                            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleActivateBroker(b.broker)}
+                            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => handleActivateBroker(b.broker, credRole(b))}
                               style={{ color: 'var(--cyan)' }}>Activate</button>
                           )}
                           {meta?.oauth_available && (

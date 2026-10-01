@@ -49,7 +49,9 @@ class TestSaveCredentials:
         repo.upsert_credentials.return_value = sample_cred
         with patch.object(svc, "_broker_supported", return_value=True):
             result = await svc.save_credentials("u1", "fyers", "key", "secret")
-        repo.upsert_credentials.assert_awaited_once_with("u1", "fyers", "key", "secret", None, None)
+        repo.upsert_credentials.assert_awaited_once_with(
+            "u1", "fyers", "key", "secret", None, None, role="execution"
+        )
         assert result.id == "cred-1"
 
     @pytest.mark.asyncio
@@ -57,7 +59,9 @@ class TestSaveCredentials:
         repo.upsert_credentials.return_value = sample_cred
         with patch.object(svc, "_broker_supported", return_value=True):
             result = await svc.save_credentials("u1", "fyers", "key", "secret", access_token="tok")
-        repo.upsert_credentials.assert_awaited_once_with("u1", "fyers", "key", "secret", "tok", None)
+        repo.upsert_credentials.assert_awaited_once_with(
+            "u1", "fyers", "key", "secret", "tok", None, role="execution"
+        )
         assert result.id == "cred-1"
 
     @pytest.mark.asyncio
@@ -66,7 +70,9 @@ class TestSaveCredentials:
         extra = {"totp_secret": "sekret"}
         with patch.object(svc, "_broker_supported", return_value=True):
             result = await svc.save_credentials("u1", "fyers", "key", "secret", additional_params=extra)
-        repo.upsert_credentials.assert_awaited_once_with("u1", "fyers", "key", "secret", None, extra)
+        repo.upsert_credentials.assert_awaited_once_with(
+            "u1", "fyers", "key", "secret", None, extra, role="execution"
+        )
         assert result.id == "cred-1"
 
 
@@ -91,7 +97,7 @@ class TestDeleteCredentials:
     async def test_deletes_and_returns_true(self, svc, repo) -> None:
         repo.delete_credentials.return_value = True
         result = await svc.delete_credentials("u1", "fyers")
-        repo.delete_credentials.assert_awaited_once_with("u1", "fyers")
+        repo.delete_credentials.assert_awaited_once_with("u1", "fyers", role="execution")
         assert result is True
 
     @pytest.mark.asyncio
@@ -106,7 +112,7 @@ class TestActivateBroker:
     async def test_activates_and_returns_true(self, svc, repo) -> None:
         repo.activate_broker.return_value = True
         result = await svc.activate_broker("u1", "fyers")
-        repo.activate_broker.assert_awaited_once_with("u1", "fyers")
+        repo.activate_broker.assert_awaited_once_with("u1", "fyers", role="execution")
         assert result is True
 
 

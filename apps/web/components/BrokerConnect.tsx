@@ -373,7 +373,7 @@ export default function BrokerConnect() {
       <p className="tm-bc__note">
         <b style={{ color: "var(--text-2)" }}>API keys:</b> Enter your trading API details and click{" "}
         <b>Connect</b> — we encrypt and store only the daily access token.<br />
-        <b style={{ color: "var(--text-2)" }}>OAuth:</b> Or tap <b>Login via Broker</b> to authenticate on your broker's secure page.<br />
+        <b style={{ color: "var(--text-2)" }}>OAuth:</b> Or tap <b>Login via Broker</b> to authenticate on your broker&apos;s secure page.<br />
         Broker tokens reset daily (SEBI 2FA). We&apos;ll remind you each morning to reconnect in one tap.
       </p>
 
