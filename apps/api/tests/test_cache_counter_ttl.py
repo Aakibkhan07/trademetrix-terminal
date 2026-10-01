@@ -39,7 +39,32 @@ class FakeRedis:
 
 
 def make_cache(redis):
-    c = RedisCache()
+    # `object.__new__`, NOT `RedisCache()`.
+    #
+    # `RedisCache.__new__` is a singleton, so `RedisCache()` returns the same
+    # `core.cache.cache` object the whole application uses. And `conftest.py`
+    # replaces that object's `increment` with a stub returning a constant 1:
+    #
+    #     patch.object(cache_module.cache, "increment", _mock_cache_increment).start()
+    #
+    # `.start()` with no matching `.stop()`, so it stays patched for the rest of the
+    # session. Any test that has used the `client` fixture — which is how CI runs this
+    # suite, `pytest tests/` — therefore hands this file a `cache` whose `increment` is
+    # the stub. Every assertion below then measured the stub: `expire_calls` stayed
+    # empty because FakeRedis was never called, and the count came back 1 regardless of
+    # the value it started from.
+    #
+    # The effect was that this file passed in isolation and failed under CI, and the
+    # failures pointed at the TTL logic rather than at the harness. Worse than a red
+    # suite: the regression test for the counter TTL could not have caught a regression
+    # in the counter TTL.
+    #
+    # Bypassing `__new__` is deliberate and is the whole point. These tests are about
+    # `RedisCache.increment`, so they must hold an instance whose `increment` is the real
+    # function. `object.__new__` skips the singleton and does not copy any patched
+    # attribute onto the new object, and `increment` resolves normally through the
+    # class.
+    c = object.__new__(RedisCache)
     c._enabled = True
     c._redis = redis
     return c
@@ -77,6 +102,11 @@ async def test_healthy_counter_does_not_extend_window():
 
 @pytest.mark.asyncio
 async def test_disabled_cache_is_a_noop():
-    cache = RedisCache()
+    # `object.__new__` for the same reason as `make_cache`: `RedisCache()` is the
+    # application singleton, and conftest has replaced its `increment` with a stub that
+    # returns 1 — so the "returns 0 when disabled" assertion would have been reading the
+    # stub. This test is specifically about the guard at the top of the real
+    # `increment`, so it must call the real one.
+    cache = object.__new__(RedisCache)
     cache._enabled = False
     assert await cache.increment("ratelimit:1.2.3.4") == 0
