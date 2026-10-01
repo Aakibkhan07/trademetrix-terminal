@@ -57,6 +57,21 @@ async def test_quotes_broker_first_uses_broker_and_yahoo_fill(monkeypatch):
     from market.data_socket import shared_socket
     monkeypatch.setattr(shared_socket, "get_broker_adapter", lambda broker: None)
     monkeypatch.setattr("application.services.engine_service.EngineService", lambda: FakeEngine())
+
+    # Prices resolve through `BrokerService.resolve_market_data_broker`, not through
+    # `EngineService.get_active_broker`. Patching only the latter let the real credential
+    # lookup out, and it answered "column broker_credentials.role does not exist" — the
+    # test then passed through as Yahoo-only and failed on the broker assertion. The
+    # behaviour under test is unchanged; only the seam moved.
+    class FakeBrokerService:
+        async def resolve_market_data_broker(self, user_id):
+            return "fyers"
+
+    import routes.v1_marketdata as marketdata_module
+
+    monkeypatch.setattr(
+        marketdata_module, "_broker_service", FakeBrokerService(), raising=True
+    )
     monkeypatch.setattr("providers.yahoo.fetch_quotes", fake_fetch_quotes)
 
     user = UserProfile(id="u1", email="u@example.com")
@@ -85,6 +100,17 @@ async def test_quotes_broker_first_falls_back_fully_to_yahoo(monkeypatch):
     from market.data_socket import shared_socket
     monkeypatch.setattr(shared_socket, "get_broker_adapter", lambda broker: None)
     monkeypatch.setattr("application.services.engine_service.EngineService", lambda: FakeEngine())
+
+    # Same seam as above — see the note in the broker-first test.
+    class FakeBrokerService:
+        async def resolve_market_data_broker(self, user_id):
+            return "fyers"
+
+    import routes.v1_marketdata as marketdata_module
+
+    monkeypatch.setattr(
+        marketdata_module, "_broker_service", FakeBrokerService(), raising=True
+    )
     monkeypatch.setattr("providers.yahoo.fetch_quotes", fake_fetch_quotes)
 
     user = UserProfile(id="u1", email="u@example.com")

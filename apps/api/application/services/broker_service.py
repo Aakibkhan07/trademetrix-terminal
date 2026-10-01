@@ -18,6 +18,22 @@ class BrokerService:
     async def list_credentials(self, user_id: str) -> list[dict]:
         return await self._repo.list_credentials(user_id)
 
+    async def resolve_market_data_broker(self, user_id: str) -> str | None:
+        """The broker whose prices should be shown to this tenant.
+
+        Lives here rather than on `EngineService` because the resolution belongs to the
+        credential, and `BrokerService` is the layer that owns credentials — it already
+        holds the repository. `EngineService` has no repository and does its own Supabase
+        reads, so reaching across for this would either duplicate the fallback rule in two
+        places or drag infrastructure into a service that currently does not know about it.
+
+        Delegates so there is exactly one implementation of the rule: the tenant's active
+        market-data credential, else their execution broker. That fallback is what makes
+        the separation safe to roll out — a tenant with no market-data credential resolves
+        to what they resolved to before, rather than to "no prices".
+        """
+        return await self._repo.resolve_market_data_broker(user_id)
+
     async def save_credentials(self, user_id: str, broker: str, api_key: str, secret_key: str, access_token: str | None = None, additional_params: dict | None = None) -> BrokerCredential:
         if not self._broker_supported(broker):
             raise ValueError(f"Unsupported broker: {broker}")

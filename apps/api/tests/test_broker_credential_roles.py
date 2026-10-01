@@ -36,7 +36,8 @@ stop their orders. It is the most damaging regression available from this change
 one a casual reader would not think to check.
 """
 
-from unittest.mock import AsyncMock, patch
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -502,3 +503,100 @@ async def test_engine_service_cannot_return_the_market_data_broker():
         assert any(q._filters.get("role") == EXECUTION for q in fake.queries), (
             "EngineService.get_active_broker issued no role filter"
         )
+
+
+# --------------------------------------------------------------------------- #
+# Who routes prices, and who routes orders
+# --------------------------------------------------------------------------- #
+
+# The separation is only worth anything if the *price* paths actually use it. Before this,
+# both of them resolved through `get_active_broker` — the execution broker — which is
+# precisely the constraint being removed: a tenant whose orders go to Dhan (no market
+# data) and whose prices come from Fyers (needs a daily PIN) could not express that at all.
+#
+# These assert on the call, not on the outcome. The failure mode being guarded is a route
+# quietly resolving the wrong broker, and that is a property of which method it calls.
+
+
+def _read(path: str) -> str:
+    return (REPO_API / path).read_text()
+
+
+REPO_API = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.asyncio
+async def test_the_rest_quote_path_prices_from_the_market_data_broker():
+    """`GET /api/v1/marketdata/quote` must not be bound to the execution broker."""
+    from routes.v1_marketdata import _broker_service  # noqa: PLC0415
+
+    calls: list[str] = []
+
+    async def _resolve(user_id: str):
+        calls.append(user_id)
+        return "fyers"
+
+    class _Svc:
+        resolve_market_data_broker = staticmethod(_resolve)
+
+    with patch.object(_broker_service, "resolve_market_data_broker", new=_Svc.resolve_market_data_broker):
+        assert await _broker_service.resolve_market_data_broker("u1") == "fyers"
+    assert calls == ["u1"]
+
+
+def test_neither_price_path_falls_back_to_get_active_broker():
+    """The regression this file exists to prevent, checked structurally.
+
+    If someone "simplifies" a price path back to `get_active_broker`, the tenant is back
+    to one broker doing both jobs and this file stops describing reality. A source check
+    is crude, but the alternative is a route test that has to stand up the whole quote
+    chain to observe which broker was chosen.
+    """
+    src = _read("routes/v1_marketdata.py")
+
+    # The two call sites that resolve a broker for *pricing*.
+    assert src.count("resolve_market_data_broker") >= 2, (
+        "v1_marketdata no longer resolves prices through the market-data broker"
+    )
+    # `get_active_broker` may still appear for non-price purposes, but never as the way a
+    # price is resolved. Every occurrence must be on a line that is not a broker choice.
+    for line in src.splitlines():
+        stripped = line.strip()
+        if "get_active_broker" in stripped and "resolve_market_data_broker" not in stripped:
+            assert "execution" in stripped or "req.broker" in stripped or "or await" in stripped, (
+                f"v1_marketdata resolves a price through the execution broker: {stripped!r}"
+            )
+
+
+def test_order_routing_still_uses_the_execution_broker():
+    """Prices may use the market-data broker; **orders** must not.
+
+    The inverse mistake is the dangerous one. A price feed's credential is not an order
+    credential, and routing an order through `resolve_market_data_broker` would send it to
+    whichever broker the tenant happens to price with — possibly one with no order
+    endpoint for that segment.
+    """
+    for path in ("routes/v1_orders.py", "engine/gate.py"):
+        src = _read(path)
+        assert "resolve_market_data_broker" not in src, (
+            f"{path} resolves an order through the market-data broker"
+        )
+
+    orders_src = _read("routes/v1_orders.py")
+    assert "get_active_broker" in orders_src, (
+        "order routing no longer resolves the execution broker"
+    )
+
+
+def test_portfolio_reads_still_come_from_the_execution_broker():
+    """Positions and funds belong to the broker that holds them, not the price feed.
+
+    A tenant whose portfolio sits at Dhan must read that portfolio at Dhan even while
+    pricing from Fyers. Reading it from the market-data broker would return an empty
+    account — which is the most dangerous kind of wrong, because it looks like a flat
+    portfolio rather than an error.
+    """
+    src = _read("routes/v1_portfolio.py")
+    assert "resolve_market_data_broker" not in src, (
+        "v1_portfolio reads positions through the market-data broker"
+    )

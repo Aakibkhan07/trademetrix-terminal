@@ -5,12 +5,19 @@ import logging
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
+from application.services.broker_service import BrokerService
 from core.deps import get_current_user
 from core.models import Tick, UserProfile
 from core.security import decode_access_token
+from infrastructure.repositories.broker_repository import SupabaseBrokerRepository
 from market.data_socket import shared_socket
 from market.option_chain import normalize_index_symbol, option_chain_engine
 logger = logging.getLogger(__name__)
+
+#: Credential lookups go through `BrokerService` over the repository, the same wiring
+#: `routes/v1_brokers.py` and `routes/v1_portal.py` use. Constructed once at import: the
+#: repository holds no state, it reads through `get_supabase()` per call.
+_broker_service = BrokerService(SupabaseBrokerRepository())
 
 router = APIRouter(prefix="/marketdata", tags=["marketdata"])
 
@@ -178,13 +185,16 @@ async def start_market_feed(current_user: UserProfile = Depends(get_current_user
     broker_type = "fyers"
 
     try:
-        from application.services.engine_service import EngineService
-
-        active_broker = await EngineService().get_active_broker(current_user.id)
+        # The **market-data** broker, not the execution one. This feed exists only to
+        # carry prices, so it has no business being bound to the venue that fills orders.
+        # It also keeps this screen and the REST quote path on one broker — if the two
+        # disagreed, the tape and the quote panel would show prices from different venues
+        # at the same moment, which is worse than either being wrong alone.
+        active_broker = await _broker_service.resolve_market_data_broker(current_user.id)
         if active_broker:
             broker_type = active_broker
     except Exception as e:
-        logger.warning("Could not resolve active broker for feed (%s), defaulting to fyers", e)
+        logger.warning("Could not resolve market-data broker for feed (%s), defaulting to fyers", e)
 
     try:
         await shared_socket.start_broker_feed(
@@ -307,7 +317,10 @@ async def _quotes_with_broker_first(symbols: list[str], current_user) -> list:
     broker_quotes: dict[str, Quote] = {}
     try:
         service = EngineService()
-        broker = await service.get_active_broker(current_user.id)
+        # Market-data broker, for the same reason as the feed above. Falls back to the
+        # execution broker when the tenant has made no separate choice, so every
+        # existing tenant resolves to exactly what it resolved to before.
+        broker = await _broker_service.resolve_market_data_broker(current_user.id)
         if broker:
             adapter = shared_socket.get_broker_adapter(broker)
             if adapter is None:
