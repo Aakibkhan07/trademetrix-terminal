@@ -438,6 +438,8 @@ export const api = {
     credentials: () => request<{ credentials: BrokerCred[] }>('/brokers/credentials'),
     saveCredentials: (data: {
       broker: string;
+      /** `execution` places orders, `market_data` prices them. Defaults to execution. */
+      role?: CredentialRole;
       api_key?: string;
       secret_key?: string;
       client_id?: string;

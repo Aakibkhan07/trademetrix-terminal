@@ -238,7 +238,10 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
 
   /* === Broker Connect State === */
   const [connectForm, setConnectForm] = useState<{
-    broker: string; fields: Record<string, string>; additional_params: Record<string, string>
+    broker: string
+    /** Which job this credential does. Defaults to execution, as everywhere else. */
+    role: CredentialRole
+    fields: Record<string, string>; additional_params: Record<string, string>
   } | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [brokerError, setBrokerError] = useState('')
@@ -252,7 +255,10 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
     try {
       const f = connectForm.fields
       const ap = connectForm.additional_params
-      const payload: Record<string, unknown> = { broker: connectForm.broker }
+      // `role` is not optional here. This page shares its state shape with the broker
+      // picker, and a market-data credential saved without it would land on the
+      // execution row and replace the broker that places orders.
+      const payload: Record<string, unknown> = { broker: connectForm.broker, role: connectForm.role }
       if (f.api_key) payload.api_key = f.api_key
       if (f.secret_key) payload.secret_key = f.secret_key
       if (f.client_id) payload.client_id = f.client_id
@@ -962,6 +968,30 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                         {meta.instructions}
                       </div>
                     )}
+
+                    {/* Same two roles as the /brokers dialog, same wording. The wrong
+                        answer is silent: saved as execution, it replaces the broker that
+                        places orders. */}
+                    <div>
+                      <label className="t-label" style={{ fontSize: 10 }}>This credential is for</label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {([
+                          ['execution', 'Placing orders', 'Executes your trades.'],
+                          ['market_data', 'Pricing only', 'Reads quotes; cannot place orders.'],
+                        ] as const).map(([value, label, hint]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setConnectForm({ ...connectForm, role: value })}
+                            className={`t-btn t-btn-xs ${connectForm.role === value ? 't-btn-primary' : 't-btn-ghost'}`}
+                            style={{ flex: 1, textAlign: 'left', padding: '6px 8px', lineHeight: 1.35 }}
+                          >
+                            <span style={{ display: 'block', fontWeight: 600 }}>{label}</span>
+                            <span style={{ display: 'block', fontSize: 9, opacity: 0.7 }}>{hint}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     {meta?.fields.map((field: BrokerFieldMeta) => (
                       <div key={field.key}>
                         <label className="t-label" style={{ fontSize: 10 }}>{field.label}</label>
@@ -1023,7 +1053,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                         <button className={`t-btn t-btn-xs ${connected ? 't-btn-ghost' : 't-btn-primary'}`}
                           onClick={() => {
                             if (!connected) {
-                              setConnectForm({ broker: m.broker, fields: {}, additional_params: {} })
+                              setConnectForm({ broker: m.broker, role: 'execution', fields: {}, additional_params: {} })
                             }
                           }}
                           disabled={connected}>

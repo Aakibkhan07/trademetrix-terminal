@@ -27,6 +27,7 @@ export default function BrokersPage() {
 
   const form = useRef<{
     broker: string
+    role: CredentialRole
     api_key: string
     secret_key: string
     client_id: string
@@ -34,6 +35,9 @@ export default function BrokersPage() {
     totp_secret: string
   }>({
     broker: '',
+    // Execution by default. That is what every pre-split connect meant, and it is the
+    // right default for someone adding their first broker: they want it to trade.
+    role: 'execution',
     api_key: '',
     secret_key: '',
     client_id: '',
@@ -122,6 +126,7 @@ export default function BrokersPage() {
   const closeForm = () => {
     setShowForm(false)
     setFormBroker('')
+    form.role = 'execution'
   }
 
   const handleSave = async () => {
@@ -137,6 +142,9 @@ export default function BrokersPage() {
 
       const payload: Parameters<typeof api.brokers.saveCredentials>[0] = {
         broker: form.broker,
+        // Which of the two jobs this credential does. Without it a market-data connect
+        // would land on the execution row and quietly replace it.
+        role: form.role,
         api_key: form.api_key,
         secret_key: form.secret_key,
         client_id: form.client_id || undefined,
@@ -475,6 +483,38 @@ export default function BrokersPage() {
             <p style={{ margin: 0, fontSize: 13, opacity: 0.85, lineHeight: 1.5 }}>
               Enter your <b>{displayName(form.broker)}</b> API credentials. We encrypt and store only the access token — never your password or PIN.
             </p>
+
+            {/* Which job this credential does. Stated in plain terms because the wrong
+                answer is silent and expensive: a market-data credential saved as
+                execution replaces the broker that places your orders, and nothing
+                reports an error. And an execution credential cannot price anything, so
+                picking execution for a feed leaves every quote blank. */}
+            <div>
+              <label className="t-label">This credential is for</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {([
+                  ['execution', 'Placing orders', 'The broker that executes your trades.'],
+                  ['market_data', 'Pricing only', 'Reads quotes and depth; cannot place orders.'],
+                ] as const).map(([value, label, hint]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => { form.role = value }}
+                    className={`t-btn t-btn-sm ${form.role === value ? 't-btn-primary' : 't-btn-ghost'}`}
+                    style={{ flex: 1, flexDirection: 'column', alignItems: 'flex-start', padding: '8px 10px', height: 'auto' }}
+                  >
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
+                    <span style={{ fontSize: 10, opacity: 0.7, textAlign: 'left', whiteSpace: 'normal' }}>{hint}</span>
+                  </button>
+                ))}
+              </div>
+              {form.role === 'market_data' && (
+                <p style={{ margin: '6px 0 0', fontSize: 11, opacity: 0.75, lineHeight: 1.45 }}>
+                  Your existing order broker is untouched. Instruments will be priced by
+                  this broker and executed by the other.
+                </p>
+              )}
+            </div>
 
             {metadataMap[form.broker]?.fields.map((field: BrokerFieldMeta) => {
               if (field.key === 'client_code') {

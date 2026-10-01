@@ -114,6 +114,12 @@ class FakeQuery:
         if self._op == "insert":
             row = dict(self._payload or {})
             row.setdefault("id", f"id-{len(self._store) + 1}")
+            # Column defaults from the real schema, which the fake has to honour or the
+            # tests assert against a fiction. `broker_credentials.is_active` is
+            # `BOOLEAN DEFAULT TRUE` (init migration), so a freshly inserted credential
+            # IS active — the fake omitting this made a connected broker read as
+            # inactive, and the market-data resolution then found nothing.
+            row.setdefault("is_active", True)
             self._store.append(row)
             return _Result([row])
         if self._op == "update":
@@ -720,3 +726,94 @@ def test_delete_takes_the_role_as_a_query_parameter_not_in_the_path():
     assert "role" in params, "delete does not accept a role"
     assert params["role"].default == EXECUTION
     assert route.path.count("{") == 1, "a second path parameter was introduced"
+
+
+# --------------------------------------------------------------------------- #
+# The full round trip: connect a market-data credential, then read it back
+# --------------------------------------------------------------------------- #
+
+# The unit tests above each prove one hop. This one walks the journey the UI actually
+# performs, because the feature was missing at the *end* of it: `save` accepted no role,
+# so a tenant could never create a market-data credential from the browser at all. The
+# backend supported it and nothing could reach it.
+#
+# It is written against the real repository and the real `BrokerService` with only the
+# HTTP layer faked, so a break anywhere in the chain shows up here rather than in a
+# browser session.
+
+
+@pytest.mark.asyncio
+async def test_a_market_data_credential_can_be_connected_and_reads_back(repo_and_store):
+    repo, store, _ = repo_and_store
+    from application.services.broker_service import BrokerService  # noqa: PLC0415
+
+    svc = BrokerService(repo)
+    svc._broker_supported = lambda broker: True  # type: ignore[method-assign]
+
+    await repo._run(lambda: svc.save_credentials(USER, "fyers", "key", "secret", role=MARKET_DATA))
+
+    listed = await repo._run(lambda: repo.list_credentials(USER, role=MARKET_DATA))
+    assert [r["broker"] for r in listed] == ["fyers"]
+
+    # And prices now resolve to it, which is the entire point of connecting one.
+    assert await repo._run(lambda: repo.resolve_market_data_broker(USER)) == "fyers"
+
+
+@pytest.mark.asyncio
+async def test_connecting_data_after_orders_leaves_the_order_broker_alone(repo_and_store):
+    """The scenario this whole feature exists for, and the one that used to be impossible.
+
+    Dhan for execution, Fyers for prices — the split of the SaaS deployment, where Dhan
+    authenticates and reports funds but answers `806 Data APIs not Subscribed`, and Fyers
+    serves quotes but needs a daily PIN re-auth. Neither does both.
+
+    The order of the two connects must not matter. Connecting data second is the natural
+    order (you already trade, you now want prices), and that is the one that used to
+    destroy the execution row.
+    """
+    repo, store, _ = repo_and_store
+    from application.services.broker_service import BrokerService  # noqa: PLC0415
+
+    svc = BrokerService(repo)
+    svc._broker_supported = lambda broker: True  # type: ignore[method-assign]
+
+    await repo._run(lambda: svc.save_credentials(USER, "dhan", "cid", "secret"))
+    await repo._run(lambda: repo.activate_broker(USER, "dhan", role=EXECUTION))
+
+    await repo._run(lambda: svc.save_credentials(USER, "fyers", "appid", "appsecret", role=MARKET_DATA))
+    await repo._run(lambda: repo.activate_broker(USER, "fyers", role=MARKET_DATA))
+
+    execution = await repo._run(lambda: repo.get_active_broker(USER, role=EXECUTION))
+    pricing = await repo._run(lambda: repo.resolve_market_data_broker(USER))
+
+    assert execution == "dhan", "connecting a data feed moved the order broker"
+    assert pricing == "fyers"
+
+    # And the execution credential's ciphertext is untouched, not merely still present.
+    dhan_row = next(r for r in store if r["broker"] == "dhan" and r["role"] == EXECUTION)
+    assert dhan_row["is_active"] is True
+    fyers_row = next(r for r in store if r["broker"] == "fyers" and r["role"] == MARKET_DATA)
+    assert fyers_row["is_active"] is True
+
+
+@pytest.mark.asyncio
+async def test_the_reverse_order_also_works(repo_and_store):
+    """Connecting prices first must not stop the later order connect.
+
+    The other half of the round trip, and the one where a naive implementation that
+    scoped `save` by role but forgot `activate` would pass the first case and fail this.
+    """
+    repo, store, _ = repo_and_store
+    from application.services.broker_service import BrokerService  # noqa: PLC0415
+
+    svc = BrokerService(repo)
+    svc._broker_supported = lambda broker: True  # type: ignore[method-assign]
+
+    await repo._run(lambda: svc.save_credentials(USER, "fyers", "appid", "appsecret", role=MARKET_DATA))
+    await repo._run(lambda: repo.activate_broker(USER, "fyers", role=MARKET_DATA))
+
+    await repo._run(lambda: svc.save_credentials(USER, "dhan", "cid", "secret"))
+    await repo._run(lambda: repo.activate_broker(USER, "dhan", role=EXECUTION))
+
+    assert await repo._run(lambda: repo.get_active_broker(USER, role=EXECUTION)) == "dhan"
+    assert await repo._run(lambda: repo.resolve_market_data_broker(USER)) == "fyers"
