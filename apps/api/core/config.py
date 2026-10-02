@@ -1,4 +1,5 @@
 import ast
+from urllib.parse import urlsplit
 import logging
 
 from pydantic import model_validator
@@ -84,13 +85,58 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         raw = self.cors_origins
+        parsed: list[str] | None = None
         try:
-            parsed = ast.literal_eval(raw)
-            if isinstance(parsed, list):
-                return parsed
+            value = ast.literal_eval(raw)
+            if isinstance(value, list):
+                parsed = [str(o).strip() for o in value]
         except (ValueError, SyntaxError):
             pass
-        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+        if parsed is None:
+            parsed = [origin.strip() for origin in raw.split(",") if origin.strip()]
+        return self._with_loopback_aliases(parsed)
+
+    def _with_loopback_aliases(self, origins: list[str]) -> list[str]:
+        """Add the other spelling of each loopback origin, outside production only.
+
+        `localhost` and `127.0.0.1` are the same machine but different cookie scopes. This bites in
+        a way that is genuinely hard to see, because each half of the app works on the host the
+        config names and fails on the other:
+
+          * the API sets `csrf_token` on the host it is served from, so a page on the *other*
+            loopback spelling cannot read it — `document.cookie` is empty, `X-CSRF-Token` is never
+            attached, and every POST/PUT/DELETE answers 403
+          * `CORS_ORIGINS=http://localhost:3000` rejects the preflight from `127.0.0.1:3000` with
+            a bodiless 400, which the browser reports as `net::ERR_FAILED` — the request is not
+            even attempted
+
+        So a local stack configured with one spelling cannot write anything, and reads still work,
+        so it looks healthy. Serving the web app at `localhost` and pointing it at a `127.0.0.1`
+        API fails the first way; the reverse fails the second. There is no single spelling that
+        satisfies both halves unless both are allowed.
+
+        Loopback origins are not a security boundary — they are this machine — so widening them
+        outside production costs nothing. **Production is untouched**: with `ENV=production` the list
+        is returned exactly as configured, because there the origins are real hosts and silently
+        adding aliases to an allow-list would be a security change, not a convenience.
+        """
+        if self.env == "production":
+            return origins
+        aliases = {"localhost": "127.0.0.1", "127.0.0.1": "localhost"}
+        extra: list[str] = []
+        for origin in origins:
+            try:
+                parsed = urlsplit(origin)
+            except ValueError:
+                continue
+            host = (parsed.hostname or "").lower()
+            swap = aliases.get(host)
+            if not swap:
+                continue
+            candidate = origin.replace(parsed.hostname or "", swap, 1)
+            if candidate not in origins and candidate not in extra:
+                extra.append(candidate)
+        return origins + extra
 
     @model_validator(mode="after")
     def _validate_secrets(self):

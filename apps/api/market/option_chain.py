@@ -64,13 +64,17 @@ class OptionChainEngine:
             market_cache.put_option_chain(cache_key, data)
             return data
 
-        data = self._generate_simulated_chain(symbol.upper())
-        if data:
-            data["is_simulated"] = True
-            market_cache.put_option_chain(cache_key, data)
-            logger.info("Using simulated option chain for %s (fallback)", symbol)
-            return data
-
+        # No simulated fallback. This used to call `_generate_simulated_chain` and return a chain
+        # built from a closed-form formula — `call ltp = max(100 - dist*15, 1)`, `oi = 500000`,
+        # approximate greeks — labelled only `is_simulated: True`, which nothing downstream reads.
+        # The `/trade` workspace therefore showed a fabricated 19-strike ladder with round-number
+        # premiums as though it were a market, and a trader could size a live position off it.
+        #
+        # That is the same violation the v1.7.0 real-data contract removed from the candle path,
+        # where `_generate_simulated_candles` was deleted because a backtest must never run on
+        # fabricated data. The same rule has to hold for the chain: an option premium is a price
+        # someone trades against, so inventing one is worse than showing none. The generator is
+        # kept for tests that assert on its shape, and it is not on any request path.
         logger.warning("Option chain unavailable for %s (NSE + Fyers fallback failed)", symbol)
         return {}
 

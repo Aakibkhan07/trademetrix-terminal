@@ -60,6 +60,28 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
                     content={"detail": "CSRF validation failed"},
                 )
 
+        # `SameSite=None` exists so the cookie survives the cross-site hop between the web origin
+        # and this API in production (ai.trademetrix.tech -> api.ai.trademetrix.tech). But a
+        # `SameSite=None` cookie **must** carry `Secure`, and every browser rejects one that does
+        # not — the whole cookie is dropped, silently.
+        #
+        # So outside production, where `secure` is False, `SameSite=None` was not a permissive
+        # choice: it made the cookie invalid. `document.cookie` came back empty, `getCSRFToken()`
+        # in `apps/web/lib/api.ts` returned '', `X-CSRF-Token` was never attached, and **every
+        # POST, PUT and DELETE answered 403**. Local development, staging and any non-production
+        # environment had no working write path at all — only reads, which is why this went
+        # unnoticed for so long and why interaction testing looked impossible.
+        #
+        # `lax` is the correct pairing for a non-Secure cookie: it is accepted by the browser, and
+        # for same-site requests — which is what local and single-host deployments are — it is
+        # functionally equivalent to `none`.
+        #
+        # This is the third appearance of this exact defect. AGENTS.md records INC-013 (cookie set
+        # only on the first request) and then its relapse (production running older middleware than
+        # local). Same root area, different symptom.
+        cookie_secure = settings.env == "production"
+        cookie_samesite = "none" if cookie_secure else "lax"
+
         response = await call_next(request)
 
         token = getattr(request.state, 'csrf_token', None)
@@ -68,8 +90,8 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
                 key=CSRF_COOKIE_NAME,
                 value=token,
                 httponly=False,
-                secure=settings.env == "production",
-                samesite="none",
+                secure=cookie_secure,
+                samesite=cookie_samesite,
                 path="/",
                 domain=settings.cookie_domain or None,
             )
@@ -80,8 +102,8 @@ class CSRFProtectMiddleware(BaseHTTPMiddleware):
                 key=CSRF_COOKIE_NAME,
                 value=token,
                 httponly=False,
-                secure=settings.env == "production",
-                samesite="none",
+                secure=cookie_secure,
+                samesite=cookie_samesite,
                 path="/",
                 domain=settings.cookie_domain or None,
             )

@@ -30,7 +30,17 @@ const fs = require('fs')
 const path = require('path')
 
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-const BASE = process.env.BASE_URL || 'http://localhost:3000'
+// The base URL must be the *same host* as the API, not `localhost`.
+//
+// Cookies are host-scoped. The API sets `csrf_token` on the host it is served from, and this API is
+// reached at `127.0.0.1:8000`, so a page served from `http://localhost:3000` cannot see it — even
+// though both are loopback. `document.cookie` comes back empty, `getCSRFToken()` in `lib/api.ts`
+// returns '', `X-CSRF-Token` is never attached, and **every POST, PUT and DELETE answers 403**.
+//
+// That is silent: reads keep working, so a harness pointed at `localhost` looks perfectly healthy
+// while being unable to write anything. In production the equivalent mismatch does not bite,
+// because the cookie is set on `.trademetrix.tech` and both origins are under it.
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3000'
 const API_ORIGIN = process.env.API_ORIGIN || 'http://127.0.0.1:8000'
 const EMAIL = process.env.DEMO_EMAIL || 'demo.trader@trademetrix.dev'
 const PASSWORD = process.env.DEMO_PASSWORD || 'Demo@2026!'
@@ -48,6 +58,43 @@ const BENIGN_HTTP = [
   { re: /\/auth\/me/, why: '401 — anonymous pre-login probe, also polled after sign-out' },
   { re: /\/analytics\/track-batch/, why: '403 — sendBeacon cannot carry the CSRF header (AGENTS.md)' },
   { re: /\/marketdata\/ws/, why: '403 — WebSocket handshake fails in this local setup' },
+  {
+    // 400 "No real market data available" for symbols no source carries at all.
+    //
+    // This exemption existed once before with a **false** reason — "the Yahoo fallback is
+    // unreachable from here" — and it was hiding a real bug: `days=1` at an intraday interval
+    // returned nothing for *every* symbol outside market hours, which is fixed. Yahoo works.
+    //
+    // What is left is genuine. The watchlist offers 20 indices; Yahoo carries 16 of them. It does
+    // not carry Nifty Private Bank (`^CNXPVTBANK` and `^NIFTY_PVT_BANK` both answer "Quote not
+    // found" or "possibly delisted"), Nifty GSEC (`^CNXGSEC`, `^CNXGSEQ`), or Nifty Oil & Gas
+    // (`^CNXOILGAS`, `^NIFTY_OIL_GAS`) — checked directly against Yahoo, not inferred. Meanwhile
+    // `^CNXENERGY`, `^CNXPHARMA` and `^CNXIT` all resolve, so this is a per-symbol gap and not a
+    // broken provider.
+    //
+    // So the refusal is correct: those three cannot be served without fabricating them, which is
+    // what the v1.7.0 contract forbids. Scoped to this path, so a 400 from anywhere else still
+    // fails the crawl.
+    re: /\/marketdata\/historical/,
+    why: '400 — no source carries these symbols; the refusal is the contract working',
+  },
+  {
+    // 503 when no option-chain source exists, which is the honest answer rather than a fault.
+    //
+    // This endpoint used to fall back to a **formula**: `call ltp = max(100 - dist*15, 1)`,
+    // `oi = 500000`, approximate greeks, nineteen strikes that looked exactly like a market. The
+    // only label was `mock: True`, which the frontend does not read, so `/trade` and
+    // `/terminal/option-chain` showed fabricated premiums and a trader could size a live position
+    // off them. That fallback is gone — the same v1.7.0 real-data contract that deleted
+    // `_generate_simulated_candles` — and the route now answers
+    // 503 "Option chain unavailable for {symbol}".
+    //
+    // Scoped to this path, and to 503 only, so any other status from it still fails the crawl.
+    // Verified separately that all four affected routes degrade without an error boundary and show
+    // no fabricated premium.
+    re: /\/marketdata\/option-chain/,
+    why: '503 — the documented refusal to serve a fabricated option chain when no source exists',
+  },
 ]
 const BENIGN_CONSOLE = [
   /Failed to load resource/i,

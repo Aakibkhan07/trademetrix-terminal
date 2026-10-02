@@ -23,7 +23,17 @@ const puppeteer = require(process.env.PUPPETEER_CORE || 'puppeteer-core')
 const fs = require('fs')
 
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-const BASE = process.env.BASE_URL || 'http://localhost:3000'
+// The base URL must be the *same host* as the API, not `localhost`.
+//
+// Cookies are host-scoped. The API sets `csrf_token` on the host it is served from, and this API is
+// reached at `127.0.0.1:8000`, so a page served from `http://localhost:3000` cannot see it — even
+// though both are loopback. `document.cookie` comes back empty, `getCSRFToken()` in `lib/api.ts`
+// returns '', `X-CSRF-Token` is never attached, and **every POST, PUT and DELETE answers 403**.
+//
+// That is silent: reads keep working, so a harness pointed at `localhost` looks perfectly healthy
+// while being unable to write anything. In production the equivalent mismatch does not bite,
+// because the cookie is set on `.trademetrix.tech` and both origins are under it.
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3000'
 const EMAIL = process.env.DEMO_EMAIL || 'demo.trader@trademetrix.dev'
 const PASSWORD = process.env.DEMO_PASSWORD || 'Demo@2026!'
 const AS_JSON = process.argv.includes('--json')

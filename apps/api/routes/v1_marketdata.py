@@ -558,11 +558,10 @@ async def get_option_chain(
     if nse_data:
         return nse_data
 
-    mock_data = option_chain_engine._generate_simulated_chain(symbol)
-    if mock_data:
-        logger.info("Using generated option chain for %s (dev fallback)", symbol)
-        return mock_data
-
+    # No simulated fallback. See the note on `OptionChainEngine.get_option_chain`: the generator
+    # that used to be called here produced a formula-built chain whose only label was
+    # `mock: True`, which the frontend does not read, so the fabricated premiums reached the UI as
+    # though they were real. The 503 below is the honest answer and it already existed.
     raise HTTPException(status_code=503, detail=f"Option chain unavailable for {symbol}")
 
 
