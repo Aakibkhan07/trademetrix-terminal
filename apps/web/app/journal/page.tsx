@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useApi } from '@/lib/use-api'
 import { fmtMoney, fmtNum, NO_VALUE } from '@/lib/format'
+import { journalNarrative, type JournalResponse } from '@/lib/journal'
 
 /**
  * Trade Journal.
@@ -61,22 +62,6 @@ import { fmtMoney, fmtNum, NO_VALUE } from '@/lib/format'
  * computing them server-side from closed trades first — a feature, not a rendering fix.
  */
 
-interface JournalStats {
-  total_trades?: number
-  buy_trades?: number
-  sell_trades?: number
-  unique_symbols?: number
-  /** Gross turnover, not P&L. `ai/journal.py::_compute_stats` sums filled order value. */
-  total_value?: number
-  period_days?: number
-}
-
-interface JournalResponse {
-  /** A plain sentence when the AI is unconfigured, or the parsed model output. */
-  analysis?: string | Record<string, unknown>
-  stats?: JournalStats
-}
-
 /** A row of the `orders` audit table, as `/engine/orders` returns it. */
 interface EngineOrder {
   id: string
@@ -127,14 +112,7 @@ export default function JournalPage() {
   const { data, loading, error } = useApi<JournalResponse>('/ai/journal?lookback_days=30')
   const stats = data?.stats ?? {}
 
-  const analysisText =
-    typeof data?.analysis === 'string'
-      ? data.analysis
-      : data?.analysis && typeof data.analysis === 'object'
-        ? Object.entries(data.analysis as Record<string, unknown>)
-            .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
-            .join('\n')
-        : null
+  const analysisText = journalNarrative(data?.analysis)
 
   const [orders, setOrders] = useState<EngineOrder[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)

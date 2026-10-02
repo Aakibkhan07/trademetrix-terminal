@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "dev": "next dev",
     "lint": "next lint",
+    "start": "next start",
     "test:lib": "rm -rf dist-test && tsc $(find lib -name '*.test.ts') --outDir dist-test --module commonjs --target es2020 --moduleResolution node --skipLibCheck --esModuleInterop && node --test dist-test/",
     "verify:browser": "node scripts/browser/verify_local_demo.js",
+    "verify:contracts": "node scripts/browser/crawl_all_routes.js --out /tmp/contract_audit && python3 scripts/audit_api_contracts.py --signatures /tmp/contract_audit/response_signatures.json",
     "verify:session": "node scripts/browser/verify_session_survives_reload.js"
   },
   "dependencies": {

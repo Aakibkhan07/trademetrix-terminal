@@ -1,6 +1,7 @@
 'use client'
 import { useApi } from '@/lib/use-api'
 import { fmtMoney, fmtNum, NO_VALUE } from '@/lib/format'
+import { journalNarrative, type JournalResponse } from '@/lib/journal'
 
 /**
  * What `GET /ai/journal?lookback_days=1` actually answers — `ai/journal.py::analyze_trades`.
@@ -22,34 +23,11 @@ import { fmtMoney, fmtNum, NO_VALUE } from '@/lib/format'
  * response really carries, and the figures that do not exist are not shown at all. Adding them
  * later means adding them to `_compute_stats` first.
  */
-interface JournalStats {
-  total_trades?: number
-  buy_trades?: number
-  sell_trades?: number
-  unique_symbols?: number
-  total_value?: number
-  period_days?: number
-}
-
-interface JournalResponse {
-  /** A short narrative, or a plain sentence when the AI is unconfigured. */
-  analysis?: string | Record<string, unknown>
-  stats?: JournalStats
-}
-
 export default function DailyReportPage() {
   const today = new Date().toISOString().slice(0, 10)
   const { data, loading } = useApi<JournalResponse>(`/ai/journal?lookback_days=1`)
   const stats = data?.stats ?? {}
-  // `analysis` is a string when the model answered and an object when it parsed; both render.
-  const analysisText =
-    typeof data?.analysis === 'string'
-      ? data.analysis
-      : data?.analysis && typeof data.analysis === 'object'
-        ? Object.entries(data.analysis as Record<string, unknown>)
-            .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
-            .join('\n')
-        : null
+  const analysisText = journalNarrative(data?.analysis)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 900, margin: '0 auto' }}>

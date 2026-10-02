@@ -79,6 +79,31 @@ const FAILURE_TEXT = [
   /Unexpected Application Error/i,
 ]
 
+/**
+ * Text that means a value was *rendered* but was not a value.
+ *
+ * This is the half of the contract-mismatch class that does not throw. `/journal` declared a
+ * `JournalData` with `win_rate`, `sharpe_ratio`, `equity_curve` and `monthly_returns` — none of
+ * which `/ai/journal` returns — and the page stayed clean in this crawler because a guard
+ * (`total_trades > 0 || entries?.length > 0`) was permanently false. Every one of those figures
+ * is `undefined`, and an `undefined` that reaches the DOM shows up here as text.
+ *
+ * `NaN` is the common one: `₹${(undefined).toLocaleString()}` throws, but
+ * `${undefined}` and `Number(undefined)` do not — the first prints the word, the second prints
+ * `NaN`, and a `?? 0` in between prints a confident zero. A page asserting `hasData` and then
+ * rendering `NaN` looks identical to a working one in a status code.
+ *
+ * `[object Object]` catches an object rendered where a scalar was read. `Infinity` and `-Infinity`
+ * catch a division or an unbounded ratio, which also tends to mean a missing denominator.
+ */
+const BAD_VALUE_TEXT = [
+  { re: /\bNaN\b/, why: 'NaN — arithmetic on a missing or non-numeric value' },
+  { re: /\bundefined\b/, why: 'undefined — a value read from a response that does not contain it' },
+  { re: /\[object Object\]/, why: '[object Object] — an object rendered where a scalar was expected' },
+  { re: /\b-?Infinity\b/, why: 'Infinity — a ratio or division with no real denominator' },
+  { re: /₹\s*NaN/, why: '₹NaN — currency formatting of a non-number' },
+]
+
 const ROUTES = `/
 /account
 /admin
@@ -149,7 +174,7 @@ const EXPECTED_REDIRECT = {
 }
 
 ;(async () => {
-  if (SHOTS) fs.mkdirSync(OUT, { recursive: true })
+  fs.mkdirSync(OUT, { recursive: true })  // always: the signature report is not optional
 
   const browser = await puppeteer.launch({
     executablePath: CHROME,
@@ -159,7 +184,7 @@ const EXPECTED_REDIRECT = {
   const page = await browser.newPage()
   await page.setViewport({ width: 1500, height: 1100 })
 
-  let bucket = { pageErrors: [], consoleErrors: [], http: [] }
+  let bucket = { pageErrors: [], consoleErrors: [], http: [], signatures: [] }
   const collector = () => {
     page.on('pageerror', (e) => bucket.pageErrors.push(String(e.message || e).slice(0, 200)))
     page.on('console', (m) => {
@@ -168,7 +193,30 @@ const EXPECTED_REDIRECT = {
     page.on('response', (r) => {
       const u = r.url()
       if (u.startsWith(API_ORIGIN) || u.startsWith(BASE)) {
-        bucket.http.push({ status: r.status(), path: u.replace(API_ORIGIN, '').replace(BASE, '') })
+        const path = u.replace(API_ORIGIN, '').replace(BASE, '')
+        bucket.http.push({ status: r.status(), path })
+        // Capture what the endpoint *actually* returns, not what the page claims it returns.
+        // This is the evidence a contract audit needs, and it is only obtainable at runtime:
+        // the same route answers differently for a user with trades and one without.
+        if (r.status() < 400 && !bucket.signatures.some((s) => s.path === path.split('?')[0])) {
+          r.json()
+            .then((body) => {
+              const sig = { path: path.split('?')[0], keys: [], itemKeys: null }
+              if (body && typeof body === 'object') {
+                sig.keys = Object.keys(body).sort()
+                // Several endpoints answer with a single-key envelope — `{ orders: [...] }` — and
+                // the frontend type describes the *item*, not the envelope. Comparing an item type
+                // against envelope keys reports every field as missing, which is how the first
+                // version of `audit_api_contracts.py` produced pure noise. So the first element's
+                // keys are captured too, and the audit compares against whichever level the
+                // declaration actually describes.
+                const first = Object.values(body).find((v) => Array.isArray(v) && v.length > 0)
+                if (first) sig.itemKeys = Object.keys(first[0]).sort()
+              }
+              bucket.signatures.push(sig)
+            })
+            .catch(() => {})
+        }
       }
     })
   }
@@ -199,7 +247,7 @@ const EXPECTED_REDIRECT = {
       continue
     }
 
-    bucket = { pageErrors: [], consoleErrors: [], http: [] }
+    bucket = { pageErrors: [], consoleErrors: [], http: [], signatures: [] }
 
     let navOk = true
     try {
@@ -212,19 +260,25 @@ const EXPECTED_REDIRECT = {
     // Long enough for the slowest poller to land, short enough to keep 50 routes tolerable.
     await sleep(6000)
 
-    const info = await page.evaluate((failPatterns) => {
+    const info = await page.evaluate((failPatterns, badPatterns) => {
       const text = document.body.innerText || ''
-      const matches = failPatterns
-        .map((p) => ({ p, m: text.match(new RegExp(p.source, 'i')) }))
-        .filter((x) => x.m)
-        .map((x) => x.m[0].trim().slice(0, 60))
+      const grab = (patterns, flags) =>
+        patterns
+          .map((p) => ({ p, m: text.match(new RegExp(p.source, flags)) }))
+          // A zero-length match means the pattern itself is broken — `new RegExp(undefined)` is
+          // `/(?:)/`, which matches at index 0 of every string. Reporting that as "the page
+          // rendered NaN" is worse than reporting nothing, so it is dropped here rather than
+          // being allowed to mark every route as failing.
+          .filter((x) => x.m && x.m[0].length > 0)
+          .map((x) => ({ hit: x.m[0].trim().slice(0, 40), why: x.p.why }))
       return {
         url: location.pathname + location.search,
         textLen: text.trim().length,
-        matches: [...new Set(matches)],
+        matches: [...new Set(grab(failPatterns, 'i').map((x) => x.hit))],
+        bad: grab(badPatterns, ''),
         h1: (document.querySelector('h1')?.innerText || '').trim().slice(0, 48),
       }
-    }, FAILURE_TEXT.map((p) => ({ source: p.source })))
+    }, FAILURE_TEXT.map((p) => ({ source: p.source })), BAD_VALUE_TEXT.map((p) => ({ source: p.re.source, why: p.why })))
 
     const consoleErrors = bucket.consoleErrors.filter((t) => !BENIGN_CONSOLE.some((r) => r.test(t)))
     const http = bucket.http.filter(
@@ -244,6 +298,9 @@ const EXPECTED_REDIRECT = {
     if (consoleErrors.length) problems.push(`${consoleErrors.length} console error(s): ${consoleErrors[0].slice(0, 80)}`)
     if (http.length) problems.push(`HTTP: ${[...new Set(http.map((h) => `${h.status} ${h.path}`))].slice(0, 4).join(', ')}`)
     if (info.matches.length) problems.push(`failure text on screen: ${info.matches.join(' | ')}`)
+    if (info.bad.length) {
+      for (const b of info.bad) problems.push(`bad value rendered: "${b.hit}" — ${b.why}`)
+    }
     if (info.textLen < 120 && !adminRedirected) problems.push(`only ${info.textLen} chars rendered`)
     if (redirectedAway && !adminRedirected) problems.push(`redirected to ${info.url}`)
 
@@ -259,6 +316,7 @@ const EXPECTED_REDIRECT = {
       h1: info.h1,
       adminRedirected,
       problems,
+      signatures: bucket.signatures,
     })
   }
 
@@ -288,9 +346,18 @@ const EXPECTED_REDIRECT = {
     }
   }
 
+  // The observed response keys, per route. Written out because a frontend contract audit
+  // cannot be done from the source alone: it needs to know what each endpoint actually
+  // answered for this user, which is the one thing a declared TypeScript interface gets wrong.
+  fs.writeFileSync(path.join(OUT, 'response_signatures.json'), JSON.stringify(
+    Object.fromEntries(report.filter((r) => r.signatures?.length).map((r) => [r.route, r.signatures])),
+    null, 2,
+  ))
+
   const checked = report.filter((r) => !r.skipped && !r.fatal).length
   console.log(`\n${'='.repeat(70)}`)
   console.log(`${checked - bad}/${checked} routes clean (${report.filter((r) => r.skipped).length} skipped: standalone auth)`)
+  console.log(`\nresponse key signatures: ${path.join(OUT, 'response_signatures.json')}`)
   if (SHOTS) console.log(`screenshots: ${OUT}`)
   process.exit(bad ? 1 : 0)
 })().catch((e) => {
