@@ -42,11 +42,36 @@
    Proven by mutation: dropping the `role` column fails 6 with an actionable message;
    removing the execution fallback in `resolve_market_data_broker` fails 1.
 
+### Applied to production
+5. **Both migrations are now live.** `01000` and `02000` applied to the production Supabase,
+   followed by `NOTIFY pgrst, 'reload schema'`. Verified afterwards:
+
+   * `role` is `text NOT NULL DEFAULT 'execution'`, with zero NULL rows
+   * `broker_credentials_user_id_broker_key` replaced by
+     `broker_credentials_user_id_broker_role_key`; `broker_credentials_role_check` in place
+   * `idx_broker_credentials_user_role_active` created
+   * **17 credential rows before, 17 after.** All 17 backfilled to `execution`; the
+     per-broker breakdown is byte-identical (zerodha 6, fyers 4, dhan 3, upstox 2, angelone 1,
+     lemonn 1) and the 15 active rows are untouched. No tenant was re-pointed.
+   * production PostgREST serves `role` (200, real rows) after the schema reload
+   * `service_role` already had SELECT on 47 tables, so `02000` was a no-op there — which is
+     the "applied by hand, never captured in a migration" diagnosis confirmed from the other
+     side
+
+6. **`scripts/verify_production_broker_roles.py`** (new, read-only) — runs the role-aware
+   repository against live data for every real tenant. This is the check that "applied" alone
+   does not provide: `async_safe_single` turns a permission error or a missing column into
+   `None`, and `None` is what every caller already means by "broker not connected", so a
+   clean `psql \d` and a passing `/health` coexist happily with a completely broken broker
+   path. Result on production: all 12 tenants' execution reads return real rows, and no
+   tenant resolves to "no broker" unless its only credential is inactive — which is the
+   correct answer. It refuses to run if `SUPABASE_URL` is local, and calls only `get_*` and
+   `resolve_market_data_broker`; `activate_broker` would change which broker a paying
+   tenant's orders route through.
+
 ### Note for deployment
-5. **Both migrations must be applied to production before the code is deployed.** The role
-   column is what the role-aware reads select, and the grants are what let any query reach
-   the table at all. Deployed in the wrong order — code first — every broker read returns
-   `None` and every tenant is shown as "broker not connected" while being connected.
+7. **The migration half of the ordering risk is now closed.** Both migrations are live, so
+   deploying the code is no longer a schema race. What remains is the code deploy itself.
 
 ### Validation
 - API suite **1198 passed, 1 xfailed**. `ruff check .` clean. Local database left with zero
