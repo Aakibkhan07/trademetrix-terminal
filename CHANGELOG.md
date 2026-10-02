@@ -76,17 +76,26 @@
    the pattern `core/telegram.py` already uses for this PostgREST limitation. Verified by restart:
    paper positions now survive a process restart, which they previously did not.
 
-6. **A resting order was retried into a false REJECTED** (`apps/api/oms` path, diagnosed not
-   changed). The OMS re-enqueues a non-terminal order (`attempt 1, 2, 3` for one `oms_order_id` in
-   a single request). Each retry re-runs `validate_order`, and from the second attempt the order's
-   **own** row exists, so `_check_duplicate` rejects it as a new submission — the user is told
-   REJECTED while their order is genuinely resting PENDING. Two things make this survivable and are
-   worth stating rather than assuming: the duplicate check runs **before** `_insert_order_atomic`,
-   so it is what stops a retry re-sending to the broker; and `idx_orders_client_order_id` plus
-   `ExecutionManager._check_existing_order` already implement the correct idempotent path
-   (`DUPLICATE_REQUEST`, returning the existing order) that validation pre-empts. Removing the check
-   would re-open a double-send risk and is deliberately **not** done here. Filed for a deliberate
-   fix; on a clean slate the full path returns FILLED at a real price.
+6. **OBSERVED ONCE, ROOT CAUSE NOT PINNED — not reproducing.** While migrating the schema, a batch
+   of three paper orders came back `REJECTED / "Validation failed"` while `orders` held PENDING rows
+   for the *same* client order ids, and the OMS log showed one `oms_order_id` re-enqueued four times
+   (`attempt 1, 2, 3`). From the second attempt `validate_order`'s `_check_duplicate` finds the
+   order's own row and rejects it, so the user is told REJECTED while the order rests PENDING.
+
+   This could not be reproduced on a clean slate. `oms/manager.py:504` shows a successful-but-resting
+   order takes the PENDING branch and is **not** re-enqueued — the retry path at line 511 is only
+   reached when `exec_result.success` is False. Measured directly on the PENDING path: **0 retries,
+   0 validation failures**, and the audit row reads `PENDING filled=0 @0`, not a fabricated
+   `FILLED @0`. The observed batch was placed while `orders` still held rows from earlier probe
+   scripts, so the most likely explanation is that residue rather than a live defect — but "most
+   likely" is not a diagnosis and it is recorded here as unexplained rather than closed.
+
+   One thing is worth preserving regardless, because it constrains any future fix: the duplicate
+   check runs **before** `_insert_order_atomic`, so it is what currently stops a retry re-sending to
+   the broker. `idx_orders_client_order_id` plus `ExecutionManager._check_existing_order` already
+   implement the correct idempotent path (`DUPLICATE_REQUEST`, returning the existing order) that
+   validation pre-empts. Deleting the check would re-open a double-send risk, which is why nothing
+   here touches it.
 
 7. **Paper fills had no price source outside a broker token** (`apps/api/paper/paper_broker.py`).
    `_ensure_quote` tried only the in-process cache and Fyers, so every paper-only tenant — and any
@@ -145,9 +154,8 @@
 
 ### Known gaps
 
-- Item 6 above is diagnosed and deliberately not changed: it needs the OMS retry policy and the
-  idempotency path decided together, not a one-line removal of a check that currently prevents a
-  double-send.
+- Item 6 is **unexplained, not fixed**: observed once under a dirty schema, does not reproduce, and
+  its root cause was not pinned. Worth watching for rather than treating as closed.
 - Whether production has these tables/columns is **not verified** — the VPS does not answer from this
   workstation. `IF NOT EXISTS` makes applying `04000`/`05000` either way a no-op rather than a
   failure, but production is not measured.
