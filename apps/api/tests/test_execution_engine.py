@@ -490,10 +490,14 @@ class TestPnLAndPortfolio:
         portfolio_engine.install()
 
         # Profit -> equity rises; then a losing trade -> drawdown
-        await execution_bus.apublish(fill_event("c1", "BUY", 10, 100.0)); await asyncio.sleep(0.05)
-        await execution_bus.apublish(fill_event("c2", "SELL", 10, 110.0)); await asyncio.sleep(0.05)
-        await execution_bus.apublish(fill_event("c3", "BUY", 10, 200.0)); await asyncio.sleep(0.05)
-        await execution_bus.apublish(fill_event("c4", "SELL", 10, 180.0)); await asyncio.sleep(0.05)
+        await execution_bus.apublish(fill_event("c1", "BUY", 10, 100.0))
+        await asyncio.sleep(0.05)
+        await execution_bus.apublish(fill_event("c2", "SELL", 10, 110.0))
+        await asyncio.sleep(0.05)
+        await execution_bus.apublish(fill_event("c3", "BUY", 10, 200.0))
+        await asyncio.sleep(0.05)
+        await execution_bus.apublish(fill_event("c4", "SELL", 10, 180.0))
+        await asyncio.sleep(0.05)
 
         acc = pnl_engine.get_account("u1", "paper")
         assert acc.realised_pnl == -100.0

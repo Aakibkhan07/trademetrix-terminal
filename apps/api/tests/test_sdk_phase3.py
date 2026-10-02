@@ -422,7 +422,6 @@ def test_ws_unsubscribe():
 
 
 def test_ws_connect_resubscribe_and_dispatch():
-    import json
 
     events = []
     m, backends = _make_manager(on_message=lambda d: events.append(d))
@@ -445,7 +444,6 @@ def test_ws_connect_resubscribe_and_dispatch():
 
 
 def test_ws_message_routing_to_handler():
-    import json
 
     seen = []
     m, backends = _make_manager(handlers={"MARKET": lambda d: seen.append(d)})
@@ -466,7 +464,6 @@ def test_ws_message_routing_to_handler():
 
 
 def test_ws_pong_updates_latency():
-    import json
 
     m, backends = _make_manager()
 
@@ -487,7 +484,6 @@ def test_ws_pong_updates_latency():
 
 
 def test_ws_reconnect_after_connection_error():
-    import json
 
     m, backends = _make_manager(config=WSConfig(read_poll_seconds=0.01, heartbeat_interval=0, jitter=0))
 

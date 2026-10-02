@@ -156,9 +156,9 @@ async def _websocket_driver(adapter: Any, timeout: float = 20.0) -> dict[str, An
         return {"passed": False, "error": "adapter lacks subscribe_market_data"}
 
     try:
-        from brokers.sdk.errors import UnsupportedFeatureError as _USFE  # noqa: PLC0415
+        from brokers.sdk.errors import UnsupportedFeatureError  # noqa: PLC0415
     except ImportError:  # pragma: no cover
-        _USFE = Exception
+        UnsupportedFeatureError = Exception
 
     deadline = asyncio.get_running_loop().time() + timeout
     candidates = ["NSE:NIFTY", "NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX"]
@@ -178,9 +178,9 @@ async def _websocket_driver(adapter: Any, timeout: float = 20.0) -> dict[str, An
 
 async def _probe_stream(adapter: Any, symbol: str, timeout: float) -> dict[str, Any]:
     try:
-        from brokers.sdk.errors import UnsupportedFeatureError as _USFE  # noqa: PLC0415
+        from brokers.sdk.errors import UnsupportedFeatureError  # noqa: PLC0415
     except ImportError:  # pragma: no cover
-        _USFE = Exception
+        UnsupportedFeatureError = Exception
 
     got_tick = asyncio.Event()
 
@@ -205,7 +205,7 @@ async def _probe_stream(adapter: Any, symbol: str, timeout: float) -> dict[str, 
         # idle (e.g. market closed). Ticks are market-hours dependent; a connected
         # stream with no errors is a live subscription, so score it a pass.
         return {"passed": True, "detail": "subscription connected (no tick — market closed?)"}
-    except _USFE as exc:
+    except UnsupportedFeatureError as exc:
         return {"passed": False, "error": str(exc), "skipped": True}
     except Exception as exc:  # noqa: BLE001
         return {"passed": False, "error": f"{type(exc).__name__}: {exc}"}

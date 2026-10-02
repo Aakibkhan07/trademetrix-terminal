@@ -587,7 +587,7 @@ def bridge_engine_events() -> None:
 
     _UI_DOMAINS = {ExecutionDomain.TRADE, ExecutionDomain.POSITION, ExecutionDomain.PORTFOLIO}
 
-    def _back_forward(event: "ExecutionEngineEvent") -> None:
+    def _back_forward(event: ExecutionEngineEvent) -> None:
         if event.domain not in _UI_DOMAINS or not event.user_id:
             return
         try:

@@ -305,7 +305,6 @@ async def zerodha_exchange_request_token(
     req: ZerodhaRequestTokenInput,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    import httpx
 
     supabase = get_supabase()
     cred = safe_single(
@@ -351,7 +350,6 @@ async def zerodha_callback(
     request_token: str = Query(alias="request_token"),
     state: str | None = Query(None),
 ):
-    import httpx
     from urllib.parse import quote
 
     FRONTEND_URL = ZERODHA_REDIRECT_URI.rsplit("/", 1)[0]  # strip /callback → base URL

@@ -27,7 +27,7 @@ from strategy_runtime.models import (
 )
 from strategy_runtime.observability import RuntimeObservability, runtime_observability
 from strategy_runtime.registry import RuntimeRecord, RuntimeRegistry
-from strategy_runtime.state_machine import IllegalTransition, can_transition
+from strategy_runtime.state_machine import IllegalTransitionError, can_transition
 from strategy_runtime.state_store import StrategyStateStore
 from strategy_runtime.workers import StrategyWorker
 
@@ -42,7 +42,7 @@ __all__ = [
     "runtime_observability",
     "RuntimeRecord",
     "RuntimeRegistry",
-    "IllegalTransition",
+    "IllegalTransitionError",
     "can_transition",
     "StrategyStateStore",
     "StrategyWorker",

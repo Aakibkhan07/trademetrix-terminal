@@ -103,7 +103,7 @@ _GOOD = _rl_colors.HexColor("#16a34a")
 _BAD = _rl_colors.HexColor("#dc2626")
 
 
-def _pdf_chart(values: list, stroke: str, fill: str) -> "object | None":
+def _pdf_chart(values: list, stroke: str, fill: str) -> object | None:
     """Return a reportlab Drawing with a single line series, or None."""
     if not _REPORTLAB or not values or len(values) < 2:
         return None

@@ -24,7 +24,7 @@ TRANSITIONS: dict[RuntimeState, set[RuntimeState]] = {
 RESTARTABLE = frozenset({RuntimeState.CREATED, RuntimeState.STOPPED, RuntimeState.FAILED})
 
 
-class IllegalTransition(Exception):
+class IllegalTransitionError(Exception):
     def __init__(self, current: RuntimeState, target: RuntimeState):
         self.current = current
         self.target = target
@@ -37,5 +37,5 @@ def can_transition(current: RuntimeState, target: RuntimeState) -> bool:
 
 def require_transition(current: RuntimeState, target: RuntimeState) -> RuntimeState:
     if not can_transition(current, target):
-        raise IllegalTransition(current, target)
+        raise IllegalTransitionError(current, target)
     return target

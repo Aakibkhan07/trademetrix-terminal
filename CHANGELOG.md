@@ -1,3 +1,73 @@
+## Unreleased — lint job green for the first time; an FXTM broker key that resolved to nothing
+
+> The `Lint API` CI job had never passed — 0 green in 60 runs, since it was created on
+> 2026-08-24. `main` was unprotected and nobody watches the Actions tab, so it stayed red
+> for five weeks. Meanwhile a web build broken on `main` also went unreported for ten days,
+> which is what a permanently-red job teaches: that red means nothing here.
+
+### Fixed
+1. **`_MT5_BROKER_CONFIG` keyed FXTM as `"fxTM"` while the registry offers `"fxtm"`**
+   (`brokers/mt5_adapter.py`) — the lookup is `_MT5_BROKER_CONFIG.get(broker_key, {})`, so a
+   mismatch raises nothing; it returns `{}` and every field falls back to its generic default.
+   FXTM silently resolved to `"MT5 Server"` instead of `"FXTM Server"`. The key is now
+   `fxtm`, and `tests/test_broker_mt5_config.py` (20 tests) asserts every key the MT5 connect
+   form can produce resolves in the config, so the next broker added to the registry without
+   one — or a case slip on either side — fails a test instead of returning a default.
+2. **Duplicate `"fbs"` entry** in the same dict. Values were byte-identical, so there was no
+   behavioural difference; the hazard was that it is exactly the shape of entry that makes
+   someone later edit the copy that is not in effect.
+3. **Documented what that dict actually does** — `display_name` and `description` are read by
+   nobody, and its one live field, `mt5_server`, is a *required* credential that
+   `authenticate` overwrites with the user's value. So the config contributes nothing to a
+   live session today. Recorded in the module so nobody assumes a field is wired up.
+
+### Changed
+4. **`IllegalTransition` → `IllegalTransitionError`** (`strategy_runtime/state_machine.py`,
+   exported from `strategy_runtime/__init__.py`) — satisfies the `N818` naming rule the repo
+   configures. Four call sites; the v1.0.0 CHANGELOG entry is left as written, since it
+   records what that release contained.
+5. **`Capability` alias now uses the `type` statement** (`brokers/sdk/capabilities.py`) —
+   lazily evaluated, so the forward reference to `CapabilityFlag` still resolves.
+6. **Live-cert probes import `UnsupportedFeatureError` under its own name** rather than the
+   `_USFE` alias (`brokers/sdk/live_cert.py`).
+
+### Dev / CI
+7. **`Lint API` passes.** The 43 findings were 23 `F811` re-imports of pytest fixtures and
+   module flags (a documented idiom, now a `per-file-ignores` entry for `tests/*.py`), 4
+   quoted type annotations, 1 duplicate dict key, 4 semicolon-joined statements, 2 aliased
+   CamelCase imports and 2 naming rules. None was a behavioural defect; the duplicate dict
+   key in item 2 above is the only one that could ever have become one.
+8. **The ruff config in `pyproject.toml` was dead.** `apps/api/ruff.toml` takes precedence,
+   and the two disagreed — `select` listed `I` while the effective config ignored `I001`, and
+   `line-length` was 100 in one and 120 in the other. Editing the `pyproject.toml` section
+   appeared to work and changed nothing, which is a likely reason the job was never fixed.
+   The empty tables remain with a signpost explaining where the real settings live.
+9. **New `Test Web Lib` CI job** runs the `apps/web/lib` assertions, and the `test:lib`
+   script discovers `*.test.ts` with `find` instead of naming files, so a new test cannot be
+   silently skipped by a script that was never updated.
+
+### Known gaps (deliberately not fixed here)
+10. **The `mypy` CI step has never run.** It is passed `market/runtime/engine/core/execution`,
+    which does not exist — those are five sibling directories, not a nested path. The step
+    errors immediately and `|| true` swallows it, so type checking has never once executed in
+    this project. Pointed at the real paths it reports **181 errors across 48 files** (mostly
+    `no-untyped-def`, with `disallow_untyped_defs = true`).
+    Left alone on purpose: switching it on with 181 findings would create a second job that is
+    red forever, which is the failure mode item 7 above exists to undo. It needs either 181
+    annotations or an agreed baseline, and that is a standards decision rather than a side
+    effect of a lint cleanup.
+11. **`Load Test` has also never passed** — 0 green in 60 runs. The cause is infrastructure,
+    not the code: `supabase start` pulls its image set anonymously and hits Docker Hub's
+    rate limit (`toomanyrequests: Rate exceeded`), after which `supabase db reset` fails on
+    `schema_migrations_pkey`. No load test has ever actually executed. Fixing it needs a
+    Docker Hub credential in repository secrets.
+
+### Validation
+- API suite **1192 passed, 1 xfailed**. `ruff check .` clean (first time). Web build compiles.
+- `mt5` config tests proven by mutation: `"fxtm"` → `"fxTM"` fails 4; re-adding the duplicate
+  `"fbs"` fails 1.
+- Zerodha import guard proven by mutation: removing the module-level `import httpx` fails 4.
+
 ## v1.8.0 (2026-08-24) — Google sign-in (Supabase GoTrue OAuth) — code live; provider activation pending dashboard config
 
 > "Continue with Google" is now on the sign-in/sign-up pages end-to-end. The full code path ships and is deployed; flipping it live requires ONE manual step in the Supabase dashboard (Google provider credentials), which only the project owner can do.

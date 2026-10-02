@@ -126,7 +126,7 @@ class FifoLots:
             }
 
     @classmethod
-    def from_lots(cls, lots: dict[str, list[list[float]]]) -> "FifoLots":
+    def from_lots(cls, lots: dict[str, list[list[float]]]) -> FifoLots:
         """Reconstruct from ``to_lots`` output (deterministic round-trip)."""
         fifo = cls()
         fifo._longs = [[float(qty), float(price)] for qty, price in lots.get("longs", [])]

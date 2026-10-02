@@ -105,7 +105,7 @@ class WebSocketManager:
         handlers: dict[str, Callable[[dict], Any]] | None = None,
         on_state_change: Callable[[str], None] | None = None,
         event_bus: AuditEventBus | None = None,
-        config: "WSConfig | None" = None,
+        config: WSConfig | None = None,
     ) -> None:
         self.broker = broker
         self.account = account

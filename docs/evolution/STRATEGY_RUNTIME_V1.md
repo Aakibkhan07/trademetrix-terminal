@@ -24,7 +24,7 @@ for backward compatibility. The runtime composes on the frozen infra
 strategy_runtime/
 ├── __init__.py          public API + __version__ = "1.0.0"
 ├── models.py            StrategySpec, StrategyTrigger, RuntimeState, statuses
-├── state_machine.py     RuntimeStateMachine + IllegalTransition + can_transition
+├── state_machine.py     RuntimeStateMachine + IllegalTransitionError + can_transition
 ├── registry.py          RuntimeRecord + RuntimeRegistry (per-user/per-broker)
 ├── context.py           RuntimeContext + position_memory_for()
 ├── lifecycle.py         RuntimeLifecycle + strategy_runtime_lifecycle singleton
@@ -51,7 +51,7 @@ strategy_runtime/
 ```
 
 Valid transitions are enforced by `RuntimeStateMachine.can_transition()`;
-illegal ones raise `IllegalTransition`. State is persisted via
+illegal ones raise `IllegalTransitionError`. State is persisted via
 `StrategyStateStore` (Supabase-backed in prod, in-memory in tests) and
 restored idempotently by `RuntimeRecovery` on startup:
 

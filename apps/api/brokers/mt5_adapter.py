@@ -39,6 +39,20 @@ _PENDING_API_DETAIL = (
 )
 
 # Per-broker MT5 server config (scaffold — fill when you have real accounts)
+#
+# **Keys must match the `value` slugs in `registry.py`'s MT5 metadata exactly, case
+# included.** They are looked up with `_MT5_BROKER_CONFIG.get(broker_key, {})`, so a
+# mismatch does not raise — it returns `{}` and every field silently falls back to its
+# generic default. This dict already had `"fxTM"` where the registry says `"fxtm"`, so
+# FXTM resolved to nothing at all. `test_broker_mt5_config.py` now asserts the two agree.
+#
+# **Read this before assuming a field is live.** The only field anything reads is
+# `mt5_server` (in `__init__`), and `mt5_server` is a *required* credential — `authenticate`
+# rejects a payload without it and then overwrites the default with the user's value. So in
+# practice this dict contributes nothing to a live session: `display_name` and `description`
+# are read by nobody, and the server default is always replaced. It is kept as scaffolding
+# for the MT5 certification work, and the fields are here so that work has a starting shape.
+# Do not treat `display_name` as something the frontend already shows — it is not.
 _MT5_BROKER_CONFIG: dict[str, dict] = {
     "xm": {
         "display_name": "XM",
@@ -65,7 +79,7 @@ _MT5_BROKER_CONFIG: dict[str, dict] = {
         "mt5_server": "IBFX Server",
         "description": "Forex/CFD broker via MT5 protocol",
     },
-    "fxTM": {
+    "fxtm": {  # was "fxTM" — never matched the registry's "fxtm"
         "display_name": "FXTM",
         "mt5_server": "FXTM Server",
         "description": "Forex/CFD broker via MT5 protocol",
@@ -78,11 +92,6 @@ _MT5_BROKER_CONFIG: dict[str, dict] = {
     "litefinance": {
         "display_name": "LiteFinance",
         "mt5_server": "LiteFinance Server",
-        "description": "Forex/CFD broker via MT5 protocol",
-    },
-    "fbs": {
-        "display_name": "FBS",
-        "mt5_server": "FBS Server",
         "description": "Forex/CFD broker via MT5 protocol",
     },
 }

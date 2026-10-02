@@ -16,11 +16,11 @@ certification evidence.
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any, Iterable, TypeAlias
+from typing import Any, Iterable
 
 from brokers.sdk.errors import UnsupportedFeatureError
 
-Capability: TypeAlias = "CapabilityFlag"
+type Capability = CapabilityFlag  # lazy: the alias is declared before the enum
 
 
 class CapabilityFlag(StrEnum):

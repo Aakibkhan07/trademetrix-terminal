@@ -266,7 +266,7 @@ async def test_pause_resume_restart(_clean_runtime):
 @pytest.mark.asyncio
 async def test_state_machine_transition_table():
     from strategy_runtime.state_machine import (
-        IllegalTransition,
+        IllegalTransitionError,
         can_transition,
         require_transition,
     )
@@ -278,7 +278,7 @@ async def test_state_machine_transition_table():
     assert not can_transition(RuntimeState.RECOVERED, RuntimeState.RUNNING)
 
     require_transition(RuntimeState.RUNNING, RuntimeState.PAUSED)  # ok
-    with pytest.raises(IllegalTransition):
+    with pytest.raises(IllegalTransitionError):
         require_transition(RuntimeState.RECOVERED, RuntimeState.RUNNING)
 
 
