@@ -194,23 +194,20 @@ def seed_database(user_id: str, broker: str = "paper") -> None:
 
     # `strategy_runs.strategy_id` also carries a foreign key to `strategies.id`, so the run
     # needs a parent row. Idempotent: remove both, then re-insert.
-    sql("DELETE FROM strategy_runs WHERE user_id = '%s' AND strategy_id = '%s';"
-        % (user_id, demo_run_id))
-    sql("DELETE FROM strategies WHERE id = '%s';" % demo_run_id)
+    sql(f"DELETE FROM strategy_runs WHERE user_id = '{user_id}' AND strategy_id = '{demo_run_id}';")
+    sql(f"DELETE FROM strategies WHERE id = '{demo_run_id}';")
     sql(
         "INSERT INTO strategies (id, user_id, name, type, config, is_active) "
-        "VALUES ('%s', '%s', 'Demo Paper Strategy', 'builtin', '{}'::jsonb, true);"
-        % (demo_run_id, user_id)
+        f"VALUES ('{demo_run_id}', '{user_id}', 'Demo Paper Strategy', 'builtin', '{{}}'::jsonb, true);"
     )
     sql(
         "INSERT INTO strategy_runs (user_id, strategy_id, broker, mode, symbols, status, "
-        "started_at) VALUES ('%s', '%s', '%s', 'PAPER', "
+        "started_at) VALUES "
+        f"('{user_id}', '{demo_run_id}', '{broker}', 'PAPER', "
         "ARRAY['NSE:NIFTY50-INDEX','NSE:BANKNIFTY-INDEX','NSE:FINNIFTY-INDEX'], 'running', now());"
-        % (user_id, demo_run_id, broker)
     )
 
-    sql("DELETE FROM positions_snapshot WHERE user_id = '%s' AND broker = '%s';"
-        % (user_id, broker))
+    sql(f"DELETE FROM positions_snapshot WHERE user_id = '{user_id}' AND broker = '{broker}';")
     for symbol, qty, avg_buy, avg_sell, unreal, realised in (
         ("NSE:NIFTY50-INDEX", 15, 24520.00, 0.0, 3975.00, 0.0),
         ("NSE:BANKNIFTY-INDEX", -12, 0.0, 51300.00, 5400.00, 0.0),
@@ -220,10 +217,9 @@ def seed_database(user_id: str, broker: str = "paper") -> None:
             "INSERT INTO positions_snapshot (user_id, broker, symbol, exchange, quantity, "
             "buy_quantity, sell_quantity, average_buy_price, average_sell_price, "
             "unrealised_pnl, realised_pnl, m2m, product, snapshot_at) VALUES "
-            "('%s', '%s', '%s', 'NSE', %d, %d, %d, %.2f, %.2f, %.2f, %.2f, %.2f, "
+            f"('{user_id}', '{broker}', '{symbol}', 'NSE', {qty}, {max(qty, 0)}, {max(-qty, 0)}, "
+            f"{avg_buy:.2f}, {avg_sell:.2f}, {unreal:.2f}, {realised:.2f}, {unreal + realised:.2f}, "
             "'INTRADAY', now());"
-            % (user_id, broker, symbol, qty, max(qty, 0), max(-qty, 0),
-               avg_buy, avg_sell, unreal, realised, unreal + realised)
         )
     print(f"seeded database rows: 1 PAPER run + 3 position snapshots for {user_id}")
 
