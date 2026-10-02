@@ -1,173 +1,197 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useApi } from '@/lib/use-api'
 import { api } from '@/lib/api'
+import { useApi } from '@/lib/use-api'
+import { fmtMoney, fmtNum, NO_VALUE } from '@/lib/format'
+
+/**
+ * Trade Journal.
+ *
+ * ## What this page used to claim, and why that was fiction
+ *
+ * It declared three response shapes and none of them existed. Every one was invented:
+ *
+ *   JournalData  { entries, total_pnl, win_rate, sharpe_ratio, max_drawdown,
+ *                  total_trades, avg_win, avg_loss, largest_win, largest_loss,
+ *                  monthly_returns, equity_curve }              — 12 fields
+ *   Trade        { id, symbol, side, quantity, price, pnl,
+ *                  status, timestamp, strategy }                 — 9 fields
+ *   JournalEntry { date, pnl, trades_count, win_rate }           — unused
+ *
+ * `JournalData` is recognisably a **backtest result** payload — those exact field names are
+ * what `PerformanceAnalytics` produces and what `routes/v1_backtest.py` serves. They were
+ * applied to a page reading a live journal endpoint. `win_rate`, `sharpe_ratio`,
+ * `max_drawdown_pct`, `equity_curve` and `monthly_returns` are computed for **backtests only**;
+ * there is no live-trading equivalent anywhere in the codebase, and `/analytics/pnl` returns a
+ * single float (today's P&L via `compute_daily_pnl_fifo`), not a series to build a curve from.
+ *
+ * `GET /ai/journal` actually answers `{ analysis, stats }`, where `stats` carries
+ * `total_trades`, `buy_trades`, `sell_trades`, `unique_symbols`, `total_value`, `period_days` —
+ * and even `total_trades` is nested one level down, so the old `journalData.total_trades` read
+ * `undefined`.
+ *
+ * The consequence was not a crash, which is why it survived. `hasData` was
+ * `journalData.total_trades > 0 || journalData.entries?.length > 0` — both `undefined`, both
+ * falsy — so **the entire KPI section, equity curve and monthly-returns panel never rendered,
+ * for any user, ever.** The page showed its "No trading data yet" empty state permanently while
+ * looking perfectly healthy.
+ *
+ * The trade table was worse, because it *was* reachable. It renders when
+ * `filteredTrades.length > 0`, and it was fed `/ai/journal/entries` — rows of `journal_entries`,
+ * whose columns are `id, user_id, entry_type, content, tags, trade_ids, created_at`. Only `id`
+ * is in the declared `Trade` shape. So `fmt(t.price)` received `undefined` and threw. Verified:
+ * inserting **one** journal entry put `/journal` into its error boundary with
+ * `Cannot read properties of undefined (reading 'toLocaleString')`. A user's first journal
+ * entry took the page down. It stayed hidden from the route crawler only because it needs the
+ * data to be present, and the test user had none.
+ *
+ * ## What it shows now
+ *
+ * Only things that exist:
+ *   - the four figures `_compute_stats` really produces
+ *   - the AI narrative, which is the one genuinely rich thing the endpoint returns
+ *   - executed trade history from `/engine/orders`, whose rows carry real `symbol`, `side`,
+ *     `quantity`, `average_price`, `status` and timestamps — so the side filter and the symbol
+ *     search work for the first time
+ *   - journal entries, with their real columns
+ *
+ * The per-trade performance analytics (win rate, Sharpe, drawdown, equity curve, monthly
+ * returns, gross profit/loss) are gone rather than rendered as zero. Adding them means
+ * computing them server-side from closed trades first — a feature, not a rendering fix.
+ */
+
+interface JournalStats {
+  total_trades?: number
+  buy_trades?: number
+  sell_trades?: number
+  unique_symbols?: number
+  /** Gross turnover, not P&L. `ai/journal.py::_compute_stats` sums filled order value. */
+  total_value?: number
+  period_days?: number
+}
+
+interface JournalResponse {
+  /** A plain sentence when the AI is unconfigured, or the parsed model output. */
+  analysis?: string | Record<string, unknown>
+  stats?: JournalStats
+}
+
+/** A row of the `orders` audit table, as `/engine/orders` returns it. */
+interface EngineOrder {
+  id: string
+  symbol?: string
+  side?: string
+  order_type?: string
+  status?: string
+  quantity?: number
+  filled_quantity?: number
+  price?: number
+  average_price?: number
+  broker?: string
+  is_paper?: boolean
+  latency_ms?: number
+  slippage?: number
+  filled_at?: string | null
+  created_at?: string
+}
+
+/** A row of `journal_entries`, as `/ai/journal/entries` returns it. */
+interface JournalEntryRow {
+  id: string
+  entry_type?: string
+  content?: string
+  tags?: string[] | null
+  trade_ids?: string[] | null
+  created_at?: string
+}
 
 function downloadCSV(rows: string[][], filename: string) {
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob([rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = url; a.download = filename; a.click()
+  a.href = url
+  a.download = filename
+  a.click()
   URL.revokeObjectURL(url)
 }
 
-interface Trade {
-  id: string
-  symbol: string
-  side: 'BUY' | 'SELL'
-  quantity: number
-  price: number
-  pnl: number
-  status: string
-  timestamp: string
-  strategy: string
-}
-
-interface JournalEntry {
-  date: string
-  pnl: number
-  trades_count: number
-  win_rate: number
-}
-
-interface JournalData {
-  entries: JournalEntry[]
-  total_pnl: number
-  win_rate: number
-  sharpe_ratio: number
-  max_drawdown: number
-  total_trades: number
-  avg_win: number
-  avg_loss: number
-  largest_win: number
-  largest_loss: number
-  monthly_returns: { month: string; return_pct: number }[]
-  equity_curve: number[]
-}
-
-function fmt(n: number) {
-  return n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-}
-
-function SvgEquityCurve({ points, height = 160 }: { points: number[]; height?: number }) {
-  if (!points || points.length < 2) {
-    return (
-      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="t-faint" style={{ fontSize: 14 }}>No equity data available</span>
-      </div>
-    )
-  }
-  const w = 800
-  const h = height
-  const min = Math.min(...points)
-  const max = Math.max(...points)
-  const range = max - min || 1
-  const pad = 16
-  const chartW = w - pad * 2
-  const chartH = h - pad * 2
-
-  const xScale = (i: number) => pad + (i / Math.max(points.length - 1, 1)) * chartW
-  const yScale = (v: number) => pad + chartH - ((v - min) / range) * chartH
-
-  const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${xScale(i)},${yScale(p)}`).join(' ')
-
-  const isUp = points[points.length - 1] >= points[0]
-  const color = isUp ? 'var(--green)' : 'var(--red)'
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={`${d} L${xScale(points.length - 1)},${pad + chartH} L${xScale(0)},${pad + chartH} Z`}
-        fill="url(#eqGrad)" />
-      <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function MonthlyBars({ data }: { data: { month: string; return_pct: number }[] }) {
-  if (!data || !data.length) {
-    return (
-      <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="t-faint" style={{ fontSize: 14 }}>No monthly data</span>
-      </div>
-    )
-  }
-  const maxAbs = Math.max(...data.map(d => Math.abs(d.return_pct)), 1)
-
-  return (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 100, padding: '8px 0' }}>
-      {data.map(d => {
-        const h = (Math.abs(d.return_pct) / maxAbs) * 80
-        const isPos = d.return_pct >= 0
-        return (
-          <div key={d.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <span style={{ fontSize: 10, color: isPos ? 'var(--text-green)' : 'var(--text-red)' }}>
-              {d.return_pct.toFixed(1)}%
-            </span>
-            <div style={{
-              width: '100%', height: Math.max(h, 4), borderRadius: '3px 3px 0 0',
-              background: isPos ? 'var(--green)' : 'var(--red)',
-              opacity: 0.8,
-            }} />
-            <span className="t-faint" style={{ fontSize: 10, writingMode: 'vertical-lr', textOrientation: 'mixed' }}>
-              {d.month}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
+function timeLabel(iso?: string | null): string {
+  if (!iso) return NO_VALUE
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return NO_VALUE
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export default function JournalPage() {
-  const { data: journalData, loading, error } = useApi<JournalData>('/ai/journal?lookback_days=30')
+  const { data, loading, error } = useApi<JournalResponse>('/ai/journal?lookback_days=30')
+  const stats = data?.stats ?? {}
 
-  const [trades, setTrades] = useState<Trade[]>([])
-  const [tradesLoading, setTradesLoading] = useState(true)
-  const [tradesError, setTradesError] = useState('')
+  const analysisText =
+    typeof data?.analysis === 'string'
+      ? data.analysis
+      : data?.analysis && typeof data.analysis === 'object'
+        ? Object.entries(data.analysis as Record<string, unknown>)
+            .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+            .join('\n')
+        : null
+
+  const [orders, setOrders] = useState<EngineOrder[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(true)
+  const [ordersError, setOrdersError] = useState('')
+  const [entries, setEntries] = useState<JournalEntryRow[]>([])
   const [sideFilter, setSideFilter] = useState<'ALL' | 'BUY' | 'SELL'>('ALL')
   const [searchFilter, setSearchFilter] = useState('')
 
   useEffect(() => {
-    api.ai.journalEntries().then((d: unknown) => {
-      const data = d as { entries: Trade[] } | Trade[]
-      setTrades(Array.isArray(data) ? data : (data as { entries: Trade[] }).entries || [])
-    }).catch((e) => {
-      setTradesError(e?.message || 'Failed to load trades')
-    }).finally(() => setTradesLoading(false))
+    // `GET /engine/orders` answers `{ orders: [...] }`, so this has to be unwrapped. Handing the
+    // envelope straight to `.filter` is the same mistake `/forward-test` made.
+    api.engine
+      .orders()
+      .then((res) => {
+        const rows = (res as { orders?: EngineOrder[] } | EngineOrder[])
+        setOrders(Array.isArray(rows) ? rows : Array.isArray(rows?.orders) ? rows.orders : [])
+      })
+      .catch((e) => setOrdersError(e?.message || 'Failed to load orders'))
+      .finally(() => setOrdersLoading(false))
+
+    api.ai
+      .journalEntries()
+      .then((res) => {
+        const rows = (res as { entries?: JournalEntryRow[] } | JournalEntryRow[])
+        setEntries(Array.isArray(rows) ? rows : Array.isArray(rows?.entries) ? rows.entries : [])
+      })
+      .catch(() => setEntries([]))
   }, [])
 
-  const hasData = journalData && (journalData.total_trades > 0 || journalData.entries?.length > 0)
+  // Only executed trades belong in a journal. `filled_quantity` is the honest test rather than
+  // `status === 'FILLED'`, because a partially-filled order is also real executed quantity.
+  const executed = orders.filter((o) => (o.filled_quantity ?? 0) > 0)
 
-  const filteredTrades = trades.filter(t => {
-    if (sideFilter !== 'ALL' && t.side !== sideFilter) return false
-    if (searchFilter && !t.symbol.toLowerCase().includes(searchFilter.toLowerCase())) return false
+  const filtered = executed.filter((o) => {
+    // These now work: the previous filter compared against `undefined` for both values, so
+    // selecting Buy or Sell always produced an empty table.
+    if (sideFilter !== 'ALL' && o.side !== sideFilter) return false
+    if (searchFilter && !(o.symbol ?? '').toLowerCase().includes(searchFilter.toLowerCase())) return false
     return true
   })
 
-  const totalPnl = filteredTrades.reduce((sum, t) => sum + (t.pnl || 0), 0)
-  const winTrades = filteredTrades.filter(t => (t.pnl || 0) > 0)
-  const lossTrades = filteredTrades.filter(t => (t.pnl || 0) < 0)
+  const hasData = (stats.total_trades ?? 0) > 0 || executed.length > 0 || entries.length > 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="t-page-header">
         <div>
           <h1 className="t-page-title">Trade Journal</h1>
-          <p className="t-page-subtitle">Performance analytics & trade history</p>
+          <p className="t-page-subtitle">
+            Executed trades, your own notes, and the AI read on the window
+          </p>
         </div>
       </div>
 
       {loading && (
         <div className="t-panel" style={{ padding: 20, textAlign: 'center' }}>
-          <span className="t-faint">Loading analytics...</span>
+          <span className="t-faint">Loading journal…</span>
         </div>
       )}
 
@@ -182,124 +206,122 @@ export default function JournalPage() {
           <div style={{ fontSize: 29, marginBottom: 8 }}>T</div>
           <h3 style={{ fontSize: 19, marginBottom: 4 }}>No trading data yet</h3>
           <p className="t-faint" style={{ fontSize: 14, margin: 0 }}>
-            Start trading to see your performance analytics here.
+            Place a trade, or write a journal entry, and both show up here.
           </p>
         </div>
       )}
 
       {hasData && (
         <>
-          {/* KPI Cards */}
+          {/* Labelled with what `_compute_stats` returns. Total P&L, win rate, Sharpe and max
+              drawdown are not here: nothing computes them for live trading. */}
           <div className="t-grid-4">
             <div className="t-panel" style={{ padding: '12px 16px' }}>
-              <span className="t-stat-label">Total P&amp;L</span>
-              <p className="t-stat-value" style={{ color: journalData!.total_pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
-                {journalData!.total_pnl >= 0 ? '+' : ''}\u20B9{fmt(journalData!.total_pnl)}
-              </p>
+              <span className="t-stat-label">Trades in window</span>
+              <p className="t-stat-value">{fmtNum(stats.total_trades, 0)}</p>
+              <div className="t-faint" style={{ fontSize: 12, marginTop: 2 }}>
+                {stats.period_days ? `last ${stats.period_days}d` : ''}
+              </div>
             </div>
             <div className="t-panel" style={{ padding: '12px 16px' }}>
-              <span className="t-stat-label">Win Rate</span>
-              <p className="t-stat-value">{journalData!.win_rate.toFixed(1)}%</p>
+              <span className="t-stat-label">Buys / Sells</span>
+              <p className="t-stat-value">
+                {fmtNum(stats.buy_trades, 0)} / {fmtNum(stats.sell_trades, 0)}
+              </p>
+              <div className="t-faint" style={{ fontSize: 12, marginTop: 2 }}>order sides</div>
             </div>
             <div className="t-panel" style={{ padding: '12px 16px' }}>
-              <span className="t-stat-label">Sharpe Ratio</span>
-              <p className="t-stat-value" style={{
-                color: journalData!.sharpe_ratio >= 1.5 ? 'var(--text-green)' :
-                       journalData!.sharpe_ratio >= 0 ? 'var(--amber)' : 'var(--text-red)'
-              }}>
-                {journalData!.sharpe_ratio.toFixed(2)}
-              </p>
+              <span className="t-stat-label">Symbols traded</span>
+              <p className="t-stat-value">{fmtNum(stats.unique_symbols, 0)}</p>
+              <div className="t-faint" style={{ fontSize: 12, marginTop: 2 }}>distinct</div>
             </div>
             <div className="t-panel" style={{ padding: '12px 16px' }}>
-              <span className="t-stat-label">Max Drawdown</span>
-              <p className="t-stat-value" style={{ color: 'var(--text-red)' }}>
-                {journalData!.max_drawdown.toFixed(1)}%
+              <span className="t-stat-label">Traded value</span>
+              <p className="t-stat-value">
+                {stats.total_value == null ? NO_VALUE : `₹${fmtMoney(stats.total_value)}`}
               </p>
+              <div className="t-faint" style={{ fontSize: 12, marginTop: 2 }}>turnover, not P&amp;L</div>
             </div>
           </div>
 
-          <div className="t-grid-4">
-            <div className="t-panel" style={{ padding: '12px 16px' }}>
-              <span className="t-stat-label">Total Trades</span>
-              <p className="t-stat-value">{journalData!.total_trades}</p>
+          {analysisText && (
+            <div className="t-panel" style={{ padding: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
+                AI Journal
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  color: 'var(--text-sub)',
+                  lineHeight: 1.7,
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {analysisText}
+              </div>
             </div>
-            <div className="t-panel" style={{ padding: '12px 16px' }}>
-              <span className="t-stat-label">Avg Win</span>
-              <p className="t-stat-value t-up">\u20B9{fmt(journalData!.avg_win)}</p>
-            </div>
-            <div className="t-panel" style={{ padding: '12px 16px' }}>
-              <span className="t-stat-label">Avg Loss</span>
-              <p className="t-stat-value t-down">\u20B9{fmt(Math.abs(journalData!.avg_loss))}</p>
-            </div>
-            <div className="t-panel" style={{ padding: '12px 16px' }}>
-              <span className="t-stat-label">Best / Worst</span>
-              <p className="t-stat-value" style={{ fontSize: 16 }}>
-                <span className="t-up">\u20B9{fmt(journalData!.largest_win)}</span>
-                <span className="t-faint" style={{ margin: '0 4px' }}>/</span>
-                <span className="t-down">\u20B9{fmt(Math.abs(journalData!.largest_loss))}</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Equity Curve */}
-          <div className="t-panel" style={{ padding: 0 }}>
-            <div className="t-panel-header">
-              <h3 className="t-panel-title">Equity Curve</h3>
-            </div>
-            <div className="t-panel-body">
-              <SvgEquityCurve points={journalData!.equity_curve || []} height={180} />
-            </div>
-          </div>
-
-          {/* Monthly Returns */}
-          <div className="t-panel" style={{ padding: 0 }}>
-            <div className="t-panel-header">
-              <h3 className="t-panel-title">Monthly Returns</h3>
-              <span className="t-faint">{journalData!.monthly_returns?.length || 0} months</span>
-            </div>
-            <div className="t-panel-body">
-              <MonthlyBars data={journalData!.monthly_returns || []} />
-            </div>
-          </div>
+          )}
         </>
       )}
 
-      {/* Trade Details */}
+      {/* Trade History — real executed orders. */}
       <div className="t-panel" style={{ padding: 0 }}>
         <div className="t-panel-header">
           <h3 className="t-panel-title">Trade History</h3>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {filteredTrades.length > 0 && (
-              <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => {
-                const header = ['Symbol', 'Side', 'Qty', 'Price', 'P&L', 'Strategy', 'Time']
-                const data = filteredTrades.map(t => [t.symbol, t.side, String(t.quantity), String(t.price), String(t.pnl || 0), t.strategy || '', t.timestamp])
-                downloadCSV([header, ...data], `trades-${new Date().toISOString().slice(0, 10)}.csv`)
-              }}>
+            {filtered.length > 0 && (
+              <button
+                className="t-btn t-btn-xs t-btn-ghost"
+                onClick={() => {
+                  const header = ['Symbol', 'Side', 'Qty', 'Filled qty', 'Avg price', 'Status', 'Broker', 'Time']
+                  const data = filtered.map((o) => [
+                    o.symbol ?? '',
+                    o.side ?? '',
+                    String(o.quantity ?? ''),
+                    String(o.filled_quantity ?? ''),
+                    o.average_price != null ? String(o.average_price) : '',
+                    o.status ?? '',
+                    o.is_paper ? `${o.broker ?? ''} (paper)` : (o.broker ?? ''),
+                    o.filled_at ?? o.created_at ?? '',
+                  ])
+                  downloadCSV([header, ...data], `trades-${new Date().toISOString().slice(0, 10)}.csv`)
+                }}
+              >
                 Export CSV
               </button>
             )}
-            <input className="t-input" placeholder="Filter symbol..."
-              value={searchFilter} onChange={e => setSearchFilter(e.target.value)}
-              style={{ width: 140, height: 24, fontSize: 13, padding: '2px 8px' }} />
-            <select className="t-select" value={sideFilter}
-              onChange={e => setSideFilter(e.target.value as 'ALL' | 'BUY' | 'SELL')}
-              style={{ width: 80, height: 24, fontSize: 13, padding: '2px 8px' }}>
+            <input
+              className="t-input"
+              placeholder="Filter symbol…"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              style={{ width: 150, height: 24, fontSize: 13, padding: '2px 8px' }}
+            />
+            <select
+              className="t-select"
+              value={sideFilter}
+              onChange={(e) => setSideFilter(e.target.value as 'ALL' | 'BUY' | 'SELL')}
+              style={{ width: 86, height: 24, fontSize: 13, padding: '2px 8px' }}
+            >
               <option value="ALL">All</option>
               <option value="BUY">Buy</option>
               <option value="SELL">Sell</option>
             </select>
-            <span className="t-faint" style={{ fontSize: 13 }}>{filteredTrades.length} trades</span>
+            <span className="t-faint" style={{ fontSize: 13 }}>
+              {filtered.length} of {executed.length} executed
+            </span>
           </div>
         </div>
-        {tradesLoading ? (
+
+        {ordersLoading ? (
           <div className="t-panel-body">
-            <span className="t-faint">Loading trades...</span>
+            <span className="t-faint">Loading trades…</span>
           </div>
-        ) : tradesError ? (
+        ) : ordersError ? (
           <div className="t-panel-body">
-            <span className="t-down">{tradesError}</span>
+            <span className="t-down">{ordersError}</span>
           </div>
-        ) : filteredTrades.length > 0 ? (
+        ) : filtered.length > 0 ? (
           <div className="t-table-wrap">
             <table className="t-table">
               <thead>
@@ -307,26 +329,44 @@ export default function JournalPage() {
                   <th>Symbol</th>
                   <th>Side</th>
                   <th>Qty</th>
-                  <th>Price</th>
-                  <th>P&amp;L</th>
-                  <th>Strategy</th>
+                  <th>Filled</th>
+                  <th>Avg price</th>
+                  <th>Status</th>
+                  <th>Broker</th>
                   <th>Time</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTrades.map(t => (
-                  <tr key={t.id}>
-                    <td style={{ fontWeight: 600 }}>{t.symbol}</td>
-                    <td className={t.side === 'BUY' ? 't-up' : 't-down'}>{t.side}</td>
-                    <td className="t-num">{t.quantity}</td>
-                    <td className="t-num">\u20B9{fmt(t.price)}</td>
-                    <td className={`t-num ${(t.pnl || 0) >= 0 ? 't-up' : 't-down'}`}>
-                      {(t.pnl || 0) >= 0 ? '+' : ''}\u20B9{fmt(t.pnl || 0)}
+                {filtered.map((o) => (
+                  <tr key={o.id}>
+                    <td style={{ fontWeight: 600 }}>{o.symbol || NO_VALUE}</td>
+                    <td className={o.side === 'BUY' ? 't-up' : o.side === 'SELL' ? 't-down' : ''}>
+                      {o.side || NO_VALUE}
                     </td>
-                    <td className="t-faint">{t.strategy || '-'}</td>
+                    <td className="t-num">{fmtNum(o.quantity, 0)}</td>
+                    <td className="t-num">{fmtNum(o.filled_quantity, 0)}</td>
+                    <td className="t-num">
+                      {o.average_price != null ? `₹${fmtMoney(o.average_price, 2)}` : NO_VALUE}
+                    </td>
+                    <td>
+                      <span
+                        className={`t-badge ${
+                          o.status === 'FILLED'
+                            ? 't-badge-green'
+                            : o.status === 'REJECTED'
+                              ? 't-badge-red'
+                              : o.status === 'PENDING'
+                                ? 't-badge-violet'
+                                : 't-badge-cyan'
+                        }`}
+                      >
+                        {o.status || NO_VALUE}
+                      </span>
+                    </td>
                     <td className="t-faint">
-                      {t.timestamp ? new Date(t.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
+                      {o.broker ? `${o.broker}${o.is_paper ? ' · paper' : ''}` : NO_VALUE}
                     </td>
+                    <td className="t-faint">{timeLabel(o.filled_at || o.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -334,65 +374,45 @@ export default function JournalPage() {
           </div>
         ) : (
           <div className="t-panel-body">
-            <span className="t-faint">No trades found.</span>
+            <span className="t-faint">
+              {executed.length === 0
+                ? 'No executed trades yet.'
+                : 'No trades match those filters.'}
+            </span>
           </div>
         )}
       </div>
 
-      {/* Win/Loss Breakdown */}
-      {filteredTrades.length > 0 && (
-        <div className="t-row" style={{ gap: 16 }}>
-          <div className="t-panel" style={{ flex: 1, padding: '12px 16px' }}>
-            <h3 className="t-panel-title" style={{ marginBottom: 8 }}>Win/Loss Breakdown</h3>
-            <div style={{ display: 'flex', gap: 16 }}>
-              <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 29, fontWeight: 700, color: 'var(--text-green)' }}>{winTrades.length}</div>
-                <div className="t-faint" style={{ fontSize: 12 }}>Wins</div>
-              </div>
-              <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 29, fontWeight: 700, color: 'var(--text-red)' }}>{lossTrades.length}</div>
-                <div className="t-faint" style={{ fontSize: 12 }}>Losses</div>
-              </div>
-              <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 29, fontWeight: 700 }}>{filteredTrades.length}</div>
-                <div className="t-faint" style={{ fontSize: 12 }}>Total</div>
-              </div>
-            </div>
-            <div style={{
-              marginTop: 8, height: 8, borderRadius: 4, overflow: 'hidden',
-              background: 'rgba(255,23,68,0.15)', display: 'flex',
-            }}>
-              <div style={{
-                width: `${(winTrades.length / Math.max(filteredTrades.length, 1)) * 100}%`,
-                background: 'var(--green)', height: '100%', borderRadius: 4,
-              }} />
-            </div>
+      {/* Journal entries — real `journal_entries` rows. */}
+      {entries.length > 0 && (
+        <div className="t-panel" style={{ padding: 0 }}>
+          <div className="t-panel-header">
+            <h3 className="t-panel-title">Journal Entries</h3>
+            <span className="t-faint">{entries.length} entries</span>
           </div>
-          <div className="t-panel" style={{ flex: 1, padding: '12px 16px' }}>
-            <h3 className="t-panel-title" style={{ marginBottom: 8 }}>P&amp;L Summary</h3>
-            <div className="t-grid-2" style={{ gap: 8 }}>
-              <div>
-                <div className="t-faint" style={{ fontSize: 12 }}>Gross Profit</div>
-                <div className="t-up" style={{ fontSize: 19, fontWeight: 700 }}>
-                  \u20B9{fmt(winTrades.reduce((s, t) => s + (t.pnl || 0), 0))}
-                </div>
-              </div>
-              <div>
-                <div className="t-faint" style={{ fontSize: 12 }}>Gross Loss</div>
-                <div className="t-down" style={{ fontSize: 19, fontWeight: 700 }}>
-                  -\u20B9{fmt(Math.abs(lossTrades.reduce((s, t) => s + (t.pnl || 0), 0)))}
-                </div>
-              </div>
-            </div>
-            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-              <div className="t-faint" style={{ fontSize: 12 }}>Net P&amp;L</div>
-              <div style={{
-                fontSize: 22, fontWeight: 700,
-                color: totalPnl >= 0 ? 'var(--text-green)' : 'var(--text-red)',
-              }}>
-                {totalPnl >= 0 ? '+' : ''}\u20B9{fmt(totalPnl)}
-              </div>
-            </div>
+          <div className="t-table-wrap">
+            <table className="t-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Entry</th>
+                  <th>Tags</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((e) => (
+                  <tr key={e.id}>
+                    <td className="t-faint">{e.entry_type || NO_VALUE}</td>
+                    <td>{e.content || NO_VALUE}</td>
+                    <td className="t-faint">
+                      {Array.isArray(e.tags) && e.tags.length ? e.tags.join(', ') : NO_VALUE}
+                    </td>
+                    <td className="t-faint">{timeLabel(e.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
