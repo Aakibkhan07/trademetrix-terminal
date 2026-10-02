@@ -38,7 +38,7 @@ function fmtDate(iso?: string) {
 }
 function otpInputStyle(active: boolean) {
   return {
-    width: 44, height: 48, textAlign: 'center' as const, fontSize: 20, fontWeight: 700 as const,
+    width: 44, height: 48, textAlign: 'center' as const, fontSize: 24, fontWeight: 700 as const,
     fontFamily: 'var(--font-mono)', border: `2px solid ${active ? 'var(--cyan)' : 'var(--border)'}`,
     borderRadius: 8, background: active ? 'color-mix(in srgb, var(--cyan) 6%, transparent)' : 'var(--bg-tertiary)',
     color: 'var(--text)', outline: 'none', caretColor: 'var(--cyan)',
@@ -73,7 +73,7 @@ const EquityChart = memo(function EquityChart({ points, height = 160 }: { points
         return (
           <g key={i}>
             <line x1={pad.left} y1={yy} x2={w - pad.right} y2={yy} stroke="color-mix(in srgb, var(--violet) 8%, transparent)" strokeWidth={1} />
-            <text x={pad.left - 6} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">
+            <text x={pad.left - 6} y={yy + 3} textAnchor="end" fill="var(--text-faint)" fontSize={11} fontFamily="var(--font-mono)">
               {(min + (range / 5) * (5 - i)).toFixed(0)}
             </text>
           </g>
@@ -103,8 +103,8 @@ const MonthlyChart = memo(function MonthlyChart({ returns: r }: { returns: numbe
             fill={v >= 0 ? 'var(--green)' : 'var(--red)'} opacity={0.8} />
         )
       })}
-      <text x={pad.left} y={mid - 8} fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">+{mx.toFixed(0)}</text>
-      <text x={pad.left} y={mid + 18} fill="var(--text-faint)" fontSize={9} fontFamily="var(--font-mono)">-{mx.toFixed(0)}</text>
+      <text x={pad.left} y={mid - 8} fill="var(--text-faint)" fontSize={11} fontFamily="var(--font-mono)">+{mx.toFixed(0)}</text>
+      <text x={pad.left} y={mid + 18} fill="var(--text-faint)" fontSize={11} fontFamily="var(--font-mono)">-{mx.toFixed(0)}</text>
     </svg>
   )
 })
@@ -120,10 +120,10 @@ const WinDonut = memo(function WinDonut({ wins, losses }: { wins: number; losses
       <circle cx={50} cy={50} r={r} fill="none" stroke="var(--panel-2)" strokeWidth={10} />
       <circle cx={50} cy={50} r={r} fill="none" stroke="var(--green)" strokeWidth={10}
         strokeDasharray={circ} strokeDashoffset={wOff} transform="rotate(-90 50 50)" strokeLinecap="round" />
-      <text x={50} y={48} textAnchor="middle" fill="var(--text)" fontSize={18} fontWeight={700} fontFamily="var(--font-mono)">
+      <text x={50} y={48} textAnchor="middle" fill="var(--text)" fontSize={22} fontWeight={700} fontFamily="var(--font-mono)">
         {pct.toFixed(0)}%
       </text>
-      <text x={50} y={62} textAnchor="middle" fill="var(--text-faint)" fontSize={9}>win</text>
+      <text x={50} y={62} textAnchor="middle" fill="var(--text-faint)" fontSize={11}>win</text>
     </svg>
   )
 })
@@ -144,7 +144,7 @@ const DrawdownChart = memo(function DrawdownChart({ points }: { points: number[]
       {[-5, -10, -15, -20].filter(v => v >= min).map(v => (
         <g key={v}>
           <line x1={pad.left} y1={y(v)} x2={w - pad.right} y2={y(v)} stroke="color-mix(in srgb, var(--red) 6%, transparent)" strokeWidth={1} />
-          <text x={pad.left - 4} y={y(v) + 3} textAnchor="end" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-mono)">{v}%</text>
+          <text x={pad.left - 4} y={y(v) + 3} textAnchor="end" fill="var(--text-faint)" fontSize={10} fontFamily="var(--font-mono)">{v}%</text>
         </g>
       ))}
       <path d={`${fill}L${x(dd.length - 1)},${pad.top + ch}L${x(0)},${pad.top + ch}Z`}
@@ -350,18 +350,18 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{
-            fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700,
+            fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700,
             background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}>TradeMetrix</span>
-          <span className="t-badge t-badge-cyan" style={{ fontSize: 9, letterSpacing: '0.06em' }}>CLIENT PORTAL</span>
+          <span className="t-badge t-badge-cyan" style={{ fontSize: 11, letterSpacing: '0.06em' }}>CLIENT PORTAL</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-red'}`} />
-          <span style={{ fontSize: 10, color: 'var(--text-sub)', fontFamily: 'var(--font-mono)' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-sub)', fontFamily: 'var(--font-mono)' }}>
             {connected ? 'LIVE' : 'OFF'}
           </span>
-          <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{user?.full_name || email}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{user?.full_name || email}</span>
           <button className="t-btn t-btn-xs t-btn-ghost" onClick={onSignOut}
             style={{ color: 'var(--text-red)' }}>Sign Out</button>
         </div>
@@ -379,7 +379,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
           { key: 'brokers' as const, label: 'Brokers' },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-            padding: '8px 16px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em',
+            padding: '8px 16px', fontSize: 13, fontWeight: 600, letterSpacing: '0.03em',
             border: 'none', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
             color: activeTab === tab.key ? 'var(--cyan)' : 'var(--text-sub)',
             borderBottom: `2px solid ${activeTab === tab.key ? 'var(--cyan)' : 'transparent'}`,
@@ -403,10 +403,10 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 border: '1px solid rgba(34,211,238,0.2)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.04em' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.04em' }}>
                     CAPITAL UTILIZATION
                   </span>
-                  <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                  <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
                     {funds.used_margin > 0 ? Math.round((funds.used_margin / funds.total_margin) * 100) : 0}%
                   </span>
                 </div>
@@ -419,12 +419,12 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                   }} />
                 </div>
                 <div className="t-grid-3" style={{ gap: 8 }}>
-                  <div><div className="t-faint" style={{ fontSize: 9 }}>Total Capital</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>\u20B9{fmt(funds.total_margin)}</div></div>
-                  <div><div className="t-faint" style={{ fontSize: 9 }}>Used</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>\u20B9{fmt(funds.used_margin)}</div></div>
-                  <div><div className="t-faint" style={{ fontSize: 9 }}>Available</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-green)' }}>\u20B9{fmt(funds.available_margin)}</div></div>
+                  <div><div className="t-faint" style={{ fontSize: 11 }}>Total Capital</div>
+                    <div style={{ fontSize: 19, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>\u20B9{fmt(funds.total_margin)}</div></div>
+                  <div><div className="t-faint" style={{ fontSize: 11 }}>Used</div>
+                    <div style={{ fontSize: 19, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>\u20B9{fmt(funds.used_margin)}</div></div>
+                  <div><div className="t-faint" style={{ fontSize: 11 }}>Available</div>
+                    <div style={{ fontSize: 19, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-green)' }}>\u20B9{fmt(funds.available_margin)}</div></div>
                 </div>
               </div>
             )}
@@ -436,8 +436,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 { label: 'STRATEGIES', value: activeStrategies.length.toString(), color: 'var(--violet)' },
               ].map(c => (
                 <div key={c.label} className="t-panel" style={{ padding: '12px 14px' }}>
-                  <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>{c.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: c.color || 'var(--text)' }}>
+                  <div className="t-faint" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>{c.label}</div>
+                  <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)', color: c.color || 'var(--text)' }}>
                     {c.value}
                   </div>
                 </div>
@@ -446,11 +446,11 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
             {positions.length > 0 && (
               <div className="t-panel" style={{ padding: 0 }}>
                 <div className="t-panel-header" style={{ minHeight: 28, padding: '6px 12px' }}>
-                  <h3 className="t-panel-title" style={{ fontSize: 11 }}>Open Positions</h3>
-                  <span className="t-faint" style={{ fontSize: 9 }}>{positions.length} active</span>
+                  <h3 className="t-panel-title" style={{ fontSize: 13 }}>Open Positions</h3>
+                  <span className="t-faint" style={{ fontSize: 11 }}>{positions.length} active</span>
                 </div>
                 <div className="t-table-wrap">
-                  <table className="t-table" style={{ fontSize: 10 }}>
+                  <table className="t-table" style={{ fontSize: 12 }}>
                     <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&L</th></tr></thead>
                     <tbody>
                       {positions.map((p, i) => {
@@ -481,9 +481,9 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                   const pct = t.change_pct ?? 0
                   return (
                     <div key={sym} style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span className="t-faint" style={{ fontSize: 9, fontWeight: 600 }}>{sym.split(':')[1]?.split('-')[0] || sym}</span>
-                      <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{t.last_price?.toFixed(1)}</span>
-                      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: pct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</span>
+                      <span className="t-faint" style={{ fontSize: 11, fontWeight: 600 }}>{sym.split(':')[1]?.split('-')[0] || sym}</span>
+                      <span style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{t.last_price?.toFixed(1)}</span>
+                      <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: pct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</span>
                     </div>
                   )
                 })}
@@ -491,9 +491,9 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
             )}
             {!loading && positions.length === 0 && Object.keys(ticks).length === 0 && (
               <div style={{ textAlign: 'center', padding: 40 }}>
-                <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.2 }}>T</div>
-                <h3 style={{ fontSize: 16, marginBottom: 4 }}>Your trading dashboard</h3>
-                <p className="t-faint" style={{ fontSize: 12, maxWidth: 360, margin: '0 auto' }}>
+                <div style={{ fontSize: 38, marginBottom: 8, opacity: 0.2 }}>T</div>
+                <h3 style={{ fontSize: 19, marginBottom: 4 }}>Your trading dashboard</h3>
+                <p className="t-faint" style={{ fontSize: 14, maxWidth: 360, margin: '0 auto' }}>
                   Connect a broker and start trading to see live data here.
                 </p>
               </div>
@@ -535,8 +535,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                           <td className="t-num">\u20B9{fmt(p.average_buy_price)}</td>
                           <td className="t-num">{ltp ? `\u20B9${fmt(ltp)}` : '-'}</td>
                           <td className={`t-num ${pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>{pnl >= 0 ? '+' : ''}\u20B9{fmt(pnl)}</td>
-                          <td><span className={`t-badge ${p.product === 'INTRADAY' ? 't-badge-cyan' : 't-badge-violet'}`} style={{ fontSize: 9 }}>{p.product}</span></td>
-                          <td><span className="t-badge t-badge-sub" style={{ fontSize: 9 }}>{p.instrument_type}</span></td>
+                          <td><span className={`t-badge ${p.product === 'INTRADAY' ? 't-badge-cyan' : 't-badge-violet'}`} style={{ fontSize: 11 }}>{p.product}</span></td>
+                          <td><span className="t-badge t-badge-sub" style={{ fontSize: 11 }}>{p.instrument_type}</span></td>
                         </tr>
                       )
                     })}
@@ -546,7 +546,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               {positions.length > PAGE_SIZE && (
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '8px 16px', alignItems: 'center' }}>
                   <button className="t-btn t-btn-xs" disabled={positionPage === 0} onClick={() => setPositionPage(p => p - 1)}>Prev</button>
-                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>Page {positionPage + 1} of {Math.ceil(positions.length / PAGE_SIZE)}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>Page {positionPage + 1} of {Math.ceil(positions.length / PAGE_SIZE)}</span>
                   <button className="t-btn t-btn-xs" disabled={(positionPage + 1) * PAGE_SIZE >= positions.length} onClick={() => setPositionPage(p => p + 1)}>Next</button>
                 </div>
               )}
@@ -566,9 +566,9 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               <h3 className="t-panel-title">Order History ({orders.length})</h3>
               {orders.length > 0 && (
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>{orderStats.filled} Filled</span>
-                  <span className="t-badge t-badge-cyan" style={{ fontSize: 9 }}>{orderStats.open} Open</span>
-                  {orderStats.rejected > 0 && <span className="t-badge t-badge-red" style={{ fontSize: 9 }}>{orderStats.rejected} Rejected</span>}
+                  <span className="t-badge t-badge-green" style={{ fontSize: 11 }}>{orderStats.filled} Filled</span>
+                  <span className="t-badge t-badge-cyan" style={{ fontSize: 11 }}>{orderStats.open} Open</span>
+                  {orderStats.rejected > 0 && <span className="t-badge t-badge-red" style={{ fontSize: 11 }}>{orderStats.rejected} Rejected</span>}
                   <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => csvDownload(
                     ['Symbol', 'Side', 'Qty', 'Price', 'Status', 'Time'],
                     orders.map(o => [o.symbol, o.side, String(o.quantity), fmt(o.price || 0), o.status, o.created_at]),
@@ -587,20 +587,20 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                       <tr key={o.id}>
                         <td style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                           {o.symbol}
-                          {o.is_paper ? <span className="t-badge t-badge-amber" style={{ fontSize: 8, padding: '0 4px', lineHeight: '14px' }}>PAPER</span> : <span className="t-badge t-badge-cyan" style={{ fontSize: 8, padding: '0 4px', lineHeight: '14px' }}>LIVE</span>}
+                          {o.is_paper ? <span className="t-badge t-badge-amber" style={{ fontSize: 10, padding: '0 4px', lineHeight: '14px' }}>PAPER</span> : <span className="t-badge t-badge-cyan" style={{ fontSize: 10, padding: '0 4px', lineHeight: '14px' }}>LIVE</span>}
                         </td>
                         <td className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{o.side}</td>
                         <td className="t-num">{o.quantity}</td>
                         <td className="t-num">{o.price ? `\u20B9${fmt(o.price)}` : '-'}</td>
                         <td className="t-num">{o.filled_quantity || 0}</td>
                         <td className="t-num">{o.average_price ? `\u20B9${fmt(o.average_price)}` : '-'}</td>
-                        <td><span className={`t-badge ${o.status === 'FILLED' ? 't-badge-green' : o.status === 'REJECTED' ? 't-badge-red' : o.status === 'CANCELLED' ? 't-badge-amber' : 't-badge-cyan'}`} style={{ fontSize: 9 }}>{o.status}</span></td>
-                        <td className="t-faint t-num" style={{ fontSize: 9 }}>{fmtDate(o.created_at)}</td>
+                        <td><span className={`t-badge ${o.status === 'FILLED' ? 't-badge-green' : o.status === 'REJECTED' ? 't-badge-red' : o.status === 'CANCELLED' ? 't-badge-amber' : 't-badge-cyan'}`} style={{ fontSize: 11 }}>{o.status}</span></td>
+                        <td className="t-faint t-num" style={{ fontSize: 11 }}>{fmtDate(o.created_at)}</td>
                         <td>
                           {(o.status === 'OPEN' || o.status === 'PENDING' || o.status === 'TRIGGER_PENDING') && (
                             <div style={{ display: 'flex', gap: 4 }}>
-                              <button className="t-btn t-btn-xs" style={{ fontSize: 8, color: 'var(--red)' }} onClick={() => handleCancelOrder(o.id)}>Cancel</button>
-                              <button className="t-btn t-btn-xs" style={{ fontSize: 8 }} onClick={() => handleModifyOrder(o.id)}>Modify</button>
+                              <button className="t-btn t-btn-xs" style={{ fontSize: 10, color: 'var(--red)' }} onClick={() => handleCancelOrder(o.id)}>Cancel</button>
+                              <button className="t-btn t-btn-xs" style={{ fontSize: 10 }} onClick={() => handleModifyOrder(o.id)}>Modify</button>
                             </div>
                           )}
                         </td>
@@ -612,7 +612,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               {orders.length > PAGE_SIZE && (
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '8px 16px', alignItems: 'center' }}>
                   <button className="t-btn t-btn-xs" disabled={orderPage === 0} onClick={() => setOrderPage(p => p - 1)}>Prev</button>
-                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>Page {orderPage + 1} of {Math.ceil(orders.length / PAGE_SIZE)}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>Page {orderPage + 1} of {Math.ceil(orders.length / PAGE_SIZE)}</span>
                   <button className="t-btn t-btn-xs" disabled={(orderPage + 1) * PAGE_SIZE >= orders.length} onClick={() => setOrderPage(p => p + 1)}>Next</button>
                 </div>
               )}
@@ -625,19 +625,19 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
 
             {/* Trade Journal Notes */}
             <div className="t-panel" style={{ padding: '10px 14px', marginTop: 8 }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600 }}>Trade Notes</h3>
+              <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>Trade Notes</h3>
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                <select id="note-order-select" className="t-select" style={{ fontSize: 10, maxWidth: 120 }}>
+                <select id="note-order-select" className="t-select" style={{ fontSize: 12, maxWidth: 120 }}>
                   <option value="">Select order...</option>
                   {orders.slice(0, 20).map(o => (
                     <option key={o.id} value={o.id}>{o.symbol} #{o.id.slice(0, 6)}</option>
                   ))}
                 </select>
-                <input id="note-tags" className="t-input" placeholder="Tags (comma)" style={{ width: 120, fontSize: 10 }} />
+                <input id="note-tags" className="t-input" placeholder="Tags (comma)" style={{ width: 120, fontSize: 12 }} />
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <textarea id="note-content" className="t-input" placeholder="Write a note about this trade..."
-                  style={{ flex: 1, fontSize: 10, minHeight: 40, resize: 'vertical' }} />
+                  style={{ flex: 1, fontSize: 12, minHeight: 40, resize: 'vertical' }} />
                 <button className="t-btn t-btn-sm" onClick={async () => {
                   const sel = document.getElementById('note-order-select') as HTMLSelectElement
                   const txt = document.getElementById('note-content') as HTMLTextAreaElement
@@ -649,7 +649,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                     })
                     txt.value = ''; tagsEl.value = ''
                   } catch (e) { alert(e instanceof Error ? e.message : 'Failed') }
-                }} style={{ fontSize: 10 }}>Save</button>
+                }} style={{ fontSize: 12 }}>Save</button>
               </div>
             </div>
           </div>
@@ -666,8 +666,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 { label: 'STRATEGIES', value: activeStrategies.length.toString(), color: 'var(--violet)' },
               ].map(c => (
                 <div key={c.label} className="t-panel" style={{ padding: '12px 14px' }}>
-                  <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>{c.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: c.color || 'var(--text)' }}>{c.value}</div>
+                  <div className="t-faint" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>{c.label}</div>
+                  <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)', color: c.color || 'var(--text)' }}>{c.value}</div>
                 </div>
               ))}
             </div>
@@ -675,8 +675,8 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
             {orders.filter(o => o.status === 'FILLED').length >= 2 && (
               <div className="t-panel" style={{ padding: '12px 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <h3 style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Equity Curve</h3>
-                  <span className="t-faint" style={{ fontSize: 9 }}>{orders.length} data points</span>
+                  <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, letterSpacing: '0.03em' }}>Equity Curve</h3>
+                  <span className="t-faint" style={{ fontSize: 11 }}>{orders.length} data points</span>
                 </div>
                 <EquityChart points={orders.filter(o => o.status === 'FILLED').length > 1
                   ? orders.filter(o => o.status === 'FILLED').map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
@@ -687,7 +687,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
 
             {orders.filter(o => o.status === 'FILLED').length >= 2 && (
               <div className="t-panel" style={{ padding: '12px 14px' }}>
-                <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Drawdown</h3>
+                <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, letterSpacing: '0.03em' }}>Drawdown</h3>
                 <DrawdownChart points={orders.length > 1
                   ? orders.map((_, i, a) => (i + 1) * (totalPnl / Math.max(a.length, 1)))
                   : [0, 1]}
@@ -698,13 +698,13 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
             {orders.filter(o => o.status === 'FILLED').length >= 2 && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12, alignItems: 'start' }}>
                 <div className="t-panel" style={{ padding: '12px 14px' }}>
-                  <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>Monthly Returns</h3>
+                  <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, letterSpacing: '0.03em' }}>Monthly Returns</h3>
                   <MonthlyChart returns={Array.from({ length: 12 }, () => (Math.random() - 0.4) * 5000)} />
                 </div>
                 <div className="t-panel" style={{ padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <h3 style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 600 }}>Win / Loss</h3>
+                  <h3 style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Win / Loss</h3>
                   <WinDonut wins={orderStats.filled} losses={orderStats.rejected} />
-                  <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 9 }}>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 11 }}>
                     <span style={{ color: 'var(--text-green)' }}>{orderStats.filled} W</span>
                     <span style={{ color: 'var(--text-red)' }}>{orderStats.rejected} L</span>
                   </div>
@@ -717,10 +717,10 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
               <div className="t-panel" style={{ padding: 0 }}>
                 <div className="t-panel-header">
                   <h3 className="t-panel-title">P&amp;L by Symbol</h3>
-                  <span className="t-faint" style={{ fontSize: 9 }}>{pnlBySymbol.length} active</span>
+                  <span className="t-faint" style={{ fontSize: 11 }}>{pnlBySymbol.length} active</span>
                 </div>
                 <div className="t-table-wrap">
-                  <table className="t-table" style={{ fontSize: 10 }}>
+                  <table className="t-table" style={{ fontSize: 12 }}>
                     <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&amp;L</th></tr></thead>
                     <tbody>
                       {pnlBySymbol.map((p) => (
@@ -748,10 +748,10 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                     onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)' }}
                     onMouseLeave={e => { e.currentTarget.style.transform = '' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</span>
-                      <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-green' : s.required_tier === 'pro' ? 't-badge-violet' : 't-badge-amber'}`} style={{ fontSize: 9, textTransform: 'capitalize' }}>{s.required_tier}</span>
+                      <span style={{ fontSize: 16, fontWeight: 700 }}>{s.name}</span>
+                      <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-green' : s.required_tier === 'pro' ? 't-badge-violet' : 't-badge-amber'}`} style={{ fontSize: 11, textTransform: 'capitalize' }}>{s.required_tier}</span>
                     </div>
-                    <p className="t-faint" style={{ margin: 0, fontSize: 10, lineHeight: 1.4 }}>{s.description}</p>
+                    <p className="t-faint" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>{s.description}</p>
                   </div>
                 ))}
               </div>
@@ -789,10 +789,10 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                     }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</span>
-                          <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-green' : s.required_tier === 'pro' ? 't-badge-violet' : 't-badge-amber'}`} style={{ fontSize: 9, textTransform: 'capitalize' }}>{s.required_tier}</span>
+                          <span style={{ fontSize: 16, fontWeight: 700 }}>{s.name}</span>
+                          <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-green' : s.required_tier === 'pro' ? 't-badge-violet' : 't-badge-amber'}`} style={{ fontSize: 11, textTransform: 'capitalize' }}>{s.required_tier}</span>
                         </div>
-                        <p className="t-faint" style={{ margin: 0, fontSize: 10, lineHeight: 1.4 }}>{s.description}</p>
+                        <p className="t-faint" style={{ margin: 0, fontSize: 12, lineHeight: 1.4 }}>{s.description}</p>
                       </div>
                     </div>
                   ))}
@@ -813,15 +813,15 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
             <div className="t-panel" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, color-mix(in srgb, var(--violet) 8%, transparent), color-mix(in srgb, var(--cyan) 8%, transparent))', border: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-sub)', marginBottom: 4 }}>YOUR PLAN</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-sub)', marginBottom: 4 }}>YOUR PLAN</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--violet)' }}>{plan.tier_label}</span>
-                    <span style={{ padding: '3px 10px', borderRadius: 6, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', color: 'var(--violet)', fontSize: 10, fontWeight: 600, border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)' }}>
+                    <span style={{ fontSize: 29, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--violet)' }}>{plan.tier_label}</span>
+                    <span style={{ padding: '3px 10px', borderRadius: 6, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', color: 'var(--violet)', fontSize: 12, fontWeight: 600, border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)' }}>
                       {plan.tier}
                     </span>
                   </div>
                 </div>
-                <a href="/pricing" style={{ fontSize: 11, fontWeight: 600, color: 'var(--cyan)', textDecoration: 'none' }}>
+                <a href="/pricing" style={{ fontSize: 13, fontWeight: 600, color: 'var(--cyan)', textDecoration: 'none' }}>
                   Upgrade Plan
                 </a>
               </div>
@@ -829,7 +829,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
 
             {/* Capabilities Grid */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
                 PLAN CAPABILITIES
               </div>
               <div className="t-grid-3" style={{ gap: 10 }}>
@@ -845,11 +845,11 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                   { label: 'Reentry Squareoff', value: (plan.capabilities.reentry_squareoff_allowed as boolean) ? 'Yes' : 'No', desc: 'Re-enter after squareoff', color: (plan.capabilities.reentry_squareoff_allowed as boolean) ? 'var(--green)' : 'var(--text-sub)' },
                 ].map(item => (
                   <div key={item.label} className="t-panel" style={{ padding: '12px 14px' }}>
-                    <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, marginBottom: 4, letterSpacing: '0.03em' }}>{item.label}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: item.color || 'var(--text)', marginBottom: 2 }}>
+                    <div className="t-faint" style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, letterSpacing: '0.03em' }}>{item.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: item.color || 'var(--text)', marginBottom: 2 }}>
                       {item.value}
                     </div>
-                    <div className="t-faint" style={{ fontSize: 9, lineHeight: 1.3 }}>{item.desc}</div>
+                    <div className="t-faint" style={{ fontSize: 11, lineHeight: 1.3 }}>{item.desc}</div>
                   </div>
                 ))}
               </div>
@@ -858,17 +858,17 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
             {/* Active Strategies Summary */}
             {strategies.length > 0 && (
               <div className="t-panel" style={{ padding: '14px 16px' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
                   ASSIGNED STRATEGIES ({strategies.length})
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {strategies.map(s => (
                     <div key={s.strategy_key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--panel-2)', borderRadius: 6, border: '1px solid var(--border)' }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 12 }}>{s.name}</div>
-                        <div className="t-faint" style={{ fontSize: 9 }}>{s.description}</div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div>
+                        <div className="t-faint" style={{ fontSize: 11 }}>{s.description}</div>
                       </div>
-                      <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 600, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', color: 'var(--violet)', border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)', textTransform: 'capitalize' }}>
+                      <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', color: 'var(--violet)', border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)', textTransform: 'capitalize' }}>
                         {s.required_tier}
                       </span>
                     </div>
@@ -879,25 +879,25 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
 
             {/* Broker Connections Summary */}
             <div className="t-panel" style={{ padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
                 BROKER CONNECTIONS
               </div>
               <div className="t-grid-3" style={{ gap: 10 }}>
                 <div className="t-panel" style={{ padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>{brokers.length}</div>
-                  <div className="t-faint" style={{ fontSize: 9 }}>Total Connected</div>
+                  <div style={{ fontSize: 29, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>{brokers.length}</div>
+                  <div className="t-faint" style={{ fontSize: 11 }}>Total Connected</div>
                 </div>
                 <div className="t-panel" style={{ padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>{brokers.filter(b => b.is_active).length}</div>
-                  <div className="t-faint" style={{ fontSize: 9 }}>Active</div>
+                  <div style={{ fontSize: 29, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>{brokers.filter(b => b.is_active).length}</div>
+                  <div className="t-faint" style={{ fontSize: 11 }}>Active</div>
                 </div>
                 <div className="t-panel" style={{ padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>{brokers.length - brokers.filter(b => b.is_active).length}</div>
-                  <div className="t-faint" style={{ fontSize: 9 }}>Inactive</div>
+                  <div style={{ fontSize: 29, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>{brokers.length - brokers.filter(b => b.is_active).length}</div>
+                  <div className="t-faint" style={{ fontSize: 11 }}>Inactive</div>
                 </div>
               </div>
               <div style={{ marginTop: 12 }}>
-                <a href="/portal/brokers" style={{ fontSize: 11, fontWeight: 600, color: 'var(--cyan)', textDecoration: 'none' }}>
+                <a href="/portal/brokers" style={{ fontSize: 13, fontWeight: 600, color: 'var(--cyan)', textDecoration: 'none' }}>
                   Manage Broker Connections →
                 </a>
               </div>
@@ -924,12 +924,12 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <BrokerLogo broker={b.broker} size={28} />
-                          <span style={{ fontWeight: 600, fontSize: 13 }}>{displayName}</span>
+                          <span style={{ fontWeight: 600, fontSize: 16 }}>{displayName}</span>
                           {/* Two rows for one broker are otherwise two identical names. */}
-                          <span className="t-faint" style={{ fontSize: 10 }}>
+                          <span className="t-faint" style={{ fontSize: 12 }}>
                             {credRole(b) === 'market_data' ? 'market data' : 'execution'}
                           </span>
-                          {b.is_active && <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>Active</span>}
+                          {b.is_active && <span className="t-badge t-badge-green" style={{ fontSize: 11 }}>Active</span>}
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
                           {!b.is_active && (
@@ -937,7 +937,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                               style={{ color: 'var(--cyan)' }}>Activate</button>
                           )}
                           {meta?.oauth_available && (
-                            <button className="t-btn t-btn-xs t-btn-primary" style={{ fontSize: 9 }}
+                            <button className="t-btn t-btn-xs t-btn-primary" style={{ fontSize: 11 }}
                               onClick={async () => {
                                 try {
                                   let url = ''
@@ -964,12 +964,12 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
             </div>
 
             <div className="t-panel" style={{ padding: '14px 16px' }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, letterSpacing: '0.03em' }}>
                 {connectForm ? `Connect ${(getBrokerMeta(connectForm.broker)?.display_name || connectForm.broker)}` : 'Available Brokers'}
               </h3>
               {authUrl && (
                 <div style={{
-                  padding: '8px 12px', borderRadius: 6, fontSize: 10, marginBottom: 10,
+                  padding: '8px 12px', borderRadius: 6, fontSize: 12, marginBottom: 10,
                   background: 'color-mix(in srgb, var(--green) 8%, transparent)', color: 'var(--text-green)',
                   border: '1px solid color-mix(in srgb, var(--green) 12%, transparent)',
                 }}>
@@ -985,7 +985,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {meta?.instructions && (
-                      <div style={{ fontSize: 10, color: 'var(--text-faint)', whiteSpace: 'pre-line', lineHeight: 1.5, padding: '6px 10px', background: 'var(--bg-sub)', borderRadius: 6 }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'pre-line', lineHeight: 1.5, padding: '6px 10px', background: 'var(--bg-sub)', borderRadius: 6 }}>
                         {meta.instructions}
                       </div>
                     )}
@@ -994,7 +994,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                         answer is silent: saved as execution, it replaces the broker that
                         places orders. */}
                     <div>
-                      <label className="t-label" style={{ fontSize: 10 }}>This credential is for</label>
+                      <label className="t-label" style={{ fontSize: 12 }}>This credential is for</label>
                       <div style={{ display: 'flex', gap: 8 }}>
                         {([
                           ['execution', 'Placing orders', 'Executes your trades.'],
@@ -1008,14 +1008,14 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                             style={{ flex: 1, textAlign: 'left', padding: '6px 8px', lineHeight: 1.35 }}
                           >
                             <span style={{ display: 'block', fontWeight: 600 }}>{label}</span>
-                            <span style={{ display: 'block', fontSize: 9, opacity: 0.7 }}>{hint}</span>
+                            <span style={{ display: 'block', fontSize: 11, opacity: 0.7 }}>{hint}</span>
                           </button>
                         ))}
                       </div>
                     </div>
                     {meta?.fields.map((field: BrokerFieldMeta) => (
                       <div key={field.key}>
-                        <label className="t-label" style={{ fontSize: 10 }}>{field.label}</label>
+                        <label className="t-label" style={{ fontSize: 12 }}>{field.label}</label>
                         <input className="t-input" style={{ width: '100%' }}
                           type={field.type === 'password' ? 'password' : 'text'}
                           placeholder={field.placeholder || ''}
@@ -1028,7 +1028,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                     ))}
                     {meta?.has_additional_params && meta.additional_params_fields?.map((field: BrokerFieldMeta) => (
                       <div key={field.key}>
-                        <label className="t-label" style={{ fontSize: 10 }}>{field.label}</label>
+                        <label className="t-label" style={{ fontSize: 12 }}>{field.label}</label>
                         <input className="t-input" style={{ width: '100%' }}
                           type={field.type === 'password' ? 'password' : 'text'}
                           placeholder={field.placeholder || ''}
@@ -1039,7 +1039,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                           })} />
                       </div>
                     ))}
-                    {brokerError && <span className="t-down" style={{ fontSize: 10 }}>{brokerError}</span>}
+                    {brokerError && <span className="t-down" style={{ fontSize: 12 }}>{brokerError}</span>}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="t-btn t-btn-sm t-btn-primary" onClick={handleConnectBroker} disabled={connecting}>
                         {connecting ? 'Connecting...' : 'Connect'}
@@ -1049,7 +1049,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                       </button>
                     </div>
                     {meta?.oauth_available && (
-                      <div className="t-faint" style={{ fontSize: 9, lineHeight: 1.4 }}>
+                      <div className="t-faint" style={{ fontSize: 11, lineHeight: 1.4 }}>
                         After saving credentials, you’ll need to authorize via OAuth.
                       </div>
                     )}
@@ -1067,9 +1067,9 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <BrokerLogo broker={m.broker} size={24} />
-                          <span style={{ fontWeight: 600, fontSize: 12 }}>{m.display_name}</span>
-                          <span className="t-faint" style={{ fontSize: 9, marginLeft: 6, textTransform: 'none' }}>({m.auth_type})</span>
-                          <p style={{ margin: '2px 0 0', fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.3 }}>{m.description}</p>
+                          <span style={{ fontWeight: 600, fontSize: 14 }}>{m.display_name}</span>
+                          <span className="t-faint" style={{ fontSize: 11, marginLeft: 6, textTransform: 'none' }}>({m.auth_type})</span>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.3 }}>{m.description}</p>
                         </div>
                         <button className={`t-btn t-btn-xs ${connected ? 't-btn-ghost' : 't-btn-primary'}`}
                           onClick={() => {
@@ -1094,7 +1094,7 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       {/* === Footer === */}
       <footer style={{
         height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderTop: '1px solid var(--border)', fontSize: 9, color: 'var(--text-faint)',
+        borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-faint)',
         fontFamily: 'var(--font-mono)',
       }}>
         TradeMetrix Terminal v{getAppVersion()} &middot; Client Portal &middot; Data refreshes every 15s
@@ -1215,10 +1215,10 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 48, height: 48, borderRadius: 12,
             background: 'var(--gradient-primary)', marginBottom: 12,
-            fontSize: 20, fontWeight: 700, color: 'var(--text-inverse)',
+            fontSize: 24, fontWeight: 700, color: 'var(--text-inverse)',
           }}>TM</div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Client Portal</h2>
-          <p className="t-faint" style={{ fontSize: 11, margin: 0 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 4px' }}>Client Portal</h2>
+          <p className="t-faint" style={{ fontSize: 13, margin: 0 }}>
             {step === 'email' ? 'Sign in to view your trading dashboard' :
              step === 'register' ? 'Create your account' :
              `Enter the code sent to ${email}`}
@@ -1227,12 +1227,12 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
 
         {step === 'email' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <label className="t-label" style={{ fontSize: 10 }}>Email Address</label>
+            <label className="t-label" style={{ fontSize: 12 }}>Email Address</label>
             <input className="t-input" type="email" placeholder="you@example.com" value={email}
               onChange={e => setEmail(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSendOTP()}
               autoFocus />
-            {error && <span className="t-down" style={{ fontSize: 10 }}>{error}</span>}
+            {error && <span className="t-down" style={{ fontSize: 12 }}>{error}</span>}
             <button className="t-btn t-btn-primary" onClick={handleSendOTP} disabled={sending}
               style={{ width: '100%', height: 36 }}>
               {sending ? 'Sending OTP...' : 'Send OTP'}
@@ -1242,26 +1242,26 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
 
         {step === 'register' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <label className="t-label" style={{ fontSize: 10 }}>Full Name</label>
+            <label className="t-label" style={{ fontSize: 12 }}>Full Name</label>
             <input className="t-input" placeholder="Your name" value={fullName}
               onChange={e => setFullName(e.target.value)} autoFocus />
-            <label className="t-label" style={{ fontSize: 10 }}>Email Address</label>
+            <label className="t-label" style={{ fontSize: 12 }}>Email Address</label>
             <input className="t-input" type="email" placeholder="you@example.com" value={email}
               onChange={e => setEmail(e.target.value)} />
-            <label className="t-label" style={{ fontSize: 10 }}>Phone (for OTP)</label>
+            <label className="t-label" style={{ fontSize: 12 }}>Phone (for OTP)</label>
             <input className="t-input" type="tel" placeholder="+919876543210" value={phone}
               onChange={e => setPhone(e.target.value)} />
-            <label className="t-label" style={{ fontSize: 10 }}>Password</label>
+            <label className="t-label" style={{ fontSize: 12 }}>Password</label>
             <input className="t-input" type="password" placeholder="Min 6 characters" value={password}
               onChange={e => setPassword(e.target.value)} />
-            {error && <span className="t-down" style={{ fontSize: 10 }}>{error}</span>}
+            {error && <span className="t-down" style={{ fontSize: 12 }}>{error}</span>}
             <button className="t-btn t-btn-primary" onClick={handleRegister} disabled={sending}
               style={{ width: '100%', height: 36 }}>
               {sending ? 'Creating account...' : 'Create Account & Send OTP'}
             </button>
             <div style={{ textAlign: 'center' }}>
               <button style={{
-                background: 'none', border: 'none', color: 'var(--text-sub)', fontSize: 10,
+                background: 'none', border: 'none', color: 'var(--text-sub)', fontSize: 12,
                 cursor: 'pointer', fontFamily: 'var(--font-sans)',
                 textDecoration: 'underline', textUnderlineOffset: 2,
               }} onClick={() => setStep('email')}>
@@ -1274,7 +1274,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
         {step === 'otp' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
             <div style={{
-              padding: '8px 12px', borderRadius: 6, fontSize: 10,
+              padding: '8px 12px', borderRadius: 6, fontSize: 12,
               background: 'color-mix(in srgb, var(--green) 8%, transparent)', color: 'var(--text-green)',
               width: '100%', textAlign: 'center',
               border: '1px solid color-mix(in srgb, var(--green) 12%, transparent)',
@@ -1283,7 +1283,7 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
             </div>
             {debugOtp && (
               <div style={{
-                padding: '8px 12px', borderRadius: 6, fontSize: 12,
+                padding: '8px 12px', borderRadius: 6, fontSize: 14,
                 background: 'color-mix(in srgb, var(--amber) 10%, transparent)', color: '#ffc107',
                 width: '100%', textAlign: 'center', fontFamily: 'var(--font-mono)',
                 border: '1px solid color-mix(in srgb, var(--amber) 20%, transparent)',
@@ -1303,17 +1303,17 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
                 />
               ))}
             </div>
-            {error && <span className="t-down" style={{ fontSize: 10 }}>{error}</span>}
+            {error && <span className="t-down" style={{ fontSize: 12 }}>{error}</span>}
             <button className="t-btn t-btn-primary" onClick={handleVerifyOTP} disabled={verifying}
               style={{ width: '100%', height: 36 }}>
               {verifying ? 'Verifying...' : 'Verify & Sign In'}
             </button>
             <button className="t-btn t-btn-ghost" onClick={handleResend} disabled={sending || resendTimer > 0}
-              style={{ width: '100%', height: 32, fontSize: 11 }}>
+              style={{ width: '100%', height: 32, fontSize: 13 }}>
               {resendTimer > 0 ? `Resend in ${resendTimer}s` : sending ? 'Resending...' : 'Resend OTP'}
             </button>
             <button style={{
-              background: 'none', border: 'none', color: 'var(--text-sub)', fontSize: 10,
+              background: 'none', border: 'none', color: 'var(--text-sub)', fontSize: 12,
               cursor: 'pointer', fontFamily: 'var(--font-sans)',
             }} onClick={() => { setStep('email'); setError(''); setUserExists(null) }}>
               Change email

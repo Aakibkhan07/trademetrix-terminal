@@ -161,7 +161,28 @@
 }
 
 /* ---- Base reset ---- */
-html, body {
+/*
+ * Root and body are sized separately, and that separation is load-bearing.
+ *
+ * They used to share one rule with `font-size: var(--text-base)` on both. On the root element a
+ * `rem` resolves against the *initial* font size (16px), not against itself — so setting
+ * `--text-base: 0.8125rem` on `html` made the root 13px, and every other `rem` token then
+ * resolved against **13px instead of the 16px it was authored against**. `--text-lg: 1rem`
+ * rendered at 13px, not 16px. The whole type scale was quietly 0.8125x smaller than intended,
+ * which is why the text read small everywhere rather than small in one place.
+ *
+ * So: `html` sets the root that `rem` resolves against, and `body` sets the reading size.
+ * Every token now means what its number says.
+ *
+ * 19px is 16px (the authored assumption) scaled by ~1.19, which is the size increase that was
+ * asked for. Measured before and after with `scripts/browser/measure_font_sizes.js`: the median
+ * rendered text size went from 10px to 12px, and the smallest from 8px to 10px.
+ */
+html {
+  font-size: 19px;
+}
+
+body {
   margin: 0;
   padding: 0;
   background: var(--bg);

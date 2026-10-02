@@ -114,8 +114,8 @@ export default function DeployWizard({
     <Dialog onClose={onClose} maxWidth={560} padding={0} title={
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
         <div>
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Deploy Strategy</span>
-          <span className={`t-badge ${status === 'live' ? 't-badge-green' : status === 'paper' ? 't-badge-cyan' : 't-badge-sub'}`} style={{ fontSize: 9, marginLeft: 8, textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>Deploy Strategy</span>
+          <span className={`t-badge ${status === 'live' ? 't-badge-green' : status === 'paper' ? 't-badge-cyan' : 't-badge-sub'}`} style={{ fontSize: 11, marginLeft: 8, textTransform: 'uppercase' }}>
             {status}
           </span>
         </div>
@@ -124,10 +124,10 @@ export default function DeployWizard({
     }>
         <div style={{ padding: 14, maxHeight: '60vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="t-seg" style={{ alignSelf: 'flex-start' }}>
-            <button className={`t-seg-btn ${draft.mode === 'paper' ? 'active' : ''}`} onClick={() => set('mode', 'paper')} style={{ fontSize: 11, padding: '0 12px' }}>
+            <button className={`t-seg-btn ${draft.mode === 'paper' ? 'active' : ''}`} onClick={() => set('mode', 'paper')} style={{ fontSize: 13, padding: '0 12px' }}>
               📄 Paper
             </button>
-            <button className={`t-seg-btn ${draft.mode === 'live' ? 'active' : ''}`} onClick={() => { set('confirm_live', false); set('mode', 'live') }} style={{ fontSize: 11, padding: '0 12px' }}>
+            <button className={`t-seg-btn ${draft.mode === 'live' ? 'active' : ''}`} onClick={() => { set('confirm_live', false); set('mode', 'live') }} style={{ fontSize: 13, padding: '0 12px' }}>
               ⚡ Live
             </button>
           </div>
@@ -140,7 +140,7 @@ export default function DeployWizard({
                 checked={draft.confirm_live}
                 onChange={e => set('confirm_live', e.target.checked)}
               />
-              <label htmlFor="confirm-live" style={{ fontSize: 11, color: 'var(--text)', margin: 0 }}>
+              <label htmlFor="confirm-live" style={{ fontSize: 13, color: 'var(--text)', margin: 0 }}>
                 <strong>I confirm this deploys real money on {draft.broker.toUpperCase()}.</strong> Live orders are executed through the broker with risk checks and can only be stopped via the Kill Switch / Emergency Stop.
               </label>
             </div>
@@ -170,7 +170,7 @@ export default function DeployWizard({
               <option value="zerodha">Zerodha</option>
             </select>
             {draft.mode === 'live' && !draft.broker && (
-              <p style={{ margin: '4px 0 0', fontSize: 10, color: 'var(--red)' }}>Live deployment requires a connected broker</p>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--red)' }}>Live deployment requires a connected broker</p>
             )}
           </div>
 
@@ -184,15 +184,15 @@ export default function DeployWizard({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div>
                 <input className="t-input" type="number" step="0.1" value={draft.risk_per_trade} onChange={e => set('risk_per_trade', Number(e.target.value))} />
-                <label className="t-stat-label" style={{ fontSize: 9, display: 'block', marginTop: 2 }}>Risk / trade %</label>
+                <label className="t-stat-label" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>Risk / trade %</label>
               </div>
               <div>
                 <input className="t-input" type="number" value={draft.max_daily_loss} onChange={e => set('max_daily_loss', Number(e.target.value))} />
-                <label className="t-stat-label" style={{ fontSize: 9, display: 'block', marginTop: 2 }}>Max daily loss</label>
+                <label className="t-stat-label" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>Max daily loss</label>
               </div>
               <div>
                 <input className="t-input" type="number" step="0.1" value={draft.stop_loss_pct} onChange={e => set('stop_loss_pct', Number(e.target.value))} />
-                <label className="t-stat-label" style={{ fontSize: 9, display: 'block', marginTop: 2 }}>SL %</label>
+                <label className="t-stat-label" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>SL %</label>
               </div>
             </div>
           </div>
@@ -205,7 +205,7 @@ export default function DeployWizard({
                   key={d}
                   className={`t-btn t-btn-sm ${draft.trading_days.includes(d) ? 't-btn-primary' : ''}`}
                   onClick={() => toggleDay(d)}
-                  style={{ fontSize: 9, padding: '2px 8px' }}
+                  style={{ fontSize: 11, padding: '2px 8px' }}
                 >
                   {d}
                 </button>
@@ -224,7 +224,7 @@ export default function DeployWizard({
             </div>
           </div>
 
-          {error && <p style={{ margin: 0, fontSize: 11, color: 'var(--red)' }}>{error}</p>}
+          {error && <p style={{ margin: 0, fontSize: 13, color: 'var(--red)' }}>{error}</p>}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '10px 14px', borderTop: '1px solid var(--border)' }}>

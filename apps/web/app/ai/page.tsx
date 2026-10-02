@@ -22,14 +22,14 @@ function ExplainPanel({ onAsk }: { onAsk: (q: string) => void }) {
   const [runId, setRunId] = useState('')
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <input className="t-input" placeholder="run_id e.g. a1b2c3d4..." value={runId} onChange={e => setRunId(e.target.value)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }} />
+      <input className="t-input" placeholder="run_id e.g. a1b2c3d4..." value={runId} onChange={e => setRunId(e.target.value)} style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         <button className="t-btn t-btn-sm" disabled={!runId.trim()} onClick={() => onAsk(`Is backtest run ${runId.trim()} overfitted? Check win_rate, profit_factor, Sharpe in-sample vs walk-forward and tell me verdict`)}>Overfitted?</button>
         <button className="t-btn t-btn-sm" disabled={!runId.trim()} onClick={() => onAsk(`Explain walk-forward for run ${runId.trim()} — what happened in each fold, train vs test?`)}>Walk-forward</button>
         <button className="t-btn t-btn-sm" disabled={!runId.trim()} onClick={() => onAsk(`Why did run ${runId.trim()} lose? Analyze max_drawdown, losing streak, hour/weekday heatmap`)}>Why Loss?</button>
         <button className="t-btn t-btn-sm t-btn-primary" disabled={!runId.trim()} onClick={() => onAsk(`Give me institutional verdict for run ${runId.trim()} — profitable? consistent? PASS/CAUTION/FAIL with Sharpe/Sortino/Calmar`)}>Verdict</button>
       </div>
-      <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Tip: copy run_id from Backtest → Overview header</div>
+      <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>Tip: copy run_id from Backtest → Overview header</div>
     </div>
   )
 }
@@ -41,15 +41,15 @@ function StrategyCard({ strategy, onDeploy }: { strategy: any; onDeploy: () => v
       background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)',
       border: '1px solid var(--border)',
     }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
         {strategy.name || 'AI Strategy'}
       </div>
       {strategy.description && (
-        <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 8 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 8 }}>
           {strategy.description}
         </div>
       )}
-      <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--text-sub)', marginBottom: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, fontSize: 13, color: 'var(--text-sub)', marginBottom: 8, flexWrap: 'wrap' }}>
         <span style={{ background: 'var(--panel)', padding: '2px 6px', borderRadius: 4 }}>
           {strategy.settings?.symbol || 'NIFTY'}
         </span>
@@ -63,20 +63,20 @@ function StrategyCard({ strategy, onDeploy }: { strategy: any; onDeploy: () => v
           {strategy.edges?.length || 0} connections
         </span>
       </div>
-      <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 8, fontFamily: 'var(--font-mono)' }}>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 8, fontFamily: 'var(--font-mono)' }}>
         {strategy.tags?.join(', ') || ''}
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
         <button
           className="t-btn t-btn-primary"
-          style={{ fontSize: 11, padding: '4px 12px' }}
+          style={{ fontSize: 13, padding: '4px 12px' }}
           onClick={onDeploy}
         >
           Deploy Strategy
         </button>
         <button
           className="t-btn"
-          style={{ fontSize: 11, padding: '4px 12px' }}
+          style={{ fontSize: 13, padding: '4px 12px' }}
           onClick={() => {
             navigator.clipboard.writeText(JSON.stringify(strategy, null, 2))
           }}
@@ -143,10 +143,10 @@ export default function AIPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
       <div>
-        <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>
+        <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: 0, color: 'var(--text)' }}>
           AI Assistant
         </h1>
-        <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
+        <p style={{ color: 'var(--text-sub)', fontSize: 14, margin: '2px 0 0' }}>
           Chat, command, ya strategy banao — sab ek jagah
         </p>
       </div>
@@ -186,7 +186,7 @@ export default function AIPage() {
                       width: 24, height: 24, borderRadius: '50%',
                       background: 'var(--gradient-primary)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, flexShrink: 0, color: 'var(--text-inverse)', fontWeight: 700,
+                      fontSize: 13, flexShrink: 0, color: 'var(--text-inverse)', fontWeight: 700,
                     }}>AI</div>
                   )}
                   <div style={{
@@ -196,7 +196,7 @@ export default function AIPage() {
                       : 'var(--radius-md) var(--radius-md) var(--radius-md) 0',
                     background: msg.role === 'user' ? 'rgba(0,212,255,0.1)' : 'var(--bg-tertiary)',
                     border: `1px solid ${msg.role === 'user' ? 'rgba(0,212,255,0.15)' : 'var(--border)'}`,
-                    fontSize: 12, lineHeight: 1.5, color: 'var(--text)',
+                    fontSize: 14, lineHeight: 1.5, color: 'var(--text)',
                     whiteSpace: 'pre-wrap',
                   }}>
                     {msg.content}
@@ -209,7 +209,7 @@ export default function AIPage() {
                       width: 24, height: 24, borderRadius: '50%',
                       background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, flexShrink: 0, color: 'var(--text-sub)', fontWeight: 700,
+                      fontSize: 13, flexShrink: 0, color: 'var(--text-sub)', fontWeight: 700,
                     }}>U</div>
                   )}
                 </div>
@@ -217,14 +217,14 @@ export default function AIPage() {
                   <div style={{ display: 'flex', gap: 6, marginTop: 4, marginLeft: 32 }}>
                     <button
                       className="t-btn t-btn-primary"
-                      style={{ fontSize: 10, padding: '2px 10px' }}
+                      style={{ fontSize: 12, padding: '2px 10px' }}
                       onClick={() => handleSend(`Yes, confirm: ${msg.content}`)}
                     >
                       Confirm
                     </button>
                     <button
                       className="t-btn"
-                      style={{ fontSize: 10, padding: '2px 10px' }}
+                      style={{ fontSize: 12, padding: '2px 10px' }}
                       onClick={() => {}}
                     >
                       Cancel
@@ -239,12 +239,12 @@ export default function AIPage() {
                   width: 24, height: 24, borderRadius: '50%',
                   background: 'var(--gradient-primary)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, flexShrink: 0, color: 'var(--text-inverse)', fontWeight: 700,
+                  fontSize: 13, flexShrink: 0, color: 'var(--text-inverse)', fontWeight: 700,
                 }}>AI</div>
                 <div style={{
                   padding: '8px 12px', borderRadius: 'var(--radius-md) var(--radius-md) var(--radius-md) 0',
                   background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-                  fontSize: 12, color: 'var(--text-faint)',
+                  fontSize: 14, color: 'var(--text-faint)',
                 }}>
                   <span style={{ animation: 't-pulse 2s infinite' }}>Thinking...</span>
                 </div>
@@ -276,34 +276,34 @@ export default function AIPage() {
           width: 260, flexShrink: 0, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 10,
         }}>
           <div className="t-panel" style={{ padding: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>What I Can Do</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11, color: 'var(--text-sub)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>What I Can Do</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--text-sub)' }}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <span style={{ color: 'var(--cyan)', fontSize: 10, marginTop: 2 }}>💬</span>
+                <span style={{ color: 'var(--cyan)', fontSize: 12, marginTop: 2 }}>💬</span>
                 <div><strong style={{ color: 'var(--text)' }}>Chat</strong> — Market analysis, strategy tips, psychology coaching, platform help</div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <span style={{ color: 'var(--cyan)', fontSize: 10, marginTop: 2 }}>⚡</span>
+                <span style={{ color: 'var(--cyan)', fontSize: 12, marginTop: 2 }}>⚡</span>
                 <div><strong style={{ color: 'var(--text)' }}>Commands</strong> — “Show my positions”, “Square off”, “Why rejected?”, “P&L kya hai”</div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <span style={{ color: 'var(--cyan)', fontSize: 10, marginTop: 2 }}>🤖</span>
+                <span style={{ color: 'var(--cyan)', fontSize: 12, marginTop: 2 }}>🤖</span>
                 <div><strong style={{ color: 'var(--text)' }}>Build Strategy</strong> — “EMA crossover banao”, “Bollinger Bandit strategy for BANKNIFTY” (Enterprise)</div>
               </div>
             </div>
           </div>
 
           <div className="t-panel" style={{ padding: 12, borderLeft: '2px solid var(--amber)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--amber)' }} /> Explainable Backtest
             </div>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 8 }}>Paste a backtest <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>run_id</span> — AI checks overfitting, walk-forward & why it lost</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 8 }}>Paste a backtest <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>run_id</span> — AI checks overfitting, walk-forward & why it lost</div>
             <ExplainPanel onAsk={(q) => handleSend(q)} />
           </div>
 
           <div className="t-panel" style={{ padding: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Examples</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11, color: 'var(--text-sub)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Examples</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--text-sub)' }}>
               {[
                 'Analyze NIFTY for today',
                 'Why was my order rejected?',
@@ -319,7 +319,7 @@ export default function AIPage() {
                   style={{
                     textAlign: 'left', background: 'var(--bg-tertiary)',
                     border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                    padding: '6px 8px', fontSize: 11, color: 'var(--text-sub)',
+                    padding: '6px 8px', fontSize: 13, color: 'var(--text-sub)',
                     cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'all 0.15s',
                   }}

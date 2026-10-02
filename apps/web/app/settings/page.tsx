@@ -152,7 +152,7 @@ export default function SettingsPage() {
 
       {loadError && (
         <div style={{
-          padding: '10px 14px', borderRadius: 8, fontSize: 12,
+          padding: '10px 14px', borderRadius: 8, fontSize: 14,
           background: 'var(--red-dim)', border: '1px solid var(--red-dim)',
           color: 'var(--text-red)',
         }}>
@@ -171,26 +171,26 @@ export default function SettingsPage() {
               width: 48, height: 48, borderRadius: '50%',
               background: 'var(--gradient-primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18, fontWeight: 700, color: 'var(--text-inverse)',
+              fontSize: 22, fontWeight: 700, color: 'var(--text-inverse)',
               flexShrink: 0,
             }}>
               {user?.full_name?.[0] || user?.email?.[0] || 'U'}
             </div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{user?.full_name || 'User'}</div>
-              <div className="t-faint" style={{ fontSize: 12 }}>{user?.email}</div>
-              {user?.id && <div className="t-faint" style={{ fontSize: 10, fontFamily: 'var(--font-mono)', marginTop: 2 }}>ID: {user.id}</div>}
+              <div style={{ fontSize: 19, fontWeight: 700 }}>{user?.full_name || 'User'}</div>
+              <div className="t-faint" style={{ fontSize: 14 }}>{user?.email}</div>
+              {user?.id && <div className="t-faint" style={{ fontSize: 12, fontFamily: 'var(--font-mono)', marginTop: 2 }}>ID: {user.id}</div>}
             </div>
           </div>
 
           <div className="t-row" style={{ gap: 12 }}>
             <div style={{ flex: 1 }}>
-              <span className="t-faint" style={{ fontSize: 10 }}>Full Name</span>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.full_name || 'Not set'}</div>
+              <span className="t-faint" style={{ fontSize: 12 }}>Full Name</span>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>{user?.full_name || 'Not set'}</div>
             </div>
             <div style={{ flex: 1 }}>
-              <span className="t-faint" style={{ fontSize: 10 }}>Email</span>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.email}</div>
+              <span className="t-faint" style={{ fontSize: 12 }}>Email</span>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>{user?.email}</div>
             </div>
           </div>
         </div>
@@ -205,19 +205,19 @@ export default function SettingsPage() {
           </span>
         </div>
         <div className="t-panel-body">
-          <p className="t-faint" style={{ margin: '0 0 12px', fontSize: 12 }}>{TIER_LIMITS[tier] || 'Custom plan'}</p>
+          <p className="t-faint" style={{ margin: '0 0 12px', fontSize: 14 }}>{TIER_LIMITS[tier] || 'Custom plan'}</p>
           <div className="t-row" style={{ gap: 16 }}>
             <div style={{ flex: 1, textAlign: 'center', padding: '8px', background: 'var(--panel-2)', borderRadius: 6 }}>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>{strategies.length}</div>
-              <div className="t-faint" style={{ fontSize: 10 }}>Active Strategies</div>
+              <div style={{ fontSize: 24, fontWeight: 700 }}>{strategies.length}</div>
+              <div className="t-faint" style={{ fontSize: 12 }}>Active Strategies</div>
             </div>
             <div style={{ flex: 1, textAlign: 'center', padding: '8px', background: 'var(--panel-2)', borderRadius: 6 }}>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>{connectedCount}/{totalBrokers}</div>
-              <div className="t-faint" style={{ fontSize: 10 }}>Brokers Connected</div>
+              <div style={{ fontSize: 24, fontWeight: 700 }}>{connectedCount}/{totalBrokers}</div>
+              <div className="t-faint" style={{ fontSize: 12 }}>Brokers Connected</div>
             </div>
             <div style={{ flex: 1, textAlign: 'center', padding: '8px', background: 'var(--panel-2)', borderRadius: 6 }}>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>{user?.is_admin ? 'Yes' : 'No'}</div>
-              <div className="t-faint" style={{ fontSize: 10 }}>Admin Access</div>
+              <div style={{ fontSize: 24, fontWeight: 700 }}>{user?.is_admin ? 'Yes' : 'No'}</div>
+              <div className="t-faint" style={{ fontSize: 12 }}>Admin Access</div>
             </div>
           </div>
           {tier !== 'enterprise' && (
@@ -240,7 +240,7 @@ export default function SettingsPage() {
           {loading ? (
             <span className="t-faint">Loading...</span>
           ) : creds.length === 0 ? (
-            <p className="t-faint" style={{ margin: 0, fontSize: 12 }}>No brokers connected. <a href="/brokers">Connect one now</a>.</p>
+            <p className="t-faint" style={{ margin: 0, fontSize: 14 }}>No brokers connected. <a href="/brokers">Connect one now</a>.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {creds.map(c => (
@@ -248,7 +248,7 @@ export default function SettingsPage() {
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '6px 10px', background: 'var(--panel-2)', borderRadius: 6,
                 }}>
-                  <span style={{ fontWeight: 600, fontSize: 12, textTransform: 'capitalize' }}>{c.broker}</span>
+                  <span style={{ fontWeight: 600, fontSize: 14, textTransform: 'capitalize' }}>{c.broker}</span>
                   <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-sub'}`}>
                     {c.is_active ? 'Active' : 'Inactive'}
                   </span>
@@ -274,8 +274,8 @@ export default function SettingsPage() {
                   padding: '8px 10px', background: 'var(--panel-2)', borderRadius: 6,
                 }}>
                   <div>
-                    <span style={{ fontWeight: 600, fontSize: 12 }}>{s.name}</span>
-                    <p className="t-faint" style={{ margin: '2px 0 0', fontSize: 10 }}>{s.description}</p>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
+                    <p className="t-faint" style={{ margin: '2px 0 0', fontSize: 12 }}>{s.description}</p>
                   </div>
                   <span className={`t-badge ${TIER_COLORS[s.required_tier] || 't-badge-sub'}`} style={{ textTransform: 'capitalize' }}>
                     {s.required_tier}
@@ -295,8 +295,8 @@ export default function SettingsPage() {
         <div className="t-panel-body">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <span style={{ fontSize: 12, fontWeight: 600 }}>Theme</span>
-              <p className="t-faint" style={{ margin: '2px 0 0', fontSize: 11 }}>Current: {theme === 'dark' ? 'Dark' : 'Light'} mode</p>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>Theme</span>
+              <p className="t-faint" style={{ margin: '2px 0 0', fontSize: 13 }}>Current: {theme === 'dark' ? 'Dark' : 'Light'} mode</p>
             </div>
             <button className="t-btn t-btn-sm" onClick={toggleTheme}>
               Switch to {theme === 'dark' ? 'Light' : 'Dark'}
@@ -311,7 +311,7 @@ export default function SettingsPage() {
           <h3 className="t-panel-title">Account Security</h3>
         </div>
         <div className="t-panel-body">
-          <p className="t-faint" style={{ margin: '0 0 12px', fontSize: 12 }}>
+          <p className="t-faint" style={{ margin: '0 0 12px', fontSize: 14 }}>
             Manage your account security settings.
           </p>
           <div className="t-row" style={{ gap: 8 }}>
@@ -328,24 +328,24 @@ export default function SettingsPage() {
           <h3 className="t-panel-title">Telegram Alerts</h3>
           {tgStatus?.linked && (
             <span style={{
-              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+              fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
               background: 'color-mix(in srgb, var(--green) 12%, transparent)', color: 'var(--green)',
             }}>CONNECTED</span>
           )}
         </div>
         <div className="t-panel-body">
-          <p className="t-faint" style={{ margin: '0 0 12px', fontSize: 12 }}>
+          <p className="t-faint" style={{ margin: '0 0 12px', fontSize: 14 }}>
             Get instant order fills, rejections, strategy events and risk alerts in your Telegram.
           </p>
           {tgStatus && !tgStatus.configured ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>Telegram alerts are being set up — check back soon.</span>
+              <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>Telegram alerts are being set up — check back soon.</span>
             </div>
           ) : (
             <div className="t-row" style={{ gap: 8, alignItems: 'center' }}>
               {tgStatus?.linked ? (
                 <>
-                  <span style={{ fontSize: 12 }}>Chat {tgStatus.chat_id_masked}{tgStatus.username ? ` (@${tgStatus.username})` : ''}</span>
+                  <span style={{ fontSize: 14 }}>Chat {tgStatus.chat_id_masked}{tgStatus.username ? ` (@${tgStatus.username})` : ''}</span>
                   <button className="t-btn t-btn-sm" onClick={handleTelegramUnlink} disabled={tgBusy}>
                     Disconnect
                   </button>
@@ -358,12 +358,12 @@ export default function SettingsPage() {
             </div>
           )}
           {!tgStatus?.linked && tgBusy && (
-            <p className="t-faint" style={{ margin: '8px 0 0', fontSize: 11 }}>
+            <p className="t-faint" style={{ margin: '8px 0 0', fontSize: 13 }}>
               A Telegram window opened — press <b>START</b> in the bot to finish linking. This page updates automatically.
             </p>
           )}
           {tgMsg && (
-            <p style={{ margin: '8px 0 0', fontSize: 11, color: tgStatus?.linked ? 'var(--green)' : 'var(--text-sub)' }}>{tgMsg}</p>
+            <p style={{ margin: '8px 0 0', fontSize: 13, color: tgStatus?.linked ? 'var(--green)' : 'var(--text-sub)' }}>{tgMsg}</p>
           )}
         </div>
       </div>
@@ -385,7 +385,7 @@ export default function SettingsPage() {
             </div>
             {pwMsg && (
               <div style={{
-                padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 12,
+                padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 14,
                 background: pwMsgType === 'error' ? 'color-mix(in srgb, var(--red) 10%, transparent)' : 'color-mix(in srgb, var(--green) 10%, transparent)',
                 border: `1px solid ${pwMsgType === 'error' ? 'color-mix(in srgb, var(--red) 20%, transparent)' : 'color-mix(in srgb, var(--green) 20%, transparent)'}`,
                 color: pwMsgType === 'error' ? 'var(--red)' : 'var(--green)',

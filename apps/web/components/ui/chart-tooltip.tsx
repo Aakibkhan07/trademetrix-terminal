@@ -15,7 +15,7 @@ export function ChartTooltip({ tooltipRef, width, border }: {
       style={{
         display: 'none', position: 'absolute', pointerEvents: 'none', zIndex: 5,
         background: colorVar('--bg-secondary', '#1e1e2f'), color: colorVar('--text', '#eee'),
-        padding: '3px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)',
+        padding: '3px 6px', borderRadius: 4, fontSize: 12, fontFamily: 'var(--font-mono)',
         ...(width ? { width } : {}),
         ...(border ? { border: '1px solid var(--border)' } : {}),
       } as CSSProperties}

@@ -264,7 +264,7 @@ function BacktestChart({ points, height = 170, color = 'var(--green)', mode = 'e
         style={{
           display: 'none', position: 'absolute', pointerEvents: 'none', zIndex: 5,
           background: colorVar('--bg-secondary', '#1e1e2f'), color: colorVar('--text', '#eee'),
-          padding: '3px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)',
+          padding: '3px 6px', borderRadius: 4, fontSize: 12, fontFamily: 'var(--font-mono)',
         }}
       />
     </div>
@@ -299,7 +299,7 @@ function TradeChart({ candles, view, replaying, onReplayEnd }: {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: colorVar('--text-sub', '#8888a0'),
-        fontSize: 10,
+        fontSize: 12,
         fontFamily: 'var(--font-mono)',
       },
       grid: { vertLines: { color: mix(colorVar('--violet'), 6) }, horzLines: { color: mix(colorVar('--violet'), 6) } },
@@ -435,7 +435,7 @@ function TradeChart({ candles, view, replaying, onReplayEnd }: {
           display: 'none', position: 'absolute', pointerEvents: 'none', zIndex: 5,
           background: colorVar('--bg-secondary', '#1e1e2f'), color: colorVar('--text', '#eee'),
           border: '1px solid var(--border)', padding: '6px 8px', borderRadius: 6,
-          fontSize: 10, fontFamily: 'var(--font-mono)', width: 250, lineHeight: 1.5,
+          fontSize: 12, fontFamily: 'var(--font-mono)', width: 250, lineHeight: 1.5,
         }}
       />
     </div>
@@ -467,7 +467,7 @@ function RiskChart({ timeline, height = 190 }: { timeline: BTRiskTimelinePoint[]
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: colorVar('--text-sub', '#8888a0'),
-        fontSize: 10,
+        fontSize: 12,
         fontFamily: 'var(--font-sans)',
       },
       grid: {
@@ -567,7 +567,7 @@ function RiskChart({ timeline, height = 190 }: { timeline: BTRiskTimelinePoint[]
         style={{
           display: 'none', position: 'absolute', pointerEvents: 'none', zIndex: 5,
           background: colorVar('--bg-secondary', '#1e1e2f'), color: colorVar('--text', '#eee'),
-          padding: '3px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)',
+          padding: '3px 6px', borderRadius: 4, fontSize: 12, fontFamily: 'var(--font-mono)',
         }}
       />
     </div>
@@ -591,7 +591,7 @@ function BarChart({ data, height = 120, unit = '' }: { data: { label: string; va
           <g key={d.label}>
             <rect x={xPos} y={yPos} width={barW} height={Math.max(1, barH)} rx={2}
               fill={d.value >= 0 ? 'var(--green)' : 'var(--red)'} opacity={0.7} />
-            <text x={xPos + barW / 2} y={height - 6} textAnchor="middle" fill="var(--text-faint)" fontSize={7} fontFamily="var(--font-sans)">
+            <text x={xPos + barW / 2} y={height - 6} textAnchor="middle" fill="var(--text-faint)" fontSize={10} fontFamily="var(--font-sans)">
               {d.label.length > 5 ? d.label.slice(0, 5) : d.label}
             </text>
           </g>
@@ -609,10 +609,10 @@ function Heatmap({ data, title }: { data: Record<string, number>; title: string 
   const cell = 22
   return (
     <div>
-      <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 6, fontWeight: 700 }}>{title}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 6, fontWeight: 700 }}>{title}</div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${24}, ${cell}px)`, gap: 2, overflowX: 'auto' }}>
         {hours.map(h => (
-          <div key={h} style={{ fontSize: 8, color: 'var(--text-faint)', textAlign: 'center' }}>{h}</div>
+          <div key={h} style={{ fontSize: 10, color: 'var(--text-faint)', textAlign: 'center' }}>{h}</div>
         ))}
         {WEEKDAYS.map(day => (
           <div key={day}>
@@ -630,7 +630,7 @@ function Heatmap({ data, title }: { data: Record<string, number>; title: string 
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 4, fontSize: 8, color: 'var(--text-faint)' }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 4, fontSize: 10, color: 'var(--text-faint)' }}>
         <span>Mon</span>
         <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'color-mix(in srgb, var(--text-inverse) 8%, transparent)' }} />
         <span>Fri</span>
@@ -685,28 +685,28 @@ function OptionsQuickStrip({ onApply }: { onApply: (symbol: string, strikeLabel:
   return (
     <div style={{ background: 'color-mix(in srgb, var(--violet) 5%, transparent)', border: '1px solid color-mix(in srgb, var(--violet) 15%, transparent)', borderRadius: 'var(--radius-md)', padding: 12, marginBottom: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', letterSpacing: '0.08em' }}>OPTIONS QUICK-CONFIG</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', letterSpacing: '0.08em' }}>OPTIONS QUICK-CONFIG</span>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>{loading ? 'loading chain…' : `${meta.key} · ${expiries.length} expiries`}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{loading ? 'loading chain…' : `${meta.key} · ${expiries.length} expiries`}</span>
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         {INDEXES.map(i => (
-          <button key={i.key} className={`t-chip ${index === i.key ? 'active' : ''}`} style={{ fontSize: 10 }} onClick={() => setIndex(i.key)}>{i.name}</button>
+          <button key={i.key} className={`t-chip ${index === i.key ? 'active' : ''}`} style={{ fontSize: 12 }} onClick={() => setIndex(i.key)}>{i.name}</button>
         ))}
         <span style={{ width: 1, height: 18, background: 'color-mix(in srgb, var(--text-inverse) 12%, transparent)' }} />
         {expiries.length > 0 && (
           <>
             {groupExpiries(expiries).all.map(e => (
-              <button key={e} className={`t-chip ${expiry === e ? 'active' : ''}`} style={{ fontSize: 10 }} onClick={() => setExpiry(e)}>{e}</button>
+              <button key={e} className={`t-chip ${expiry === e ? 'active' : ''}`} style={{ fontSize: 12 }} onClick={() => setExpiry(e)}>{e}</button>
             ))}
           </>
         )}
         <span style={{ width: 1, height: 18, background: 'color-mix(in srgb, var(--text-inverse) 12%, transparent)' }} />
         {MONEYNESS_OPTIONS.map(o => (
-          <button key={o.key} className={`t-chip ${moneyness === o.key ? 'active' : ''}`} style={{ fontSize: 10 }} onClick={() => setMoneyness(o.key)}>{o.label}</button>
+          <button key={o.key} className={`t-chip ${moneyness === o.key ? 'active' : ''}`} style={{ fontSize: 12 }} onClick={() => setMoneyness(o.key)}>{o.label}</button>
         ))}
         <span style={{ width: 1, height: 18, background: 'color-mix(in srgb, var(--text-inverse) 12%, transparent)' }} />
-        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
           {strike !== null ? `${index}${expiry}${strike} CE/PE` : 'spot unavailable — using index only'}
         </span>
         <button
@@ -717,7 +717,7 @@ function OptionsQuickStrip({ onApply }: { onApply: (symbol: string, strikeLabel:
           Load as Symbol
         </button>
       </div>
-      <div style={{ marginTop: 8, fontSize: 9, color: 'var(--text-faint)' }}>
+      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-faint)' }}>
         Options backtests run on the UNDERLYING index candles — the engine prices {indexMeta(index).name} spot, not option premiums. Contract above is the reference strike only.
       </div>
     </div>
@@ -1161,11 +1161,11 @@ function BacktestContent() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Backtest Engine</h1>
-          <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>Institutional-grade backtesting for Indian markets — costs, corporate actions, continuous futures</p>
+          <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: 0, color: 'var(--text)' }}>Backtest Engine</h1>
+          <p style={{ color: 'var(--text-sub)', fontSize: 14, margin: '2px 0 0' }}>Institutional-grade backtesting for Indian markets — costs, corporate actions, continuous futures</p>
         </div>
         {result?.run_id && (
-          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
             run {result.run_id} · {(result.duration_seconds || 0).toFixed(1)}s
           </div>
         )}
@@ -1178,7 +1178,7 @@ function BacktestContent() {
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Source</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Source</label>
             <select className="t-select" value={source} onChange={e => {
               setSource(e.target.value as 'builtin' | 'builder')
               if (e.target.value === 'builder') setStrategy(builderStrategies[0]?.id || '')
@@ -1188,7 +1188,7 @@ function BacktestContent() {
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Strategy</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Strategy</label>
             {source === 'builtin' ? (
               <select className="t-select" value={strategy} onChange={e => setStrategy(e.target.value)}>
                 {BUILTIN_STRATEGIES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -1201,39 +1201,39 @@ function BacktestContent() {
             )}
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Symbol</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Symbol</label>
             <input className="t-input" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} />
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Interval</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Interval</label>
             <select className="t-select" value={interval} onChange={e => setInterval(e.target.value)}>
               {INTERVALS.map(i => <option key={i.id} value={i.id}>{i.label}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Days (up to 5y daily)</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Days (up to 5y daily)</label>
             <input className="t-input" type="number" value={days} onChange={e => setDays(Number(e.target.value))} min={1} max={1825} />
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Capital</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Capital</label>
             <input className="t-input" type="number" value={capital} onChange={e => setCapital(Number(e.target.value))} min={1000} />
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Slippage %</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Slippage %</label>
             <input className="t-input" type="number" value={slippage} onChange={e => setSlippage(Number(e.target.value))} min={0} step={0.01} />
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Latency (candles)</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Latency (candles)</label>
             <input className="t-input" type="number" value={latency} onChange={e => setLatency(Number(e.target.value))} min={0} max={5} />
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Partial fill %</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Partial fill %</label>
             <input className="t-input" type="number" value={partialFill} onChange={e => setPartialFill(Number(e.target.value))} min={0} max={100} />
           </div>
           <div>
-            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Risk checks</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Risk checks</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 28 }}>
-              <button className={`t-chip ${riskEnabled ? 'active' : ''}`} onClick={() => setRiskEnabled(!riskEnabled)} style={{ fontSize: 10 }}>
+              <button className={`t-chip ${riskEnabled ? 'active' : ''}`} onClick={() => setRiskEnabled(!riskEnabled)} style={{ fontSize: 12 }}>
                 {riskEnabled ? 'ON' : 'OFF'}
               </button>
             </div>
@@ -1244,13 +1244,13 @@ function BacktestContent() {
             </button>
           </div>
         </div>
-        <div style={{ marginTop: 8, fontSize: 10, color: 'var(--text-faint)' }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-faint)' }}>
           {source === 'builder' ? `Running DSL strategy "${selectedBuilderName}" via the GraphStrategy runtime — same code path as paper/live deployment.` : 'Built-in strategy path. Use Builder source to backtest DSL strategies and deploy them to paper with one click.'}
         </div>
       </div>
 
       {error && (
-        <div style={{ background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12 }}>{error}</div>
+        <div style={{ background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 14 }}>{error}</div>
       )}
 
       {s && (
@@ -1292,12 +1292,12 @@ function BacktestContent() {
               {/* Equity + Drawdown */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Equity Curve</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Equity Curve</div>
                   <BacktestChart points={equityPoints} height={170} color={s.net_pnl >= 0 ? colorVar('--green') : colorVar('--red')} trades={result.trades} onSelectTrade={(idx) => { setSelectedIdx(idx); setActiveTab('trades') }} />
-                  <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 4 }}>Click an E/X marker to inspect that trade</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>Click an E/X marker to inspect that trade</div>
                 </div>
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Drawdown %</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Drawdown %</div>
                   <BacktestChart points={drawdownSeries} height={170} color={colorVar('--red')} mode="drawdown" />
                 </div>
               </div>
@@ -1305,18 +1305,18 @@ function BacktestContent() {
               {/* Distributions */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>By Weekday</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>By Weekday</div>
                   <BarChart data={weekdayBars} height={110} />
                 </div>
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>By Hour (IST)</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>By Hour (IST)</div>
                   <BarChart data={hourBars} height={110} />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>P&L by Month (₹)</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>P&L by Month (₹)</div>
                   <BarChart data={monthBars} height={110} />
                 </div>
                 <div className="t-panel" style={{ padding: 12 }}>
@@ -1326,7 +1326,7 @@ function BacktestContent() {
 
               {/* Export + Deploy */}
               <div className="t-panel" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700 }}>Export run</span>
+                <span style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700 }}>Export run</span>
                 <button className="t-btn t-btn-sm" onClick={() => handleExport('json')} disabled={exporting !== null}>{exporting === 'json' ? '…' : 'JSON'}</button>
                 <button className="t-btn t-btn-sm" onClick={() => handleExport('csv')} disabled={exporting !== null}>{exporting === 'csv' ? '…' : 'CSV'}</button>
                 <button className="t-btn t-btn-sm" onClick={() => handleExport('pdf')} disabled={exporting !== null}>{exporting === 'pdf' ? '…' : 'PDF report'}</button>
@@ -1336,12 +1336,12 @@ function BacktestContent() {
                     <button className="t-btn t-btn-sm t-btn-primary" onClick={handleDeployToPaper} disabled={deploying}>
                       {deploying ? 'Deploying…' : 'Deploy to Paper'}
                     </button>
-                    <span style={{ fontSize: 10, color: deployMsg && !deployMsg.includes('Error') ? 'var(--text-green)' : 'var(--text-red)' }}>
+                    <span style={{ fontSize: 12, color: deployMsg && !deployMsg.includes('Error') ? 'var(--text-green)' : 'var(--text-red)' }}>
                       {deployMsg}
                     </span>
                   </>
                 ) : (
-                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>Deploy-to-paper available for builder (DSL) runs only</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>Deploy-to-paper available for builder (DSL) runs only</span>
                 )}
               </div>
             </>
@@ -1351,14 +1351,14 @@ function BacktestContent() {
             <div className="t-panel" style={{ padding: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Strategy Leaderboard — Profit Ranked</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>Runs each built-in strategy on <strong>{symbol} {interval} · {days}d · ₹{capital.toLocaleString('en-IN')}</strong> with real costs (slippage {slippage}%) and ranks by <strong>net P&L after costs</strong>. Builder DSL strategies appear here once you run them — same engine, same risk, deployable to paper/live.</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Strategy Leaderboard — Profit Ranked</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>Runs each built-in strategy on <strong>{symbol} {interval} · {days}d · ₹{capital.toLocaleString('en-IN')}</strong> with real costs (slippage {slippage}%) and ranks by <strong>net P&L after costs</strong>. Builder DSL strategies appear here once you run them — same engine, same risk, deployable to paper/live.</div>
                 </div>
                 <button className="t-btn t-btn-primary" onClick={handleLeaderboard} disabled={leaderboardRunning}>
                   {leaderboardRunning ? 'Ranking…' : 'Rank All 10 Now'}
                 </button>
               </div>
-              {leaderboardError && <div style={{ color: 'var(--text-red)', fontSize: 11, marginTop: 8 }}>{leaderboardError}</div>}
+              {leaderboardError && <div style={{ color: 'var(--text-red)', fontSize: 13, marginTop: 8 }}>{leaderboardError}</div>}
               {leaderboard && (
                 <div style={{ marginTop: 12, overflowX: 'auto' }}>
                   <table className="t-table">
@@ -1383,7 +1383,7 @@ function BacktestContent() {
                         return (
                           <tr key={r.id} style={top ? { background: 'color-mix(in srgb, var(--green) 6%, transparent)' } : {}}>
                             <td className="t-faint" style={{ fontWeight: 700 }}>{idx + 1}{top ? ' 👑' : ''}</td>
-                            <td style={{ fontWeight: 700 }}>{r.name}<span style={{ color: 'var(--text-faint)', fontSize: 10, marginLeft: 6, fontFamily: 'var(--font-mono)' }}>{r.id}</span></td>
+                            <td style={{ fontWeight: 700 }}>{r.name}<span style={{ color: 'var(--text-faint)', fontSize: 12, marginLeft: 6, fontFamily: 'var(--font-mono)' }}>{r.id}</span></td>
                             <td className={`t-num ${prof ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>{fmtMoney(r.summary.net_pnl)}</td>
                             <td className="t-num" style={{ color: r.summary.return_pct >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>{r.summary.return_pct >= 0 ? '+' : ''}{fmt(r.summary.return_pct)}%</td>
                             <td className="t-num">{r.summary.total_trades}</td>
@@ -1391,17 +1391,17 @@ function BacktestContent() {
                             <td className="t-num">{fmt(r.summary.profit_factor)}</td>
                             <td className="t-num" style={{ color: r.summary.sharpe_ratio >= 1 ? 'var(--text-green)' : 'var(--amber)' }}>{fmt(r.summary.sharpe_ratio)}</td>
                             <td className="t-num t-down">-{fmt(r.summary.max_drawdown_pct)}%</td>
-                            <td><span className={`t-badge ${prof ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 9 }}>{prof ? 'PROFITABLE' : 'LOSS'}</span></td>
+                            <td><span className={`t-badge ${prof ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 11 }}>{prof ? 'PROFITABLE' : 'LOSS'}</span></td>
                           </tr>
                         )
                       })}
                     </tbody>
                   </table>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 8 }}>Builder strategies bhi yahi engine se chalte hain — `/strategies/builder` me banao, backtest karo, fir **Deploy to Paper** se live. Real costs, real candles, same RiskEngine.</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 8 }}>Builder strategies bhi yahi engine se chalte hain — `/strategies/builder` me banao, backtest karo, fir **Deploy to Paper** se live. Real costs, real candles, same RiskEngine.</div>
                 </div>
               )}
               {!leaderboard && !leaderboardRunning && (
-                <div style={{ marginTop: 12, padding: 16, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8, color: 'var(--text-faint)', fontSize: 11 }}>Hit “Rank All 10 Now” to see kaunsi strategy sabse profitable hai — sorted by net P&L after all charges.</div>
+                <div style={{ marginTop: 12, padding: 16, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8, color: 'var(--text-faint)', fontSize: 13 }}>Hit “Rank All 10 Now” to see kaunsi strategy sabse profitable hai — sorted by net P&L after all charges.</div>
               )}
             </div>
           )}
@@ -1409,14 +1409,14 @@ function BacktestContent() {
           {activeTab === 'optimizer' && (
             <div className="t-panel" style={{ padding: 12 }}>
               <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Parameter Optimizer</div>
-                <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Parameter Optimizer</div>
+                <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>
                   Grid (≤512 combos), walk-forward (train prior folds), Monte Carlo (2000 bootstrap paths) and OFAT ±20% sensitivity on the server.
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 10, flexWrap: 'wrap' }}>
                 <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Method</label>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Method</label>
                   <select className="t-select" value={optMethod} onChange={e => setOptMethod(e.target.value)} style={{ width: 140 }}>
                     <option value="grid">Grid search</option>
                     <option value="walk_forward">Walk-forward</option>
@@ -1425,7 +1425,7 @@ function BacktestContent() {
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Optimize metric</label>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Optimize metric</label>
                   <select className="t-select" value={optMetric} onChange={e => setOptMetric(e.target.value)} style={{ width: 150 }}>
                     <option value="sharpe_ratio">Sharpe</option>
                     <option value="net_pnl">Net P&L</option>
@@ -1438,19 +1438,19 @@ function BacktestContent() {
                   </select>
                 </div>
                 <div style={{ flex: 1, minWidth: 220 }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Param ranges (one per line: param=v1,v2,…)</label>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Param ranges (one per line: param=v1,v2,…)</label>
                   <textarea className="t-input" value={optParamsText} onChange={e => setOptParamsText(e.target.value)}
-                    style={{ minHeight: 46, fontFamily: 'var(--font-mono)', fontSize: 11, resize: 'vertical' }} />
+                    style={{ minHeight: 46, fontFamily: 'var(--font-mono)', fontSize: 13, resize: 'vertical' }} />
                 </div>
                 <button className="t-btn t-btn-primary" onClick={handleRunOptimize} disabled={optRunning}>
                   {optRunning ? 'Optimizing…' : 'Optimize'}
                 </button>
               </div>
-              {optError && <div style={{ color: 'var(--text-red)', fontSize: 11, marginBottom: 8 }}>{optError}</div>}
+              {optError && <div style={{ color: 'var(--text-red)', fontSize: 13, marginBottom: 8 }}>{optError}</div>}
 
               {optResult && (
                 <>
-                  <div style={{ display: 'flex', gap: 14, fontSize: 10, color: 'var(--text-faint)', marginBottom: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--text-faint)', marginBottom: 8, flexWrap: 'wrap' }}>
                     <span>status: <strong>{optResult.status}</strong></span>
                     <span>method: <strong>{optResult.method}</strong></span>
                     <span>combos: <strong>{optResult.combos_completed}/{optResult.combos_total}</strong></span>
@@ -1460,7 +1460,7 @@ function BacktestContent() {
                       </span>
                     )}
                   </div>
-                  {optResult.error && <div style={{ color: 'var(--text-red)', fontSize: 11, marginBottom: 8 }}>{optResult.error}</div>}
+                  {optResult.error && <div style={{ color: 'var(--text-red)', fontSize: 13, marginBottom: 8 }}>{optResult.error}</div>}
                   {optResult.results.length > 0 && (
                     <div style={{ overflowX: 'auto' }}>
                       <table className="t-table">
@@ -1482,7 +1482,7 @@ function BacktestContent() {
                             const isBest = bestCombo === c
                             return (
                               <tr key={idx} style={isBest ? { background: 'var(--cyan-dim)' } : {}}>
-                                <td style={{ fontWeight: 700, fontSize: 11 }}>
+                                <td style={{ fontWeight: 700, fontSize: 13 }}>
                                   {Object.entries(c.params).map(([k, v]) => `${k}=${v}`).join(' ')}
                                   {isBest && <span style={{ color: 'var(--cyan)' }}> ✓</span>}
                                 </td>
@@ -1509,14 +1509,14 @@ function BacktestContent() {
           {activeTab === 'compare' && (
             <div className="t-panel" style={{ padding: 12 }}>
               <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Compare Runs</div>
-                <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Compare Runs</div>
+                <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>
                   Compare up to 10 saved runs by run ID (comma-separated). The current run is {result.run_id}.
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 220 }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
                   <input className="t-input" value={compareIdsText} onChange={e => setCompareIdsText(e.target.value)}
                     placeholder={`${result.run_id}, <another run id>`} style={{ width: '100%' }} />
                 </div>
@@ -1524,7 +1524,7 @@ function BacktestContent() {
                   {compareRunning ? 'Comparing…' : 'Compare'}
                 </button>
               </div>
-              {compareError && <div style={{ color: 'var(--text-red)', fontSize: 11, marginBottom: 8 }}>{compareError}</div>}
+              {compareError && <div style={{ color: 'var(--text-red)', fontSize: 13, marginBottom: 8 }}>{compareError}</div>}
 
               {comparison && Object.keys(comparison).length > 0 && (
                 <div style={{ overflowX: 'auto' }}>
@@ -1532,7 +1532,7 @@ function BacktestContent() {
                     <thead>
                       <tr>
                         <th>Metric</th>
-                        {Object.keys(comparison).map(id => <th key={id} style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{id.slice(0, 8)}</th>)}
+                        {Object.keys(comparison).map(id => <th key={id} style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{id.slice(0, 8)}</th>)}
                       </tr>
                     </thead>
                     <tbody>
@@ -1550,14 +1550,14 @@ function BacktestContent() {
                         ['beta', (v: any) => fmt(v)],
                       ] as [string, (v: any) => string][]).map(([key, render]) => (
                         <tr key={key}>
-                          <td style={{ fontWeight: 700, fontSize: 11 }}>{key.replace(/_/g, ' ')}</td>
+                          <td style={{ fontWeight: 700, fontSize: 13 }}>{key.replace(/_/g, ' ')}</td>
                           {Object.entries(comparison).map(([id, row]) => {
                             const v = (row as Record<string, unknown>)[key] as number
                             const isPnl = key === 'net_pnl'
                             return (
                               <td key={id} className="t-num" style={{
                                 color: isPnl ? (v >= 0 ? 'var(--text-green)' : 'var(--text-red)') : 'var(--text)',
-                                fontSize: 11,
+                                fontSize: 13,
                               }}>{render(v)}</td>
                             )
                           })}
@@ -1568,7 +1568,7 @@ function BacktestContent() {
                 </div>
               )}
               {comparison && Object.keys(comparison).length === 0 && (
-                <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0 }}>No matching runs found for the given IDs.</p>
+                <p style={{ fontSize: 13, color: 'var(--text-faint)', margin: 0 }}>No matching runs found for the given IDs.</p>
               )}
             </div>
           )}
@@ -1576,7 +1576,7 @@ function BacktestContent() {
           {activeTab === 'report' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="t-panel" style={{ padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Professional Report</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Professional Report</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button className="t-btn t-btn-sm" onClick={() => handleExport('pdf')} disabled={exporting !== null}>{exporting === 'pdf' ? '…' : 'Download PDF'}</button>
                   <button className="t-btn t-btn-sm" onClick={handleOpenReport}>Interactive Report ↗</button>
@@ -1585,13 +1585,13 @@ function BacktestContent() {
                 </div>
               </div>
               {shareErr && (
-                <div style={{ background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12 }}>{shareErr}</div>
+                <div style={{ background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 14 }}>{shareErr}</div>
               )}
 
               {execSummary && (
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Executive Summary</div>
-                  <p style={{ fontSize: 12.5, lineHeight: 1.65, color: 'var(--text)', margin: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Executive Summary</div>
+                  <p style={{ fontSize: 14.5, lineHeight: 1.65, color: 'var(--text)', margin: 0 }}>
                     {execSummary.parts.join(' ')}{' '}
                     <span style={{ fontWeight: 700, color: execSummary.color }}>Verdict: the strategy is {execSummary.verdict} over this window.</span>
                   </p>
@@ -1600,12 +1600,12 @@ function BacktestContent() {
 
               {factSheet.length > 0 && (
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Strategy Fact Sheet</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Strategy Fact Sheet</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '4px 18px' }}>
                     {factSheet.map(([label, value]) => (
-                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0', borderBottom: '1px dashed var(--border)', fontSize: 12 }}>
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0', borderBottom: '1px dashed var(--border)', fontSize: 14 }}>
                         <span style={{ color: 'var(--text-faint)' }}>{label}</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 11, overflowWrap: 'anywhere', textAlign: 'right' }}>{value}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-mono)', fontSize: 13, overflowWrap: 'anywhere', textAlign: 'right' }}>{value}</span>
                       </div>
                     ))}
                   </div>
@@ -1613,13 +1613,13 @@ function BacktestContent() {
               )}
 
               <div className="t-panel" style={{ padding: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Compare Report</div>
-                <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Compare Report</div>
+                <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 8 }}>
                   Side-by-side report against up to 10 saved runs (comma-separated). Current run: {result.run_id}.
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 220 }}>
-                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
                     <input className="t-input" value={compareIdsText} onChange={e => setCompareIdsText(e.target.value)}
                       placeholder={`${result.run_id}, <another run id>`} style={{ width: '100%' }} />
                   </div>
@@ -1627,14 +1627,14 @@ function BacktestContent() {
                     {compareRunning ? 'Comparing…' : 'Compare'}
                   </button>
                 </div>
-                {compareError && <div style={{ color: 'var(--text-red)', fontSize: 11, marginBottom: 8 }}>{compareError}</div>}
+                {compareError && <div style={{ color: 'var(--text-red)', fontSize: 13, marginBottom: 8 }}>{compareError}</div>}
                 {comparison && Object.keys(comparison).length > 0 && (
                   <div style={{ overflowX: 'auto' }}>
                     <table className="t-table">
                       <thead>
                         <tr>
                           <th>Metric</th>
-                          {Object.keys(comparison).map(id => <th key={id} style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{id.slice(0, 8)}</th>)}
+                          {Object.keys(comparison).map(id => <th key={id} style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{id.slice(0, 8)}</th>)}
                         </tr>
                       </thead>
                       <tbody>
@@ -1650,14 +1650,14 @@ function BacktestContent() {
                           ['expectancy', (v: any) => fmtMoney(v)],
                         ] as [string, (v: any) => string][]).map(([key, render]) => (
                           <tr key={key}>
-                            <td style={{ fontWeight: 700, fontSize: 11 }}>{key.replace(/_/g, ' ')}</td>
+                            <td style={{ fontWeight: 700, fontSize: 13 }}>{key.replace(/_/g, ' ')}</td>
                             {Object.entries(comparison).map(([id, row]) => {
                               const v = (row as Record<string, unknown>)[key] as number
                               const isPnl = key === 'net_pnl'
                               return (
                                 <td key={id} className="t-num" style={{
                                   color: isPnl ? (v >= 0 ? 'var(--text-green)' : 'var(--text-red)') : 'var(--text)',
-                                  fontSize: 11,
+                                  fontSize: 13,
                                 }}>{render(v)}</td>
                               )
                             })}
@@ -1674,9 +1674,9 @@ function BacktestContent() {
           {activeTab === 'trades' && s.total_trades > 0 && (
             <div className="t-panel" style={{ padding: 0 }}>
               <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Trade Log ({s.total_trades} trades)</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Trade Log ({s.total_trades} trades)</span>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>costs applied</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>costs applied</span>
                   <button className="t-btn t-btn-sm" onClick={() => setSelectedIdx(idx => idx == null ? 0 : Math.max(0, idx - 1))}>← Prev</button>
                   <button className="t-btn t-btn-sm" onClick={() => setSelectedIdx(idx => idx == null ? 0 : Math.min(s.total_trades - 1, idx + 1))}>Next →</button>
                   <button className="t-btn t-btn-sm" onClick={() => setSelectedIdx(jumpTargets.ddIdx >= 0 ? jumpTargets.ddIdx : 0)}>Max Drawdown</button>
@@ -1712,8 +1712,8 @@ function BacktestContent() {
                         <td className="t-num">{t.quantity}</td>
                         <td className={`t-num ${t.pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>{t.pnl >= 0 ? '+' : ''}{t.pnl.toFixed(0)}</td>
                         <td className="t-num">{t.rr != null ? t.rr.toFixed(2) : '—'}</td>
-                        <td className="t-faint" style={{ fontSize: 10 }}>{new Date(t.entry_time).toLocaleString()}</td>
-                        <td className="t-faint" style={{ fontSize: 10 }}>{new Date(t.exit_time).toLocaleString()}</td>
+                        <td className="t-faint" style={{ fontSize: 12 }}>{new Date(t.entry_time).toLocaleString()}</td>
+                        <td className="t-faint" style={{ fontSize: 12 }}>{new Date(t.exit_time).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1726,8 +1726,8 @@ function BacktestContent() {
             <div className="t-panel" style={{ padding: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
                 <div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>Trade Intelligence — {selection.sub}/{selection.total}</span>
-                  <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--text-faint)' }}>{selection.symbol} · {selection.side} · {selection.quantity} qty</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Trade Intelligence — {selection.sub}/{selection.total}</span>
+                  <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-faint)' }}>{selection.symbol} · {selection.side} · {selection.quantity} qty</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="t-btn t-btn-sm t-btn-primary" onClick={() => setReplaying(r => !r)}>
@@ -1749,8 +1749,8 @@ function BacktestContent() {
                 {tiCard('Slippage', fmtMoney(selection.slippage))}
                 {tiCard('Cost total', fmtMoney(selection.costTotal))}
                 <div style={{ gridColumn: 'span 2', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '6px 8px' }}>
-                  <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700 }}>Signals</div>
-                  <div style={{ fontSize: 11, color: 'var(--text)', marginTop: 1, lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700 }}>Signals</div>
+                  <div style={{ fontSize: 13, color: 'var(--text)', marginTop: 1, lineHeight: 1.4 }}>
                     {selection.entryReason} <span style={{ color: 'var(--text-faint)' }}>→</span> {selection.exitReason}
                   </div>
                 </div>
@@ -1759,7 +1759,7 @@ function BacktestContent() {
               {candles && candles.length >= 2 ? (
                 <>
                   <TradeChart candles={candles} view={selection} replaying={replaying} onReplayEnd={() => setReplaying(false)} />
-                  <div style={{ display: 'flex', gap: 14, fontSize: 9, color: 'var(--text-faint)', marginTop: 6, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-faint)', marginTop: 6, flexWrap: 'wrap' }}>
                     <span style={{ color: colorVar('--green', '#34d399') }}>▲ entry</span>
                     <span style={{ color: colorVar('--red', '#ef4444') }}>▼ exit</span>
                     {selection.sl != null && <span style={{ color: 'var(--amber)' }}>-- SL {selection.sl.toFixed(2)} (derived from risk amount)</span>}
@@ -1769,14 +1769,14 @@ function BacktestContent() {
                   </div>
                 </>
               ) : (
-                <div style={{ fontSize: 10, color: 'var(--text-faint)', padding: 8 }}>{candlesErr || 'price chart unavailable'}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: 8 }}>{candlesErr || 'price chart unavailable'}</div>
               )}
             </div>
           )}
 
           {activeTab === 'trades' && s.total_trades === 0 && (
             <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-faint)', fontSize: 12, margin: 0 }}>No trades were generated</p>
+              <p style={{ color: 'var(--text-faint)', fontSize: 14, margin: 0 }}>No trades were generated</p>
             </div>
           )}
 
@@ -1791,14 +1791,14 @@ function BacktestContent() {
 
               {riskReasons.length > 0 && (
                 <div className="t-panel" style={{ padding: 12 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Rejections by Rule</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Rejections by Rule</div>
                   <BarChart data={riskReasons} height={120} unit="orders" />
                 </div>
               )}
 
               <div className="t-panel" style={{ padding: 12 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Risk State Over Time</div>
-                <div style={{ display: 'flex', gap: 14, fontSize: 10, color: 'var(--text-faint)', marginBottom: 6, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4, fontWeight: 700 }}>Risk State Over Time</div>
+                <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--text-faint)', marginBottom: 6, flexWrap: 'wrap' }}>
                   <span style={{ color: colorVar('--green', '#34d399') }}>— capital remaining</span>
                   <span style={{ color: colorVar('--cyan', '#f59e0b') }}>— exposure</span>
                   <span style={{ color: colorVar('--red', '#ef4444') }}>— drawdown %</span>
@@ -1809,8 +1809,8 @@ function BacktestContent() {
               {(risk.rejections?.length ?? 0) > 0 && (
                 <div className="t-panel" style={{ padding: 0 }}>
                   <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Rejected Orders ({risk.rejected_trades})</span>
-                    <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Rejected Orders ({risk.rejected_trades})</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
                       {risk.rejections_truncated ? `showing first ${risk.rejections!.length}` : 'all shown'} · newest last
                     </span>
                   </div>
@@ -1834,15 +1834,15 @@ function BacktestContent() {
                       <tbody>
                         {risk.rejections!.map((r, idx) => (
                           <tr key={idx}>
-                            <td className="t-faint" style={{ fontSize: 10 }}>
+                            <td className="t-faint" style={{ fontSize: 12 }}>
                               {new Date(r.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </td>
                             <td style={{ fontWeight: 600 }}>{r.symbol}</td>
                             <td><span className={r.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{r.side}</span></td>
                             <td className="t-num">{r.quantity}</td>
                             <td className="t-num">{r.price.toFixed(2)}</td>
-                            <td><span className="t-chip active" style={{ fontSize: 9 }}>{r.rule}</span></td>
-                            <td style={{ fontSize: 11 }}>{r.reason}</td>
+                            <td><span className="t-chip active" style={{ fontSize: 11 }}>{r.rule}</span></td>
+                            <td style={{ fontSize: 13 }}>{r.reason}</td>
                             <td className="t-num">₹{Math.round(r.capital_remaining).toLocaleString('en-IN')}</td>
                             <td className="t-num">{r.risk_remaining < 0 ? '∞' : `₹${Math.round(r.risk_remaining).toLocaleString('en-IN')}`}</td>
                             <td className="t-num t-down">{r.drawdown.toFixed(2)}%</td>
@@ -1861,8 +1861,8 @@ function BacktestContent() {
 
       {!s && !running && !error && (
         <div className="t-panel" style={{ padding: 32, textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: '0 0 4px' }}>Configure parameters and run a backtest</p>
-          <p style={{ color: 'var(--text-faint)', fontSize: 11, margin: 0 }}>Realistic Indian-market costs · corporate actions · continuous futures · deploy to paper</p>
+          <p style={{ color: 'var(--text-faint)', fontSize: 16, margin: '0 0 4px' }}>Configure parameters and run a backtest</p>
+          <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: 0 }}>Realistic Indian-market costs · corporate actions · continuous futures · deploy to paper</p>
         </div>
       )}
     </div>

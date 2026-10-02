@@ -28,7 +28,7 @@ function Bar({ label, value, invert, grade }: { label: string; value: number; in
     : (pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--yellow)' : 'var(--red)')
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 2 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
         <span className="t-faint">{label}</span>
         <span style={{ color, fontWeight: 700 }}>{Math.round(pct)}</span>
       </div>
@@ -53,13 +53,13 @@ export default function StrategyScore({ strategyId, onScore }: { strategyId: str
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load score'))
   }, [strategyId, onScore])
 
-  if (error) return <p style={{ fontSize: 10, color: 'var(--red)' }}>{error}</p>
-  if (!score) return <p className="t-faint" style={{ fontSize: 10 }}>Loading score…</p>
+  if (error) return <p style={{ fontSize: 12, color: 'var(--red)' }}>{error}</p>
+  if (!score) return <p className="t-faint" style={{ fontSize: 12 }}>Loading score…</p>
 
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
       <div style={{ width: 44, height: 44, borderRadius: '50%', border: `3px solid ${gradeColor(score.grade)}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <span style={{ fontSize: 16, fontWeight: 800, color: gradeColor(score.grade) }}>{score.grade}</span>
+        <span style={{ fontSize: 19, fontWeight: 800, color: gradeColor(score.grade) }}>{score.grade}</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
         <Bar label="Quality" value={score.quality} />

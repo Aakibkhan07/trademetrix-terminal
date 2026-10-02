@@ -79,8 +79,8 @@ export function TradingControls({ offline, isAdmin, marketClosed }: {
         <div style={{ background: 'var(--danger-bg, color-mix(in srgb, var(--red) 12%, transparent))', border: '1px solid var(--red)', borderRadius: 6, padding: 10, marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Dot variant="red" pulse />
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-red)', flex: 1 }}>Emergency stop engaged</span>
-            <button type="button" className="t-btn t-btn-xs t-btn-ghost" onClick={doRelease} disabled={busy === 'release'} style={{ fontSize: 10 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-red)', flex: 1 }}>Emergency stop engaged</span>
+            <button type="button" className="t-btn t-btn-xs t-btn-ghost" onClick={doRelease} disabled={busy === 'release'} style={{ fontSize: 12 }}>
               {busy === 'release' ? '…' : 'Release'}
             </button>
           </div>
@@ -100,7 +100,7 @@ export function TradingControls({ offline, isAdmin, marketClosed }: {
         <button type="button" className="t-btn t-btn-sm t-btn-ghost" onClick={pauseAll} disabled={pausing}>
           {pausing ? 'Pausing…' : 'Pause All Strategies'}
         </button>
-        {pausedMessage && <p className="t-faint" style={{ margin: '4px 2px 0', fontSize: 11 }}>{pausedMessage}</p>}
+        {pausedMessage && <p className="t-faint" style={{ margin: '4px 2px 0', fontSize: 13 }}>{pausedMessage}</p>}
       </div>
 
       <div style={{ marginTop: 10 }}>
@@ -108,13 +108,13 @@ export function TradingControls({ offline, isAdmin, marketClosed }: {
           type="button"
           className="t-btn t-btn-xs t-btn-ghost"
           onClick={() => setShowDiagnostics(o => !o)}
-          style={{ fontSize: 10, opacity: 0.85 }}
+          style={{ fontSize: 12, opacity: 0.85 }}
         >
           {showDiagnostics ? '▾' : '▸'} Runtime diagnostics {health ? `(${health.strategies_total})` : ''}
         </button>
 
         {showDiagnostics && health && (
-          <div style={{ marginTop: 8, display: 'grid', gap: 6, fontSize: 11 }}>
+          <div style={{ marginTop: 8, display: 'grid', gap: 6, fontSize: 13 }}>
             <Row label="Runtime" value={health.runtime_state || health.status} />
             <Row label="Strategies" value={`${health.strategies_running} running / ${health.strategies_total} total`} />
             {Object.keys(health.strategies_by_state || {}).length > 0 && (
@@ -134,7 +134,7 @@ export function TradingControls({ offline, isAdmin, marketClosed }: {
               </div>
             )}
             {health.metrics && typeof health.metrics === 'object' && (
-              <div style={{ color: 'var(--text-faint)', fontSize: 10 }}>
+              <div style={{ color: 'var(--text-faint)', fontSize: 12 }}>
                 errors: {JSON.stringify((health.metrics as Record<string, unknown>).errors ?? 'n/a')}
               </div>
             )}
@@ -142,8 +142,8 @@ export function TradingControls({ offline, isAdmin, marketClosed }: {
         )}
       </div>
 
-      <Dialog onClose={() => setConfirmOpen(false)} open={confirmOpen} maxWidth={380} title={<h3 style={{ margin: 0, fontSize: 14 }}>Trigger emergency stop?</h3>}>
-        <p style={{ fontSize: 12, color: 'var(--text-sub)' }}>
+      <Dialog onClose={() => setConfirmOpen(false)} open={confirmOpen} maxWidth={380} title={<h3 style={{ margin: 0, fontSize: 17 }}>Trigger emergency stop?</h3>}>
+        <p style={{ fontSize: 14, color: 'var(--text-sub)' }}>
           Halts all running strategies and arms the system kill switch. Trades will be blocked until you release it.
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>

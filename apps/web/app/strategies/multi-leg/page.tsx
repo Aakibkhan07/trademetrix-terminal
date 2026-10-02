@@ -244,7 +244,7 @@ export default function MultiLegPage() {
                   <button className="t-btn t-btn-xs t-btn-danger" onClick={() => removeLeg(i)} style={{ marginLeft: 'auto' }}>✕</button>
                 </div>
               ))}
-              {legs.length === 0 && <p className="t-faint" style={{ fontSize: 11, padding: 8 }}>Add legs or choose a template above</p>}
+              {legs.length === 0 && <p className="t-faint" style={{ fontSize: 13, padding: 8 }}>Add legs or choose a template above</p>}
             </div>
 
             <div>
@@ -286,7 +286,7 @@ export default function MultiLegPage() {
                         {s.status}
                       </span>
                     </td>
-                    <td className="t-faint t-num" style={{ fontSize: 11 }}>
+                    <td className="t-faint t-num" style={{ fontSize: 13 }}>
                       {s.created_at ? new Date(s.created_at).toLocaleDateString() : '-'}
                     </td>
                     <td>

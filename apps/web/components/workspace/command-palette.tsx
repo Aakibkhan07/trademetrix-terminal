@@ -155,9 +155,9 @@ export default function CommandPalette({ onOpenAlert }: { onOpenAlert: (symbol: 
         onClick={() => inputRef.current?.focus()}
         style={{ textAlign: 'left', color: 'var(--text-faint)', cursor: 'text', display: 'flex', alignItems: 'center', gap: 8, height: 28, width: '100%', paddingLeft: 9 }}
       >
-        <span style={{ fontSize: 12 }}>🔍</span>
-        <span style={{ fontSize: 11 }}>Search symbols, strategies, orders…</span>
-        <span className="t-chip" style={{ marginLeft: 'auto', fontSize: 9, padding: '0 6px' }}>⌘K</span>
+        <span style={{ fontSize: 14 }}>🔍</span>
+        <span style={{ fontSize: 13 }}>Search symbols, strategies, orders…</span>
+        <span className="t-chip" style={{ marginLeft: 'auto', fontSize: 11, padding: '0 6px' }}>⌘K</span>
       </button>
       <input
         ref={inputRef}
@@ -178,7 +178,7 @@ export default function CommandPalette({ onOpenAlert }: { onOpenAlert: (symbol: 
         }}>
           {grouped.map(g => (
             <div key={g.kind}>
-              <div className="t-stat-label" style={{ fontSize: 8, padding: '6px 8px 2px' }}>{g.kind}</div>
+              <div className="t-stat-label" style={{ fontSize: 10, padding: '6px 8px 2px' }}>{g.kind}</div>
               {g.items.map((h, i) => {
                 const gi = flat.indexOf(h)
                 return (
@@ -187,13 +187,13 @@ export default function CommandPalette({ onOpenAlert }: { onOpenAlert: (symbol: 
                     onMouseEnter={() => setIdx(gi)}
                     onClick={() => { h.run(); inputRef.current?.blur() }}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 14,
                       background: gi === idx ? 'var(--violet-dim)' : 'transparent',
                     }}
                   >
                     <span>{h.icon}</span>
                     <span style={{ fontWeight: 600 }}>{h.label}</span>
-                    <span className="t-faint" style={{ fontSize: 10, marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{h.sub}</span>
+                    <span className="t-faint" style={{ fontSize: 12, marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{h.sub}</span>
                   </div>
                 )
               })}

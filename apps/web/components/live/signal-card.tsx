@@ -36,22 +36,22 @@ export function SignalCard({ signal }: { signal: LiveSignal }) {
   return (
     <div className="t-panel" style={{ padding: 10, marginBottom: 8, position: 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <span style={{ color, fontWeight: 800, fontSize: 11, letterSpacing: '0.05em' }}>{side}</span>
-        <Badge variant={signal.mode === 'live' ? 'red' : 'cyan'} style={{ fontSize: 8 }}>{signal.mode || 'paper'}</Badge>
+        <span style={{ color, fontWeight: 800, fontSize: 13, letterSpacing: '0.05em' }}>{side}</span>
+        <Badge variant={signal.mode === 'live' ? 'red' : 'cyan'} style={{ fontSize: 10 }}>{signal.mode || 'paper'}</Badge>
         {signal.signal_version && signal.signal_version !== 1 && (
-          <Badge variant="sub" style={{ fontSize: 8 }}>v{signal.signal_version}</Badge>
+          <Badge variant="sub" style={{ fontSize: 10 }}>v{signal.signal_version}</Badge>
         )}
-        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>{fmtTime(signal.triggered_at)}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>{fmtTime(signal.triggered_at)}</span>
       </div>
 
-      <div style={{ fontWeight: 700, fontSize: 13 }}>{signal.symbol?.split(':').pop()}</div>
-      <div style={{ fontSize: 10, color: 'var(--text-sub)', marginBottom: 6 }}>
+      <div style={{ fontWeight: 700, fontSize: 16 }}>{signal.symbol?.split(':').pop()}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 6 }}>
         {signal.strategy_name || signal.strategy_id} <span className="t-faint">· {signal.exchange || 'NSE'}</span>
       </div>
 
-      {signal.reason && <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 6 }}>{signal.reason}</div>}
+      {signal.reason && <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 6 }}>{signal.reason}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2px 10px', fontSize: 10, marginBottom: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2px 10px', fontSize: 12, marginBottom: 8 }}>
         <Metric label="Qty" value={String(signal.quantity ?? '—')} />
         <Metric label="Entry" value={fmtNum(signal.price)} />
         <Metric label="SL" value={fmtNum(signal.sl_price)} />
@@ -60,10 +60,10 @@ export function SignalCard({ signal }: { signal: LiveSignal }) {
       </div>
 
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <button type="button" className="t-btn t-btn-sm t-btn-primary" style={{ fontSize: 11, flex: 1 }} onClick={trade}>Trade</button>
-        <button type="button" className="t-btn t-btn-sm" style={{ fontSize: 11, flex: 1 }} onClick={() => router.push(`/workspace?sym=${encodeURIComponent(signal.symbol)}`)}>Analyze</button>
+        <button type="button" className="t-btn t-btn-sm t-btn-primary" style={{ fontSize: 13, flex: 1 }} onClick={trade}>Trade</button>
+        <button type="button" className="t-btn t-btn-sm" style={{ fontSize: 13, flex: 1 }} onClick={() => router.push(`/workspace?sym=${encodeURIComponent(signal.symbol)}`)}>Analyze</button>
         <div style={{ position: 'relative' }}>
-          <button type="button" aria-label="More actions" className="t-btn t-btn-sm t-btn-ghost" style={{ fontSize: 12, padding: '2px 8px' }} onClick={() => setMenuOpen(o => !o)}>⋯</button>
+          <button type="button" aria-label="More actions" className="t-btn t-btn-sm t-btn-ghost" style={{ fontSize: 14, padding: '2px 8px' }} onClick={() => setMenuOpen(o => !o)}>⋯</button>
           {menuOpen && (
             <>
               <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setMenuOpen(false)} />
@@ -91,7 +91,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function MenuItem({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '6px 8px', fontSize: 11, cursor: 'pointer', borderRadius: 4, color: 'var(--text-sub)' }}>
+    <button type="button" onClick={onClick} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '6px 8px', fontSize: 13, cursor: 'pointer', borderRadius: 4, color: 'var(--text-sub)' }}>
       {children}
     </button>
   )

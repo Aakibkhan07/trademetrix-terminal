@@ -111,17 +111,17 @@ export function TradeRouterTab() {
         <div className="t-panel" style={{ padding: 12, marginBottom: 12 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <select className="t-input" value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
-              style={{ fontSize: 12, flex: '1 1 200px' }}>
+              style={{ fontSize: 14, flex: '1 1 200px' }}>
               <option value="">— Select User —</option>
               {users.filter(u => u.has_broker).map(u => (
                 <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
               ))}
             </select>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button onClick={() => setLots(Math.max(1, lots - 1))} style={{ padding: '2px 8px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>−</button>
-              <span style={{ fontSize: 12, fontWeight: 700, padding: '0 6px' }}>{lots}</span>
-              <button onClick={() => setLots(lots + 1)} style={{ padding: '2px 8px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>+</button>
-              {results.find((r: any) => r.type === 'strike') && <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>lot × {lotSize}</span>}
+              <button onClick={() => setLots(Math.max(1, lots - 1))} style={{ padding: '2px 8px', fontSize: 16, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>−</button>
+              <span style={{ fontSize: 14, fontWeight: 700, padding: '0 6px' }}>{lots}</span>
+              <button onClick={() => setLots(lots + 1)} style={{ padding: '2px 8px', fontSize: 16, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>+</button>
+              {results.find((r: any) => r.type === 'strike') && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>lot × {lotSize}</span>}
             </div>
           </div>
         </div>
@@ -130,8 +130,8 @@ export function TradeRouterTab() {
           <div style={{ position: 'relative' }}>
             <input className="t-input" value={query} onChange={e => { setQuery(e.target.value); setLotSize(1) }}
               placeholder="Search symbol or strike (e.g. 24200, NIFTY, RELIANCE)..."
-              style={{ width: '100%', fontSize: 14, padding: '10px 12px' }} />
-            {searching && <span style={{ position: 'absolute', right: 12, top: 12, fontSize: 10, color: 'var(--text-faint)' }}>searching...</span>}
+              style={{ width: '100%', fontSize: 17, padding: '10px 12px' }} />
+            {searching && <span style={{ position: 'absolute', right: 12, top: 12, fontSize: 12, color: 'var(--text-faint)' }}>searching...</span>}
             {dropdownOpen && results.length > 0 && (
               <div style={{
                 position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
@@ -140,29 +140,29 @@ export function TradeRouterTab() {
               }}>
                 {results[0]?.type === 'strike' ? results.map((r: any, i: number) => (
                   <div key={i} style={{ padding: '10px 14px', borderBottom: '1px solid color-mix(in srgb, var(--border) 30%, transparent)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <strong style={{ fontSize: 14, minWidth: 80 }}>{r.symbol}</strong>
-                    <span style={{ fontSize: 13, fontWeight: 600, minWidth: 60 }}>{r.strike}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-faint)', minWidth: 70 }}>Exp: {r.expiry?.slice(0, 10)}</span>
-                    <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 700, minWidth: 100 }}>CE: {r.ce != null ? r.ce : '—'} {r.ceChg != null ? <span style={{ fontSize: 10, color: r.ceChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.ceChg >= 0 ? '+' : ''}{r.ceChg}%)</span> : ''}</span>
-                    <span style={{ fontSize: 13, color: 'var(--red)', fontWeight: 700, minWidth: 100 }}>PE: {r.pe != null ? r.pe : '—'} {r.peChg != null ? <span style={{ fontSize: 10, color: r.peChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.peChg >= 0 ? '+' : ''}{r.peChg}%)</span> : ''}</span>
+                    <strong style={{ fontSize: 17, minWidth: 80 }}>{r.symbol}</strong>
+                    <span style={{ fontSize: 16, fontWeight: 600, minWidth: 60 }}>{r.strike}</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-faint)', minWidth: 70 }}>Exp: {r.expiry?.slice(0, 10)}</span>
+                    <span style={{ fontSize: 16, color: 'var(--green)', fontWeight: 700, minWidth: 100 }}>CE: {r.ce != null ? r.ce : '—'} {r.ceChg != null ? <span style={{ fontSize: 12, color: r.ceChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.ceChg >= 0 ? '+' : ''}{r.ceChg}%)</span> : ''}</span>
+                    <span style={{ fontSize: 16, color: 'var(--red)', fontWeight: 700, minWidth: 100 }}>PE: {r.pe != null ? r.pe : '—'} {r.peChg != null ? <span style={{ fontSize: 12, color: r.peChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.peChg >= 0 ? '+' : ''}{r.peChg}%)</span> : ''}</span>
                     <button onClick={() => { setLotSize(r.lotSize); buyStrike(r.symbol, r.strike, 'CE', r.lotSize, r.expiry) }}
                       disabled={placing !== null || !r.ce}
-                      style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.ce ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--green) 12%, transparent)', color: 'var(--green)' }}>
+                      style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.ce ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--green) 12%, transparent)', color: 'var(--green)' }}>
                       {placing === `${r.symbol}-${r.strike}-CE` ? '...' : 'CE Buy'}
                     </button>
                     <button onClick={() => { setLotSize(r.lotSize); buyStrike(r.symbol, r.strike, 'PE', r.lotSize, r.expiry) }}
                       disabled={placing !== null || !r.pe}
-                      style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.pe ? 'pointer' : 'default', background: 'var(--red-dim)', color: 'var(--red)' }}>
+                      style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.pe ? 'pointer' : 'default', background: 'var(--red-dim)', color: 'var(--red)' }}>
                       {placing === `${r.symbol}-${r.strike}-PE` ? '...' : 'PE Buy'}
                     </button>
                   </div>
                 )) : results.map((s: any, i: number) => (
                   <div key={i} onClick={() => { setQuery(s.symbol || s.name || ''); setDropdownOpen(false) }}
-                    style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid color-mix(in srgb, var(--border) 30%, transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 16, borderBottom: '1px solid color-mix(in srgb, var(--border) 30%, transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--violet) 6%, var(--bg))')}
                     onMouseLeave={e => (e.currentTarget.style.background = '')}>
                     <span><strong>{s.symbol || s.name || ''}</strong></span>
-                    <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{s.exchange || ''} {s.instrument_type || ''}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{s.exchange || ''} {s.instrument_type || ''}</span>
                   </div>
                 ))}
               </div>
@@ -171,7 +171,7 @@ export function TradeRouterTab() {
 
           {resultMsg && (
             <div style={{ padding: 10, marginTop: 12 }}>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: resultMsg.success ? 'var(--green)' : 'var(--red)' }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: resultMsg.success ? 'var(--green)' : 'var(--red)' }}>
                 {resultMsg.success ? '✓ ' : '✗ '}{resultMsg.message}
               </p>
             </div>

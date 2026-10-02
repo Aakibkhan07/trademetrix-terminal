@@ -44,7 +44,7 @@ export function PositionActions({ position, ltp, openOrder, trail, onAct, onTogg
 
   const input = {
     background: 'var(--bg)', border: '1px solid color-mix(in srgb, var(--text-inverse) 15%, transparent)',
-    borderRadius: 6, color: 'var(--text)', padding: '3px 6px', width: 84, fontSize: 11, fontFamily: 'var(--font-mono)',
+    borderRadius: 6, color: 'var(--text)', padding: '3px 6px', width: 84, fontSize: 13, fontFamily: 'var(--font-mono)',
   } as const
 
   return (
@@ -76,20 +76,20 @@ export function PositionActions({ position, ltp, openOrder, trail, onAct, onTogg
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <label style={{ fontSize: 10, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <label style={{ fontSize: 12, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 4 }}>
           Qty <input style={input} inputMode="numeric" placeholder={`≤ ${absQty}`} value={qty} onChange={e => setQty(e.target.value)} />
         </label>
-        <label style={{ fontSize: 10, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <label style={{ fontSize: 12, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 4 }}>
           Trail dist <input style={input} inputMode="numeric" placeholder={ltp ? `from ${ltp.toFixed(1)}` : '₹'} value={distance} onChange={e => setDistance(e.target.value)} />
         </label>
-        <label style={{ fontSize: 10, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <label style={{ fontSize: 12, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 4 }}>
           Price <input style={input} inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} />
         </label>
-        <label style={{ fontSize: 10, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <label style={{ fontSize: 12, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', gap: 4 }}>
           Trigger <input style={input} inputMode="decimal" value={trigger} onChange={e => setTrigger(e.target.value)} />
         </label>
         {!openOrder && (
-          <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
             Modify needs a resting OPEN order for {position.symbol}. Trail SL places one for you.
           </span>
         )}

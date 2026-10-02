@@ -293,16 +293,16 @@ export default function TradePage() {
 
       {credsLoading && (
         <div className="t-panel" style={{ padding: '8px 12px', marginBottom: 8 }}>
-          <div className="t-faint" style={{ fontSize: 10 }}>Loading broker…</div>
+          <div className="t-faint" style={{ fontSize: 12 }}>Loading broker…</div>
         </div>
       )}
       {credsError && <div className="alert alert-error" style={{ marginBottom: 8 }}>{credsError}</div>}
       {!credsLoading && (
         <div className="t-panel" style={{ marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 10px' }}>
-            <span className="t-faint" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em' }}>BROKER</span>
+            <span className="t-faint" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em' }}>BROKER</span>
             {creds.length === 0 && (
-              <span className="t-faint" style={{ fontSize: 10 }}>No brokers connected — paper orders work without one. Add credentials for live orders.</span>
+              <span className="t-faint" style={{ fontSize: 12 }}>No brokers connected — paper orders work without one. Add credentials for live orders.</span>
             )}
             {/* Execution credentials only.
                 This row chooses the broker that *places orders*, so a market-data
@@ -325,7 +325,7 @@ export default function TradePage() {
               </button>
             ))}
             {creds.length > 0 && tradeBrokers.length === 0 && (
-              <span className="t-faint" style={{ fontSize: 10 }}>
+              <span className="t-faint" style={{ fontSize: 12 }}>
                 Only market-data credentials are connected — those price instruments but
                 cannot place orders.
               </span>
@@ -357,9 +357,9 @@ export default function TradePage() {
           <div>
             <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
               {!liveSource && chain.optionChain.length > 0 && (
-                <span className="t-badge t-badge-amber" style={{ fontSize: 8 }}>SIMULATED</span>
+                <span className="t-badge t-badge-amber" style={{ fontSize: 10 }}>SIMULATED</span>
               )}
-              <span className="t-faint" style={{ fontSize: 9 }}>
+              <span className="t-faint" style={{ fontSize: 11 }}>
                 {chain.optionChain.length} strikes · {chain.expiries.length} expiries
               </span>
             </div>
@@ -376,7 +376,7 @@ export default function TradePage() {
               />
             ) : (
               <div className="t-panel" style={{ padding: 18, textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>No option chain data available for {index}.</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>No option chain data available for {index}.</p>
               </div>
             )}
             <FillsTicker load={loadFills} />
@@ -403,7 +403,7 @@ export default function TradePage() {
 
             {confirmingLive && (
               <div style={{ marginTop: 8, background: 'var(--red-dim)', border: '1px solid var(--red-dim)', borderRadius: 'var(--radius-sm)', padding: '8px 10px' }}>
-                <p style={{ margin: '0 0 6px', fontSize: 10, color: 'var(--text-red)', fontWeight: 500 }}>
+                <p style={{ margin: '0 0 6px', fontSize: 12, color: 'var(--text-red)', fontWeight: 500 }}>
                   Live trading is not enabled. Enable live mode to place real orders?
                 </p>
                 <div style={{ display: 'flex', gap: 4 }}>
@@ -416,10 +416,10 @@ export default function TradePage() {
             {orderError && <div className="alert alert-error" style={{ marginBottom: 8, marginTop: 8 }}>{orderError}</div>}
             {orderResult && (
               <div className={`alert ${orderResult.success ? 'alert-success' : 'alert-error'}`} style={{ marginTop: 8 }}>
-                <div style={{ fontSize: 10 }}>
+                <div style={{ fontSize: 12 }}>
                   {orderResult.success ? 'Order placed successfully' : 'Order rejected'}
-                  {orderResult.broker_order_id && <span style={{ display: 'block', fontSize: 9, color: 'var(--text-faint)', marginTop: 1 }}>ID: {orderResult.broker_order_id}</span>}
-                  {orderResult.message && <span style={{ display: 'block', fontSize: 9, marginTop: 1 }}>{orderResult.message}</span>}
+                  {orderResult.broker_order_id && <span style={{ display: 'block', fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>ID: {orderResult.broker_order_id}</span>}
+                  {orderResult.message && <span style={{ display: 'block', fontSize: 11, marginTop: 1 }}>{orderResult.message}</span>}
                 </div>
               </div>
             )}

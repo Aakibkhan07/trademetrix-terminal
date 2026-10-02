@@ -408,7 +408,7 @@ export default function PositionsPage() {
                           {o.instrument_type || 'EQ'}
                         </span>
                       </td>
-                      <td className="t-faint" style={{ fontSize: 11 }}>{o.expiry_date || '-'}</td>
+                      <td className="t-faint" style={{ fontSize: 13 }}>{o.expiry_date || '-'}</td>
                       <td className="t-num">{o.strike_price || '-'}</td>
                       <td className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 600 }}>{o.side}</td>
                       <td className="t-num">{o.quantity}</td>
@@ -420,7 +420,7 @@ export default function PositionsPage() {
                           {o.status}
                         </span>
                       </td>
-                      <td className="t-faint t-num" style={{ fontSize: 10 }}>
+                      <td className="t-faint t-num" style={{ fontSize: 12 }}>
                         {o.created_at ? new Date(o.created_at).toLocaleTimeString() : '-'}
                       </td>
                       <td>
@@ -463,13 +463,13 @@ function FragmentRow({ position, ltp, pnl, pnlPct, isOpen, trail, busy, onToggle
   return (
     <>
       <tr onClick={onToggleRow} style={{ cursor: 'pointer' }}>
-        <td style={{ fontWeight: 600 }}>{symbolOf(p.symbol)}{trail && <span className="t-badge t-badge-amber" style={{ fontSize: 8, marginLeft: 6 }}>TRAILING</span>}</td>
+        <td style={{ fontWeight: 600 }}>{symbolOf(p.symbol)}{trail && <span className="t-badge t-badge-amber" style={{ fontSize: 10, marginLeft: 6 }}>TRAILING</span>}</td>
         <td>
           <span className={`t-badge ${p.instrument_type === 'OPT' ? 't-badge-violet' : p.instrument_type === 'FUT' ? 't-badge-cyan' : 't-badge-green'}`}>
             {p.instrument_type || 'EQ'}
           </span>
         </td>
-        <td className="t-faint" style={{ fontSize: 11 }}>{p.expiry_date || '-'}</td>
+        <td className="t-faint" style={{ fontSize: 13 }}>{p.expiry_date || '-'}</td>
         <td className="t-num">{p.strike_price || '-'}</td>
         <td className="t-num">{p.quantity}</td>
         <td className="t-num">{p.average_buy_price?.toFixed(1) || '-'}</td>

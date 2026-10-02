@@ -23,18 +23,18 @@ export default function WorkspaceTopBar({ search, notifications }: TopBarProps) 
       height: 52, flexShrink: 0, borderBottom: '1px solid var(--border)',
       display: 'flex', alignItems: 'center', gap: 18, padding: '0 16px',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
         <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-red'}`} />
         <span className={connected ? 't-up' : 't-down'} style={{ fontWeight: 700 }}>{connected ? 'LIVE' : 'OFFLINE'}</span>
         {feedMode === 'simulator' && <span className="t-badge t-badge-amber">SIM</span>}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
         <span className="t-faint">BROKER</span>
         {activeCred ? (
           <>
             <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{activeCred.broker}</span>
-            <span className={`t-chip ${tokenOk ? '' : 't-chip-warn'}`} style={{ fontSize: 9 }}>
+            <span className={`t-chip ${tokenOk ? '' : 't-chip-warn'}`} style={{ fontSize: 11 }}>
               {tokenOk ? 'TOKEN OK' : 'RE-AUTH NEEDED'}
             </span>
           </>

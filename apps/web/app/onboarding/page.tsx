@@ -46,7 +46,7 @@ function StepAccount({ onDone }: { onDone: () => void }) {
   if (authLoading) {
     return (
       <div className="t-panel" style={{ padding: 32, textAlign: 'center' }}>
-        <p className="t-sub" style={{ fontSize: 13 }}>Loading...</p>
+        <p className="t-sub" style={{ fontSize: 16 }}>Loading...</p>
       </div>
     )
   }
@@ -86,11 +86,11 @@ function StepAccount({ onDone }: { onDone: () => void }) {
         <div style={{ marginBottom: 20 }}>
           <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Password</label>
           <input className="t-input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
-          {passwordHint && <p className="t-faint" style={{ fontSize: 11, margin: '4px 0 0' }}>{passwordHint}</p>}
+          {passwordHint && <p className="t-faint" style={{ fontSize: 13, margin: '4px 0 0' }}>{passwordHint}</p>}
         </div>
 
         {error && (
-          <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>{error}</div>
+          <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 16, marginBottom: 16 }}>{error}</div>
         )}
 
         <button type="submit" className="t-btn-primary" style={{ width: '100%', padding: '10px 20px' }} disabled={loading}>
@@ -99,7 +99,7 @@ function StepAccount({ onDone }: { onDone: () => void }) {
       </form>
 
       <div style={{ textAlign: 'center', marginTop: 20, paddingTop: 20, borderTop: '1px solid color-mix(in srgb, var(--violet) 10%, transparent)' }}>
-        <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 13 }}>
+        <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 16 }}>
           {mode === 'signup' ? 'Already have an account?' : "Don't have an account?"}{' '}
           <button
             onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError('') }}
@@ -107,7 +107,7 @@ function StepAccount({ onDone }: { onDone: () => void }) {
               background: 'none', border: 'none',
               backgroundImage: 'linear-gradient(135deg, var(--violet), var(--cyan))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', fontWeight: 600,
+              cursor: 'pointer', fontSize: 16, fontFamily: 'inherit', fontWeight: 600,
             }}
           >
             {mode === 'signup' ? 'Sign in' : 'Sign up'}
@@ -220,7 +220,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
   if (loading) {
     return (
       <div className="t-panel" style={{ padding: 32, textAlign: 'center' }}>
-        <p className="t-sub" style={{ fontSize: 13 }}>Loading...</p>
+        <p className="t-sub" style={{ fontSize: 16 }}>Loading...</p>
       </div>
     )
   }
@@ -260,26 +260,26 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
 
   return (
     <div>
-      {error && <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 16, marginBottom: 16 }}>{error}</div>}
 
       {credentials.length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 10px', color: 'var(--text)' }}>Connected Brokers</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, margin: '0 0 10px', color: 'var(--text)' }}>Connected Brokers</h3>
           {credentials.map(c => (
             <div key={c.id} className="t-panel" style={{ padding: '10px 14px', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <BrokerLogo broker={c.broker} size={32} />
                 <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{displayName(c.broker)}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{displayName(c.broker)}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-faint)' }}>
                     Connected {new Date(c.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
+                <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 11, padding: '2px 8px' }}>
                   {c.is_active ? 'Active' : 'Inactive'}
                 </span>
                 {c.broker === 'fyers' && !c.is_active && (
-                  <button className="t-btn t-btn-sm" style={{ fontSize: 10 }} onClick={async () => {
+                  <button className="t-btn t-btn-sm" style={{ fontSize: 12 }} onClick={async () => {
                     try {
                       const data = await api.brokers.authUrl('fyers') as { auth_url: string }
                       if (data.auth_url) { window.open(data.auth_url, '_blank'); setFyersPopup(true) }
@@ -295,7 +295,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
       )}
 
       {selectedBroker === 'fyers' && credentials.some(c => c.broker === 'fyers' && !c.is_active) && (
-        <div className="t-panel" style={{ padding: 8, marginBottom: 16, background: 'var(--violet-dim)', border: '1px solid rgba(139,92,246,0.2)', fontSize: 11 }}>
+        <div className="t-panel" style={{ padding: 8, marginBottom: 16, background: 'var(--violet-dim)', border: '1px solid rgba(139,92,246,0.2)', fontSize: 13 }}>
           <p style={{ margin: 0, color: 'var(--text-sub)' }}>
             Complete Fyers authorization in the new tab, then the broker will connect automatically.
           </p>
@@ -304,7 +304,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
 
       {unconnected.length > 0 && (
         <div>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 10px', color: 'var(--text)' }}>Connect a Broker</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, margin: '0 0 10px', color: 'var(--text)' }}>Connect a Broker</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginBottom: 16 }}>
             {unconnected.map(b => (
               <div
@@ -318,7 +318,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
                 }}
               >
                 <BrokerLogo broker={b} size={28} />
-                <p style={{ margin: 0, fontSize: 10, fontWeight: 600 }}>{b.charAt(0).toUpperCase() + b.slice(1)}</p>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 600 }}>{b.charAt(0).toUpperCase() + b.slice(1)}</p>
               </div>
             ))}
           </div>
@@ -327,7 +327,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
 
       {selectedBroker && (
         <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
-          <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: 'var(--text)' }}>
+          <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, margin: '0 0 12px', color: 'var(--text)' }}>
             {displayName(selectedBroker)} Credentials
           </h4>
           <div style={{ marginBottom: 12 }}>
@@ -419,26 +419,26 @@ function StepDone() {
           background: 'linear-gradient(135deg, color-mix(in srgb, var(--green) 15%, transparent), color-mix(in srgb, var(--green) 5%, transparent))',
           border: '2px solid color-mix(in srgb, var(--green) 30%, transparent)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 24, color: 'var(--green)',
+          fontSize: 29, color: 'var(--green)',
         }}>
           ✓
         </div>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, margin: '0 0 8px', color: 'var(--text)' }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, margin: '0 0 8px', color: 'var(--text)' }}>
           You&apos;re all set!
         </h2>
-        <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 13 }}>
+        <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 16 }}>
           Your terminal is ready. Start trading with your connected broker.
         </p>
       </div>
 
       {loading && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-sub)', fontSize: 12 }}>Loading your strategies...</p>
+          <p style={{ color: 'var(--text-sub)', fontSize: 14 }}>Loading your strategies...</p>
         </div>
       )}
 
       {error && (
-        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 16, marginBottom: 16 }}>
           Could not load strategy assignments
         </div>
       )}
@@ -446,16 +446,16 @@ function StepDone() {
       {!loading && assigned.length > 0 && (
         <div className="t-panel" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
           <div className="t-panel-header" style={{ padding: '12px 16px', margin: 0 }}>
-            <h3 className="t-panel-title" style={{ fontSize: 13 }}>Your Assigned Strategies</h3>
-            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{assigned.length}</span>
+            <h3 className="t-panel-title" style={{ fontSize: 16 }}>Your Assigned Strategies</h3>
+            <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>{assigned.length}</span>
           </div>
           {assigned.map((s: AssignedStrategy) => (
-            <div key={s.id} className="t-panel" style={{ padding: '10px 14px', margin: '0 12px 8px', fontSize: 12 }}>
+            <div key={s.id} className="t-panel" style={{ padding: '10px 14px', margin: '0 12px 8px', fontSize: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 600, color: 'var(--text)' }}>{s.name || s.strategy_key}</span>
-                <span className="t-badge t-badge-violet" style={{ fontSize: 9, padding: '1px 6px' }}>{s.required_tier}</span>
+                <span className="t-badge t-badge-violet" style={{ fontSize: 11, padding: '1px 6px' }}>{s.required_tier}</span>
               </div>
-              <p style={{ margin: '4px 0 0', fontSize: 10, color: 'var(--text-faint)' }}>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
                 {s.mirror_enabled ? 'Mirror enabled' : 'Mirror disabled'} · {s.active ? 'Active' : 'Inactive'}
               </p>
             </div>
@@ -465,14 +465,14 @@ function StepDone() {
 
       {!loading && assigned.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center', marginBottom: 20 }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-sub)' }}>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-sub)' }}>
             No strategies assigned yet. Your admin can assign strategies in the Admin panel.
           </p>
         </div>
       )}
 
       <div className="t-panel" style={{ padding: 16, marginBottom: 20 }}>
-        <h3 className="t-panel-title" style={{ fontSize: 13, marginBottom: 10 }}>Launch checklist</h3>
+        <h3 className="t-panel-title" style={{ fontSize: 16, marginBottom: 10 }}>Launch checklist</h3>
         {[
           { done: checks.broker, label: 'Broker connected', href: '/brokers' },
           { done: checks.funds, label: 'Funds visible', href: '/funds' },
@@ -480,16 +480,16 @@ function StepDone() {
           { done: checks.alerts, label: 'Telegram alerts linked', href: '/settings' },
         ].map(c => (
           <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
-            <span style={{ width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: c.done ? 'var(--green)' : 'var(--bg-tertiary)', color: c.done ? '#052a14' : 'var(--text-faint)' }}>{c.done ? '✓' : '·'}</span>
-            <span style={{ flex: 1, fontSize: 12, color: 'var(--text)' }}>{c.label}</span>
-            {!c.done && <a href={c.href} style={{ fontSize: 11, color: 'var(--cyan)' }}>Do it</a>}
+            <span style={{ width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, background: c.done ? 'var(--green)' : 'var(--bg-tertiary)', color: c.done ? '#052a14' : 'var(--text-faint)' }}>{c.done ? '✓' : '·'}</span>
+            <span style={{ flex: 1, fontSize: 14, color: 'var(--text)' }}>{c.label}</span>
+            {!c.done && <a href={c.href} style={{ fontSize: 13, color: 'var(--cyan)' }}>Do it</a>}
           </div>
         ))}
       </div>
 
       <button
         className="t-btn-primary"
-        style={{ width: '100%', padding: '12px 24px', fontSize: 14 }}
+        style={{ width: '100%', padding: '12px 24px', fontSize: 17 }}
         onClick={() => router.push(isAdmin ? '/dashboard' : '/live')}
       >
         Open Dashboard
@@ -511,7 +511,7 @@ function ProgressBar({ current }: { current: number }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{
                 width: 28, height: 28, borderRadius: '50%', display: 'flex',
-                alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
+                alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
                 background: done ? 'linear-gradient(135deg, var(--violet), var(--cyan))' : active ? 'color-mix(in srgb, var(--violet) 20%, transparent)' : 'color-mix(in srgb, var(--text-inverse) 4%, transparent)',
                 border: active ? '1px solid #8b5cf6' : done ? 'none' : '1px solid color-mix(in srgb, var(--text-inverse) 8%, transparent)',
                 color: done || active ? 'var(--text)' : 'var(--text-faint)',
@@ -520,7 +520,7 @@ function ProgressBar({ current }: { current: number }) {
                 {done ? '✓' : i + 1}
               </div>
               <span style={{
-                fontSize: 11, fontWeight: active || done ? 600 : 400,
+                fontSize: 13, fontWeight: active || done ? 600 : 400,
                 color: done ? 'var(--cyan)' : active ? 'var(--text)' : 'var(--text-faint)',
                 transition: 'color 200ms ease',
               }}>
@@ -580,13 +580,13 @@ export default function OnboardingPage() {
       <div style={{ width: 480 }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <h1 style={{
-            fontFamily: 'var(--font-display)', fontSize: 26, margin: '0 0 6px',
+            fontFamily: 'var(--font-display)', fontSize: 31, margin: '0 0 6px',
             background: 'linear-gradient(135deg, var(--violet), var(--cyan))',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>
             Welcome to Trade Metrix
           </h1>
-          <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 14 }}>
+          <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 17 }}>
             Set up your terminal in a few steps
           </p>
         </div>

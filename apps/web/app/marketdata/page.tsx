@@ -240,8 +240,8 @@ export default function MarketDataPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div className="t-row" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Market Data</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, fontSize: 12 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Market Data</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, fontSize: 14 }}>
             <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-red'}`} />
             <span className={connected ? 't-up' : 't-down'}>{connected ? 'Connected' : 'Disconnected'}</span>
             <span className="t-faint">&middot;</span>
@@ -264,9 +264,9 @@ export default function MarketDataPage() {
       {/* Active Alerts Bar */}
       {alerts.filter(a => !a.triggered).length > 0 && (
         <div className="t-panel" style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span className="t-faint" style={{ fontSize: 10, fontWeight: 600 }}>ACTIVE ALERTS</span>
+          <span className="t-faint" style={{ fontSize: 12, fontWeight: 600 }}>ACTIVE ALERTS</span>
           {alerts.filter(a => !a.triggered).map(a => (
-            <span key={a.id} className="t-chip active" style={{ fontSize: 10 }}>
+            <span key={a.id} className="t-chip active" style={{ fontSize: 12 }}>
               {a.name || a.symbol} {a.direction === 'above' ? '>' : '<'} \u20B9{a.target}
               <span style={{ marginLeft: 4, cursor: 'pointer', opacity: 0.5 }} onClick={() => removeAlert(a.id)}>x</span>
             </span>
@@ -283,10 +283,10 @@ export default function MarketDataPage() {
             return (
               <div key={t.symbol} className="t-panel" style={{ padding: '10px 14px' }}>
                 <div className="t-panel-body" style={{ padding: 0 }}>
-                  <div className="t-faint" style={{ fontSize: 11, marginBottom: 2 }}>{item?.name || t.symbol?.split(':').pop()}</div>
+                  <div className="t-faint" style={{ fontSize: 13, marginBottom: 2 }}>{item?.name || t.symbol?.split(':').pop()}</div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span className="t-num" style={{ fontSize: 18 }}>{t.last_price?.toFixed(1)}</span>
-                    <span className={`t-num ${pct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 12 }}>
+                    <span className="t-num" style={{ fontSize: 22 }}>{t.last_price?.toFixed(1)}</span>
+                    <span className={`t-num ${pct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 14 }}>
                       {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
                     </span>
                   </div>
@@ -301,7 +301,7 @@ export default function MarketDataPage() {
       <div className="t-chart-box">
         <div className="t-chart-controls">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="t-panel-title" style={{ fontSize: 13, fontWeight: 600 }}>{chartSymbol}</span>
+            <span className="t-panel-title" style={{ fontSize: 16, fontWeight: 600 }}>{chartSymbol}</span>
             <span className="t-dot t-dot-green t-dot-pulse" />
           </div>
           <div style={{ display: 'flex', gap: 2 }}>
@@ -321,7 +321,7 @@ export default function MarketDataPage() {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input className="t-input" placeholder="Search symbols..." value={search}
           onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
-        <span className="t-faint" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+        <span className="t-faint" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
           {filtered.length} symbols
         </span>
       </div>
@@ -378,14 +378,14 @@ export default function MarketDataPage() {
                       onClick={() => setChartSymbol(item.symbol)}>
                       <td style={{
                         fontWeight: 600,
-                        fontSize: 10,
+                        fontSize: 12,
                         color: chartSymbol === item.symbol ? 'var(--cyan)' : undefined
                       }}>
                         {item.symbol}
                       </td>
                       <td>{item.name}</td>
                       <td>
-                        <span className={`t-badge ${item.type === 'index' ? 't-badge-violet' : 't-badge-cyan'}`} style={{ fontSize: 9 }}>
+                        <span className={`t-badge ${item.type === 'index' ? 't-badge-violet' : 't-badge-cyan'}`} style={{ fontSize: 11 }}>
                           {item.type}
                         </span>
                       </td>
@@ -461,10 +461,10 @@ export default function MarketDataPage() {
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600 }}>{s.name}</div>
-                    <div className="t-faint" style={{ fontSize: 10 }}>{s.symbol}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{s.name}</div>
+                    <div className="t-faint" style={{ fontSize: 12 }}>{s.symbol}</div>
                   </div>
-                  <span className={`t-badge ${s.type === 'index' ? 't-badge-violet' : 't-badge-cyan'}`} style={{ fontSize: 9 }}>
+                  <span className={`t-badge ${s.type === 'index' ? 't-badge-violet' : 't-badge-cyan'}`} style={{ fontSize: 11 }}>
                     {s.type}
                   </span>
                 </div>
@@ -476,7 +476,7 @@ export default function MarketDataPage() {
       {/* Alert Modal */}
       {showAlertModal && (
         <Dialog onClose={() => setShowAlertModal(false)} maxWidth={360} title={<h3 className="t-modal-title" style={{ marginBottom: 12 }}>Set Price Alert</h3>}>
-            <p style={{ fontSize: 12, marginBottom: 12 }}>
+            <p style={{ fontSize: 14, marginBottom: 12 }}>
               <span style={{ fontWeight: 600 }}>{alertName}</span>
               <span className="t-faint" style={{ marginLeft: 6 }}>{alertSymbol}</span>
             </p>
@@ -519,8 +519,8 @@ export default function MarketDataPage() {
                 padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.03)'
               }}>
                 <div>
-                  <span style={{ fontWeight: 600, fontSize: 12 }}>{a.name || a.symbol}</span>
-                  <span className="t-faint" style={{ marginLeft: 8, fontSize: 11 }}>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>{a.name || a.symbol}</span>
+                  <span className="t-faint" style={{ marginLeft: 8, fontSize: 13 }}>
                     {a.direction === 'above' ? '>' : '<'} \u20B9{a.target}
                   </span>
                 </div>

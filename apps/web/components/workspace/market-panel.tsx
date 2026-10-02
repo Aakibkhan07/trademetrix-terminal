@@ -108,42 +108,42 @@ export default function MarketPanel({ activeSymbol, activeName, ticks, onAnalyze
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%', minHeight: 0, overflowY: 'auto', paddingRight: 2 }}>
       <div className="t-panel">
-        <div className="t-panel-header" style={{ fontSize: 11, fontWeight: 800 }}>MARKET SUMMARY</div>
+        <div className="t-panel-header" style={{ fontSize: 13, fontWeight: 800 }}>MARKET SUMMARY</div>
         <div className="t-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div className="t-stat-row" style={{ gap: 12, justifyContent: 'space-between', padding: 0 }}>
             <div>
-              <div className="t-stat-label" style={{ fontSize: 9 }}>VIX</div>
-              <div className="t-num" style={{ fontSize: 15, fontWeight: 800 }}>{vix?.last_price?.toFixed(2) ?? '—'}</div>
+              <div className="t-stat-label" style={{ fontSize: 11 }}>VIX</div>
+              <div className="t-num" style={{ fontSize: 18, fontWeight: 800 }}>{vix?.last_price?.toFixed(2) ?? '—'}</div>
             </div>
             <div>
-              <div className="t-stat-label" style={{ fontSize: 9 }}>VIX CHG</div>
-              <div className={`t-num ${(vix?.change_pct ?? 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 15, fontWeight: 800 }}>
+              <div className="t-stat-label" style={{ fontSize: 11 }}>VIX CHG</div>
+              <div className={`t-num ${(vix?.change_pct ?? 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 18, fontWeight: 800 }}>
                 {vix?.change_pct !== undefined ? `${vix.change_pct >= 0 ? '+' : ''}${vix.change_pct.toFixed(2)}%` : '—'}
               </div>
             </div>
             <div>
-              <div className="t-stat-label" style={{ fontSize: 9 }}>PCR</div>
-              <div className={`t-num ${(pcr?.ratio ?? 0) >= 1 ? 't-up' : 't-down'}`} style={{ fontSize: 15, fontWeight: 800 }}>
+              <div className="t-stat-label" style={{ fontSize: 11 }}>PCR</div>
+              <div className={`t-num ${(pcr?.ratio ?? 0) >= 1 ? 't-up' : 't-down'}`} style={{ fontSize: 18, fontWeight: 800 }}>
                 {pcr?.ratio ? pcr.ratio.toFixed(2) : '—'}
               </div>
             </div>
             <div>
-              <div className="t-stat-label" style={{ fontSize: 9 }}>OI BIAS</div>
-              <div className={`t-num ${(oiDelta ?? 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 15, fontWeight: 800 }}>
+              <div className="t-stat-label" style={{ fontSize: 11 }}>OI BIAS</div>
+              <div className={`t-num ${(oiDelta ?? 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 18, fontWeight: 800 }}>
                 {oiDelta === null ? '—' : `${oiDelta >= 0 ? '+' : ''}${oiDelta}%`}
               </div>
             </div>
           </div>
           {sr && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <span className="t-badge t-badge-red" style={{ fontSize: 9 }}>S2 {sr.s2.toFixed(0)}</span>
-              <span className="t-badge t-badge-red" style={{ fontSize: 9 }}>S1 {sr.s1.toFixed(0)}</span>
-              <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>R1 {sr.r1.toFixed(0)}</span>
-              <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>R2 {sr.r2.toFixed(0)}</span>
+              <span className="t-badge t-badge-red" style={{ fontSize: 11 }}>S2 {sr.s2.toFixed(0)}</span>
+              <span className="t-badge t-badge-red" style={{ fontSize: 11 }}>S1 {sr.s1.toFixed(0)}</span>
+              <span className="t-badge t-badge-green" style={{ fontSize: 11 }}>R1 {sr.r1.toFixed(0)}</span>
+              <span className="t-badge t-badge-green" style={{ fontSize: 11 }}>R2 {sr.r2.toFixed(0)}</span>
             </div>
           )}
           {chain.atm && pcr && (
-            <div className="t-faint" style={{ fontSize: 9 }}>
+            <div className="t-faint" style={{ fontSize: 11 }}>
               ATM {chain.atm} · CE OI {pcr.atmCall.toLocaleString()} · PE OI {pcr.atmPut.toLocaleString()}
               {pcr.atmIvC > 0 && ` · IV ${(pcr.atmIvC * 100).toFixed(0)}/${(pcr.atmIvP * 100).toFixed(0)}`}
             </div>
@@ -152,11 +152,11 @@ export default function MarketPanel({ activeSymbol, activeName, ticks, onAnalyze
       </div>
 
       <div className="t-panel">
-        <div className="t-panel-header" style={{ fontSize: 11, fontWeight: 800 }}>GAINERS</div>
+        <div className="t-panel-header" style={{ fontSize: 13, fontWeight: 800 }}>GAINERS</div>
         <div className="t-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {gainers.length === 0 && <span className="t-faint" style={{ fontSize: 10 }}>No live data</span>}
+          {gainers.length === 0 && <span className="t-faint" style={{ fontSize: 12 }}>No live data</span>}
           {gainers.map(t => (
-            <div key={t.symbol} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+            <div key={t.symbol} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span style={{ fontWeight: 600 }}>{t.symbol.split(':').pop()}</span>
               <span className="t-num t-up">{t.change_pct!.toFixed(2)}%</span>
             </div>
@@ -165,11 +165,11 @@ export default function MarketPanel({ activeSymbol, activeName, ticks, onAnalyze
       </div>
 
       <div className="t-panel">
-        <div className="t-panel-header" style={{ fontSize: 11, fontWeight: 800 }}>LOSERS</div>
+        <div className="t-panel-header" style={{ fontSize: 13, fontWeight: 800 }}>LOSERS</div>
         <div className="t-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {losers.length === 0 && <span className="t-faint" style={{ fontSize: 10 }}>No live data</span>}
+          {losers.length === 0 && <span className="t-faint" style={{ fontSize: 12 }}>No live data</span>}
           {losers.map(t => (
-            <div key={t.symbol} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+            <div key={t.symbol} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span style={{ fontWeight: 600 }}>{t.symbol.split(':').pop()}</span>
               <span className="t-num t-down">{t.change_pct!.toFixed(2)}%</span>
             </div>
@@ -178,15 +178,15 @@ export default function MarketPanel({ activeSymbol, activeName, ticks, onAnalyze
       </div>
 
       <div className="t-panel" style={{ borderLeft: `3px solid ${ai.verdict === 'BULLISH' ? 'var(--green)' : ai.verdict === 'BEARISH' ? 'var(--red)' : 'var(--amber)'}` }}>
-        <div className="t-panel-header" style={{ fontSize: 11, fontWeight: 800 }}>
+        <div className="t-panel-header" style={{ fontSize: 13, fontWeight: 800 }}>
           AI SUMMARY {activeName && <span className="t-faint" style={{ fontWeight: 500 }}>· {activeName}</span>}
         </div>
         <div className="t-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className={`t-badge ${ai.verdict === 'BULLISH' ? 't-badge-green' : ai.verdict === 'BEARISH' ? 't-badge-red' : 't-badge-amber'}`} style={{ alignSelf: 'flex-start', fontSize: 10, fontWeight: 800 }}>
+          <span className={`t-badge ${ai.verdict === 'BULLISH' ? 't-badge-green' : ai.verdict === 'BEARISH' ? 't-badge-red' : 't-badge-amber'}`} style={{ alignSelf: 'flex-start', fontSize: 12, fontWeight: 800 }}>
             {ai.verdict}
           </span>
-          <div className="t-faint" style={{ fontSize: 10, lineHeight: 1.5 }}>{ai.summary}</div>
-          {ai.tags.map(tag => <span key={tag} className="t-chip" style={{ fontSize: 9, alignSelf: 'flex-start' }}>{tag}</span>)}
+          <div className="t-faint" style={{ fontSize: 12, lineHeight: 1.5 }}>{ai.summary}</div>
+          {ai.tags.map(tag => <span key={tag} className="t-chip" style={{ fontSize: 11, alignSelf: 'flex-start' }}>{tag}</span>)}
         </div>
       </div>
 

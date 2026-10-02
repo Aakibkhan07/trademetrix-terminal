@@ -29,7 +29,7 @@ export function Sparkline({ values, width = 72, height = 26, strokeWidth = 1.3, 
     return { path: `M${pts.join('L')}`, color: clean[clean.length - 1] >= clean[0] ? 'var(--green)' : 'var(--red)' }
   }, [values, width, height, padding])
 
-  if (!d) return <span className="t-faint" style={{ fontSize: 9 }}>—</span>
+  if (!d) return <span className="t-faint" style={{ fontSize: 11 }}>—</span>
 
   return (
     <svg width={width} height={height} style={{ display: 'block', ...style }}>

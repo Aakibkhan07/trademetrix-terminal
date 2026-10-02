@@ -17,7 +17,7 @@ export function EmptyState({ title, description, icon, variant = 'panel', style 
 }) {
   if (variant === 'text') {
     return (
-      <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)', ...style }}>
+      <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)', ...style }}>
         {icon ? `${icon} ` : ''}{title || 'No data'}
         {description ? ` — ${description}` : ''}
       </p>
@@ -25,8 +25,8 @@ export function EmptyState({ title, description, icon, variant = 'panel', style 
   }
   return (
     <div style={{ textAlign: 'center', padding: 40, ...style }}>
-      <p style={{ color: 'var(--text-faint)', fontSize: 13 }}>{title || 'No data available'}</p>
-      {description && <p style={{ color: 'var(--text-sub)', fontSize: 11 }}>{description}</p>}
+      <p style={{ color: 'var(--text-faint)', fontSize: 16 }}>{title || 'No data available'}</p>
+      {description && <p style={{ color: 'var(--text-sub)', fontSize: 13 }}>{description}</p>}
     </div>
   )
 }
@@ -50,13 +50,13 @@ export function TableEmptyRow({ colSpan, message = 'No data', style }: {
 export function EmptyPanel({ message, children }: { message: string; children?: ReactNode }) {
   return (
     <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-      <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>{message}</p>
+      <p style={{ fontSize: 14, color: 'var(--text-faint)' }}>{message}</p>
       {children}
     </div>
   )
 }
 
-/** One-line faint note (beta-dashboard `fontSize:11 var(--text-faint)` pattern). */
+/** One-line faint note (beta-dashboard `fontSize:13 var(--text-faint)` pattern). */
 export function EmptyNote({ children, style }: { children: ReactNode; style?: CSSProperties }) {
-  return <div style={{ fontSize: 11, color: 'var(--text-faint)', ...style }}>{children}</div>
+  return <div style={{ fontSize: 13, color: 'var(--text-faint)', ...style }}>{children}</div>
 }

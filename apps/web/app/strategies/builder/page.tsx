@@ -39,7 +39,7 @@ function statusBadge(status: string | undefined): string {
 
 export default function StrategyBuilderPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 20 }}><span className="t-faint" style={{ fontSize: 11 }}>Loading builder…</span></div>}>
+    <Suspense fallback={<div style={{ padding: 20 }}><span className="t-faint" style={{ fontSize: 13 }}>Loading builder…</span></div>}>
       <BuilderInner />
     </Suspense>
   )
@@ -238,30 +238,30 @@ function BuilderInner() {
         padding: '8px 12px', background: 'var(--bg-secondary)',
         borderBottom: '1px solid var(--border)', flexShrink: 0, flexWrap: 'wrap',
       }}>
-        <Link href="/strategies" style={{ color: 'var(--text-faint)', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>← Strategies</Link>
+        <Link href="/strategies" style={{ color: 'var(--text-faint)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>← Strategies</Link>
         <div style={{ width: 1, height: 18, background: 'var(--border)' }} />
         <input
           value={dsl?.name || ''}
           onChange={e => patchName(e.target.value)}
           placeholder="Untitled Strategy"
-          style={{ background: 'none', border: 'none', color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 700, outline: 'none', width: 220 }}
+          style={{ background: 'none', border: 'none', color: 'var(--text)', fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 700, outline: 'none', width: 220 }}
         />
         {dsl?.status && (
-          <span className={`t-badge ${statusBadge(dsl.status)}`} style={{ fontSize: 9, textTransform: 'uppercase' }}>
+          <span className={`t-badge ${statusBadge(dsl.status)}`} style={{ fontSize: 11, textTransform: 'uppercase' }}>
             {dsl.status}
           </span>
         )}
         {score && score.grade && score.grade !== 'F' && (
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--cyan)' }}>Score {score.grade}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--cyan)' }}>Score {score.grade}</span>
         )}
         <div style={{ flex: 1 }} />
         <div className="t-seg" style={{ height: 26 }}>
-          <button className={`t-seg-btn ${mode === 'beginner' ? 'active' : ''}`} onClick={() => setMode('beginner')} style={{ fontSize: 10, padding: '0 10px' }}>Beginner</button>
-          <button className={`t-seg-btn ${mode === 'advanced' ? 'active' : ''}`} onClick={() => setMode('advanced')} style={{ fontSize: 10, padding: '0 10px' }}>Advanced</button>
+          <button className={`t-seg-btn ${mode === 'beginner' ? 'active' : ''}`} onClick={() => setMode('beginner')} style={{ fontSize: 12, padding: '0 10px' }}>Beginner</button>
+          <button className={`t-seg-btn ${mode === 'advanced' ? 'active' : ''}`} onClick={() => setMode('advanced')} style={{ fontSize: 12, padding: '0 10px' }}>Advanced</button>
         </div>
         <button className="t-btn t-btn-sm" onClick={() => setGalleryOpen(true)} disabled={!!strategyId && !touched}>Templates</button>
         <button className="t-btn t-btn-sm" onClick={() => setVersionsOpen(true)} disabled={!strategyId} title="Version history & compare">🕘 Versions</button>
-        {busy && <span className="t-faint" style={{ fontSize: 10 }}>{busy}</span>}
+        {busy && <span className="t-faint" style={{ fontSize: 12 }}>{busy}</span>}
         <button className="t-btn t-btn-sm" onClick={saveDraft} disabled={saving || !strategyId || !dsl}>
           {saving ? 'Saving…' : '💾 Save draft'}
         </button>
@@ -274,7 +274,7 @@ function BuilderInner() {
         <button className="t-btn t-btn-sm t-btn-primary" disabled={!canDeploy} onClick={() => setDeployOpen(true)}>
           ▶ Deploy
         </button>
-        {error && <span style={{ color: 'var(--text-red)', fontSize: 11, flexBasis: '100%' }}>{error}</span>}
+        {error && <span style={{ color: 'var(--text-red)', fontSize: 13, flexBasis: '100%' }}>{error}</span>}
       </div>
 
       <StrategySettingsBar settings={dsl?.settings || {}} onChange={patchSettings} disabled={!strategyId || !touched} />
@@ -298,11 +298,11 @@ function BuilderInner() {
         {strategyId && (
           <>
             <div className="t-panel" style={{ padding: '10px 12px', flex: '0 1 300px', minWidth: 240 }}>
-              <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700 }}>Validation Score</p>
+              <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700 }}>Validation Score</p>
               <StrategyScore strategyId={strategyId} onScore={s => setScore(s)} />
             </div>
             <div className="t-panel" style={{ padding: '10px 12px', flex: '1 1 400px', minWidth: 280 }}>
-              <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700 }}>Strategy Logs</p>
+              <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700 }}>Strategy Logs</p>
               <StrategyLogs strategyId={strategyId} />
             </div>
           </>
@@ -312,7 +312,7 @@ function BuilderInner() {
       {galleryOpen && (
         <Dialog onClose={() => setGalleryOpen(false)} maxWidth={620} padding={0} title={
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>New Strategy</span>
+            <span style={{ fontSize: 16, fontWeight: 700 }}>New Strategy</span>
             <button className="t-btn t-btn-sm" onClick={() => setGalleryOpen(false)}>✕</button>
           </div>
         }>

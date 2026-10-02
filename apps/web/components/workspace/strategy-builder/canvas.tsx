@@ -172,9 +172,9 @@ export default function Canvas({ nodes, edges, blocks, selectedId, onSelect, onN
         {nodes.length === 0 && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
             <div style={{ textAlign: 'center', opacity: .55 }}>
-              <div style={{ fontSize: 26, marginBottom: 8 }}>🕸️</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>Drag blocks from the palette onto the canvas</div>
-              <div className="t-faint" style={{ fontSize: 10, marginTop: 4 }}>or double-click a block to add it · connect output → input ports</div>
+              <div style={{ fontSize: 31, marginBottom: 8 }}>🕸️</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Drag blocks from the palette onto the canvas</div>
+              <div className="t-faint" style={{ fontSize: 12, marginTop: 4 }}>or double-click a block to add it · connect output → input ports</div>
             </div>
           </div>
         )}

@@ -28,7 +28,7 @@ export default function WorkspaceSidebar() {
             title={item.label}
             style={{
               width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 17, textDecoration: 'none', transition: 'all .15s',
+              fontSize: 20, textDecoration: 'none', transition: 'all .15s',
               background: sameRoute ? 'color-mix(in srgb, var(--violet) 14%, transparent)' : 'transparent',
               border: sameRoute ? '1px solid var(--border-accent)' : '1px solid transparent',
               color: sameRoute ? 'var(--text-hi)' : 'var(--text-faint)',

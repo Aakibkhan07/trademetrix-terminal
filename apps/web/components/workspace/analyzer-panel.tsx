@@ -22,8 +22,8 @@ function fmt(v: number | null | undefined, d = 2): string {
 function cell(label: string, value: string, tone?: 'up' | 'down' | '') {
   return (
     <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '8px 10px', minWidth: 0 }}>
-      <div className="t-stat-label" style={{ fontSize: 9 }}>{label}</div>
-      <div className={`t-num ${tone}`} style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>{value}</div>
+      <div className="t-stat-label" style={{ fontSize: 11 }}>{label}</div>
+      <div className={`t-num ${tone}`} style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>{value}</div>
     </div>
   )
 }
@@ -164,8 +164,8 @@ export default function AnalyzerPanel({ symbol, name, onClose }: AnalyzerPanelPr
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 800 }}>🔬 Analyzer</div>
-          <div className="t-faint" style={{ fontSize: 10 }}>{name} · {symbol}</div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>🔬 Analyzer</div>
+          <div className="t-faint" style={{ fontSize: 12 }}>{name} · {symbol}</div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           <button className="t-btn t-btn-sm" style={{ color: 'var(--green)' }} onClick={() => openQuickOrder(symbol, name, 'BUY')}>Buy</button>
@@ -175,7 +175,7 @@ export default function AnalyzerPanel({ symbol, name, onClose }: AnalyzerPanelPr
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {loading && <span className="t-faint" style={{ fontSize: 11 }}>Loading indicators…</span>}
+        {loading && <span className="t-faint" style={{ fontSize: 13 }}>Loading indicators…</span>}
         {!loading && ind && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(86px, 1fr))', gap: 6 }}>
@@ -192,11 +192,11 @@ export default function AnalyzerPanel({ symbol, name, onClose }: AnalyzerPanelPr
             </div>
 
             <div className="t-panel">
-              <div className="t-panel-header" style={{ fontSize: 10, fontWeight: 800 }}>SMC / SWING LEVELS</div>
+              <div className="t-panel-header" style={{ fontSize: 12, fontWeight: 800 }}>SMC / SWING LEVELS</div>
               <div className="t-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {ind.swings.length === 0 && <span className="t-faint" style={{ fontSize: 10 }}>No swing levels</span>}
+                {ind.swings.length === 0 && <span className="t-faint" style={{ fontSize: 12 }}>No swing levels</span>}
                 {ind.swings.map((s, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                     <span style={{ fontWeight: 600 }}>{s.kind === 'resistance' ? 'Resistance' : 'Support'}</span>
                     <span className="t-num" style={{ color: s.kind === 'resistance' ? 'var(--green)' : 'var(--red)' }}>{fmt(s.price, 1)}</span>
                   </div>
@@ -206,24 +206,24 @@ export default function AnalyzerPanel({ symbol, name, onClose }: AnalyzerPanelPr
 
             {risk && (
               <div style={{ display: 'flex', gap: 6 }}>
-                <span className="t-chip" style={{ fontSize: 9 }}>Risk {Math.abs(risk.dist * 100).toFixed(1)}% to S</span>
-                <span className="t-chip" style={{ fontSize: 9 }}>RR {risk.rr.toFixed(2)}:1</span>
+                <span className="t-chip" style={{ fontSize: 11 }}>Risk {Math.abs(risk.dist * 100).toFixed(1)}% to S</span>
+                <span className="t-chip" style={{ fontSize: 11 }}>RR {risk.rr.toFixed(2)}:1</span>
               </div>
             )}
 
             <div className="t-panel" style={{ borderLeft: `3px solid ${tradeSummary?.bias === 'Bullish' ? 'var(--green)' : tradeSummary?.bias === 'Bearish' ? 'var(--red)' : 'var(--amber)'}` }}>
-              <div className="t-panel-header" style={{ fontSize: 10, fontWeight: 800 }}>TRADE SUMMARY</div>
+              <div className="t-panel-header" style={{ fontSize: 12, fontWeight: 800 }}>TRADE SUMMARY</div>
               <div className="t-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {tradeSummary ? (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className={`t-badge ${tradeSummary.bias === 'Bullish' ? 't-badge-green' : tradeSummary.bias === 'Bearish' ? 't-badge-red' : 't-badge-amber'}`} style={{ fontSize: 10, fontWeight: 800 }}>
+                      <span className={`t-badge ${tradeSummary.bias === 'Bullish' ? 't-badge-green' : tradeSummary.bias === 'Bearish' ? 't-badge-red' : 't-badge-amber'}`} style={{ fontSize: 12, fontWeight: 800 }}>
                         {tradeSummary.bias}
                       </span>
-                      <span className="t-faint" style={{ fontSize: 10 }}>Momentum {tradeSummary.momentum} · Risk {tradeSummary.risk}</span>
-                      <span className="t-num" style={{ fontSize: 10, marginLeft: 'auto' }}>Confidence {tradeSummary.confidence}%</span>
+                      <span className="t-faint" style={{ fontSize: 12 }}>Momentum {tradeSummary.momentum} · Risk {tradeSummary.risk}</span>
+                      <span className="t-num" style={{ fontSize: 12, marginLeft: 'auto' }}>Confidence {tradeSummary.confidence}%</span>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 12 }}>
                       <span className="t-faint">RSI</span><span className="t-num">{fmt(tradeSummary.rsi)}</span>
                       <span className="t-faint">VWAP</span><span className="t-num">{tradeSummary.vwap}</span>
                       <span className="t-faint">Structure</span><span className="t-num">{tradeSummary.structure}</span>
@@ -234,19 +234,19 @@ export default function AnalyzerPanel({ symbol, name, onClose }: AnalyzerPanelPr
                       <span className="t-faint">Suggested target</span>
                       <span className="t-num t-up">{tradeSummary.tgt ? fmt(tradeSummary.tgt) : '—'}</span>
                     </div>
-                    <div className="t-faint" style={{ fontSize: 8.5, lineHeight: 1.4 }}>
+                    <div className="t-faint" style={{ fontSize: 10.5, lineHeight: 1.4 }}>
                       Rule-based summary of the indicator grid above — analytics only, not a trading signal.
                     </div>
                   </>
                 ) : (
-                  <span className="t-faint" style={{ fontSize: 10 }}>Needs ≥15 candles.</span>
+                  <span className="t-faint" style={{ fontSize: 12 }}>Needs ≥15 candles.</span>
                 )}
               </div>
             </div>
 
             <div className="t-panel" style={{ borderLeft: '3px solid var(--cyan)' }}>
-              <div className="t-panel-header" style={{ fontSize: 10, fontWeight: 800 }}>AI SUMMARY</div>
-              <div className="t-panel-body t-faint" style={{ fontSize: 11, lineHeight: 1.55 }}>{summary}</div>
+              <div className="t-panel-header" style={{ fontSize: 12, fontWeight: 800 }}>AI SUMMARY</div>
+              <div className="t-panel-body t-faint" style={{ fontSize: 13, lineHeight: 1.55 }}>{summary}</div>
             </div>
 
             <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
@@ -256,7 +256,7 @@ export default function AnalyzerPanel({ symbol, name, onClose }: AnalyzerPanelPr
             </div>
           </>
         )}
-        {!loading && !ind && <span className="t-faint" style={{ fontSize: 11 }}>Insufficient data.</span>}
+        {!loading && !ind && <span className="t-faint" style={{ fontSize: 13 }}>Insufficient data.</span>}
       </div>
     </div>
   )

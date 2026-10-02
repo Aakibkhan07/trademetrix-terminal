@@ -22,9 +22,9 @@ function Select({ label, value, options, onChange }: {
   onChange: (v: string) => void
 }) {
   return (
-    <label className="t-label" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+    <label className="t-label" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
       {LABELS[label] || label}
-      <select className="t-select" value={value} onChange={e => onChange(e.target.value)} style={{ fontSize: 11, padding: '2px 6px' }}>
+      <select className="t-select" value={value} onChange={e => onChange(e.target.value)} style={{ fontSize: 13, padding: '2px 6px' }}>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>
@@ -46,7 +46,7 @@ export default function StrategySettingsBar({ settings, onChange, disabled }: Pr
         options={['1', '2', '3', '4', '5']}
         onChange={v => onChange({ max_positions: Number(v) })}
       />
-      {disabled && <span className="t-chip t-chip-warn" style={{ fontSize: 9 }}>new draft — save to persist</span>}
+      {disabled && <span className="t-chip t-chip-warn" style={{ fontSize: 11 }}>new draft — save to persist</span>}
     </div>
   )
 }

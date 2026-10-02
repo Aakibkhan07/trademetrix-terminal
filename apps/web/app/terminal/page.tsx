@@ -166,7 +166,7 @@ export default function TerminalPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 className="t-page-title" style={{ margin: 0 }}>Terminal</h1>
-          <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
+          <p style={{ color: 'var(--text-sub)', fontSize: 14, margin: '2px 0 0' }}>
             Real-time order placement & execution
             {funds && <span style={{ marginLeft: 8, color: 'var(--text-faint)' }}>• {funds.broker || 'No broker'}</span>}
           </p>
@@ -176,7 +176,7 @@ export default function TerminalPage() {
       {error && (
         <div style={{
           background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)',
-          borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 12,
+          borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'var(--text-red)', fontSize: 14,
         }}>{error}</div>
       )}
 
@@ -189,7 +189,7 @@ export default function TerminalPage() {
             padding: 0, borderTop: `3px solid ${side === 'BUY' ? 'var(--green)' : 'var(--red)'}`,
           }}>
             <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Quick Order</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Quick Order</span>
             </div>
             <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {/* Side toggle */}
@@ -199,7 +199,7 @@ export default function TerminalPage() {
                   border: `1px solid ${side === 'BUY' ? 'var(--green)' : 'var(--border)'}`,
                   background: side === 'BUY' ? 'rgba(34,197,94,0.1)' : 'transparent',
                   color: side === 'BUY' ? 'var(--text-green)' : 'var(--text-sub)',
-                  fontSize: 12, fontWeight: 700,
+                  fontSize: 14, fontWeight: 700,
                   cursor: 'pointer', transition: 'all 120ms ease',
                 }}>BUY</button>
                 <button onClick={() => setSide('SELL')} style={{
@@ -207,7 +207,7 @@ export default function TerminalPage() {
                   border: `1px solid ${side === 'SELL' ? 'var(--red)' : 'var(--border)'}`,
                   background: side === 'SELL' ? 'rgba(239,68,68,0.1)' : 'transparent',
                   color: side === 'SELL' ? 'var(--text-red)' : 'var(--text-sub)',
-                  fontSize: 12, fontWeight: 700,
+                  fontSize: 14, fontWeight: 700,
                   cursor: 'pointer', transition: 'all 120ms ease',
                 }}>SELL</button>
               </div>
@@ -215,11 +215,11 @@ export default function TerminalPage() {
               {/* Symbol + Qty */}
               <div style={{ display: 'flex', gap: 6 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Symbol</label>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Symbol</label>
                   <input className="t-input" placeholder="NIFTY, RELIANCE..." value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} />
                 </div>
                 <div style={{ width: 80 }}>
-                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Qty</label>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Qty</label>
                   <input className="t-input" type="number" min={1} value={qty} onChange={e => setQty(Number(e.target.value))} />
                 </div>
               </div>
@@ -227,14 +227,14 @@ export default function TerminalPage() {
               {/* Order Type + Product */}
               <div style={{ display: 'flex', gap: 6 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Type</label>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Type</label>
                   <select className="t-select" value={orderType} onChange={e => setOrderType(e.target.value as 'MARKET' | 'LIMIT')}>
                     <option value="MARKET">Market</option>
                     <option value="LIMIT">Limit</option>
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Product</label>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Product</label>
                   <select className="t-select" value={product} onChange={e => setProduct(e.target.value as 'INTRADAY' | 'NRML')}>
                     <option value="INTRADAY">Intraday</option>
                     <option value="NRML">Delivery</option>
@@ -244,7 +244,7 @@ export default function TerminalPage() {
 
               {orderType === 'LIMIT' && (
                 <div>
-                  <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Limit Price</label>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Limit Price</label>
                   <input className="t-input" type="number" min={0} step={0.05} value={limitPrice} onChange={e => setLimitPrice(Number(e.target.value))} />
                 </div>
               )}
@@ -254,11 +254,11 @@ export default function TerminalPage() {
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '6px 8px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)',
-                  fontSize: 11,
+                  fontSize: 13,
                 }}>
                   <span style={{ fontWeight: 700, color: 'var(--text)' }}>{symbol}</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text)', fontSize: 17 }}>
                       {ticketQuote.last_price.toFixed(1)}
                     </span>
                     {tickPct !== null && tickPct !== undefined && (
@@ -273,7 +273,7 @@ export default function TerminalPage() {
               {orderError && (
                 <div style={{
                   background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)',
-                  borderRadius: 'var(--radius-sm)', padding: '6px 8px', fontSize: 11, color: 'var(--text-red)',
+                  borderRadius: 'var(--radius-sm)', padding: '6px 8px', fontSize: 13, color: 'var(--text-red)',
                 }}>{orderError}</div>
               )}
 
@@ -290,8 +290,8 @@ export default function TerminalPage() {
           {/* Margin Info */}
           {funds && (
             <div className="t-panel" style={{ padding: 10 }}>
-              <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Margin</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 4 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Margin</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
                 <span style={{ color: 'var(--text-sub)' }}>Available</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-green)' }}>
                   ₹{(funds.available_margin || 0).toLocaleString()}
@@ -303,7 +303,7 @@ export default function TerminalPage() {
                   background: 'var(--cyan)',
                 }} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, marginTop: 3, color: 'var(--text-faint)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 3, color: 'var(--text-faint)' }}>
                 <span>Used: ₹{(funds.used_margin || 0).toLocaleString()}</span>
                 <span>Total: ₹{(funds.total_margin || 0).toLocaleString()}</span>
               </div>
@@ -319,11 +319,11 @@ export default function TerminalPage() {
               padding: '8px 12px', borderBottom: '1px solid var(--border)',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
                 Positions ({positions.length})
               </span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span className="t-faint" style={{ fontSize: 10 }}>
+                <span className="t-faint" style={{ fontSize: 12 }}>
                   Unrealised{' '}
                   <b style={{ color: totalUnrealised >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>
                     {totalUnrealised >= 0 ? '+' : ''}{totalUnrealised.toFixed(0)}
@@ -341,7 +341,7 @@ export default function TerminalPage() {
                 {openPositions.length > 0 && (
                   <>
                     <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Open Positions ({openPositions.length})
                       </span>
                     </div>
@@ -371,7 +371,7 @@ export default function TerminalPage() {
                           const pnlPct = base !== 0 ? (pnl / base) * 100 : 0
                           return (
                             <tr key={p.symbol}>
-                              <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
+                              <td style={{ fontWeight: 600, fontSize: 14 }}>{p.symbol?.split(':').pop()}</td>
                               <td className="t-num">{p.quantity}</td>
                               <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
                               <td className="t-num">{ltp > 0 ? ltp.toFixed(1) : '—'}</td>
@@ -380,7 +380,7 @@ export default function TerminalPage() {
                               </td>
                               <td className={`t-num ${(pnl || 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
                                 {(pnl || 0) >= 0 ? '+' : ''}{(pnl || 0).toFixed(0)}
-                                <span className="t-faint" style={{ fontSize: 9, marginLeft: 4 }}>
+                                <span className="t-faint" style={{ fontSize: 11, marginLeft: 4 }}>
                                   ({(pnlPct >= 0 ? '+' : '')}{pnlPct.toFixed(1)}%)
                                 </span>
                               </td>
@@ -394,7 +394,7 @@ export default function TerminalPage() {
                 {closedPositions.length > 0 && (
                   <>
                     <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Closed Today ({closedPositions.length})
                       </span>
                     </div>
@@ -411,7 +411,7 @@ export default function TerminalPage() {
                       <tbody>
                         {closedPositions.map((p) => (
                           <tr key={p.symbol}>
-                            <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
+                            <td style={{ fontWeight: 600, fontSize: 14 }}>{p.symbol?.split(':').pop()}</td>
                             <td className="t-num">{p.buy_quantity || p.sell_quantity || 0}</td>
                             <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
                             <td className="t-num">{(p.average_sell_price || 0).toFixed(1)}</td>
@@ -427,7 +427,7 @@ export default function TerminalPage() {
               </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <p style={{ color: 'var(--text-faint)', fontSize: 11 }}>No positions yet — place an order above</p>
+                <p style={{ color: 'var(--text-faint)', fontSize: 13 }}>No positions yet — place an order above</p>
               </div>
             )}
           </div>
@@ -438,10 +438,10 @@ export default function TerminalPage() {
               padding: '8px 12px', borderBottom: '1px solid var(--border)',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
                 Orders ({orders.length})
               </span>
-              <span className="t-faint" style={{ fontSize: 10 }}>Last 50</span>
+              <span className="t-faint" style={{ fontSize: 12 }}>Last 50</span>
             </div>
             {orders.length > 0 ? (
               <div style={{ overflow: 'auto', flex: 1 }}>
@@ -460,12 +460,12 @@ export default function TerminalPage() {
                   <tbody>
                     {orders.slice(0, 50).map(o => (
                       <tr key={o.id}>
-                        <td style={{ fontWeight: 600, fontSize: 12 }}>{o.symbol?.split(':').pop()}</td>
+                        <td style={{ fontWeight: 600, fontSize: 14 }}>{o.symbol?.split(':').pop()}</td>
                         <td style={{ color: o.side === 'BUY' ? 'var(--text-green)' : 'var(--text-red)', fontWeight: 600 }}>{o.side}</td>
                         <td className="t-num">{o.filled_quantity || o.quantity}</td>
                         <td className="t-num">{(o.average_price || o.price || 0).toFixed(1)}</td>
-                        <td><span className={`t-badge ${STATUS_BADGE[o.status] || 't-badge-sub'}`} style={{ fontSize: 8 }}>{o.status}</span></td>
-                        <td className="t-faint" style={{ fontSize: 9 }}>
+                        <td><span className={`t-badge ${STATUS_BADGE[o.status] || 't-badge-sub'}`} style={{ fontSize: 10 }}>{o.status}</span></td>
+                        <td className="t-faint" style={{ fontSize: 11 }}>
                           {o.created_at ? new Date(o.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
                         </td>
                         <td>
@@ -482,7 +482,7 @@ export default function TerminalPage() {
               </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <p style={{ color: 'var(--text-faint)', fontSize: 11 }}>No orders yet</p>
+                <p style={{ color: 'var(--text-faint)', fontSize: 13 }}>No orders yet</p>
               </div>
             )}
           </div>

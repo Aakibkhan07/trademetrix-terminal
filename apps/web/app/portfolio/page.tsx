@@ -192,7 +192,7 @@ export default function PortfolioPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="t-panel" style={{ maxWidth: 360, textAlign: 'center' }}>
           <h3 className="t-panel-title" style={{ marginBottom: 8 }}>Sign in required</h3>
-          <p className="t-faint" style={{ fontSize: 12, marginBottom: 16 }}>Your portfolio is waiting — sign in to view positions, P&L and quick trade.</p>
+          <p className="t-faint" style={{ fontSize: 14, marginBottom: 16 }}>Your portfolio is waiting — sign in to view positions, P&L and quick trade.</p>
           <Link href="/auth" className="t-btn t-btn-primary" style={{ textDecoration: 'none' }}>Sign In</Link>
         </div>
       </div>
@@ -205,22 +205,22 @@ export default function PortfolioPage() {
         height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px', borderBottom: '1px solid var(--border)', flexShrink: 0,
       }}>
-        <Link href="/portfolio" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700 }}>
+        <Link href="/portfolio" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 700 }}>
           <Logo size={22} />
           <span style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>TradeMetrix</span>
         </Link>
-        <nav style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 12, fontWeight: 600 }}>
+        <nav style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 14, fontWeight: 600 }}>
           <Link href="/marketdata" style={{ color: 'var(--text-sub)', textDecoration: 'none' }}>Market Data</Link>
           <Link href="/trade" style={{ color: 'var(--text-sub)', textDecoration: 'none' }}>Trade</Link>
           <Link href="/portal" style={{ color: 'var(--text-sub)', textDecoration: 'none' }}>Client Portal</Link>
-          <span className="t-faint" style={{ fontSize: 11 }}>{user?.full_name || user?.email || ''}</span>
+          <span className="t-faint" style={{ fontSize: 13 }}>{user?.full_name || user?.email || ''}</span>
         </nav>
       </header>
 
       <div style={{ flex: 1, maxWidth: 1080, width: '100%', margin: '0 auto', padding: '20px 24px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Portfolio</h1>
-          <div className="t-faint" style={{ fontSize: 12, marginTop: 2 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Portfolio</h1>
+          <div className="t-faint" style={{ fontSize: 14, marginTop: 2 }}>
             {greeting}{user?.full_name ? `, ${user.full_name.split(' ')[0]}` : ''}{greeting ? ' · ' : ''}{now ? now.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long' }) : ''}
           </div>
         </div>
@@ -228,11 +228,11 @@ export default function PortfolioPage() {
         <div className="t-grid-2" style={{ gap: 12 }}>
           <div className="t-panel">
             <div className="t-panel-body">
-              <div className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em' }}>TODAY’S P&L</div>
-              <div className={`t-num ${todayPnl >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 34, fontWeight: 800, margin: '6px 0' }}>
+              <div className="t-faint" style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.1em' }}>TODAY’S P&L</div>
+              <div className={`t-num ${todayPnl >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 41, fontWeight: 800, margin: '6px 0' }}>
                 {todayPnl >= 0 ? '+' : '−'}₹{fmtMoney(Math.abs(todayPnl))}
               </div>
-              <div style={{ display: 'flex', gap: 14, fontSize: 11, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 14, fontSize: 13, flexWrap: 'wrap' }}>
                 <span className="t-faint">Unrealised <b className={unrealisedPnl >= 0 ? 't-up' : 't-down'}>{unrealisedPnl >= 0 ? '+' : '−'}₹{fmtMoney(Math.abs(unrealisedPnl))}</b></span>
                 <span className="t-faint">Realised today <b className={realisedToday >= 0 ? 't-up' : 't-down'}>{realisedToday >= 0 ? '+' : '−'}₹{fmtMoney(Math.abs(realisedToday))}</b></span>
                 <span className="t-faint">{positions.length} open · {todayFills} fills today</span>
@@ -242,9 +242,9 @@ export default function PortfolioPage() {
 
           <div className="t-panel">
             <div className="t-panel-body">
-              <div className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', marginBottom: 8 }}>BROKER STATUS</div>
+              <div className="t-faint" style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.1em', marginBottom: 8 }}>BROKER STATUS</div>
               {credentials.length === 0 ? (
-                <div className="t-faint" style={{ fontSize: 12 }}>
+                <div className="t-faint" style={{ fontSize: 14 }}>
                   No broker connected.{' '}
                   <Link href="/brokers" style={{ color: 'var(--cyan)' }}>Connect one</Link>
                 </div>
@@ -255,18 +255,18 @@ export default function PortfolioPage() {
                 return (
                   <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,.03)' }}>
                     <div>
-                      <span style={{ fontWeight: 700, fontSize: 13, textTransform: 'capitalize' }}>{c.broker}</span>
+                      <span style={{ fontWeight: 700, fontSize: 16, textTransform: 'capitalize' }}>{c.broker}</span>
                       {c.is_active && <span className="t-badge t-badge-green" style={{ marginLeft: 8 }}>ACTIVE</span>}
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       {exp ? (
-                        <span className={`t-chip ${tokenOk && daysLeft !== null && daysLeft <= 2 ? 't-chip-warn' : ''}`} style={{ fontSize: 10 }}>
+                        <span className={`t-chip ${tokenOk && daysLeft !== null && daysLeft <= 2 ? 't-chip-warn' : ''}`} style={{ fontSize: 12 }}>
                           {tokenOk ? 'TOKEN VALID' : 'TOKEN EXPIRED'}
                         </span>
                       ) : (
-                        <span className="t-chip" style={{ fontSize: 10 }}>NOT SET</span>
+                        <span className="t-chip" style={{ fontSize: 12 }}>NOT SET</span>
                       )}
-                      <div className="t-faint" style={{ fontSize: 10, marginTop: 2 }}>
+                      <div className="t-faint" style={{ fontSize: 12, marginTop: 2 }}>
                         {exp ? `expires ${exp.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}${daysLeft !== null ? ` · ${daysLeft}d` : ''}` : 'no session'}
                       </div>
                     </div>
@@ -280,7 +280,7 @@ export default function PortfolioPage() {
         <div className="t-panel" style={{ padding: 0 }}>
           <div className="t-panel-header">
             <h3 className="t-panel-title">⭐ WATCHLIST</h3>
-            <Link href="/marketdata" style={{ fontSize: 11, color: 'var(--cyan)', textDecoration: 'none' }}>View all →</Link>
+            <Link href="/marketdata" style={{ fontSize: 13, color: 'var(--cyan)', textDecoration: 'none' }}>View all →</Link>
           </div>
           <div className="t-table-wrap">
             <table className="t-table">
@@ -293,8 +293,8 @@ export default function PortfolioPage() {
                   const pct = t?.change_pct ?? 0
                   return (
                     <tr key={item.symbol}>
-                      <td style={{ fontWeight: 600, fontSize: 10 }}>{shortSymbol(item.symbol)}</td>
-                      <td style={{ fontSize: 12 }}>{item.name}</td>
+                      <td style={{ fontWeight: 600, fontSize: 12 }}>{shortSymbol(item.symbol)}</td>
+                      <td style={{ fontSize: 14 }}>{item.name}</td>
                       <td><span className="t-num">{t?.last_price ? fmt(t.last_price) : '-'}</span></td>
                       <td><span className={`t-num ${pct >= 0 ? 't-up' : 't-down'}`}>{t ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '-'}</span></td>
                       <td>
@@ -318,7 +318,7 @@ export default function PortfolioPage() {
           <div className="t-panel-header">
             <h3 className="t-panel-title">Positions ({positions.length})</h3>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <span className="t-faint" style={{ fontSize: 10 }}>
+              <span className="t-faint" style={{ fontSize: 12 }}>
                 Unrealised <b style={{ color: totalUnrealised >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>{totalUnrealised >= 0 ? '+' : ''}{totalUnrealised.toFixed(0)}</b>
                 {' · '}Realised <b style={{ color: totalRealised >= 0 ? 'var(--text-green)' : 'var(--text-red)' }}>{totalRealised >= 0 ? '+' : ''}{totalRealised.toFixed(0)}</b>
               </span>
@@ -329,7 +329,7 @@ export default function PortfolioPage() {
               {openPositions.length > 0 && (
                 <>
                   <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Open Positions ({openPositions.length})
                     </span>
                   </div>
@@ -350,7 +350,7 @@ export default function PortfolioPage() {
                         const pnlPct = base !== 0 ? (pnl / base) * 100 : 0
                         return (
                           <tr key={p.symbol}>
-                            <td style={{ fontWeight: 600, fontSize: 12 }}>{shortSymbol(p.symbol)}</td>
+                            <td style={{ fontWeight: 600, fontSize: 14 }}>{shortSymbol(p.symbol)}</td>
                             <td className="t-num">{p.quantity}</td>
                             <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
                             <td className="t-num">{ltp > 0 ? ltp.toFixed(1) : '—'}</td>
@@ -359,7 +359,7 @@ export default function PortfolioPage() {
                             </td>
                             <td className={`t-num ${(pnl || 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 700 }}>
                               {(pnl || 0) >= 0 ? '+' : ''}{(pnl || 0).toFixed(0)}
-                              <span className="t-faint" style={{ fontSize: 9, marginLeft: 4 }}>({(pnlPct >= 0 ? '+' : '')}{pnlPct.toFixed(1)}%)</span>
+                              <span className="t-faint" style={{ fontSize: 11, marginLeft: 4 }}>({(pnlPct >= 0 ? '+' : '')}{pnlPct.toFixed(1)}%)</span>
                             </td>
                           </tr>
                         )
@@ -371,7 +371,7 @@ export default function PortfolioPage() {
               {closedPositions.length > 0 && (
                 <>
                   <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Closed Today ({closedPositions.length})
                     </span>
                   </div>
@@ -385,7 +385,7 @@ export default function PortfolioPage() {
                     <tbody>
                       {closedPositions.map(p => (
                         <tr key={p.symbol}>
-                          <td style={{ fontWeight: 600, fontSize: 12 }}>{shortSymbol(p.symbol)}</td>
+                          <td style={{ fontWeight: 600, fontSize: 14 }}>{shortSymbol(p.symbol)}</td>
                           <td className="t-num">{p.buy_quantity || p.sell_quantity || 0}</td>
                           <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
                           <td className="t-num">{(p.average_sell_price || 0).toFixed(1)}</td>
@@ -401,7 +401,7 @@ export default function PortfolioPage() {
             </div>
           ) : (
             <div className="t-panel-body">
-              <p className="t-faint" style={{ fontSize: 12, margin: 0 }}>No positions yet — your open and closed positions will appear here.</p>
+              <p className="t-faint" style={{ fontSize: 14, margin: 0 }}>No positions yet — your open and closed positions will appear here.</p>
             </div>
           )}
         </div>
@@ -410,7 +410,7 @@ export default function PortfolioPage() {
           <div className="t-panel" style={{ padding: 0 }}>
             <div className="t-panel-header">
               <h3 className="t-panel-title">Trade History</h3>
-              <span className="t-faint" style={{ fontSize: 10 }}>{trades.length} executed</span>
+              <span className="t-faint" style={{ fontSize: 12 }}>{trades.length} executed</span>
             </div>
             <div className="t-table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
               <table className="t-table">
@@ -420,11 +420,11 @@ export default function PortfolioPage() {
                 <tbody>
                   {trades.map(o => (
                     <tr key={o.id}>
-                      <td style={{ fontSize: 11, fontWeight: 600 }}>{shortSymbol(o.symbol)}</td>
-                      <td><span className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 700, fontSize: 10 }}>{o.side}</span></td>
+                      <td style={{ fontSize: 13, fontWeight: 600 }}>{shortSymbol(o.symbol)}</td>
+                      <td><span className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 700, fontSize: 12 }}>{o.side}</span></td>
                       <td><span className="t-num">{o.filled_quantity}</span></td>
                       <td><span className="t-num">{o.average_price ? fmt(o.average_price) : o.price ? fmt(o.price) : '-'}</span></td>
-                      <td><span className="t-faint" style={{ fontSize: 10 }}>{timeAgo(o.created_at)}</span></td>
+                      <td><span className="t-faint" style={{ fontSize: 12 }}>{timeAgo(o.created_at)}</span></td>
                     </tr>
                   ))}
                   {trades.length === 0 && (
@@ -445,17 +445,17 @@ export default function PortfolioPage() {
                 <tbody>
                   {orders.slice(0, 12).map(o => (
                     <tr key={o.id}>
-                      <td style={{ fontSize: 11, fontWeight: 600 }}>{shortSymbol(o.symbol)}</td>
-                      <td><span className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 700, fontSize: 10 }}>{o.side}</span></td>
+                      <td style={{ fontSize: 13, fontWeight: 600 }}>{shortSymbol(o.symbol)}</td>
+                      <td><span className={o.side === 'BUY' ? 't-up' : 't-down'} style={{ fontWeight: 700, fontSize: 12 }}>{o.side}</span></td>
                       <td><span className="t-num">{o.filled_quantity || o.quantity}</span></td>
                       <td><span className="t-num">{o.average_price ? fmt(o.average_price) : o.price ? fmt(o.price) : '-'}</span></td>
                       <td>
-                        <span className={`t-chip ${o.status === 'FILLED' ? '' : 't-chip-warn'}`} style={{ fontSize: 9 }}>
+                        <span className={`t-chip ${o.status === 'FILLED' ? '' : 't-chip-warn'}`} style={{ fontSize: 11 }}>
                           {o.status === 'FILLED' ? 'FILLED' : o.status === 'REJECTED' ? 'REJECTED' : o.status}
                         </span>
                         {o.is_paper && <span className="t-badge t-badge-amber" style={{ marginLeft: 4 }}>PAPER</span>}
                       </td>
-                      <td><span className="t-faint" style={{ fontSize: 10 }}>{timeAgo(o.created_at)}</span></td>
+                      <td><span className="t-faint" style={{ fontSize: 12 }}>{timeAgo(o.created_at)}</span></td>
                     </tr>
                   ))}
                   {orders.length === 0 && (
@@ -468,17 +468,17 @@ export default function PortfolioPage() {
         </div>
 
         <div>
-          <div className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', marginBottom: 8 }}>MARKET SUMMARY</div>
+          <div className="t-faint" style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.1em', marginBottom: 8 }}>MARKET SUMMARY</div>
           <div className="t-grid-3" style={{ gap: 8 }}>
             {indices.map(item => {
               const t = ticks[item.symbol]
               const pct = t?.change_pct ?? 0
               return (
                 <div key={item.symbol} className="t-panel" style={{ padding: '10px 14px' }}>
-                  <div className="t-faint" style={{ fontSize: 10, marginBottom: 2 }}>{item.name}</div>
+                  <div className="t-faint" style={{ fontSize: 12, marginBottom: 2 }}>{item.name}</div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span className="t-num" style={{ fontSize: 15, fontWeight: 700 }}>{t?.last_price ? fmt(t.last_price) : '—'}</span>
-                    <span className={`t-num ${pct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 10 }}>{t ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : ''}</span>
+                    <span className="t-num" style={{ fontSize: 18, fontWeight: 700 }}>{t?.last_price ? fmt(t.last_price) : '—'}</span>
+                    <span className={`t-num ${pct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 12 }}>{t ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : ''}</span>
                   </div>
                 </div>
               )

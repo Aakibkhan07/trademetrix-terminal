@@ -15,13 +15,13 @@ export default function LegalPage() {
     <div style={{ maxWidth: 700, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 className="t-page-title">Legal</h1>
-        <p className="t-sub" style={{ fontSize: 13 }}>Legal documents and policies</p>
+        <p className="t-sub" style={{ fontSize: 16 }}>Legal documents and policies</p>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {PAGES.map(p => (
           <Link key={p.href} href={p.href} className="t-panel" style={{ padding: 16, textDecoration: 'none', display: 'block' }}>
-            <h2 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{p.title}</h2>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>{p.desc}</p>
+            <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600, color: 'var(--text)' }}>{p.title}</h2>
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>{p.desc}</p>
           </Link>
         ))}
       </div>

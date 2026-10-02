@@ -126,16 +126,16 @@ export default function FeedbackButton() {
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '10px 14px', borderBottom: '1px solid var(--border)',
-            fontSize: 12, fontWeight: 600,
+            fontSize: 14, fontWeight: 600,
           }}>
             <span>Feedback</span>
-            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', fontSize: 16, padding: 0, lineHeight: 1 }}>✕</button>
+            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', fontSize: 19, padding: 0, lineHeight: 1 }}>✕</button>
           </div>
 
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
             {(['bug', 'feature', 'nps', 'report'] as const).map(c => (
               <button key={c} onClick={() => setCategory(c)} style={{
-                flex: 1, padding: '8px', fontSize: 11, fontWeight: category === c ? 600 : 400,
+                flex: 1, padding: '8px', fontSize: 13, fontWeight: category === c ? 600 : 400,
                 background: 'none', border: 'none', borderBottom: category === c ? '2px solid var(--violet)' : '2px solid transparent',
                 color: category === c ? 'var(--violet)' : 'var(--text-faint)', cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -149,16 +149,16 @@ export default function FeedbackButton() {
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="Brief title"
-              style={{ width: '100%', fontSize: 11, padding: '6px 8px' }}
+              style={{ width: '100%', fontSize: 13, padding: '6px 8px' }}
             />
             <textarea
               className="t-input"
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Describe the issue..."
-              style={{ width: '100%', minHeight: 80, fontSize: 11, padding: '6px 8px', resize: 'vertical' }}
+              style={{ width: '100%', minHeight: 80, fontSize: 13, padding: '6px 8px', resize: 'vertical' }}
             />
-            <div style={{ fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.4 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.4 }}>
               Will attach: browser, page, console errors, app version
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function FeedbackButton() {
               className="t-btn t-btn-primary t-btn-sm"
               onClick={handleSubmit}
               disabled={(!title.trim() && !description.trim()) || submitting}
-              style={{ fontSize: 11 }}
+              style={{ fontSize: 13 }}
             >
               {submitting ? 'Sending...' : 'Send'}
             </button>

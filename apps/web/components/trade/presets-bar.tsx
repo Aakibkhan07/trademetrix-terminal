@@ -21,10 +21,10 @@ export function PresetsBar({ current, onApply }: {
 
   return (
     <div className="t-panel" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <span className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em' }}>PRESETS</span>
-      {presets.length === 0 && <span className="t-faint" style={{ fontSize: 10 }}>None yet — save one below</span>}
+      <span className="t-faint" style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em' }}>PRESETS</span>
+      {presets.length === 0 && <span className="t-faint" style={{ fontSize: 12 }}>None yet — save one below</span>}
       {presets.map(p => (
-        <button key={p.id} type="button" className="t-chip" style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => onApply(p)}>
+        <button key={p.id} type="button" className="t-chip" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => onApply(p)}>
           {p.name}
           <span
             role="button"
@@ -43,7 +43,7 @@ export function PresetsBar({ current, onApply }: {
         onChange={e => setName(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') save() }}
         placeholder="Name this setup…"
-        style={{ width: 130, fontSize: 10, padding: '3px 8px', background: 'var(--bg)', border: '1px solid color-mix(in srgb, var(--text-inverse) 15%, transparent)', borderRadius: 6, color: 'var(--text)' }}
+        style={{ width: 130, fontSize: 12, padding: '3px 8px', background: 'var(--bg)', border: '1px solid color-mix(in srgb, var(--text-inverse) 15%, transparent)', borderRadius: 6, color: 'var(--text)' }}
       />
       <button type="button" className="t-btn t-btn-sm" onClick={save} disabled={!name.trim()}>Save setup</button>
     </div>

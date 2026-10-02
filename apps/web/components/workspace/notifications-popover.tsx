@@ -140,14 +140,14 @@ export default function NotificationsPopover() {
       <button
         className="t-btn t-btn-sm t-btn-ghost"
         title="Notifications"
-        style={{ position: 'relative', fontSize: 15 }}
+        style={{ position: 'relative', fontSize: 18 }}
         onClick={() => setOpen(o => !o)}
       >
         🔔
         {unread > 0 && (
           <span style={{
             position: 'absolute', top: -2, right: -2, background: 'var(--red)', color: 'var(--text-inverse)',
-            fontSize: 9, fontWeight: 800, borderRadius: 10, minWidth: 16, height: 16,
+            fontSize: 11, fontWeight: 800, borderRadius: 10, minWidth: 16, height: 16,
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
           }}>{unread > 9 ? '9+' : unread}</span>
         )}
@@ -159,19 +159,19 @@ export default function NotificationsPopover() {
           boxShadow: '0 12px 40px rgba(0,0,0,.55)', padding: 8, maxHeight: 420, overflowY: 'auto',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px 8px' }}>
-            <span className="t-stat-label" style={{ fontSize: 9 }}>NOTIFICATIONS</span>
+            <span className="t-stat-label" style={{ fontSize: 11 }}>NOTIFICATIONS</span>
             <button className="t-btn t-btn-xs t-btn-ghost" onClick={markAll}>Mark all read</button>
           </div>
-          {events.length === 0 && <span className="t-faint" style={{ fontSize: 11, padding: 8 }}>No events yet.</span>}
+          {events.length === 0 && <span className="t-faint" style={{ fontSize: 13, padding: 8 }}>No events yet.</span>}
           {events.slice(0, 30).map(e => (
             <div key={`${e.id}-${e.at}`} style={{
-              display: 'flex', gap: 8, padding: '7px 8px', borderRadius: 8, fontSize: 11, alignItems: 'flex-start',
+              display: 'flex', gap: 8, padding: '7px 8px', borderRadius: 8, fontSize: 13, alignItems: 'flex-start',
               opacity: e.seen ? .55 : 1, background: e.seen ? 'transparent' : 'var(--violet-dim)',
             }}>
-              <span style={{ fontSize: 13 }}>{ICONS[e.kind] || '•'}</span>
+              <span style={{ fontSize: 16 }}>{ICONS[e.kind] || '•'}</span>
               <div style={{ minWidth: 0 }}>
                 <div style={{ lineHeight: 1.4, color: e.tone === 'down' ? 'var(--red)' : e.tone === 'up' ? 'var(--green)' : 'var(--text)' }}>{e.text}</div>
-                <div className="t-faint" style={{ fontSize: 9, marginTop: 2 }}>{new Date(e.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div className="t-faint" style={{ fontSize: 11, marginTop: 2 }}>{new Date(e.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
             </div>
           ))}

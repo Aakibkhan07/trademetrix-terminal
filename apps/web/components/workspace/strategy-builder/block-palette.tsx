@@ -32,13 +32,13 @@ export default function BlockPalette({ blocks, onAdd, onAddAtCenter }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div style={{ padding: '8px 10px 6px', borderBottom: '1px solid var(--border)' }}>
-        <span className="t-stat-label" style={{ fontSize: 10, fontWeight: 700 }}>BLOCK PALETTE</span>
+        <span className="t-stat-label" style={{ fontSize: 12, fontWeight: 700 }}>BLOCK PALETTE</span>
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
           placeholder="Search blocks…"
           style={{
-            marginTop: 6, width: '100%', padding: '4px 8px', fontSize: 11, borderRadius: 'var(--radius-sm)',
+            marginTop: 6, width: '100%', padding: '4px 8px', fontSize: 13, borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border)', background: 'var(--bg-input, #0d1117)', color: 'var(--text)',
             outline: 'none',
           }}
@@ -46,14 +46,14 @@ export default function BlockPalette({ blocks, onAdd, onAddAtCenter }: Props) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
           <button
             className={`t-seg-btn ${!cat ? 'active' : ''}`}
-            style={{ fontSize: 9, padding: '1px 6px' }}
+            style={{ fontSize: 11, padding: '1px 6px' }}
             onClick={() => setCat('')}
           >All</button>
           {[...new Set(Object.values(blocks).map(b => b.category))].sort().map(c => (
             <button
               key={c}
               className={`t-seg-btn ${cat === c ? 'active' : ''}`}
-              style={{ fontSize: 9, padding: '1px 6px' }}
+              style={{ fontSize: 11, padding: '1px 6px' }}
               onClick={() => setCat(cat === c ? '' : c)}
             >
               {CATEGORY_META[c]?.label || c}
@@ -62,15 +62,15 @@ export default function BlockPalette({ blocks, onAdd, onAddAtCenter }: Props) {
         </div>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {shown.length === 0 && <span className="t-faint" style={{ fontSize: 10, padding: 4 }}>No blocks match</span>}
+        {shown.length === 0 && <span className="t-faint" style={{ fontSize: 12, padding: 4 }}>No blocks match</span>}
         {shown.map(g => (
           <div key={g.category}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <span style={{ width: 6, height: 6, borderRadius: 3, background: CATEGORY_META[g.category]?.color || 'var(--text-faint)' }} />
-              <span className="t-faint" style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+              <span className="t-faint" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>
                 {CATEGORY_META[g.category]?.label || g.category}
               </span>
-              <span className="t-faint" style={{ fontSize: 9 }}>{g.items.length}</span>
+              <span className="t-faint" style={{ fontSize: 11 }}>{g.items.length}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {g.items.map(b => (
@@ -90,10 +90,10 @@ export default function BlockPalette({ blocks, onAdd, onAddAtCenter }: Props) {
                 >
                   <span style={{ width: 5, height: 5, borderRadius: 3, background: CATEGORY_META[b.category]?.color || 'var(--text-faint)', flexShrink: 0 }} />
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {b.display_name || b.name}
                     </div>
-                    <div className="t-faint" style={{ fontSize: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div className="t-faint" style={{ fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {b.description || b.type}
                     </div>
                   </div>

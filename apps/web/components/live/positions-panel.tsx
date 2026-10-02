@@ -60,8 +60,8 @@ export function PositionsPanel({ offline, marketClosed }: { offline: boolean; ma
       emptyMessage={isPaper ? 'No paper positions yet' : 'No positions yet'}
       actions={
         <div className="t-seg" style={{ gap: 0 }}>
-          <button type="button" className={`t-seg-btn ${tab === 'live' ? 'active' : ''}`} onClick={() => setTab('live')} style={{ fontSize: 11 }}>Live</button>
-          <button type="button" className={`t-seg-btn ${tab === 'paper' ? 'active' : ''}`} onClick={() => setTab('paper')} style={{ fontSize: 11 }}>Paper</button>
+          <button type="button" className={`t-seg-btn ${tab === 'live' ? 'active' : ''}`} onClick={() => setTab('live')} style={{ fontSize: 13 }}>Live</button>
+          <button type="button" className={`t-seg-btn ${tab === 'paper' ? 'active' : ''}`} onClick={() => setTab('paper')} style={{ fontSize: 13 }}>Paper</button>
         </div>
       }
     >
@@ -76,7 +76,7 @@ export function PositionsPanel({ offline, marketClosed }: { offline: boolean; ma
           const pnl = ltp > 0 && p.average_buy_price ? (p.quantity * (ltp - p.average_buy_price)) : (p.unrealised_pnl || 0)
           return (
             <tr key={p.symbol}>
-              <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
+              <td style={{ fontWeight: 600, fontSize: 14 }}>{p.symbol?.split(':').pop()}</td>
               <td className="t-num">{p.quantity}</td>
               <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
               <td className="t-num">{fmtNum(ltp || undefined)}</td>
@@ -94,7 +94,7 @@ export function PositionsPanel({ offline, marketClosed }: { offline: boolean; ma
           <Table head={['Symbol', 'Qty', 'Avg Buy', 'Avg Sell', 'Realised P&L']}>
             {closedPositions.map(p => (
               <tr key={p.symbol}>
-                <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
+                <td style={{ fontWeight: 600, fontSize: 14 }}>{p.symbol?.split(':').pop()}</td>
                 <td className="t-num">{p.buy_quantity || p.sell_quantity || 0}</td>
                 <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
                 <td className="t-num">{(p.average_sell_price || 0).toFixed(1)}</td>

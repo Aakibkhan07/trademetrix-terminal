@@ -238,7 +238,7 @@ export default function AuthPage() {
         <div>
           <h1 style={{
             fontWeight: 700,
-            fontSize: 42, lineHeight: 1.15, margin: '0 0 16px',
+            fontSize: 50, lineHeight: 1.15, margin: '0 0 16px',
             color: 'var(--text)',
           }}>
             Algorithmic Trading
@@ -250,7 +250,7 @@ export default function AuthPage() {
             }}>Made Simple</span>
           </h1>
           <p style={{
-            color: 'var(--text-sub)', fontSize: 15, lineHeight: 1.6,
+            color: 'var(--text-sub)', fontSize: 18, lineHeight: 1.6,
             margin: '0 0 32px', maxWidth: 440,
           }}>
             Build, backtest, and deploy trading strategies across 25+ brokers.
@@ -263,9 +263,9 @@ export default function AuthPage() {
                 padding: '4px 12px', borderRadius: 999,
                 border: '1px solid var(--border)',
                 background: 'var(--panel)',
-                fontSize: 12, color: 'var(--text-sub)',
+                fontSize: 14, color: 'var(--text-sub)',
               }}>
-                <span style={{ color: 'var(--violet)', fontSize: 14 }}>✦</span>
+                <span style={{ color: 'var(--violet)', fontSize: 17 }}>✦</span>
                 {feature}
               </div>
             ))}
@@ -300,7 +300,7 @@ export default function AuthPage() {
                   flex: 1, padding: '8px 0', border: 'none', borderRadius: 6,
                   background: authMode === tab ? 'var(--bg-secondary)' : 'transparent',
                   color: authMode === tab ? 'var(--text)' : 'var(--text-sub)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer',
                   transition: 'all 0.15s',
                 }}
               >
@@ -317,10 +317,10 @@ export default function AuthPage() {
 
             {authMode === 'password' ? (
               <>
-                <h2 style={{ fontWeight: 700, fontSize: 20, margin: '0 0 4px', color: 'var(--text)' }}>
+                <h2 style={{ fontWeight: 700, fontSize: 24, margin: '0 0 4px', color: 'var(--text)' }}>
                   {mode === 'login' ? 'Welcome back' : mode === 'signup' ? 'Create account' : 'Reset password'}
                 </h2>
-                <p style={{ color: 'var(--text-sub)', fontSize: 13, margin: 0 }}>
+                <p style={{ color: 'var(--text-sub)', fontSize: 16, margin: 0 }}>
                   {mode === 'login' ? 'Sign in to your trading terminal' :
                    mode === 'signup' ? 'Start your algorithmic trading journey' :
                    'Enter your email to receive a reset link'}
@@ -328,12 +328,12 @@ export default function AuthPage() {
               </>
             ) : (
               <>
-                <h2 style={{ fontWeight: 700, fontSize: 20, margin: '0 0 4px', color: 'var(--text)' }}>
+                <h2 style={{ fontWeight: 700, fontSize: 24, margin: '0 0 4px', color: 'var(--text)' }}>
                   {otpStep === 'email' ? 'Sign in with OTP' :
                    otpStep === 'register' ? 'Create account' :
                    'Check your email'}
                 </h2>
-                <p style={{ color: 'var(--text-sub)', fontSize: 13, margin: 0 }}>
+                <p style={{ color: 'var(--text-sub)', fontSize: 16, margin: 0 }}>
                   {otpStep === 'email' ? 'Enter your email to receive a one-time code' :
                    otpStep === 'register' ? 'Set up your account to continue' :
                    `We sent a 6-digit code to ${otpEmail}`}
@@ -347,7 +347,7 @@ export default function AuthPage() {
               {mode === 'signup' && (
                 <div style={{ marginBottom: 16 }}>
                   <label style={{
-                    fontSize: 11, fontWeight: 600, color: focusedField === 'name' ? 'var(--violet)' : 'var(--text-sub)',
+                    fontSize: 13, fontWeight: 600, color: focusedField === 'name' ? 'var(--violet)' : 'var(--text-sub)',
                     marginBottom: 6, display: 'block', transition: 'color 150ms ease',
                   }}>Full Name</label>
                   <input type="text" placeholder="Your full name" value={fullName}
@@ -358,7 +358,7 @@ export default function AuthPage() {
                       width: '100%', height: 44, padding: '0 14px',
                       background: 'var(--bg-tertiary)',
                       border: `1px solid ${error && !fullName.trim() ? 'var(--red-dim)' : focusedField === 'name' ? 'var(--violet-dim)' : 'var(--border)'}`,
-                      borderRadius: 8, color: 'var(--text)', fontSize: 13,
+                      borderRadius: 8, color: 'var(--text)', fontSize: 16,
                       outline: 'none', transition: 'border-color 150ms ease, box-shadow 150ms ease',
                       boxShadow: focusedField === 'name' ? '0 0 0 3px var(--violet-dim)' : 'none',
                     }} />
@@ -366,7 +366,7 @@ export default function AuthPage() {
               )}
               <div style={{ marginBottom: mode === 'login' ? 12 : 16 }}>
                 <label style={{
-                  fontSize: 11, fontWeight: 600, color: focusedField === 'email' ? 'var(--violet)' : 'var(--text-sub)',
+                  fontSize: 13, fontWeight: 600, color: focusedField === 'email' ? 'var(--violet)' : 'var(--text-sub)',
                   marginBottom: 6, display: 'block', transition: 'color 150ms ease',
                 }}>Email Address</label>
                 <input type="email" placeholder="you@example.com" value={email}
@@ -377,19 +377,19 @@ export default function AuthPage() {
                     width: '100%', height: 44, padding: '0 14px',
                     background: 'var(--bg-tertiary)',
                     border: `1px solid ${!validEmail && email ? 'var(--red-dim)' : focusedField === 'email' ? 'var(--violet-dim)' : 'var(--border)'}`,
-                    borderRadius: 8, color: 'var(--text)', fontSize: 13,
+                    borderRadius: 8, color: 'var(--text)', fontSize: 16,
                     outline: 'none', transition: 'border-color 150ms ease, box-shadow 150ms ease',
                     boxShadow: focusedField === 'email' ? '0 0 0 3px var(--violet-dim)' : 'none',
                   }} />
                 {!validEmail && email && (
-                  <p style={{ color: 'var(--text-red)', fontSize: 11, margin: '4px 0 0' }}>Invalid email format</p>
+                  <p style={{ color: 'var(--text-red)', fontSize: 13, margin: '4px 0 0' }}>Invalid email format</p>
                 )}
               </div>
 
               {mode !== 'forgot' && (
                 <div style={{ marginBottom: mode === 'login' ? 4 : 16 }}>
                   <label style={{
-                    fontSize: 11, fontWeight: 600, color: focusedField === 'password' ? 'var(--violet)' : 'var(--text-sub)',
+                    fontSize: 13, fontWeight: 600, color: focusedField === 'password' ? 'var(--violet)' : 'var(--text-sub)',
                     marginBottom: 6, display: 'block', transition: 'color 150ms ease',
                   }}>Password</label>
                   <div style={{ position: 'relative' }}>
@@ -401,7 +401,7 @@ export default function AuthPage() {
                         width: '100%', height: 44, padding: '0 40px 0 14px',
                         background: 'var(--bg-tertiary)',
                         border: `1px solid ${!validPassword && password ? 'var(--red-dim)' : focusedField === 'password' ? 'var(--violet-dim)' : 'var(--border)'}`,
-                        borderRadius: 8, color: 'var(--text)', fontSize: 13,
+                        borderRadius: 8, color: 'var(--text)', fontSize: 16,
                         outline: 'none', transition: 'border-color 150ms ease, box-shadow 150ms ease',
                         boxShadow: focusedField === 'password' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
@@ -409,13 +409,13 @@ export default function AuthPage() {
                       style={{
                         position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
                         background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer',
-                        fontSize: 13, padding: 4,
+                        fontSize: 16, padding: 4,
                       }}>
                       {showPassword ? 'Hide' : 'Show'}
                     </button>
                   </div>
                   {!validPassword && password && (
-                    <p style={{ color: 'var(--text-red)', fontSize: 11, margin: '4px 0 0' }}>Minimum 6 characters</p>
+                    <p style={{ color: 'var(--text-red)', fontSize: 13, margin: '4px 0 0' }}>Minimum 6 characters</p>
                   )}
                 </div>
               )}
@@ -424,7 +424,7 @@ export default function AuthPage() {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
                   <button type="button" onClick={() => { switchPwdMode('forgot'); setError(''); setSuccess('') }}
                     style={{
-                      background: 'none', border: 'none', color: 'var(--text-sub)', fontSize: 12,
+                      background: 'none', border: 'none', color: 'var(--text-sub)', fontSize: 14,
                       cursor: 'pointer', padding: 0, transition: 'color 150ms ease',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.color = 'var(--violet)' }}
@@ -439,7 +439,7 @@ export default function AuthPage() {
                   background: 'var(--red-dim)', border: '1px solid var(--red-dim)',
                   borderRadius: 8, padding: '10px 14px', marginBottom: 16,
                 }}>
-                  <p style={{ color: 'var(--text-red)', fontSize: 12, margin: 0 }}>{error}</p>
+                  <p style={{ color: 'var(--text-red)', fontSize: 14, margin: 0 }}>{error}</p>
                 </div>
               )}
               {success && (
@@ -447,7 +447,7 @@ export default function AuthPage() {
                   background: 'var(--green-dim)', border: '1px solid var(--green-dim)',
                   borderRadius: 8, padding: '10px 14px', marginBottom: 16,
                 }}>
-                  <p style={{ color: 'var(--text-green)', fontSize: 12, margin: 0 }}>{success}</p>
+                  <p style={{ color: 'var(--text-green)', fontSize: 14, margin: 0 }}>{success}</p>
                 </div>
               )}
 
@@ -476,7 +476,7 @@ export default function AuthPage() {
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
                     <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                    <span style={{ fontSize: 11, color: 'var(--text-faint)', letterSpacing: 1 }}>OR</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-faint)', letterSpacing: 1 }}>OR</span>
                     <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                   </div>
                   <button
@@ -487,7 +487,7 @@ export default function AuthPage() {
                       width: '100%', padding: '12px 16px', borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                       background: 'var(--text-inverse)', color: 'var(--bg)', border: '1px solid var(--border)',
-                      fontSize: 14, fontWeight: 500, fontFamily: 'inherit',
+                      fontSize: 17, fontWeight: 500, fontFamily: 'inherit',
                     }}>
                     <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
                       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -507,7 +507,7 @@ export default function AuthPage() {
                 <div>
                   <div style={{ marginBottom: 20 }}>
                     <label style={{
-                      fontSize: 11, fontWeight: 600,
+                      fontSize: 13, fontWeight: 600,
                       color: focusedField === 'otp-email' ? 'var(--violet)' : 'var(--text-sub)',
                       marginBottom: 6, display: 'block', transition: 'color 150ms ease',
                     }}>Email Address</label>
@@ -519,7 +519,7 @@ export default function AuthPage() {
                         width: '100%', height: 44, padding: '0 14px',
                         background: 'var(--bg-tertiary)',
                         border: `1px solid ${focusedField === 'otp-email' ? 'var(--violet-dim)' : 'var(--border)'}`,
-                        borderRadius: 8, color: 'var(--text)', fontSize: 13,
+                        borderRadius: 8, color: 'var(--text)', fontSize: 16,
                         outline: 'none', transition: 'border-color 150ms ease, box-shadow 150ms ease',
                         boxShadow: focusedField === 'otp-email' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
@@ -542,7 +542,7 @@ export default function AuthPage() {
                 <div>
                   <div style={{ marginBottom: 12 }}>
                     <label style={{
-                      fontSize: 11, fontWeight: 600, color: focusedField === 'otp-name' ? 'var(--violet)' : 'var(--text-sub)',
+                      fontSize: 13, fontWeight: 600, color: focusedField === 'otp-name' ? 'var(--violet)' : 'var(--text-sub)',
                       marginBottom: 6, display: 'block', transition: 'color 150ms ease',
                     }}>Full Name (optional)</label>
                     <input type="text" placeholder="Your name" value={otpName}
@@ -552,13 +552,13 @@ export default function AuthPage() {
                       style={{
                         width: '100%', height: 44, padding: '0 14px',
                         background: 'var(--bg-tertiary)', border: `1px solid ${focusedField === 'otp-name' ? 'var(--violet-dim)' : 'var(--border)'}`,
-                        borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none',
+                        borderRadius: 8, color: 'var(--text)', fontSize: 16, outline: 'none',
                         transition: 'border-color var(--transition-fast)', boxShadow: focusedField === 'otp-name' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
                   </div>
                   <div style={{ marginBottom: 12 }}>
                     <label style={{
-                      fontSize: 11, fontWeight: 600, color: focusedField === 'otp-pw' ? 'var(--violet)' : 'var(--text-sub)',
+                      fontSize: 13, fontWeight: 600, color: focusedField === 'otp-pw' ? 'var(--violet)' : 'var(--text-sub)',
                       marginBottom: 6, display: 'block', transition: 'color 150ms ease',
                     }}>Password</label>
                     <input type="password" placeholder="Min. 6 characters" value={otpPassword}
@@ -568,13 +568,13 @@ export default function AuthPage() {
                       style={{
                         width: '100%', height: 44, padding: '0 14px',
                         background: 'var(--bg-tertiary)', border: `1px solid ${focusedField === 'otp-pw' ? 'var(--violet-dim)' : 'var(--border)'}`,
-                        borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none',
+                        borderRadius: 8, color: 'var(--text)', fontSize: 16, outline: 'none',
                         transition: 'border-color var(--transition-fast)', boxShadow: focusedField === 'otp-pw' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
                   </div>
                   <div style={{ marginBottom: 20 }}>
                     <label style={{
-                      fontSize: 11, fontWeight: 600, color: focusedField === 'otp-phone' ? 'var(--violet)' : 'var(--text-sub)',
+                      fontSize: 13, fontWeight: 600, color: focusedField === 'otp-phone' ? 'var(--violet)' : 'var(--text-sub)',
                       marginBottom: 6, display: 'block', transition: 'color 150ms ease',
                     }}>Phone (optional)</label>
                     <input type="tel" placeholder="+91..." value={otpPhone}
@@ -584,7 +584,7 @@ export default function AuthPage() {
                       style={{
                         width: '100%', height: 44, padding: '0 14px',
                         background: 'var(--bg-tertiary)', border: `1px solid ${focusedField === 'otp-phone' ? 'var(--violet-dim)' : 'var(--border)'}`,
-                        borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none',
+                        borderRadius: 8, color: 'var(--text)', fontSize: 16, outline: 'none',
                         transition: 'border-color var(--transition-fast)', boxShadow: focusedField === 'otp-phone' ? '0 0 0 3px var(--violet-dim)' : 'none',
                       }} />
                   </div>
@@ -620,7 +620,7 @@ export default function AuthPage() {
                           if (e.key === 'Enter') handleVerifyOTP()
                         }}
                         style={{
-                          width: 44, height: 48, textAlign: 'center', fontSize: 20, fontWeight: 700,
+                          width: 44, height: 48, textAlign: 'center', fontSize: 24, fontWeight: 700,
                           fontFamily: 'var(--font-mono)',
                           border: `2px solid ${d ? 'var(--cyan)' : 'var(--border)'}`,
                           borderRadius: 8,
@@ -648,7 +648,7 @@ export default function AuthPage() {
                     <button onClick={handleResend} disabled={loading || resendTimer > 0}
                       style={{
                         background: 'none', border: 'none', color: 'var(--violet)', cursor: loading ? 'default' : 'pointer',
-                        fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+                        fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
                       }}>
                       {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend code'}
                     </button>
@@ -661,7 +661,7 @@ export default function AuthPage() {
                   background: 'var(--red-dim)', border: '1px solid var(--red-dim)',
                   borderRadius: 8, padding: '10px 14px', marginTop: 16,
                 }}>
-                  <p style={{ color: 'var(--text-red)', fontSize: 12, margin: 0 }}>{error}</p>
+                  <p style={{ color: 'var(--text-red)', fontSize: 14, margin: 0 }}>{error}</p>
                 </div>
               )}
             </div>
@@ -673,7 +673,7 @@ export default function AuthPage() {
               textAlign: 'center', marginTop: 24, paddingTop: 20,
               borderTop: '1px solid var(--border)',
             }}>
-              <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 12 }}>
+              <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: 14 }}>
                 {mode === 'login' ? "Don't have an account?" :
                  mode === 'signup' ? 'Already have an account?' :
                  'Remember your password?'}{' '}
@@ -681,7 +681,7 @@ export default function AuthPage() {
                   onClick={() => { switchPwdMode(mode === 'login' ? 'signup' : mode === 'signup' ? 'login' : 'login') }}
                   style={{
                     background: 'none', border: 'none', color: 'var(--violet)', cursor: 'pointer',
-                    fontSize: 12, fontWeight: 600, padding: 0, transition: 'color 150ms ease',
+                    fontSize: 14, fontWeight: 600, padding: 0, transition: 'color 150ms ease',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.color = 'var(--cyan)' }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--violet)' }}>

@@ -361,9 +361,9 @@ export default function BrokerConnect() {
 
       {placeholderBrokers.length > 0 && (
         <div style={{ marginTop: 12, padding: 10, background: "rgba(255,255,255,0.02)", border: "1px dashed var(--border)", borderRadius: 8 }}>
-          <p className="t-faint" style={{ fontSize: 11, margin: 0 }}>
+          <p className="t-faint" style={{ fontSize: 13, margin: 0 }}>
             {placeholderBrokers.length} more brokers registered but not yet available:{" "}
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
               {placeholderBrokers.map(b => b.display_name).join(", ")}.
             </span>
           </p>
@@ -383,7 +383,7 @@ export default function BrokerConnect() {
         return (
           <Dialog onClose={closeForm} title={`Connect ${info?.display_name ?? form.broker}`}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 4 }}>
-              <p style={{ margin: 0, fontSize: 13, opacity: 0.85, lineHeight: 1.5 }}>
+              <p style={{ margin: 0, fontSize: 16, opacity: 0.85, lineHeight: 1.5 }}>
                 Fill your <b>{info?.display_name ?? form.broker}</b> API details and click{" "}
                 <b>Connect</b>. We encrypt the credentials and keep only the daily access token.
               </p>
@@ -391,7 +391,7 @@ export default function BrokerConnect() {
               {fields.map((f: BrokerFieldMeta) => (
                 <label
                   key={f.key}
-                  style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}
+                  style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 16 }}
                 >
                   <span>{f.label}{f.required ? " *" : ""}</span>
                   <input
@@ -418,7 +418,7 @@ export default function BrokerConnect() {
               ))}
 
               {(info?.has_additional_params ?? false) && (
-                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 16 }}>
                   <span>TOTP Secret <span style={{ opacity: 0.5 }}>(optional)</span></span>
                   <input
                     type="text"
@@ -432,13 +432,13 @@ export default function BrokerConnect() {
               )}
 
               {info?.instructions && (
-                <p style={{ margin: 0, fontSize: 12, opacity: 0.65, whiteSpace: "pre-wrap", background: "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+                <p style={{ margin: 0, fontSize: 14, opacity: 0.65, whiteSpace: "pre-wrap", background: "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
                   {info.instructions}
                 </p>
               )}
 
               {form.err && (
-                <p style={{ margin: 0, color: "var(--text-red, #ef4444)", fontSize: 13, background: "rgba(239,68,68,0.08)", padding: "8px 10px", borderRadius: 8 }}>
+                <p style={{ margin: 0, color: "var(--text-red, #ef4444)", fontSize: 16, background: "rgba(239,68,68,0.08)", padding: "8px 10px", borderRadius: 8 }}>
                   {form.err}
                 </p>
               )}
@@ -457,7 +457,7 @@ export default function BrokerConnect() {
                 </button>
               </div>
 
-              <p style={{ margin: 0, fontSize: 11, opacity: 0.5, textAlign: "center" }}>
+              <p style={{ margin: 0, fontSize: 13, opacity: 0.5, textAlign: "center" }}>
                 🔒 Encrypted · Revocable token · SEBI 2FA daily refresh
               </p>
             </div>
@@ -474,5 +474,5 @@ const inputStyle: CSSProperties = {
   borderRadius: 8,
   padding: "10px 12px",
   color: "inherit",
-  fontSize: 14,
+  fontSize: 17,
 };

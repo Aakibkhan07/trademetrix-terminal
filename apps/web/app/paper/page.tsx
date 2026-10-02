@@ -79,7 +79,7 @@ interface BuilderStrategy {
 function Money({ value, suffix = '₹' }: { value?: number; suffix?: string }) {
   const v = value ?? 0
   return (
-    <span style={{ fontSize: 13, fontWeight: 700, color: v >= 0 ? 'var(--green)' : 'var(--red)' }}>
+    <span style={{ fontSize: 16, fontWeight: 700, color: v >= 0 ? 'var(--green)' : 'var(--red)' }}>
       {v >= 0 ? '+' : ''}{suffix}{v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
     </span>
   )
@@ -88,9 +88,9 @@ function Money({ value, suffix = '₹' }: { value?: number; suffix?: string }) {
 function Card({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div className="t-panel" style={{ padding: '14px 16px' }}>
-      <p style={{ margin: '0 0 6px', fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
-      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{children}</div>
-      {hint && <p style={{ margin: '4px 0 0', fontSize: 10, color: 'var(--text-faint)' }}>{hint}</p>}
+      <p style={{ margin: '0 0 6px', fontSize: 12, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
+      <div style={{ fontSize: 19, fontWeight: 700, color: 'var(--text)' }}>{children}</div>
+      {hint && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>{hint}</p>}
     </div>
   )
 }
@@ -184,23 +184,23 @@ export default function PaperTradingPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
         <div>
           <h1 className="t-page-title">Paper Trading</h1>
-          <p className="t-sub" style={{ fontSize: 13 }}>
+          <p className="t-sub" style={{ fontSize: 16 }}>
             Deploy strategies to the live paper account and watch fills, positions, and P&L in real time
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className={`t-badge ${connected ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 9 }}>
+          <span className={`t-badge ${connected ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 11 }}>
             {connected ? '● LIVE' : '○ CONNECTING'}
           </span>
-          <span className={`t-badge ${engineOk ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9 }}>
+          <span className={`t-badge ${engineOk ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 11 }}>
             {engineOk ? 'ENGINE OK' : 'ENGINE IDLE'}
           </span>
-          <Link href="/strategies" className="t-btn t-btn-sm" style={{ fontSize: 10 }}>Strategies</Link>
+          <Link href="/strategies" className="t-btn t-btn-sm" style={{ fontSize: 12 }}>Strategies</Link>
         </div>
       </div>
 
       {notice && (
-        <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 12, color: 'var(--cyan)' }}>
+        <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 14, color: 'var(--cyan)' }}>
           {notice}
         </div>
       )}
@@ -228,8 +228,8 @@ export default function PaperTradingPage() {
 
           <div className="t-panel" style={{ padding: '18px 20px', marginBottom: 24 }}>
             <div className="t-panel-header" style={{ marginBottom: 14 }}>
-              <h3 className="t-panel-title" style={{ fontSize: 15 }}>Paper Account</h3>
-              <span className="t-badge t-badge-violet" style={{ fontSize: 9 }}>strategy mode: paper</span>
+              <h3 className="t-panel-title" style={{ fontSize: 18 }}>Paper Account</h3>
+              <span className="t-badge t-badge-violet" style={{ fontSize: 11 }}>strategy mode: paper</span>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <select className="t-select" value={selected} onChange={(e) => setSelected(e.target.value)} style={{ minWidth: 220 }}>
@@ -238,11 +238,11 @@ export default function PaperTradingPage() {
                   <option key={s.id} value={s.id}>{s.name} ({s.status})</option>
                 ))}
               </select>
-              <button className="t-btn-primary" disabled={!selected || !!acting || running.length >= 5} onClick={() => run('start')} style={{ fontSize: 12 }}>
+              <button className="t-btn-primary" disabled={!selected || !!acting || running.length >= 5} onClick={() => run('start')} style={{ fontSize: 14 }}>
                 {acting === 'start' ? 'Starting...' : 'Start Paper Trading'}
               </button>
               {!engineOk && (
-                <span className="t-faint" style={{ fontSize: 10 }}>
+                <span className="t-faint" style={{ fontSize: 12 }}>
                   Engine idle — start a strategy to begin (live event feed powers this page)
                 </span>
               )}
@@ -251,30 +251,30 @@ export default function PaperTradingPage() {
 
           <div className="t-panel" style={{ padding: '18px 20px', marginBottom: 24 }}>
             <div className="t-panel-header" style={{ marginBottom: 14 }}>
-              <h3 className="t-panel-title" style={{ fontSize: 15 }}>Running Strategies</h3>
-              <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>{running.length} running</span>
+              <h3 className="t-panel-title" style={{ fontSize: 18 }}>Running Strategies</h3>
+              <span className="t-badge t-badge-green" style={{ fontSize: 11 }}>{running.length} running</span>
             </div>
             {running.length === 0 ? (
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>
                 Nothing running. Pick a strategy above and hit Start Paper Trading.
               </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {running.map((r) => (
                   <div key={r.strategy_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                    <span className={`t-badge ${r.health === 'ok' ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 9, flexShrink: 0 }}>
+                    <span className={`t-badge ${r.health === 'ok' ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 11, flexShrink: 0 }}>
                       {r.health === 'ok' ? '● Healthy' : '● Degraded'}
                     </span>
-                    <span style={{ fontSize: 12, fontWeight: 700 }}>{r.symbol || '—'}</span>
-                    <span className="t-faint" style={{ fontSize: 10 }}>{r.interval || '—'} · {r.mode || 'paper'}</span>
-                    <span className="t-faint" style={{ fontSize: 10 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{r.symbol || '—'}</span>
+                    <span className="t-faint" style={{ fontSize: 12 }}>{r.interval || '—'} · {r.mode || 'paper'}</span>
+                    <span className="t-faint" style={{ fontSize: 12 }}>
                       {r.orders_filled ?? 0}/{r.orders_placed ?? 0} filled{typeof r.errors === 'number' && r.errors > 0 ? ` · ${r.errors} err` : ''}
                     </span>
                     <span style={{ flex: 1 }} />
                     <Money value={r.pnl} />
-                    <Link href={`/strategies/builder?id=${r.strategy_id}`} className="t-btn t-btn-sm" style={{ fontSize: 10 }}>Open</Link>
-                    <button className="t-btn t-btn-sm" disabled={!!acting} onClick={() => run('restart', r.strategy_id)} style={{ fontSize: 10 }}>Restart</button>
-                    <button className="t-btn t-btn-sm t-btn-danger" disabled={!!acting} onClick={() => run('stop', r.strategy_id)} style={{ fontSize: 10 }}>Stop</button>
+                    <Link href={`/strategies/builder?id=${r.strategy_id}`} className="t-btn t-btn-sm" style={{ fontSize: 12 }}>Open</Link>
+                    <button className="t-btn t-btn-sm" disabled={!!acting} onClick={() => run('restart', r.strategy_id)} style={{ fontSize: 12 }}>Restart</button>
+                    <button className="t-btn t-btn-sm t-btn-danger" disabled={!!acting} onClick={() => run('stop', r.strategy_id)} style={{ fontSize: 12 }}>Stop</button>
                   </div>
                 ))}
               </div>
@@ -284,16 +284,16 @@ export default function PaperTradingPage() {
           <div className="t-grid-2" style={{ marginBottom: 24, gridTemplateColumns: '1.2fr 1fr' }}>
             <div className="t-panel" style={{ padding: '18px 20px' }}>
               <div className="t-panel-header" style={{ marginBottom: 14 }}>
-                <h3 className="t-panel-title" style={{ fontSize: 15 }}>Open Positions</h3>
-                <span className="t-badge t-badge-violet" style={{ fontSize: 9 }}>{positions.length} open</span>
+                <h3 className="t-panel-title" style={{ fontSize: 18 }}>Open Positions</h3>
+                <span className="t-badge t-badge-violet" style={{ fontSize: 11 }}>{positions.length} open</span>
               </div>
               {positions.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No open positions. Net-flat or nothing traded yet.</p>
+                <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No open positions. Net-flat or nothing traded yet.</p>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
-                  <table className="t-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <table className="t-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                     <thead>
-                      <tr style={{ textAlign: 'left', fontSize: 10, color: 'var(--text-faint)' }}>
+                      <tr style={{ textAlign: 'left', fontSize: 12, color: 'var(--text-faint)' }}>
                         <th style={{ padding: '6px 8px' }}>Symbol</th>
                         <th style={{ padding: '6px 8px' }}>Side</th>
                         <th style={{ padding: '6px 8px' }}>Qty</th>
@@ -330,21 +330,21 @@ export default function PaperTradingPage() {
 
             <div className="t-panel" style={{ padding: '18px 20px' }}>
               <div className="t-panel-header" style={{ marginBottom: 14 }}>
-                <h3 className="t-panel-title" style={{ fontSize: 15 }}>Recent Fills</h3>
-                <span className="t-faint" style={{ fontSize: 9 }}>latest 50</span>
+                <h3 className="t-panel-title" style={{ fontSize: 18 }}>Recent Fills</h3>
+                <span className="t-faint" style={{ fontSize: 11 }}>latest 50</span>
               </div>
               {trades.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No closed trades yet.</p>
+                <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No closed trades yet.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
                   {trades.map((t) => (
                     <div key={t.client_order_id || (t.symbol + t.executed_at)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700 }}>{t.symbol}</span>
-                      <span style={{ fontSize: 10, color: t.side === 'BUY' ? 'var(--green)' : 'var(--red)' }}>{t.side} {t.quantity}</span>
-                      <span className="t-faint" style={{ fontSize: 10 }}>@ {t.average_price || t.price || '—'}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{t.symbol}</span>
+                      <span style={{ fontSize: 12, color: t.side === 'BUY' ? 'var(--green)' : 'var(--red)' }}>{t.side} {t.quantity}</span>
+                      <span className="t-faint" style={{ fontSize: 12 }}>@ {t.average_price || t.price || '—'}</span>
                       <span style={{ flex: 1 }} />
                       <Money value={t.realised_pnl} />
-                      <span className="t-faint" style={{ fontSize: 9 }}>
+                      <span className="t-faint" style={{ fontSize: 11 }}>
                         {t.executed_at ? new Date(t.executed_at).toLocaleTimeString() : ''}
                       </span>
                     </div>
@@ -354,7 +354,7 @@ export default function PaperTradingPage() {
             </div>
           </div>
 
-          <p className="t-faint" style={{ fontSize: 10, marginTop: 4 }}>
+          <p className="t-faint" style={{ fontSize: 12, marginTop: 4 }}>
             Open positions, P&amp;L, and running strategies are checkpointed automatically and restored after a server restart.
           </p>
         </>

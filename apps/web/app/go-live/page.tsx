@@ -126,7 +126,7 @@ export default function GoLivePage() {
               background: i <= step && !(step === 4) ? 'var(--violet)' : 'var(--panel-2)',
             }} />
             <div style={{
-              fontSize: 10, marginTop: 5, letterSpacing: 0.5,
+              fontSize: 12, marginTop: 5, letterSpacing: 0.5,
               color: i <= step ? 'var(--violet)' : 'var(--text-faint)',
               fontWeight: i === step ? 700 : 400,
             }}>{label.toUpperCase()}</div>
@@ -136,7 +136,7 @@ export default function GoLivePage() {
 
       {error && (
         <div style={{
-          padding: '10px 14px', borderRadius: 8, fontSize: 12, marginBottom: 14,
+          padding: '10px 14px', borderRadius: 8, fontSize: 14, marginBottom: 14,
           background: 'var(--red-dim)', border: '1px solid var(--red-dim)',
           color: 'var(--text-red)',
         }}>{error}</div>
@@ -146,12 +146,12 @@ export default function GoLivePage() {
       {step === 0 && (
         <div className="t-panel" style={{ padding: 18 }}>
           <h3 className="t-panel-title" style={{ marginBottom: 4 }}>Step 1 · Connect your broker</h3>
-          <p className="t-faint" style={{ fontSize: 12, marginBottom: 14 }}>
+          <p className="t-faint" style={{ fontSize: 14, marginBottom: 14 }}>
             Pick the broker account this strategy should trade on.
           </p>
           {creds.length === 0 ? (
             <div>
-              <p className="t-faint" style={{ fontSize: 12, marginBottom: 12 }}>No connected brokers yet.</p>
+              <p className="t-faint" style={{ fontSize: 14, marginBottom: 12 }}>No connected brokers yet.</p>
               <Link href="/brokers" className="t-btn t-btn-sm t-btn-primary">Connect a broker first</Link>
             </div>
           ) : (
@@ -167,8 +167,8 @@ export default function GoLivePage() {
                     border: `1px solid ${broker === c.broker ? 'var(--violet)' : 'var(--border)'}`,
                     background: broker === c.broker ? 'color-mix(in srgb, var(--violet) 8%, transparent)' : 'transparent',
                   }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, textTransform: 'capitalize' }}>{c.broker}</span>
-                  {broker === c.broker && <span style={{ fontSize: 11, color: 'var(--violet)' }}>SELECTED</span>}
+                  <span style={{ fontSize: 16, fontWeight: 600, textTransform: 'capitalize' }}>{c.broker}</span>
+                  {broker === c.broker && <span style={{ fontSize: 13, color: 'var(--violet)' }}>SELECTED</span>}
                 </button>
               ))}
             </div>
@@ -180,12 +180,12 @@ export default function GoLivePage() {
       {step === 1 && (
         <div className="t-panel" style={{ padding: 18 }}>
           <h3 className="t-panel-title" style={{ marginBottom: 4 }}>Step 2 · Choose your strategy</h3>
-          <p className="t-faint" style={{ fontSize: 12, marginBottom: 14 }}>
+          <p className="t-faint" style={{ fontSize: 14, marginBottom: 14 }}>
             Pick an existing strategy, create one from your plan&rsquo;s catalog, or start from a built-in strategy below.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {strategies.length === 0 && (
-              <p className="t-faint" style={{ fontSize: 12 }}>No strategies yet — pick one below to begin.</p>
+              <p className="t-faint" style={{ fontSize: 14 }}>No strategies yet — pick one below to begin.</p>
             )}
             {strategies.map(s => (
               <button
@@ -197,14 +197,14 @@ export default function GoLivePage() {
                   border: `1px solid ${strategyId === s.id ? 'var(--violet)' : 'var(--border)'}`,
                   background: strategyId === s.id ? 'color-mix(in srgb, var(--violet) 8%, transparent)' : 'transparent',
                 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{s.type || ''}</div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{s.name}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-faint)' }}>{s.type || ''}</div>
               </button>
             ))}
           </div>
           {assigned.length > 0 && (
             <>
-              <div className="t-faint" style={{ fontSize: 11, letterSpacing: 1, margin: '4px 0 8px' }}>CREATE FROM CATALOG</div>
+              <div className="t-faint" style={{ fontSize: 13, letterSpacing: 1, margin: '4px 0 8px' }}>CREATE FROM CATALOG</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {assigned.map(a => (
                   <button key={a.strategy_key} className="t-btn t-btn-sm" disabled={busy} onClick={() => createFromCatalog(a.strategy_key, a.name)}>
@@ -216,7 +216,7 @@ export default function GoLivePage() {
           )}
           {builtin.length > 0 && (
             <>
-              <div className="t-faint" style={{ fontSize: 11, letterSpacing: 1, margin: '16px 0 8px' }}>
+              <div className="t-faint" style={{ fontSize: 13, letterSpacing: 1, margin: '16px 0 8px' }}>
                 {assigned.length > 0 ? 'OR START FROM A BUILT-IN STRATEGY' : 'START FROM A BUILT-IN STRATEGY'}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -235,7 +235,7 @@ export default function GoLivePage() {
       {step === 2 && (
         <div className="t-panel" style={{ padding: 18 }}>
           <h3 className="t-panel-title" style={{ marginBottom: 4 }}>Step 3 · Trading mode</h3>
-          <p className="t-faint" style={{ fontSize: 12, marginBottom: 14 }}>
+          <p className="t-faint" style={{ fontSize: 14, marginBottom: 14 }}>
             Paper first is strongly recommended — validate fills and behaviour without real money.
           </p>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -249,8 +249,8 @@ export default function GoLivePage() {
                   border: `1px solid ${mode === m ? 'var(--violet)' : 'var(--border)'}`,
                   background: mode === m ? 'color-mix(in srgb, var(--violet) 8%, transparent)' : 'transparent',
                 }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{m}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{m}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-faint)', marginTop: 2 }}>
                   {m === 'PAPER' ? 'Simulated fills · recommended' : 'Real orders · real money'}
                 </div>
               </button>
@@ -264,7 +264,7 @@ export default function GoLivePage() {
           )}
           <label className="t-label">Symbols (comma separated)</label>
           <input className="t-input" value={symbols} onChange={e => setSymbols(e.target.value)} />
-          <p className="t-faint" style={{ fontSize: 11, marginTop: 10 }}>
+          <p className="t-faint" style={{ fontSize: 13, marginTop: 10 }}>
             🛡️ Risk guardrails stay active: daily loss limit, max drawdown halt, exposure caps and the emergency kill switch
             (see Risk Control). {tgLinked === false && 'Connect Telegram in Settings to get every fill alert on your phone.'}
           </p>
@@ -274,9 +274,9 @@ export default function GoLivePage() {
       {/* STEP 4 / success */}
       {step === 4 ? (
         <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 34, marginBottom: 8 }}>🚀</div>
+          <div style={{ fontSize: 41, marginBottom: 8 }}>🚀</div>
           <h3 className="t-panel-title">{mode} strategy is running!</h3>
-          <p className="t-faint" style={{ fontSize: 12, margin: '8px 0 16px' }}>
+          <p className="t-faint" style={{ fontSize: 14, margin: '8px 0 16px' }}>
             Run ID <code>{runId}</code> · alerts go to Telegram if linked.
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
@@ -306,7 +306,7 @@ export default function GoLivePage() {
         <div className="t-panel" style={{ padding: 18, marginTop: 14 }}>
           <h3 className="t-panel-title" style={{ marginBottom: 10 }}>Review</h3>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', minWidth: 280 }}>
+          <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse', minWidth: 280 }}>
             <tbody>
               {[
                 ['Broker', broker],

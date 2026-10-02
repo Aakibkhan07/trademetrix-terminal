@@ -168,11 +168,11 @@ export default function AccountPage() {
         <div className="t-panel-body" style={{ paddingTop: 40 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{user?.full_name || 'User'}</h2>
-              <p style={{ margin: '2px 0', fontSize: 12, color: 'var(--text-sub)' }}>{user?.email}</p>
+              <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{user?.full_name || 'User'}</h2>
+              <p style={{ margin: '2px 0', fontSize: 14, color: 'var(--text-sub)' }}>{user?.email}</p>
               <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                 <span style={{
-                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
                   padding: '2px 10px', borderRadius: 999,
                   color: tierStyle.color, background: tierStyle.bg,
                 }}>
@@ -180,7 +180,7 @@ export default function AccountPage() {
                 </span>
                 {isAdmin && (
                   <span style={{
-                    fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                    fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
                     padding: '2px 10px', borderRadius: 999,
                     color: 'var(--cyan)', background: 'rgba(0,229,255,0.12)',
                   }}>
@@ -190,20 +190,20 @@ export default function AccountPage() {
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div className="t-faint" style={{ fontSize: 10 }}>Member Since</div>
-              <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+              <div className="t-faint" style={{ fontSize: 12 }}>Member Since</div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'N/A'}
               </div>
-              <div className="t-faint" style={{ fontSize: 10, marginTop: 4 }}>ID</div>
+              <div className="t-faint" style={{ fontSize: 12, marginTop: 4 }}>ID</div>
               <div style={{
-                fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-sub)',
+                fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-sub)',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end',
               }} onClick={() => handleCopy(user?.id || '', 'userId')}>
                 {user?.id ? user.id.slice(0, 10) + '...' : '-'}
                 {copiedId === 'userId' ? (
-                  <span style={{ color: 'var(--green)', fontSize: 9 }}>Copied!</span>
+                  <span style={{ color: 'var(--green)', fontSize: 11 }}>Copied!</span>
                 ) : (
-                  <span style={{ opacity: 0.4, fontSize: 9 }}>Copy</span>
+                  <span style={{ opacity: 0.4, fontSize: 11 }}>Copy</span>
                 )}
               </div>
             </div>
@@ -213,7 +213,7 @@ export default function AccountPage() {
 
       {loadError && (
         <div style={{
-          padding: '10px 14px', borderRadius: 8, fontSize: 12,
+          padding: '10px 14px', borderRadius: 8, fontSize: 14,
           background: 'var(--red-dim)', border: '1px solid var(--red-dim)',
           color: 'var(--text-red)',
         }}>
@@ -237,10 +237,10 @@ export default function AccountPage() {
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)' }}
             onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}
           >
-            <div className="t-faint" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', marginBottom: 4 }}>
+            <div className="t-faint" style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', marginBottom: 4 }}>
               {stat.label}
             </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: stat.color, fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: 26, fontWeight: 700, color: stat.color, fontFamily: 'var(--font-mono)' }}>
               {stat.value}
             </div>
           </div>
@@ -252,15 +252,15 @@ export default function AccountPage() {
         <div className="t-panel" style={{ flex: 1, padding: 0, minWidth: 0 }}>
           <div className="t-panel-header">
             <h3 className="t-panel-title">Usage</h3>
-            <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
               {strategies.length}/{limits.strategies} strategies
             </span>
           </div>
           <div className="t-panel-body">
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-sub)' }}>Active Strategies</span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-sub)' }}>Active Strategies</span>
+                <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
                   {Math.round((strategies.length / Math.max(limits.strategies, 1)) * 100)}%
                 </span>
               </div>
@@ -275,8 +275,8 @@ export default function AccountPage() {
             </div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-sub)' }}>Brokers Connected</span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-sub)' }}>Brokers Connected</span>
+                <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
                   {brokers.length > 0 ? Math.round((activeBrokers / brokers.length) * 100) : 0}%
                 </span>
               </div>
@@ -291,7 +291,7 @@ export default function AccountPage() {
             </div>
             <div style={{
               padding: '10px 12px', borderRadius: 8,
-              background: tierStyle.bg, fontSize: 11, color: 'var(--text-sub)',
+              background: tierStyle.bg, fontSize: 13, color: 'var(--text-sub)',
             }}>
               <span style={{ fontWeight: 600, color: tierStyle.color, textTransform: 'capitalize' }}>
                 {tier}
@@ -299,7 +299,7 @@ export default function AccountPage() {
               : {limits.data}
               {tier !== 'enterprise' && (
                 <span style={{ display: 'block', marginTop: 6 }}>
-                  <a href="/pricing" style={{ color: 'var(--cyan)', fontSize: 10, textDecoration: 'none' }}>
+                  <a href="/pricing" style={{ color: 'var(--cyan)', fontSize: 12, textDecoration: 'none' }}>
                     Upgrade plan →
                   </a>
                 </span>
@@ -323,8 +323,8 @@ export default function AccountPage() {
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--panel-2)' }}
             >
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600 }}>Password</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Change your login password</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Password</div>
+                <div className="t-faint" style={{ fontSize: 12 }}>Change your login password</div>
               </div>
               <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setShowPwModal(true)}>Change</button>
             </div>
@@ -337,10 +337,10 @@ export default function AccountPage() {
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--panel-2)' }}
             >
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600 }}>Two-Factor Auth</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Enhance account security</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Two-Factor Auth</div>
+                <div className="t-faint" style={{ fontSize: 12 }}>Enhance account security</div>
               </div>
-              <span className="t-badge t-badge-sub" style={{ fontSize: 9 }}>Coming soon</span>
+              <span className="t-badge t-badge-sub" style={{ fontSize: 11 }}>Coming soon</span>
             </div>
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -351,10 +351,10 @@ export default function AccountPage() {
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--panel-2)' }}
             >
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600 }}>API Tokens</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Programmatic access for automated trading</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>API Tokens</div>
+                <div className="t-faint" style={{ fontSize: 12 }}>Programmatic access for automated trading</div>
               </div>
-              <span className="t-badge t-badge-sub" style={{ fontSize: 9 }}>Coming soon</span>
+              <span className="t-badge t-badge-sub" style={{ fontSize: 11 }}>Coming soon</span>
             </div>
           </div>
         </div>
@@ -366,18 +366,18 @@ export default function AccountPage() {
           <div className="t-panel-header">
             <h3 className="t-panel-title">Recent Orders</h3>
             {recentOrders.length > 0 && (
-              <a href="/positions" style={{ fontSize: 10, color: 'var(--cyan)', textDecoration: 'none' }}>View all</a>
+              <a href="/positions" style={{ fontSize: 12, color: 'var(--cyan)', textDecoration: 'none' }}>View all</a>
             )}
           </div>
           <div className="t-panel-body" style={{ padding: '4px 0' }}>
             {loading ? (
               <div style={{ padding: 16, textAlign: 'center' }}>
-                <span className="t-faint" style={{ fontSize: 11 }}>Loading...</span>
+                <span className="t-faint" style={{ fontSize: 13 }}>Loading...</span>
               </div>
             ) : recentOrders.length === 0 ? (
               <div style={{ padding: 20, textAlign: 'center' }}>
-                <div style={{ fontSize: 20, marginBottom: 4, opacity: 0.3 }}>O</div>
-                <p className="t-faint" style={{ margin: 0, fontSize: 11 }}>No orders yet</p>
+                <div style={{ fontSize: 24, marginBottom: 4, opacity: 0.3 }}>O</div>
+                <p className="t-faint" style={{ margin: 0, fontSize: 13 }}>No orders yet</p>
               </div>
             ) : (
               <div>
@@ -398,17 +398,17 @@ export default function AccountPage() {
                         flexShrink: 0,
                       }} />
                       <div>
-                        <div style={{ fontSize: 11, fontWeight: 600 }}>{o.symbol}</div>
-                        <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{o.symbol}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>
                           {o.side} · {o.quantity} · {o.status}
                         </div>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div className="t-num" style={{ fontSize: 11, fontWeight: 600 }}>
+                      <div className="t-num" style={{ fontSize: 13, fontWeight: 600 }}>
                         {o.price ? `\u20B9${fmt(o.price)}` : '-'}
                       </div>
-                      <div className="t-faint" style={{ fontSize: 9 }}>{timeAgo(o.created_at)}</div>
+                      <div className="t-faint" style={{ fontSize: 11 }}>{timeAgo(o.created_at)}</div>
                     </div>
                   </div>
                 ))}
@@ -421,7 +421,7 @@ export default function AccountPage() {
         <div className="t-panel" style={{ flex: 1, padding: 0, minWidth: 0 }}>
           <div className="t-panel-header">
             <h3 className="t-panel-title">Notifications</h3>
-            {savingNotifs && <span className="t-faint" style={{ fontSize: 9 }}>Saving...</span>}
+            {savingNotifs && <span className="t-faint" style={{ fontSize: 11 }}>Saving...</span>}
           </div>
           <div className="t-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
@@ -438,8 +438,8 @@ export default function AccountPage() {
                 onMouseLeave={e => { e.currentTarget.style.background = 'var(--panel-2)' }}
               >
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{item.label}</div>
-                  <div className="t-faint" style={{ fontSize: 10 }}>{item.desc}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{item.label}</div>
+                  <div className="t-faint" style={{ fontSize: 12 }}>{item.desc}</div>
                 </div>
                 <button
                   onClick={() => handleNotifToggle(item.key)}
@@ -467,7 +467,7 @@ export default function AccountPage() {
             ))}
             {savingNotifs && (
               <div className="t-faint" style={{
-                fontSize: 9, textAlign: 'center', padding: '4px 0',
+                fontSize: 11, textAlign: 'center', padding: '4px 0',
                 opacity: 0.6,
               }}>
                 Saving...
@@ -481,14 +481,14 @@ export default function AccountPage() {
       <div className="t-panel" style={{ padding: 0 }}>
         <div className="t-panel-header">
           <h3 className="t-panel-title">Brokers</h3>
-          <a href="/brokers" style={{ fontSize: 10, color: 'var(--cyan)', textDecoration: 'none' }}>Manage</a>
+          <a href="/brokers" style={{ fontSize: 12, color: 'var(--cyan)', textDecoration: 'none' }}>Manage</a>
         </div>
         <div className="t-panel-body">
           {loading ? (
-            <span className="t-faint" style={{ fontSize: 11 }}>Loading...</span>
+            <span className="t-faint" style={{ fontSize: 13 }}>Loading...</span>
           ) : brokers.length === 0 ? (
             <div style={{ padding: '8px 0', textAlign: 'center' }}>
-              <p className="t-faint" style={{ margin: 0, fontSize: 11 }}>
+              <p className="t-faint" style={{ margin: 0, fontSize: 13 }}>
                 No brokers connected. <a href="/brokers" style={{ color: 'var(--cyan)' }}>Connect one now</a>.
               </p>
             </div>
@@ -497,7 +497,7 @@ export default function AccountPage() {
               {brokers.map(b => (
                 <div key={b.broker} style={{
                   display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '6px 10px', borderRadius: 6, fontSize: 11,
+                  padding: '6px 10px', borderRadius: 6, fontSize: 13,
                   background: b.is_active ? 'rgba(0,200,83,0.06)' : 'var(--panel-2)',
                   border: `1px solid ${b.is_active ? 'rgba(0,200,83,0.15)' : 'var(--border)'}`,
                   transition: 'all 0.12s',
@@ -512,14 +512,14 @@ export default function AccountPage() {
                   }} />
                   <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{b.broker}</span>
                   <span style={{
-                    fontSize: 9, padding: '1px 6px', borderRadius: 4,
+                    fontSize: 11, padding: '1px 6px', borderRadius: 4,
                     color: b.is_active ? 'var(--text-green)' : 'var(--text-faint)',
                     background: b.is_active ? 'rgba(0,200,83,0.1)' : 'transparent',
                   }}>
                     {b.is_active ? 'Active' : 'Inactive'}
                   </span>
                   {b.created_at && (
-                    <span className="t-faint" style={{ fontSize: 9 }}>
+                    <span className="t-faint" style={{ fontSize: 11 }}>
                       since {formatDate(b.created_at)}
                     </span>
                   )}
@@ -547,7 +547,7 @@ export default function AccountPage() {
             </div>
             {pwMsg && (
               <div style={{
-                padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 12,
+                padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 14,
                 background: pwMsgType === 'error' ? 'color-mix(in srgb, var(--red) 10%, transparent)' : 'color-mix(in srgb, var(--green) 10%, transparent)',
                 border: `1px solid ${pwMsgType === 'error' ? 'color-mix(in srgb, var(--red) 20%, transparent)' : 'color-mix(in srgb, var(--green) 20%, transparent)'}`,
                 color: pwMsgType === 'error' ? 'var(--red)' : 'var(--green)',
@@ -573,8 +573,8 @@ export default function AccountPage() {
         </div>
         <div className="t-panel-body" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600 }}>Sign Out</div>
-            <div className="t-faint" style={{ fontSize: 10 }}>End your current session</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Sign Out</div>
+            <div className="t-faint" style={{ fontSize: 12 }}>End your current session</div>
           </div>
           <button className="t-btn t-btn-sm t-btn-danger" onClick={signout}>
             Sign Out

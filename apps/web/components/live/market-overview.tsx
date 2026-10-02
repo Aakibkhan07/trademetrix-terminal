@@ -53,21 +53,21 @@ export function MarketOverview({ market, marketLoading, isOffline }: {
   return (
     <div className="t-panel" style={{ marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
-        <h3 style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-sub)' }}>
+        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-sub)' }}>
           Market Overview
         </h3>
-        <span className="t-badge" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span className="t-badge" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <Dot variant={open ? 'green' : 'amber'} pulse={open} />
           {sessionLabel}
         </span>
         {market && !marketLoading && (
-          <span className="t-faint" style={{ fontSize: 10 }}>
+          <span className="t-faint" style={{ fontSize: 12 }}>
             {open
               ? `Closes ${market.close_time.slice(11, 16)} IST`
               : `Next open ${new Date(market.next_open).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} IST`}
           </span>
         )}
-        <span className="t-faint" style={{ fontSize: 10, marginLeft: 'auto' }}>
+        <span className="t-faint" style={{ fontSize: 12, marginLeft: 'auto' }}>
           {isOffline ? 'offline' : quoteError ? 'quotes unavailable' : 'live'}
         </span>
       </div>

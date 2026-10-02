@@ -30,8 +30,8 @@ function fmt(n: number) {
 function StatCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
     <div className="t-panel" style={{ padding: '12px 14px' }}>
-      <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: color || 'var(--text)', marginTop: 4 }}>
+      <div className="t-faint" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>{label}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)', color: color || 'var(--text)', marginTop: 4 }}>
         {value}
       </div>
     </div>
@@ -48,7 +48,7 @@ function TierBadge({ tier }: { tier: string }) {
   const c = colors[tier] || 'var(--text-sub)'
   return (
     <span style={{
-      display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 600,
+      display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
       background: `${c}18`, color: c, border: `1px solid ${c}30`,
       textTransform: 'capitalize', letterSpacing: '0.03em',
     }}>
@@ -104,13 +104,13 @@ export default function AdminPage() {
         background: 'var(--bg-secondary)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             TradeMetrix
           </span>
-          <span style={{ fontSize: 9, letterSpacing: '0.06em', color: 'var(--violet)', fontWeight: 600 }}>ADMIN PANEL</span>
+          <span style={{ fontSize: 11, letterSpacing: '0.06em', color: 'var(--violet)', fontWeight: 600 }}>ADMIN PANEL</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>ADMIN</span>
+          <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>ADMIN</span>
         </div>
       </header>
 
@@ -121,14 +121,14 @@ export default function AdminPage() {
           width: 180, borderRight: '1px solid var(--border)', background: 'var(--bg-secondary)',
           padding: '8px 0', overflowY: 'auto', flexShrink: 0,
         }}>
-          <div style={{ padding: '8px 12px 4px', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-sub)' }}>
+          <div style={{ padding: '8px 12px 4px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-sub)' }}>
             MENU
           </div>
           {TABS.map(tab => {
             const active = activeTab === tab.key
             return (
               <a key={tab.key} href={tab.href} style={{
-                display: 'block', padding: '6px 12px', fontSize: 11, fontWeight: 500,
+                display: 'block', padding: '6px 12px', fontSize: 13, fontWeight: 500,
                 color: active ? 'var(--violet)' : 'var(--text-sub)',
                 background: active ? 'color-mix(in srgb, var(--violet) 8%, transparent)' : 'transparent',
                 borderLeft: active ? '2px solid var(--violet)' : '2px solid transparent',
@@ -144,10 +144,10 @@ export default function AdminPage() {
         <main style={{ flex: 1, padding: '16px 20px', overflowY: 'auto' }}>
           {/* Page title */}
           <div style={{ marginBottom: 16 }}>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, margin: 0 }}>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0 }}>
               {TABS.find(t => t.key === activeTab)?.label || 'Dashboard'}
             </h1>
-            <p className="t-faint" style={{ fontSize: 11, margin: '4px 0 12px' }}>
+            <p className="t-faint" style={{ fontSize: 13, margin: '4px 0 12px' }}>
               Manage users, strategies, brokers, and platform settings.
             </p>
           </div>
@@ -163,7 +163,7 @@ export default function AdminPage() {
           {/* Tier distribution */}
           {Object.keys(ts.tier_distribution).length > 0 && (
             <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, letterSpacing: '0.03em' }}>
                 TIER DISTRIBUTION
               </div>
               <div className="t-grid-4" style={{ gap: 12 }}>
@@ -172,10 +172,10 @@ export default function AdminPage() {
                   return (
                     <div key={tier} style={{ textAlign: 'center' }}>
                       <TierBadge tier={tier} />
-                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+                      <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: 4 }}>
                         {fmt(count)}
                       </div>
-                      <div className="t-faint" style={{ fontSize: 9 }}>users</div>
+                      <div className="t-faint" style={{ fontSize: 11 }}>users</div>
                     </div>
                   )
                 })}
@@ -185,16 +185,16 @@ export default function AdminPage() {
 
           {/* Quick actions */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-            <a href="/admin?tab=users" style={{ padding: '8px 14px', fontSize: 11, fontWeight: 600, borderRadius: 6, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
+            <a href="/admin?tab=users" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 6, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
               Manage Users
             </a>
-            <a href="/admin?tab=assignments" style={{ padding: '8px 14px', fontSize: 11, fontWeight: 600, borderRadius: 6, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
+            <a href="/admin?tab=assignments" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 6, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
               Assign Strategies
             </a>
-            <a href="/admin?tab=broadcast" style={{ padding: '8px 14px', fontSize: 11, fontWeight: 600, borderRadius: 6, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
+            <a href="/admin?tab=broadcast" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 6, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
               Broadcast Trade
             </a>
-            <a href="/admin?tab=risk" style={{ padding: '8px 14px', fontSize: 11, fontWeight: 600, borderRadius: 6, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
+            <a href="/admin?tab=risk" style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 6, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
               Risk Overview
             </a>
           </div>
@@ -202,7 +202,7 @@ export default function AdminPage() {
           {/* Tab content placeholder — full content in dashboard/admin-content.tsx */}
           <div style={{ padding: '12px 0' }}>
             {/* The dashboard/admin-content.tsx handles the full tab content via the ?tab= param */}
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-sub)', fontSize: 12 }}>
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-sub)', fontSize: 14 }}>
               Loading tab content...
             </div>
           </div>

@@ -62,7 +62,7 @@ export default function HelpPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 860 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h1 className="t-page-title" style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>Help Center — Platform Kaise Use Karein</h1>
+          <h1 className="t-page-title" style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em' }}>Help Center — Platform Kaise Use Karein</h1>
           <p className="t-page-subtitle" style={{ marginTop: 4 }}>7 steps me start — broker se live tak, Hinglish me</p>
         </div>
         <button className="t-btn" onClick={() => window.print()}>Print Guide</button>
@@ -71,10 +71,10 @@ export default function HelpPage() {
       {/* QUICK START GUIDE — in-app, no GitHub */}
       <div className="t-panel" style={{ borderLeft: '3px solid var(--cyan)' }}>
         <div className="t-panel-header" style={{ padding: '12px 16px' }}>
-          <h3 className="t-panel-title" style={{ fontSize: 13, letterSpacing: '0.08em' }}>QUICK START — 7 STEPS</h3>
-          <span className="t-badge t-badge-cyan" style={{ fontSize: 9 }}>2 MIN ME START</span>
+          <h3 className="t-panel-title" style={{ fontSize: 16, letterSpacing: '0.08em' }}>QUICK START — 7 STEPS</h3>
+          <span className="t-badge t-badge-cyan" style={{ fontSize: 11 }}>2 MIN ME START</span>
         </div>
-        <div className="t-panel-body" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, fontSize: 12, lineHeight: 1.65, color: 'var(--text-sub)' }}>
+        <div className="t-panel-body" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, fontSize: 14, lineHeight: 1.65, color: 'var(--text-sub)' }}>
           {[
             { n: '1', t: 'Account Banao (30 sec)', d: 'ai.trademetrix.tech/auth → Sign Up → email/password → verify → auto /live pe pahunch jaoge. Problem ho toh isi page pe Feedback bhejo.' },
             { n: '2', t: 'Broker Connect (2 min) — sabse zaroori', d: 'Fyers/Zerodha/Dhan/Upstox: /brokers → Connect → apna API Key/Secret dalo → Allow karo → Active + Token valid dikhega. Angel/Kotak: Client Code + Password + API Key + TOTP Secret dalo → Active. Token roz expire hota hai (SEBI) — subah Re-auth dabao, Telegram pe T-60min alert aayega. Aapka Secret encrypted vault me save hota hai, .env me nahi.' },
@@ -85,17 +85,17 @@ export default function HelpPage() {
             { n: '7', t: 'Daily Report + Mobile', d: '/reports/daily → aaj ka P&L/Win/Trades → Print/PDF. Roz 18:00 IST pe Email+Telegram auto (keys already VPS me hain). Phone pe Add to Home Screen karo — PWA app ban jayega.' },
           ].map(s => (
             <div key={s.n} style={{ display: 'flex', gap: 12, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'color-mix(in srgb, var(--panel) 96%, transparent)' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gradient-primary)', color: 'var(--text-inverse)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{s.n}</div>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gradient-primary)', color: 'var(--text-inverse)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>{s.n}</div>
               <div>
-                <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 12 }}>{s.t}</div>
+                <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{s.t}</div>
                 <div style={{ marginTop: 2 }}>{s.d}</div>
               </div>
             </div>
           ))}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-            <a href="/brokers" className="t-btn t-btn-primary" style={{ textDecoration: 'none', fontSize: 11 }}>Go to Brokers →</a>
-            <a href="/strategies/builder" className="t-btn" style={{ textDecoration: 'none', fontSize: 11 }}>Build Strategy →</a>
-            <a href="/reports/daily" className="t-btn" style={{ textDecoration: 'none', fontSize: 11 }}>Daily Report →</a>
+            <a href="/brokers" className="t-btn t-btn-primary" style={{ textDecoration: 'none', fontSize: 13 }}>Go to Brokers →</a>
+            <a href="/strategies/builder" className="t-btn" style={{ textDecoration: 'none', fontSize: 13 }}>Build Strategy →</a>
+            <a href="/reports/daily" className="t-btn" style={{ textDecoration: 'none', fontSize: 13 }}>Daily Report →</a>
           </div>
         </div>
       </div>
@@ -128,14 +128,14 @@ export default function HelpPage() {
                   style={{
                     width: 40, height: 40, borderRadius: 10,
                     background: `${cat.color}20`, display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                    alignItems: 'center', justifyContent: 'center', fontSize: 22,
                   }}
                 >
                   {cat.icon}
                 </div>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>{cat.title}</div>
-                  <div className="t-faint" style={{ fontSize: 11 }}>{cat.desc}</div>
+                  <div style={{ fontSize: 17, fontWeight: 700 }}>{cat.title}</div>
+                  <div className="t-faint" style={{ fontSize: 13 }}>{cat.desc}</div>
                 </div>
               </div>
             </div>
@@ -159,19 +159,19 @@ export default function HelpPage() {
                   width: '100%', display: 'flex', justifyContent: 'space-between',
                   alignItems: 'center', padding: '14px 20px', background: 'none',
                   border: 'none', cursor: 'pointer', color: 'inherit',
-                  fontFamily: 'inherit', fontSize: 13, fontWeight: 600, textAlign: 'left',
+                  fontFamily: 'inherit', fontSize: 16, fontWeight: 600, textAlign: 'left',
                 }}
               >
                 <span>{faq.q}</span>
                 <span style={{
                   transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform .2s', fontSize: 12, color: 'var(--faint)',
+                  transition: 'transform .2s', fontSize: 14, color: 'var(--faint)',
                 }}>
                   ▼
                 </span>
               </button>
               {openFaq === i && (
-                <div style={{ padding: '0 20px 14px', fontSize: 12, color: 'var(--faint)', lineHeight: 1.6 }}>
+                <div style={{ padding: '0 20px 14px', fontSize: 14, color: 'var(--faint)', lineHeight: 1.6 }}>
                   {faq.a}
                 </div>
               )}
@@ -199,13 +199,13 @@ export default function HelpPage() {
                   <div style={{
                     width: 36, height: 36, borderRadius: 8,
                     background: 'var(--gradient-primary)', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', fontSize: 14,
+                    alignItems: 'center', justifyContent: 'center', fontSize: 17,
                   }}>
                     {video.icon}
                   </div>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600 }}>{video.title}</div>
-                    <div className="t-faint" style={{ fontSize: 10 }}>{video.duration}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{video.title}</div>
+                    <div className="t-faint" style={{ fontSize: 12 }}>{video.duration}</div>
                   </div>
                 </div>
               </div>
@@ -228,8 +228,8 @@ export default function HelpPage() {
                 style={{ cursor: 'pointer', padding: '12px 14px', background: 'var(--panel-2)' }}
                 onClick={() => toast('info', `Opening ${doc.title} docs`)}
               >
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{doc.title}</div>
-                <div className="t-faint" style={{ fontSize: 11, marginTop: 2 }}>{doc.desc}</div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{doc.title}</div>
+                <div className="t-faint" style={{ fontSize: 13, marginTop: 2 }}>{doc.desc}</div>
               </div>
             ))}
           </div>
@@ -239,8 +239,8 @@ export default function HelpPage() {
       {/* Contact Support */}
       <div className="t-panel" style={{ padding: 0, textAlign: 'center' }}>
         <div className="t-panel-body" style={{ padding: '28px 20px' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Still need help?</div>
-          <p className="t-faint" style={{ fontSize: 12, margin: '0 0 16px' }}>
+          <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 6 }}>Still need help?</div>
+          <p className="t-faint" style={{ fontSize: 14, margin: '0 0 16px' }}>
             Our support team is here to help you.
           </p>
           <button className="t-btn t-btn-primary" onClick={() => toast('success', 'Support ticket opened')}>

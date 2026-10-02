@@ -30,7 +30,7 @@ export function Drawer({ open, onClose, title, subtitle, footer, children }: {
         <div className="t-drawer-header">
           <div>
             <div className="t-drawer-title">{title}</div>
-            {subtitle && <div className="t-faint" style={{ fontSize: 11, marginTop: 2 }}>{subtitle}</div>}
+            {subtitle && <div className="t-faint" style={{ fontSize: 13, marginTop: 2 }}>{subtitle}</div>}
           </div>
           <button className="t-btn t-btn-sm t-btn-ghost" onClick={onClose}>✕</button>
         </div>

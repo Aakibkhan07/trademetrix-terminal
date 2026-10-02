@@ -99,12 +99,12 @@ const PositionCard = memo(function PositionCard({ position, tick, holdingStart, 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <span className={`t-num ${long ? 't-up' : 't-down'}`} style={{ fontSize: 15, fontWeight: 800 }}>
+        <span className={`t-num ${long ? 't-up' : 't-down'}`} style={{ fontSize: 18, fontWeight: 800 }}>
           {long ? 'LONG' : 'SHORT'} {qty}
         </span>
-        <span className="t-num" style={{ fontSize: 18, fontWeight: 800 }}>₹{fmt(pnl)}</span>
-        <span className={`t-num ${pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 12 }}>({pnlPct >= 0 ? '+' : ''}{fmt(pnlPct)}%)</span>
-        <span className="t-faint" style={{ fontSize: 10, marginLeft: 'auto' }}>⏱ {holdTime(holdingStart)}</span>
+        <span className="t-num" style={{ fontSize: 22, fontWeight: 800 }}>₹{fmt(pnl)}</span>
+        <span className={`t-num ${pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 14 }}>({pnlPct >= 0 ? '+' : ''}{fmt(pnlPct)}%)</span>
+        <span className="t-faint" style={{ fontSize: 12, marginLeft: 'auto' }}>⏱ {holdTime(holdingStart)}</span>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(82px, 1fr))', gap: 6 }}>
@@ -115,8 +115,8 @@ const PositionCard = memo(function PositionCard({ position, tick, holdingStart, 
           ['RR', `${fmt(rr, 2)}:1`], ['PRODUCT', position.product],
         ].map(([k, v]) => (
           <div key={k} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '7px 9px', minWidth: 0 }}>
-            <div className="t-stat-label" style={{ fontSize: 8 }}>{k}</div>
-            <div className="t-num" style={{ fontSize: 11, fontWeight: 700, marginTop: 2 }}>{v}</div>
+            <div className="t-stat-label" style={{ fontSize: 10 }}>{k}</div>
+            <div className="t-num" style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>{v}</div>
           </div>
         ))}
       </div>
@@ -128,7 +128,7 @@ const PositionCard = memo(function PositionCard({ position, tick, holdingStart, 
         <button className="t-btn t-btn-sm t-btn-success" disabled={busy} onClick={() => openQuickOrder(position.symbol, position.symbol, side)}>Scale In</button>
         <button className="t-btn t-btn-sm t-btn-ghost" disabled={busy} onClick={() => closePos(Math.ceil(qty / 2), 'Scaled out')}>Scale Out</button>
       </div>
-      <div className="t-faint" style={{ fontSize: 9 }}>
+      <div className="t-faint" style={{ fontSize: 11 }}>
         Exits reuse OMS exit path (no cascading brackets). SL/Target = auto-bracket defaults (−10%/+15% from entry).
       </div>
     </div>

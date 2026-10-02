@@ -124,15 +124,15 @@ export default function ChangelogPage() {
                   <span className="t-badge t-badge-green">Latest</span>
                 )}
               </div>
-              <div className="t-faint" style={{ fontSize: 11 }}>{ver.date}</div>
+              <div className="t-faint" style={{ fontSize: 13 }}>{ver.date}</div>
             </div>
           </div>
 
           <div className="t-panel-body" style={{ paddingTop: 0 }}>
             {ver.new.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', marginBottom: 6 }}>New</div>
-                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 1.8 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', marginBottom: 6 }}>New</div>
+                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 14, lineHeight: 1.8 }}>
                   {ver.new.map(item => (
                     <li key={item.text} style={{ color: 'var(--fg)' }}>{item.text}</li>
                   ))}
@@ -141,8 +141,8 @@ export default function ChangelogPage() {
             )}
             {ver.improved.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--cyan)', textTransform: 'uppercase', marginBottom: 6 }}>Improved</div>
-                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 1.8 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--cyan)', textTransform: 'uppercase', marginBottom: 6 }}>Improved</div>
+                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 14, lineHeight: 1.8 }}>
                   {ver.improved.map(item => (
                     <li key={item.text} style={{ color: 'var(--fg)' }}>{item.text}</li>
                   ))}
@@ -151,8 +151,8 @@ export default function ChangelogPage() {
             )}
             {ver.fixed.length > 0 && (
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', marginBottom: 6 }}>Fixed</div>
-                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 1.8 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', marginBottom: 6 }}>Fixed</div>
+                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 14, lineHeight: 1.8 }}>
                   {ver.fixed.map(item => (
                     <li key={item.text} style={{ color: 'var(--fg)' }}>{item.text}</li>
                   ))}

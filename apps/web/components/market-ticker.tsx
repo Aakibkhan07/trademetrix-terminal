@@ -24,7 +24,7 @@ export default function MarketTicker() {
   return (
     <div className="t-ticker">
       {feedMode === 'simulator' && (
-        <span className="t-badge t-badge-amber" style={{ flexShrink: 0, fontSize: 8 }}>
+        <span className="t-badge t-badge-amber" style={{ flexShrink: 0, fontSize: 10 }}>
           SIM
         </span>
       )}

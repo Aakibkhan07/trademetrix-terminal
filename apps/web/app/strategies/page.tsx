@@ -50,7 +50,7 @@ interface RuntimeEntry {
 
 function Stat({ label, value, danger }: { label: string; value?: number; danger?: boolean }) {
   return (
-    <span style={{ fontSize: 10, color: danger ? 'var(--red)' : 'var(--text-faint)' }}>
+    <span style={{ fontSize: 12, color: danger ? 'var(--red)' : 'var(--text-faint)' }}>
       {label}: <b style={{ color: danger ? 'var(--red)' : 'var(--text)' }}>{value ?? 0}</b>
     </span>
   )
@@ -197,7 +197,7 @@ export default function StrategiesPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
         <div>
           <h1 className="t-page-title">Strategy Console</h1>
-          <p className="t-sub" style={{ fontSize: 13 }}>
+          <p className="t-sub" style={{ fontSize: 16 }}>
             Create, validate, deploy, and monitor — Draft → Backtested → Ready → Paper → Live
           </p>
         </div>
@@ -213,15 +213,15 @@ export default function StrategiesPage() {
       {strategies.length === 0 && builderStrategies.length === 0 && !loading && (
         <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--cyan)', fontWeight: 500 }}>No strategies yet</p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>Create your first strategy or explore the built-in types below.</p>
+            <p style={{ margin: 0, fontSize: 16, color: 'var(--cyan)', fontWeight: 500 }}>No strategies yet</p>
+            <p style={{ margin: '2px 0 0', fontSize: 14, color: 'var(--text-faint)' }}>Create your first strategy or explore the built-in types below.</p>
           </div>
           <button className="t-btn t-btn-sm" onClick={() => setShowCreate(true)}>Create Strategy</button>
         </div>
       )}
 
       {showCreate && (
-        <Dialog onClose={() => setShowCreate(false)} maxWidth={400} title={<h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 18, margin: '0 0 16px' }}>Create Strategy</h2>}>
+        <Dialog onClose={() => setShowCreate(false)} maxWidth={400} title={<h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 22, margin: '0 0 16px' }}>Create Strategy</h2>}>
           <div style={{ marginBottom: 12 }}>
             <label className="t-stat-label" style={{ display: 'block', marginBottom: 4 }}>Name</label>
             <input className="t-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Strategy" />
@@ -244,7 +244,7 @@ export default function StrategiesPage() {
             <input className="t-input" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="NIFTY" />
           </div>
           {createError && (
-            <div style={{ background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--red)' }}>
+            <div style={{ background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 14, color: 'var(--red)' }}>
               {createError}
             </div>
           )}
@@ -278,14 +278,14 @@ export default function StrategiesPage() {
           {running.length > 0 && (
             <div className="t-panel" style={{ padding: '18px 20px', marginBottom: 24 }}>
               <div className="t-panel-header" style={{ marginBottom: 14 }}>
-                <h3 className="t-panel-title" style={{ fontSize: 15 }}>Execution Dashboard</h3>
-                <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>{running.length} running</span>
+                <h3 className="t-panel-title" style={{ fontSize: 18 }}>Execution Dashboard</h3>
+                <span className="t-badge t-badge-green" style={{ fontSize: 11 }}>{running.length} running</span>
               </div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <button className="t-btn t-btn-sm t-btn-danger" onClick={handleEmergencyStop} disabled={!!killBusy} style={{ fontSize: 10 }}>
+                <button className="t-btn t-btn-sm t-btn-danger" onClick={handleEmergencyStop} disabled={!!killBusy} style={{ fontSize: 12 }}>
                   {killBusy === 'halting' ? 'Halting…' : '🛑 Emergency Stop (all)'}
                 </button>
-                <button className="t-btn t-btn-sm" onClick={handleRelease} disabled={!!killBusy} style={{ fontSize: 10 }}>
+                <button className="t-btn t-btn-sm" onClick={handleRelease} disabled={!!killBusy} style={{ fontSize: 12 }}>
                   {killBusy === 'releasing' ? 'Releasing…' : '◆ Release Emergency Stop'}
                 </button>
               </div>
@@ -294,14 +294,14 @@ export default function StrategiesPage() {
                   const meta = traderStatusMeta(r.status, r.mode)
                   return (
                     <div key={r.strategy_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
-                      <span className={`t-badge ${meta.variant === 'red' ? 't-badge-red' : meta.variant === 'amber' ? 't-badge-amber' : meta.variant === 'cyan' ? 't-badge-cyan' : 't-badge-green'}`} style={{ fontSize: 9, flexShrink: 0 }}>
+                      <span className={`t-badge ${meta.variant === 'red' ? 't-badge-red' : meta.variant === 'amber' ? 't-badge-amber' : meta.variant === 'cyan' ? 't-badge-cyan' : 't-badge-green'}`} style={{ fontSize: 11, flexShrink: 0 }}>
                         {meta.label}
                       </span>
-                      <span className={`t-badge ${r.health === 'ok' ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 9, flexShrink: 0 }}>
+                      <span className={`t-badge ${r.health === 'ok' ? 't-badge-green' : 't-badge-red'}`} style={{ fontSize: 11, flexShrink: 0 }}>
                         {r.health === 'ok' ? '● Healthy' : '● Degraded'}
                       </span>
-                      <span style={{ fontSize: 12, fontWeight: 700 }}>{r.symbol || '—'}</span>
-                      <span className="t-faint" style={{ fontSize: 10 }}>{r.interval || '—'}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>{r.symbol || '—'}</span>
+                      <span className="t-faint" style={{ fontSize: 12 }}>{r.interval || '—'}</span>
                       <span style={{ flex: 1 }} />
                       <Stat label="Candles" value={r.candles} />
                       <Stat label="Signals" value={r.signals} />
@@ -309,13 +309,13 @@ export default function StrategiesPage() {
                       <Stat label="Filled" value={r.orders_filled} />
                       <Stat label="Rejected" value={r.orders_rejected} />
                       <Stat label="Errors" value={r.errors} danger={!!r.errors && r.errors > 0} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: (r.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: (r.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
                         {(r.pnl || 0) >= 0 ? '+' : ''}{r.pnl?.toFixed(2)}
                       </span>
-                      <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleRowEmergency(r.strategy_id)} style={{ fontSize: 10 }}>
+                      <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleRowEmergency(r.strategy_id)} style={{ fontSize: 12 }}>
                         Emergency
                       </button>
-                      <Link href={`/strategies/builder?id=${r.strategy_id}`} className="t-btn t-btn-sm" style={{ fontSize: 10 }}>Open</Link>
+                      <Link href={`/strategies/builder?id=${r.strategy_id}`} className="t-btn t-btn-sm" style={{ fontSize: 12 }}>Open</Link>
                     </div>
                   )
                 })}
@@ -323,7 +323,7 @@ export default function StrategiesPage() {
             </div>
           )}
 
-          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 15, margin: '0 0 14px', color: 'var(--text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 18, margin: '0 0 14px', color: 'var(--text)' }}>
             Saved Strategies ({builderStrategies.length + strategies.length})
           </h2>
 
@@ -339,21 +339,21 @@ export default function StrategiesPage() {
                     <div style={{ padding: '18px', flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                         <div>
-                          <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, margin: 0 }}>{s.name || s.id}</h3>
-                          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>
+                          <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 17, margin: 0 }}>{s.name || s.id}</h3>
+                          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-faint)' }}>
                             {s.type || s.template || 'visual'} · v{new Date(s.updated_at || Date.now()).toLocaleDateString()}
                           </p>
                         </div>
                         <span
                           className={`t-badge ${meta.variant === 'red' ? 't-badge-red' : meta.variant === 'amber' ? 't-badge-amber' : meta.variant === 'cyan' ? 't-badge-cyan' : meta.variant === 'yellow' ? 't-badge-amber' : 't-badge-green'}`}
-                          style={{ fontSize: 9, padding: '2px 8px' }}
+                          style={{ fontSize: 11, padding: '2px 8px' }}
                           title={meta.hint}
                         >
                           {meta.label}
                         </span>
                       </div>
                       {s.deployment && s.deployment.symbol && (
-                        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>
+                        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>
                           {s.deployment.symbol} · {s.deployment.mode || 'paper'}
                           {s.deployment.broker ? ` · ${s.deployment.broker}` : ''}
                         </p>
@@ -361,37 +361,37 @@ export default function StrategiesPage() {
                     </div>
                     <div style={{ borderTop: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       {st === 'DRAFT' && (
-                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.validate(s.id), 'Validate')}>
+                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 13 }} onClick={() => runAction(s.id, () => api.builder.validate(s.id), 'Validate')}>
                           Validate
                         </button>
                       )}
                       {st === 'VALIDATED' && (
-                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.ready(s.id), 'Mark ready')}>
+                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 13 }} onClick={() => runAction(s.id, () => api.builder.ready(s.id), 'Mark ready')}>
                           Mark Ready
                         </button>
                       )}
                       {!['LIVE', 'PAPER', 'ARCHIVED', 'STOPPED'].includes(st) && (
-                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => setDeployTarget(s)}>
+                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 13 }} onClick={() => setDeployTarget(s)}>
                           Deploy
                         </button>
                       )}
                       {isRunning ? (
-                        <button className="t-btn t-btn-sm t-btn-danger" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.stop(s.id), 'Stop')}>
+                        <button className="t-btn t-btn-sm t-btn-danger" disabled={busy} style={{ fontSize: 13 }} onClick={() => runAction(s.id, () => api.builder.stop(s.id), 'Stop')}>
                           Stop
                         </button>
                       ) : (
                         ['READY', 'PAPER', 'LIVE', 'STOPPED', 'VALIDATED'].includes(st) && (
-                          <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.start(s.id, s.deployment?.symbol || 'NIFTY', '15m', 'paper'), 'Start paper')}>
+                          <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 13 }} onClick={() => runAction(s.id, () => api.builder.start(s.id, s.deployment?.symbol || 'NIFTY', '15m', 'paper'), 'Start paper')}>
                             Start Paper
                           </button>
                         )
                       )}
                       {st !== 'ARCHIVED' && (
-                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 11 }} onClick={() => runAction(s.id, () => api.builder.archive(s.id), 'Archive')}>
+                        <button className="t-btn t-btn-sm" disabled={busy} style={{ fontSize: 13 }} onClick={() => runAction(s.id, () => api.builder.archive(s.id), 'Archive')}>
                           Archive
                         </button>
                       )}
-                      <Link href={`/strategies/builder?id=${s.id}`} className="t-btn t-btn-sm" style={{ fontSize: 11 }}>Open</Link>
+                      <Link href={`/strategies/builder?id=${s.id}`} className="t-btn t-btn-sm" style={{ fontSize: 13 }}>Open</Link>
                     </div>
                   </div>
                 )
@@ -401,7 +401,7 @@ export default function StrategiesPage() {
 
           {strategies.length > 0 && (
             <>
-              <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 13, margin: '0 0 10px', color: 'var(--text-faint)' }}>
+              <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 16, margin: '0 0 10px', color: 'var(--text-faint)' }}>
                 Legacy Strategies ({strategies.length})
               </h2>
               <div className="t-grid-auto" style={{ marginBottom: 28 }}>
@@ -411,25 +411,25 @@ export default function StrategiesPage() {
                       <div style={{ padding: '18px', flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                           <div>
-                            <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, margin: 0 }}>{s.name}</h3>
-                            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>{s.type}</p>
+                            <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 17, margin: 0 }}>{s.name}</h3>
+                            <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-faint)' }}>{s.type}</p>
                           </div>
-                          <span className={`t-badge ${s.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 9, padding: '2px 8px' }}>
+                          <span className={`t-badge ${s.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 11, padding: '2px 8px' }}>
                             {s.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </div>
-                        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>
+                        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>
                           Created {new Date(s.created_at).toLocaleDateString()}
                         </p>
                       </div>
                       <div style={{ borderTop: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button className="t-btn t-btn-sm" onClick={() => handleToggle(s)} style={{ fontSize: 11 }}>
+                        <button className="t-btn t-btn-sm" onClick={() => handleToggle(s)} style={{ fontSize: 13 }}>
                           {s.is_active ? 'Pause' : 'Start'}
                         </button>
-                        <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleDelete(s.id)} style={{ fontSize: 11 }}>
+                        <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleDelete(s.id)} style={{ fontSize: 13 }}>
                           Delete
                         </button>
-                        <Link href={`/backtest?strategy=${s.type}`} className="t-btn t-btn-sm" style={{ fontSize: 11 }}>Backtest</Link>
+                        <Link href={`/backtest?strategy=${s.type}`} className="t-btn t-btn-sm" style={{ fontSize: 13 }}>Backtest</Link>
                       </div>
                     </div>
                   )
@@ -440,40 +440,40 @@ export default function StrategiesPage() {
 
           <div className="t-panel" style={{ padding: '20px' }}>
             <div className="t-panel-header" style={{ marginBottom: 12 }}>
-              <h3 className="t-panel-title" style={{ fontSize: 15 }}>Built-in Strategy Types</h3>
+              <h3 className="t-panel-title" style={{ fontSize: 18 }}>Built-in Strategy Types</h3>
             </div>
             <div className="t-grid-2">
               <div>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Trend Rider</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>EMA crossover (9/21) trend following with momentum confirmation.</p>
+                <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600 }}>Trend Rider</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>EMA crossover (9/21) trend following with momentum confirmation.</p>
               </div>
               <div>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>ORB Pro</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Opening Range Breakout with volume confirmation for high-volatility openings.</p>
+                <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600 }}>ORB Pro</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>Opening Range Breakout with volume confirmation for high-volatility openings.</p>
               </div>
               <div>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>SMC Sniper</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Smart Money Concepts: order blocks, FVG, and liquidity sweep detection.</p>
+                <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600 }}>SMC Sniper</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>Smart Money Concepts: order blocks, FVG, and liquidity sweep detection.</p>
               </div>
               <div>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Expiry Hunter</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Options theta decay capture with IV rank analysis for weekly expiry.</p>
+                <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600 }}>Expiry Hunter</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>Options theta decay capture with IV rank analysis for weekly expiry.</p>
               </div>
               <div>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>RSI Mean Reversion</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Buys when RSI exits oversold (&lt;30), sells when RSI exits overbought (&gt;70).</p>
+                <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600 }}>RSI Mean Reversion</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>Buys when RSI exits oversold (&lt;30), sells when RSI exits overbought (&gt;70).</p>
               </div>
               <div>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>Bollinger Bandit</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Mean reversion on Bollinger Band touches. Fades moves to outer bands.</p>
+                <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600 }}>Bollinger Bandit</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>Mean reversion on Bollinger Band touches. Fades moves to outer bands.</p>
               </div>
               <div>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>MACD Crossover</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>MACD line / signal line crossovers. Standard 12/26/9 parameters.</p>
+                <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600 }}>MACD Crossover</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>MACD line / signal line crossovers. Standard 12/26/9 parameters.</p>
               </div>
               <div>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600 }}>VWAP Band</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)' }}>Mean reversion around VWAP with deviation band triggers. Tick-based execution.</p>
+                <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600 }}>VWAP Band</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>Mean reversion around VWAP with deviation band triggers. Tick-based execution.</p>
               </div>
             </div>
           </div>

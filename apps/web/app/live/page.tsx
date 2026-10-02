@@ -60,7 +60,7 @@ export default function LivePage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="t-panel" style={{ maxWidth: 360, textAlign: 'center' }}>
           <h3 className="t-panel-title" style={{ marginBottom: 8 }}>Sign in required</h3>
-          <p className="t-faint" style={{ fontSize: 12, marginBottom: 16 }}>Your live dashboard is waiting — sign in to see positions, orders, signals and trading controls.</p>
+          <p className="t-faint" style={{ fontSize: 14, marginBottom: 16 }}>Your live dashboard is waiting — sign in to see positions, orders, signals and trading controls.</p>
           <Link href="/auth" className="t-btn t-btn-primary" style={{ textDecoration: 'none' }}>Sign In</Link>
         </div>
       </div>
@@ -77,33 +77,33 @@ export default function LivePage() {
         height: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px', borderBottom: '1px solid var(--border)', flexShrink: 0,
       }}>
-        <Link href="/live" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700 }}>
+        <Link href="/live" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700 }}>
           <Logo size={18} />
           <span style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>TradeMetrix</span>
-          <span className="t-badge t-badge-cyan" style={{ fontSize: 8, marginLeft: 3 }}>LIVE</span>
+          <span className="t-badge t-badge-cyan" style={{ fontSize: 10, marginLeft: 3 }}>LIVE</span>
         </Link>
-        <nav style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 11, fontWeight: 600 }}>
+        <nav style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, fontWeight: 600 }}>
           <Chip label="Market" ok={conn.isMarketOpen} text={conn.isMarketOpen ? 'OPEN' : 'CLOSED'} />
           <Chip label="Stream" ok={conn.sseConnected} text={conn.sseConnected ? 'live' : 'reconnecting'} />
           <Chip label="Online" ok={!conn.isOffline} text={conn.isOffline ? 'offline' : 'online'} />
           <Link href="/workspace" style={{ color: 'var(--text-sub)', textDecoration: 'none' }}>Workspace</Link>
-          <span className="t-faint" style={{ fontSize: 10 }}>{user?.full_name || user?.email || ''}</span>
+          <span className="t-faint" style={{ fontSize: 12 }}>{user?.full_name || user?.email || ''}</span>
         </nav>
       </header>
 
       <div style={{ flex: 1, maxWidth: 1440, width: '100%', margin: '0 auto', padding: '12px 16px 32px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <h1 style={{ fontSize: 19, fontWeight: 700, margin: 0, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: conn.sseConnected ? 'var(--green)' : 'var(--amber)', boxShadow: conn.sseConnected ? '0 0 6px var(--green)' : 'none', display: 'inline-block' }} />
               Live
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', padding: '1px 5px', borderRadius: 3, background: conn.isMarketOpen ? 'var(--green-dim)' : 'var(--amber-dim)', border: `1px solid ${conn.isMarketOpen ? 'var(--green-dim)' : 'var(--amber-dim)'}`, color: conn.isMarketOpen ? 'var(--green)' : 'var(--amber)' }}>{conn.isMarketOpen ? 'MARKET OPEN' : 'MARKET CLOSED'}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', padding: '1px 5px', borderRadius: 3, background: conn.isMarketOpen ? 'var(--green-dim)' : 'var(--amber-dim)', border: `1px solid ${conn.isMarketOpen ? 'var(--green-dim)' : 'var(--amber-dim)'}`, color: conn.isMarketOpen ? 'var(--green)' : 'var(--amber)' }}>{conn.isMarketOpen ? 'MARKET OPEN' : 'MARKET CLOSED'}</span>
             </h1>
-            <div className="t-faint" style={{ fontSize: 11, marginTop: 3 }}>
+            <div className="t-faint" style={{ fontSize: 13, marginTop: 3 }}>
               Institutional cockpit — positions, orders, signals and risk in one view · <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} IST</span>
             </div>
           </div>
-          <div className="t-faint" style={{ fontSize: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div className="t-faint" style={{ fontSize: 12, display: 'flex', gap: 10, alignItems: 'center' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span className={`t-dot ${conn.sseConnected ? 't-dot-green t-dot-pulse' : 't-dot-amber'}`} /> Stream {conn.sseConnected ? 'live' : 'reconnecting'}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span className={`t-dot ${!conn.isOffline ? 't-dot-green' : 't-dot-red'}`} /> {conn.isOffline ? 'offline' : 'online'}</span>
           </div>
@@ -120,7 +120,7 @@ export default function LivePage() {
                   type="button"
                   className={`t-seg-btn ${primaryTab === t ? 'active' : ''}`}
                   onClick={() => setPrimaryTab(t)}
-                  style={{ fontSize: 10, textTransform: 'capitalize' }}
+                  style={{ fontSize: 12, textTransform: 'capitalize' }}
                 >
                   {t}
                 </button>
@@ -140,16 +140,16 @@ export default function LivePage() {
                     type="button"
                     className={`t-chip ${activeSymbol === o.symbol ? 'active' : ''}`}
                     onClick={() => { setActiveSymbol(o.symbol); setActiveName(o.name) }}
-                    style={{ fontSize: 9 }}
+                    style={{ fontSize: 11 }}
                   >
                     {o.name}
                   </button>
                 ))}
-                <button type="button" className="t-btn t-btn-sm t-btn-primary" style={{ fontSize: 10, marginLeft: 'auto' }} onClick={tradeActive}>
+                <button type="button" className="t-btn t-btn-sm t-btn-primary" style={{ fontSize: 12, marginLeft: 'auto' }} onClick={tradeActive}>
                   Quick Trade
                 </button>
               </div>
-              <div className="t-faint" style={{ fontSize: 9, marginTop: 4 }}>{activeSymbol}</div>
+              <div className="t-faint" style={{ fontSize: 11, marginTop: 4 }}>{activeSymbol}</div>
             </div>
             <Chart symbol={activeSymbol.replace(/^NSE:/, '')} height={360} />
           </div>
@@ -166,7 +166,7 @@ export default function LivePage() {
 
 function Chip({ label, ok, text }: { label: string; ok: boolean; text: string }) {
   return (
-    <span className="t-badge" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <span className="t-badge" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       <Dot variant={ok ? 'green' : 'amber'} pulse={ok} />
       <span className="t-faint" style={{ fontWeight: 500 }}>{label}</span>
       {text}

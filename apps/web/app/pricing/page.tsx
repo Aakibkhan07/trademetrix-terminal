@@ -72,17 +72,17 @@ export default function PricingPage() {
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, margin: '0 0 8px' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 700, margin: '0 0 8px' }}>
           Simple, Transparent Pricing
         </h1>
-        <p className="t-faint" style={{ fontSize: 14, margin: 0 }}>
+        <p className="t-faint" style={{ fontSize: 17, margin: 0 }}>
           No hidden fees. No surprises. Cancel anytime. Pick the plan that fits your trading style.
         </p>
       </div>
 
       {msg && (
         <div style={{
-          padding: '10px 14px', borderRadius: 8, marginBottom: 20, fontSize: 13,
+          padding: '10px 14px', borderRadius: 8, marginBottom: 20, fontSize: 16,
           background: 'var(--violet-dim)',
           border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)',
           color: 'var(--text)',
@@ -110,7 +110,7 @@ export default function PricingPage() {
                 {plan.most_popular && (
                   <div style={{
                     position: 'absolute', top: 12, right: 12,
-                    fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
                     padding: '2px 8px', borderRadius: 4,
                     background: 'var(--gradient-primary)',
                     color: 'var(--text-inverse)',
@@ -119,19 +119,19 @@ export default function PricingPage() {
                   </div>
                 )}
                 <div style={{ padding: 24, textAlign: 'center' }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 4px' }}>
+                  <h3 style={{ fontSize: 19, fontWeight: 600, margin: '0 0 4px' }}>
                     {plan.name}
                   </h3>
-                  <div style={{ fontSize: 28, fontWeight: 700, margin: '12px 0 4px', fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ fontSize: 34, fontWeight: 700, margin: '12px 0 4px', fontFamily: 'var(--font-mono)' }}>
                     {formatPrice(plan.price)}
                   </div>
-                  <div className="t-faint" style={{ fontSize: 11 }}>
+                  <div className="t-faint" style={{ fontSize: 13 }}>
                     {plan.tier === 'monthly' ? 'per month' : plan.tier === 'quarterly' ? 'per quarter' : plan.tier === 'halfyearly' ? 'per 6 months' : 'per year'}
                   </div>
                   {savings && (
                     <div style={{
                       marginTop: 6, padding: '2px 8px', borderRadius: 4, display: 'inline-block',
-                      fontSize: 9, fontWeight: 600,
+                      fontSize: 11, fontWeight: 600,
                       background: 'color-mix(in srgb, var(--green) 15%, transparent)',
                       color: 'var(--green)',
                     }}>
@@ -146,10 +146,10 @@ export default function PricingPage() {
                   }}>
                     {(plan.features || []).map((f, i) => (
                       <li key={i} style={{
-                        fontSize: 11, color: 'var(--text-sub)',
+                        fontSize: 13, color: 'var(--text-sub)',
                         display: 'flex', alignItems: 'center', gap: 6,
                       }}>
-                        <span style={{ color: 'var(--green)', fontSize: 12, flexShrink: 0 }}>✓</span>
+                        <span style={{ color: 'var(--green)', fontSize: 14, flexShrink: 0 }}>✓</span>
                         {f}
                       </li>
                     ))}
@@ -183,14 +183,14 @@ export default function PricingPage() {
         border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)',
       }}>
         <div style={{ padding: 24, textAlign: 'center' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 4px' }}>Enterprise — For Institutions</h3>
-          <p className="t-faint" style={{ fontSize: 12, margin: '0 0 16px' }}>
+          <h3 style={{ fontSize: 19, fontWeight: 600, margin: '0 0 4px' }}>Enterprise — For Institutions</h3>
+          <p className="t-faint" style={{ fontSize: 14, margin: '0 0 16px' }}>
             Custom plan for prop desks &amp; institutions. Dedicated infrastructure, colocated servers, white-label dashboard, custom strategy development, and dedicated support team.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginBottom: 16 }}>
             {['Unlimited Strategies', 'Sub-5ms Latency', 'Colocated Servers', 'White-Label UI', 'Custom Indicators', 'SLA Guarantee', 'Dedicated Engineer', 'Bulk Pricing'].map(f => (
               <span key={f} style={{
-                fontSize: 9, padding: '2px 8px', borderRadius: 4,
+                fontSize: 11, padding: '2px 8px', borderRadius: 4,
                 background: 'color-mix(in srgb, var(--amber) 12%, transparent)',
                 border: '1px solid color-mix(in srgb, var(--amber) 20%, transparent)',
                 color: 'var(--amber)',
@@ -199,17 +199,17 @@ export default function PricingPage() {
               </span>
             ))}
           </div>
-          <p className="t-faint" style={{ fontSize: 11, margin: '0 0 12px' }}>
+          <p className="t-faint" style={{ fontSize: 13, margin: '0 0 12px' }}>
             Starting at ₹5,00,000/year · Custom pricing available
           </p>
-          <a href="mailto:info@trademetrix.tech" className="t-btn t-btn-sm" style={{ fontSize: 10 }}>
+          <a href="mailto:info@trademetrix.tech" className="t-btn t-btn-sm" style={{ fontSize: 12 }}>
             Contact Sales
           </a>
         </div>
       </div>
 
       <div className="t-panel" style={{ marginTop: 16, padding: 16, textAlign: 'center' }}>
-        <p className="t-faint" style={{ margin: 0, fontSize: 11 }}>
+        <p className="t-faint" style={{ margin: 0, fontSize: 13 }}>
           All plans include a 1-day free trial. Cancel anytime. Payments processed securely via Razorpay.
         </p>
       </div>

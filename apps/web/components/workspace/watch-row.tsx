@@ -34,18 +34,18 @@ const WatchRow = memo(function WatchRow({
       style={{ cursor: 'pointer', background: active ? 'color-mix(in srgb, var(--cyan) 6%, transparent)' : undefined }}
     >
       <td style={{ whiteSpace: 'nowrap' }}>
-        <span style={{ fontSize: 11, fontWeight: 700 }}>{short(item.symbol)}</span>
-        <span className="t-faint" style={{ fontSize: 9, marginLeft: 4 }}>{item.type.slice(0, 3)}</span>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>{short(item.symbol)}</span>
+        <span className="t-faint" style={{ fontSize: 11, marginLeft: 4 }}>{item.type.slice(0, 3)}</span>
       </td>
-      <td><span className="t-num" style={{ fontSize: 11 }}>{tick?.last_price?.toFixed(1) ?? '—'}</span></td>
+      <td><span className="t-num" style={{ fontSize: 13 }}>{tick?.last_price?.toFixed(1) ?? '—'}</span></td>
       <td>
-        <span className={`t-num ${pct !== undefined && pct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 10 }}>
+        <span className={`t-num ${pct !== undefined && pct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 12 }}>
           {pct !== undefined ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '—'}
         </span>
       </td>
-      <td><span className="t-num t-faint" style={{ fontSize: 10 }}>{tick?.oi ? (tick.oi / 100000).toFixed(1) + 'L' : '—'}</span></td>
-      <td><span className="t-num t-faint" style={{ fontSize: 10 }}>{tick?.volume ? (tick.volume / 1000).toFixed(0) + 'K' : '—'}</span></td>
-      <td><span className={pct !== undefined && pct >= 0 ? 't-up' : 't-down'} style={{ fontSize: 11, fontWeight: 700 }}>{trend}</span></td>
+      <td><span className="t-num t-faint" style={{ fontSize: 12 }}>{tick?.oi ? (tick.oi / 100000).toFixed(1) + 'L' : '—'}</span></td>
+      <td><span className="t-num t-faint" style={{ fontSize: 12 }}>{tick?.volume ? (tick.volume / 1000).toFixed(0) + 'K' : '—'}</span></td>
+      <td><span className={pct !== undefined && pct >= 0 ? 't-up' : 't-down'} style={{ fontSize: 13, fontWeight: 700 }}>{trend}</span></td>
       <td><MiniChart values={spark || []} /></td>
       <td style={{ whiteSpace: 'nowrap' }}>
         <button className="t-btn t-btn-xs" style={{ color: 'var(--green)', padding: '1px 6px' }} onClick={e => { e.stopPropagation(); onBuy(item.symbol, item.name) }}>B</button>

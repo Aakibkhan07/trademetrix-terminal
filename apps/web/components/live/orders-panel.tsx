@@ -51,18 +51,18 @@ export function OrdersPanel({ offline, marketClosed }: { offline: boolean; marke
       <Table head={['Time', 'Symbol', 'Side', 'Qty', 'Price', 'Status', '']}>
         {orders.slice(0, 25).map(o => (
           <tr key={o.id || o.broker_order_id}>
-            <td style={{ whiteSpace: 'nowrap', color: 'var(--text-faint)', fontSize: 10 }}>{fmtTime(o.created_at)}</td>
-            <td style={{ fontWeight: 600, fontSize: 12 }}>{o.symbol?.split(':').pop()}</td>
+            <td style={{ whiteSpace: 'nowrap', color: 'var(--text-faint)', fontSize: 12 }}>{fmtTime(o.created_at)}</td>
+            <td style={{ fontWeight: 600, fontSize: 14 }}>{o.symbol?.split(':').pop()}</td>
             <td style={{ color: o.side === 'BUY' ? 'var(--text-green)' : 'var(--text-red)', fontWeight: 600 }}>{o.side}</td>
             <td className="t-num">{o.filled_quantity || o.quantity}</td>
             <td className="t-num">{fmtInr(o.average_price || o.price || 0)}</td>
-            <td><OrderStatusBadge status={o.status} style={{ fontSize: 8 }} /></td>
+            <td><OrderStatusBadge status={o.status} style={{ fontSize: 10 }} /></td>
             <td>
               {CANCELABLE.includes(o.status) && (o.id || o.broker_order_id) && (
                 <button
                   type="button"
                   className="t-btn t-btn-xs t-btn-ghost"
-                  style={{ fontSize: 10, color: 'var(--text-red)' }}
+                  style={{ fontSize: 12, color: 'var(--text-red)' }}
                   onClick={() => cancel(o.id, o.broker_order_id)}
                   disabled={cancelling === (o.id || o.broker_order_id)}
                 >

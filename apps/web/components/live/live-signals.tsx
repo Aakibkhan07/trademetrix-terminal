@@ -42,7 +42,7 @@ export function LiveSignals({ conn }: {
             {seeds.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 4px 4px' }}>
                 {seeds.slice(0, 8).map(s => (
-                  <span key={s.strategy_id} className="t-badge t-badge-cyan" style={{ fontSize: 9 }}>
+                  <span key={s.strategy_id} className="t-badge t-badge-cyan" style={{ fontSize: 11 }}>
                     {s.symbol} · {s.mode}
                   </span>
                 ))}
@@ -72,7 +72,7 @@ function FiltersBar({ filters, setFilters, strategyIds }: {
           type="button"
           className={`t-seg-btn ${filters[key] === o ? 'active' : ''}`}
           onClick={() => setFilters({ ...filters, [key]: o as never })}
-          style={{ fontSize: 10 }}
+          style={{ fontSize: 12 }}
         >
           {o === 'all' ? 'All' : o}
         </button>
@@ -89,11 +89,11 @@ function FiltersBar({ filters, setFilters, strategyIds }: {
           value={filters.search}
           onChange={e => setFilters({ ...filters, search: e.target.value })}
           placeholder="Search…"
-          style={{ flex: 1, minWidth: 90, fontSize: 11 }}
+          style={{ flex: 1, minWidth: 90, fontSize: 13 }}
         />
       </div>
       {strategyIds.length > 0 && (
-        <select value={filters.strategyId} onChange={e => setFilters({ ...filters, strategyId: e.target.value })} style={{ fontSize: 11 }}>
+        <select value={filters.strategyId} onChange={e => setFilters({ ...filters, strategyId: e.target.value })} style={{ fontSize: 13 }}>
           <option value="">All strategies</option>
           {strategyIds.map(id => <option key={id} value={id}>{id}</option>)}
         </select>

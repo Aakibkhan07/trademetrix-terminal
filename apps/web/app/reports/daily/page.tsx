@@ -55,8 +55,8 @@ export default function DailyReportPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 900, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Daily Report — {today}</h1>
-          <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '4px 0 0' }}>Institutional 1-pager · P&L, trades, win, drawdown · auto-emailed 18:00 IST + Telegram</p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Daily Report — {today}</h1>
+          <p style={{ color: 'var(--text-sub)', fontSize: 14, margin: '4px 0 0' }}>Institutional 1-pager · P&L, trades, win, drawdown · auto-emailed 18:00 IST + Telegram</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="t-btn" onClick={() => window.print()}>Print / Save PDF</button>
@@ -70,30 +70,30 @@ export default function DailyReportPage() {
               Net P&L Today, Win Rate, Max DD — named figures no endpoint computes, so three
               of the four tiles were promises nothing kept. */}
           <div className="t-panel" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Total Trades</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{fmtNum(stats.total_trades, 0)}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Total Trades</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{fmtNum(stats.total_trades, 0)}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>
               {stats.total_trades ? `over ${stats.period_days ?? 1}d` : 'no trades in window'}
             </div>
           </div>
           <div className="t-panel" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Buys / Sells</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Buys / Sells</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
               {fmtNum(stats.buy_trades, 0)} / {fmtNum(stats.sell_trades, 0)}
             </div>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>order sides</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>order sides</div>
           </div>
           <div className="t-panel" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Symbols Traded</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{fmtNum(stats.unique_symbols, 0)}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>distinct instruments</div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Symbols Traded</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{fmtNum(stats.unique_symbols, 0)}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>distinct instruments</div>
           </div>
           <div className="t-panel" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Traded Value</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Traded Value</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
               {stats.total_value === undefined || stats.total_value === null ? NO_VALUE : `₹${fmtMoney(stats.total_value)}`}
             </div>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>not P&amp;L — turnover</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>not P&amp;L — turnover</div>
           </div>
         </div>
       )}
@@ -103,16 +103,16 @@ export default function DailyReportPage() {
           which is itself worth showing rather than hiding. */}
       {analysisText && (
         <div className="t-panel" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Journal</div>
-          <div style={{ fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Journal</div>
+          <div style={{ fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
             {analysisText}
           </div>
         </div>
       )}
 
       <div className="t-panel" style={{ padding: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>How it works</div>
-        <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.7 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>How it works</div>
+        <ol style={{ margin: 0, paddingLeft: 18, fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.7 }}>
           <li>Every trading day 18:00 IST the server aggregates each tenant&apos;s filled <code>orders</code> into <code>stats</code> — trade count, side split, symbols touched and turnover — which is what the tiles above show.</li>
           <li>Daily P&amp;L (FIFO), win rate and drawdown are <strong>not</strong> computed yet. Adding them means extending <code>_compute_stats</code> in <code>ai/journal.py</code>; they are deliberately absent here rather than shown as zero.</li>
           <li>PDF is rendered from this page (Print → Save as PDF) and also pushed via <code>RESEND_API_KEY</code> (email) + <code>TELEGRAM_BOT_TOKEN</code> (Telegram) when set.</li>
@@ -124,7 +124,7 @@ export default function DailyReportPage() {
         </div>
       </div>
 
-      <div style={{ fontSize: 10, color: 'var(--text-faint)', textAlign: 'center' }}>Tip: Set <code>RESEND_API_KEY</code> + <code>TELEGRAM_BOT_TOKEN</code> in VPS <code>apps/api/.env</code> and add a cron <code>0 18 * * 1-5 curl -s http://127.0.0.1:8000/api/v1/reports/daily/send -H X-Cron-Secret:$CRON_SECRET</code> — scaffold ready, keys already in .env.</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', textAlign: 'center' }}>Tip: Set <code>RESEND_API_KEY</code> + <code>TELEGRAM_BOT_TOKEN</code> in VPS <code>apps/api/.env</code> and add a cron <code>0 18 * * 1-5 curl -s http://127.0.0.1:8000/api/v1/reports/daily/send -H X-Cron-Secret:$CRON_SECRET</code> — scaffold ready, keys already in .env.</div>
     </div>
   )
 }

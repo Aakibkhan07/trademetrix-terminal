@@ -154,16 +154,16 @@ export default function QuickOrderDrawer() {
         <div className="t-drawer-header">
           <div>
             <div className="t-drawer-title">{name || symbol}</div>
-            <div className="t-faint" style={{ fontSize: 11, marginTop: 2 }}>{symbol}</div>
+            <div className="t-faint" style={{ fontSize: 13, marginTop: 2 }}>{symbol}</div>
           </div>
           <button className="t-btn t-btn-sm t-btn-ghost" onClick={close}>✕</button>
         </div>
 
         <div className="t-drawer-body">
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <span className="t-num" style={{ fontSize: 26, fontWeight: 800 }}>{ltp ? fmt(ltp) : '—'}</span>
+            <span className="t-num" style={{ fontSize: 31, fontWeight: 800 }}>{ltp ? fmt(ltp) : '—'}</span>
             {ltp > 0 && (
-              <span className={`t-num ${(ticks[symbol]?.change_pct ?? 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 13 }}>
+              <span className={`t-num ${(ticks[symbol]?.change_pct ?? 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 16 }}>
                 {(ticks[symbol]?.change_pct ?? 0) >= 0 ? '+' : ''}{(ticks[symbol]?.change_pct ?? 0).toFixed(2)}%
               </span>
             )}
@@ -190,7 +190,7 @@ export default function QuickOrderDrawer() {
               <button className="t-stepper-btn" onClick={() => setQty(q => Math.max(lotSize, q - lotSize))}>−</button>
               <div className="t-stepper-val">{parsed && lotSize > 1 ? `${lots} lots` : qty}</div>
               <button className="t-stepper-btn" onClick={() => setQty(q => q + lotSize)}>+</button>
-              <span className="t-faint" style={{ fontSize: 11 }}>= {qty} qty</span>
+              <span className="t-faint" style={{ fontSize: 13 }}>= {qty} qty</span>
             </div>
           </div>
 
@@ -231,7 +231,7 @@ export default function QuickOrderDrawer() {
               <span className="t-chip" style={{ color: 'var(--red)' }}>SL {entry ? fmt(sl) : '—'}</span>
               <span className="t-chip" style={{ color: 'var(--green)' }}>Target {entry ? fmt(target) : '—'}</span>
             </div>
-            <div className="t-faint" style={{ fontSize: 10, marginTop: 6 }}>
+            <div className="t-faint" style={{ fontSize: 12, marginTop: 6 }}>
               SL −{slPct}% / Target +{targetPct}% from entry. Exits auto-place when breached.
             </div>
           </div>
@@ -239,7 +239,7 @@ export default function QuickOrderDrawer() {
           <div className="t-panel" style={{ padding: '10px 12px' }}>
             <button
               className="t-btn t-btn-ghost"
-              style={{ width: '100%', justifyContent: 'space-between', fontSize: 11, height: 'auto', padding: '2px 0' }}
+              style={{ width: '100%', justifyContent: 'space-between', fontSize: 13, height: 'auto', padding: '2px 0' }}
               onClick={() => setAdvanced(a => !a)}
             >
               <span style={{ fontWeight: 800, letterSpacing: '.1em' }}>ADVANCED</span>
@@ -262,7 +262,7 @@ export default function QuickOrderDrawer() {
                   <input type="checkbox" checked={trailingSl} onChange={e => setTrailingSl(e.target.checked)} />
                   {trailingSl && (
                     <>
-                      <span className="t-faint" style={{ fontSize: 10 }}>step %</span>
+                      <span className="t-faint" style={{ fontSize: 12 }}>step %</span>
                       <input className="t-input" type="number" step={0.5} min={0.1} value={trailStep} onChange={e => setTrailStep(Number(e.target.value))} style={{ width: 64, height: 24 }} />
                     </>
                   )}
@@ -277,19 +277,19 @@ export default function QuickOrderDrawer() {
                     <input className="t-input" type="number" step={10000} value={capital} onChange={e => setCapital(Number(e.target.value))} />
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span className="t-faint">Expected RR</span>
                   <span className="t-num">{rr.toFixed(2)}:1</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span className="t-faint">Risk amount</span>
                   <span className={`t-num ${capitalRisk > riskPct ? 't-down' : 't-up'}`}>₹{fmt(riskAmount)} ({capitalRisk.toFixed(2)}% cap)</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span className="t-faint">Est. margin</span>
                   <span className="t-num">₹{fmt(estMargin)}</span>
                 </div>
-                <div className="t-faint" style={{ fontSize: 9, lineHeight: 1.4 }}>
+                <div className="t-faint" style={{ fontSize: 11, lineHeight: 1.4 }}>
                   Risk/RR & margin are client-side estimates (placeholder). Actual bracket levels are auto-applied on fill.
                 </div>
               </div>
@@ -297,15 +297,15 @@ export default function QuickOrderDrawer() {
           </div>
 
           <div className="t-panel" style={{ padding: '10px 12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 4 }}>
               <span className="t-faint">Notional</span>
               <span className="t-num">₹{fmt(notional)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 4 }}>
               <span className="t-faint">Est. charges (brokerage + taxes)</span>
               <span className="t-num">≈ ₹{fmt(charges)}</span>
             </div>
-            <div className="t-faint" style={{ fontSize: 10, marginTop: 2 }}>Approximate only. Actual charges per broker.</div>
+            <div className="t-faint" style={{ fontSize: 12, marginTop: 2 }}>Approximate only. Actual charges per broker.</div>
           </div>
 
           <div className="t-seg" style={{ marginTop: 'auto' }}>

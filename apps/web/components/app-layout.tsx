@@ -264,7 +264,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         position: 'fixed', top: -48, left: 12, zIndex: 300,
         padding: '8px 14px', borderRadius: 'var(--radius-md)',
         background: 'var(--bg-tertiary)', color: 'var(--text)',
-        fontSize: 12, fontWeight: 700, border: '1px solid var(--border-accent)',
+        fontSize: 14, fontWeight: 700, border: '1px solid var(--border-accent)',
         textDecoration: 'none', transition: 'top 150ms ease',
       }}
         onFocus={e => { e.currentTarget.style.top = '12px' }}
@@ -293,7 +293,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             }}>
               <Logo size={20} />
               <span style={{
-                fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700,
+                fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700,
                 background: 'var(--gradient-primary)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -312,7 +312,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className="tm-collapse-btn"
               style={{
                 background: 'none', border: 'none', color: 'var(--text-faint)',
-                cursor: 'pointer', fontSize: 12, padding: 2, flexShrink: 0,
+                cursor: 'pointer', fontSize: 14, padding: 2, flexShrink: 0,
                 fontFamily: 'var(--font-sans)',
                 transition: 'color var(--transition-fast)',
               }}
@@ -329,7 +329,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 position: 'absolute', right: -10, top: 10, zIndex: 20,
                 width: 18, height: 18, borderRadius: '50%',
                 background: 'var(--bg-3)', border: '1px solid var(--border)',
-                color: 'var(--text-sub)', cursor: 'pointer', fontSize: 9,
+                color: 'var(--text-sub)', cursor: 'pointer', fontSize: 11,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: 0,
                 transition: 'all var(--transition-fast)',
@@ -347,7 +347,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {(!collapsed || mobileOpen) && (
                 <div style={{ padding: '6px 10px 1px' }}>
                   <div style={{
-                    fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+                    fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
                     letterSpacing: '0.10em', color: 'var(--text-faint)',
                   }}>{section.label}</div>
                 </div>
@@ -382,7 +382,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <span style={{
                       width: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
                       flexShrink: 0, opacity: active ? 1 : 0.55,
-                    }}>{(item as any).icon ? <span style={{ fontSize: 12 }}>{(item as any).icon}</span> : <NavIcon href={item.href} active={active} />}</span>
+                    }}>{(item as any).icon ? <span style={{ fontSize: 14 }}>{(item as any).icon}</span> : <NavIcon href={item.href} active={active} />}</span>
                     {(!collapsed || mobileOpen) && (
                       <span style={{
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -407,14 +407,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               padding: collapsed && !mobileOpen ? '6px' : '4px 8px',
               width: '100%', borderRadius: 'var(--radius-sm)',
               border: 'none', background: 'none', color: 'var(--text-sub)',
-              fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 700,
+              fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 700,
               cursor: 'pointer', transition: 'all var(--transition-fast)',
               justifyContent: collapsed && !mobileOpen ? 'center' : 'flex-start',
             }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-sub)'; e.currentTarget.style.background = 'none' }}
           >
-            <span style={{ fontSize: 12, opacity: 0.5 }}>⏻</span>
+            <span style={{ fontSize: 14, opacity: 0.5 }}>⏻</span>
             {(!collapsed || mobileOpen) && <span>Sign Out</span>}
           </button>
         </div>
@@ -447,7 +447,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               display: 'none', alignItems: 'center', justifyContent: 'center',
               width: 28, height: 28, borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)', background: 'transparent',
-              color: 'var(--text-sub)', cursor: 'pointer', flexShrink: 0, fontSize: 14,
+              color: 'var(--text-sub)', cursor: 'pointer', flexShrink: 0, fontSize: 17,
             }}
           >☰</button>
 
@@ -468,11 +468,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hi)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
           >
-            <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>🔍</span>
-            <span style={{ color: 'var(--text-faint)', fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>🔍</span>
+            <span style={{ color: 'var(--text-faint)', fontSize: 13, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {searchQuery || 'Search...'}
             </span>
-            <span style={{ color: 'var(--text-faint)', fontSize: 9, fontFamily: 'var(--font-mono)' }}>⌘K</span>
+            <span style={{ color: 'var(--text-faint)', fontSize: 11, fontFamily: 'var(--font-mono)' }}>⌘K</span>
           </button>
 
           {/* Market Ticker */}
@@ -485,14 +485,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '3px 8px', borderRadius: 'var(--radius-sm)',
             background: 'var(--cyan-dim)', border: '1px solid var(--cyan-dim)',
-            color: 'var(--cyan)', fontSize: 10, fontWeight: 700,
+            color: 'var(--cyan)', fontSize: 12, fontWeight: 700,
             textDecoration: 'none', height: 24, flexShrink: 0,
             transition: 'all var(--transition-fast)',
           }}
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--cyan-dim)'; e.currentTarget.style.boxShadow = 'var(--shadow-glow)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'var(--cyan-dim)'; e.currentTarget.style.boxShadow = 'none' }}
           >
-            <span style={{ fontSize: 12 }}>✦</span>
+            <span style={{ fontSize: 14 }}>✦</span>
             AI
           </Link>
 
@@ -505,7 +505,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             border: '1px solid var(--border)', background: 'transparent',
             color: 'var(--text-sub)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 12, flexShrink: 0,
+            fontSize: 14, flexShrink: 0,
             transition: 'all var(--transition-fast)',
           }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-hi)' }}
@@ -522,7 +522,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               border: '1px solid var(--border)', background: 'transparent',
               color: 'var(--text-sub)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, position: 'relative', flexShrink: 0,
+              fontSize: 14, position: 'relative', flexShrink: 0,
               transition: 'all var(--transition-fast)',
             }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-hi)' }}
@@ -543,14 +543,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 zIndex: 100, overflow: 'hidden',
               }}>
                 <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600 }}>Notifications</div>
+                  <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>Notifications</div>
                 </div>
                 <div style={{ padding: '12px 10px', textAlign: 'center' }}>
-                  <span className="t-faint" style={{ fontSize: 10 }}>No new notifications</span>
+                  <span className="t-faint" style={{ fontSize: 12 }}>No new notifications</span>
                 </div>
                 <Link href="/alerts" style={{
                   display: 'block', padding: '6px 10px', borderTop: '1px solid var(--border)',
-                  color: 'var(--cyan)', fontSize: 10, fontWeight: 600, textDecoration: 'none', textAlign: 'center',
+                  color: 'var(--cyan)', fontSize: 12, fontWeight: 600, textDecoration: 'none', textAlign: 'center',
                 }}>View all alerts →</Link>
               </div>
             )}
@@ -579,7 +579,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               }}>
                 {user?.email?.[0]?.toUpperCase() || '?'}
               </div>
-              <span className="tm-profile-email" style={{ color: 'var(--text)', fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
+              <span className="tm-profile-email" style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
                 {user?.email?.split('@')[0] || '—'}
               </span>
               <span className={`t-dot ${connected ? 't-dot-green' : 't-dot-red'}`} style={{ width: 4, height: 4 }} />
@@ -594,14 +594,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 zIndex: 100, overflow: 'hidden',
               }}>
                 <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ color: 'var(--text)', fontSize: 11, fontWeight: 600 }}>{user?.email}</div>
-                  <div style={{ color: 'var(--text-faint)', fontSize: 9, marginTop: 1 }}>
+                  <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{user?.email}</div>
+                  <div style={{ color: 'var(--text-faint)', fontSize: 11, marginTop: 1 }}>
                     {isAdmin ? 'Administrator' : 'Trader'}
                   </div>
                 </div>
                 <Link href="/settings" style={{
                   display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
-                  fontSize: 11, textDecoration: 'none',
+                  fontSize: 13, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
@@ -609,7 +609,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >Settings</Link>
                 <Link href="/account" style={{
                   display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
-                  fontSize: 11, textDecoration: 'none',
+                  fontSize: 13, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
@@ -617,7 +617,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >Account</Link>
                 <Link href="/feedback" style={{
                   display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
-                  fontSize: 11, textDecoration: 'none',
+                  fontSize: 13, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
@@ -625,7 +625,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >Feedback</Link>
                 <Link href="/changelog" style={{
                   display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
-                  fontSize: 11, textDecoration: 'none',
+                  fontSize: 13, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
@@ -633,7 +633,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >Changelog</Link>
                 <Link href="/transparency" style={{
                   display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
-                  fontSize: 11, textDecoration: 'none',
+                  fontSize: 13, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
@@ -641,7 +641,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >Transparency</Link>
                 <Link href="/status" style={{
                   display: 'block', padding: '6px 10px', color: 'var(--text-sub)',
-                  fontSize: 11, textDecoration: 'none',
+                  fontSize: 13, textDecoration: 'none',
                   transition: 'all 100ms ease',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text)' }}
@@ -650,7 +650,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <button onClick={signout} style={{
                   display: 'block', width: '100%', textAlign: 'left',
                   padding: '6px 10px', color: 'var(--red)',
-                  fontSize: 11, background: 'none', border: 'none',
+                  fontSize: 13, background: 'none', border: 'none',
                   cursor: 'pointer', fontFamily: 'var(--font-sans)',
                   transition: 'all 100ms ease',
                 }}
@@ -675,7 +675,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               display: 'flex', flexDirection: 'column',
             }} onClick={e => e.stopPropagation()}>
               <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>🔍</span>
+                <span style={{ color: 'var(--text-faint)', fontSize: 14 }}>🔍</span>
                 <input
                   ref={searchRef}
                   value={searchQuery}
@@ -684,45 +684,45 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   style={{
                     background: 'none', border: 'none', outline: 'none',
                     color: 'var(--text)', fontFamily: 'var(--font-sans)',
-                    fontSize: 13, width: '100%',
+                    fontSize: 16, width: '100%',
                   }}
                 />
-                <span style={{ color: 'var(--text-faint)', fontSize: 9 }}>ESC</span>
+                <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>ESC</span>
               </div>
               <div style={{ flex: 1, overflow: 'auto', padding: 6 }}>
                 {searchQuery.length < 2 ? (
                   <div style={{ padding: '14px', textAlign: 'center' }}>
-                    <span className="t-faint" style={{ fontSize: 11 }}>Type at least 2 characters to search</span>
+                    <span className="t-faint" style={{ fontSize: 13 }}>Type at least 2 characters to search</span>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {searchLoading && (
                       <div style={{ padding: '10px', textAlign: 'center' }}>
-                        <span className="t-faint" style={{ fontSize: 10 }}>Searching...</span>
+                        <span className="t-faint" style={{ fontSize: 12 }}>Searching...</span>
                       </div>
                     )}
                     {searchResults.length > 0 && (
                       <>
                         <div style={{ padding: '3px 10px' }}>
-                          <span className="t-faint" style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Symbols</span>
+                          <span className="t-faint" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Symbols</span>
                         </div>
                         {searchResults.map((r: any, i: number) => (
                           <Link key={i} href={`/terminal?symbol=${r.symbol}`} onClick={() => setSearchOpen(false)} style={{
                             display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px',
-                            borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 11,
+                            borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 13,
                             textDecoration: 'none', transition: 'all 100ms ease',
                           }}
                             onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
                             onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                           >
-                            <span style={{ fontSize: 11, width: 18, textAlign: 'center', color: 'var(--cyan)' }}>
+                            <span style={{ fontSize: 13, width: 18, textAlign: 'center', color: 'var(--cyan)' }}>
                               {r.instrument_type === 'option' ? '⚡' : r.instrument_type === 'future' ? '📊' : '📈'}
                             </span>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 600 }}>{r.symbol}</div>
-                              <span className="t-faint" style={{ fontSize: 9 }}>{r.name}</span>
+                              <span className="t-faint" style={{ fontSize: 11 }}>{r.name}</span>
                             </div>
-                            <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
+                            <span style={{ fontSize: 11, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
                               {r.instrument_type?.toUpperCase()}
                             </span>
                           </Link>
@@ -732,49 +732,49 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     )}
                     {!searchLoading && searchQuery.length >= 2 && searchResults.length === 0 && (
                       <div style={{ padding: '6px 10px', textAlign: 'center' }}>
-                        <span className="t-faint" style={{ fontSize: 10 }}>No matching symbols found</span>
+                        <span className="t-faint" style={{ fontSize: 12 }}>No matching symbols found</span>
                       </div>
                     )}
                     <Link href={`/terminal?symbol=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
                       display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 11,
+                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 13,
                       textDecoration: 'none', transition: 'all 100ms ease',
                     }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                     >
-                      <span style={{ fontSize: 12 }}>▶</span>
+                      <span style={{ fontSize: 14 }}>▶</span>
                       <div>
                         <div style={{ fontWeight: 600 }}>Trade {searchQuery}</div>
-                        <span className="t-faint" style={{ fontSize: 9 }}>Open in terminal</span>
+                        <span className="t-faint" style={{ fontSize: 11 }}>Open in terminal</span>
                       </div>
                     </Link>
                     <Link href={`/marketdata?symbol=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
                       display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 11,
+                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 13,
                       textDecoration: 'none', transition: 'all 100ms ease',
                     }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                     >
-                      <span style={{ fontSize: 12 }}>▲</span>
+                      <span style={{ fontSize: 14 }}>▲</span>
                       <div>
                         <div style={{ fontWeight: 600 }}>Analyze {searchQuery}</div>
-                        <span className="t-faint" style={{ fontSize: 9 }}>Market analysis & chart</span>
+                        <span className="t-faint" style={{ fontSize: 11 }}>Market analysis & chart</span>
                       </div>
                     </Link>
                     <Link href={`/strategies?search=${searchQuery}`} onClick={() => setSearchOpen(false)} style={{
                       display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 11,
+                      borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: 13,
                       textDecoration: 'none', transition: 'all 100ms ease',
                     }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                     >
-                      <span style={{ fontSize: 12 }}>◈</span>
+                      <span style={{ fontSize: 14 }}>◈</span>
                       <div>
                         <div style={{ fontWeight: 600 }}>Strategies</div>
-                        <span className="t-faint" style={{ fontSize: 9 }}>Search strategies</span>
+                        <span className="t-faint" style={{ fontSize: 11 }}>Search strategies</span>
                       </div>
                     </Link>
                   </div>
@@ -807,7 +807,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
                 padding: '6px 0 4px', textDecoration: 'none',
                 color: active ? 'var(--cyan)' : 'var(--text-sub)',
-                fontSize: 9, fontWeight: 700, minHeight: 48,
+                fontSize: 11, fontWeight: 700, minHeight: 48,
               }}>
                 <span style={{ display: 'flex' }}><NavIcon href={t.href} active={active} /></span>
                 {t.label}

@@ -72,65 +72,65 @@ export function BackupsTab() {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <button onClick={runBackup} disabled={running}
           style={{
-            padding: '6px 16px', fontSize: 11, fontWeight: 600, borderRadius: 5, cursor: running ? 'wait' : 'pointer',
+            padding: '6px 16px', fontSize: 13, fontWeight: 600, borderRadius: 5, cursor: running ? 'wait' : 'pointer',
             background: running ? 'var(--bg)' : 'var(--violet)', color: running ? 'var(--text-faint)' : 'var(--text-inverse)',
             border: running ? '1px solid var(--border)' : 'none',
           }}>
           {running ? 'Running...' : 'Run Backup Now'}
         </button>
-        <button onClick={load} className="t-btn t-btn-sm" style={{ fontSize: 10 }}>Refresh</button>
-        <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{backups.length} backups</span>
+        <button onClick={load} className="t-btn t-btn-sm" style={{ fontSize: 12 }}>Refresh</button>
+        <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{backups.length} backups</span>
       </div>
 
       {msg && (
         <div style={{
-          padding: '8px 12px', marginBottom: 12, borderRadius: 5, fontSize: 11,
+          padding: '8px 12px', marginBottom: 12, borderRadius: 5, fontSize: 13,
           background: msg.type === 'ok' ? 'color-mix(in srgb, var(--green) 10%, var(--bg))' : 'color-mix(in srgb, var(--red) 10%, var(--bg))',
           border: `1px solid color-mix(in srgb, ${msg.type === 'ok' ? 'var(--green)' : 'var(--red)'} 20%, transparent)`,
           color: msg.type === 'ok' ? 'var(--green)' : 'var(--red)',
         }}>{msg.text}</div>
       )}
 
-      {loading && <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}><p style={{ fontSize: 12, color: 'var(--text-faint)' }}>Loading...</p></div>}
+      {loading && <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}><p style={{ fontSize: 14, color: 'var(--text-faint)' }}>Loading...</p></div>}
       {!loading && backups.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No backups found. Run your first backup!</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No backups found. Run your first backup!</p>
         </div>
       )}
 
       {!loading && backups.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+          <table className="t-table" style={{ fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>FILENAME</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SIZE</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>ROWS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>CREATED</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>ACTIONS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>FILENAME</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>SIZE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>ROWS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>CREATED</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {backups.map(b => (
                 <tr key={b.filename} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
-                  <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 9, color: 'var(--text)' }}>{b.filename}</td>
-                  <td style={{ padding: '6px 8px', textAlign: 'right', fontSize: 9, color: 'var(--text-sub)' }}>{b.error ? '—' : fmtSize(b.size_bytes)}</td>
-                  <td style={{ padding: '6px 8px', textAlign: 'right', fontSize: 9, color: 'var(--text-sub)' }}>{b.error ? '—' : b.total_rows}</td>
-                  <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)' }}>
+                  <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 11, color: 'var(--text)' }}>{b.filename}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'right', fontSize: 11, color: 'var(--text-sub)' }}>{b.error ? '—' : fmtSize(b.size_bytes)}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'right', fontSize: 11, color: 'var(--text-sub)' }}>{b.error ? '—' : b.total_rows}</td>
+                  <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-faint)' }}>
                     {b.created_at ? new Date(b.created_at).toLocaleString() : b.error || '—'}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
                       <button onClick={() => restore(b.filename)} disabled={restoring === b.filename || !!b.error}
                         style={{
-                          padding: '2px 8px', fontSize: 8, borderRadius: 3, border: 'none', cursor: restoring === b.filename ? 'wait' : 'pointer',
+                          padding: '2px 8px', fontSize: 10, borderRadius: 3, border: 'none', cursor: restoring === b.filename ? 'wait' : 'pointer',
                           background: b.error ? 'var(--bg)' : 'color-mix(in srgb, var(--amber) 12%, transparent)', color: b.error ? 'var(--text-faint)' : 'var(--amber)',
                         }}>
                         {restoring === b.filename ? '...' : 'Restore'}
                       </button>
                       <button onClick={() => deleteBackup(b.filename)} disabled={!!b.error}
                         style={{
-                          padding: '2px 8px', fontSize: 8, borderRadius: 3, border: 'none', cursor: 'pointer',
+                          padding: '2px 8px', fontSize: 10, borderRadius: 3, border: 'none', cursor: 'pointer',
                           background: b.error ? 'var(--bg)' : 'color-mix(in srgb, var(--red) 12%, transparent)', color: b.error ? 'var(--text-faint)' : 'var(--red)',
                         }}>
                         Delete

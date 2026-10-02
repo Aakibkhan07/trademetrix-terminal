@@ -181,8 +181,8 @@ function ConfirmDialog({
   onConfirm: () => void; onCancel: () => void; loading?: boolean
 }) {
   return (
-    <Dialog onClose={onCancel} maxWidth={420} title={<h3 style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, margin: '0 0 12px' }}>{title}</h3>}>
-        <p style={{ fontSize: 12, color: 'var(--text-sub)', margin: '0 0 20px', lineHeight: 1.5 }}>{message}</p>
+    <Dialog onClose={onCancel} maxWidth={420} title={<h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, margin: '0 0 12px' }}>{title}</h3>}>
+        <p style={{ fontSize: 14, color: 'var(--text-sub)', margin: '0 0 20px', lineHeight: 1.5 }}>{message}</p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="t-btn" onClick={onCancel} disabled={loading}>Cancel</button>
           <button className={confirmClass || 't-btn t-btn-danger'} onClick={onConfirm} disabled={loading}>
@@ -241,9 +241,9 @@ function LegCard({
   return (
     <div className="t-panel" style={{ borderLeft: `3px solid ${leg.position === 'buy' ? 'var(--green)' : 'var(--red)'}`, position: 'relative' }}>
       <div className="t-panel-header" style={{ padding: '6px 10px', minHeight: 28 }}>
-        <span className="t-panel-title" style={{ fontSize: 12 }}>
+        <span className="t-panel-title" style={{ fontSize: 14 }}>
           Leg {index + 1}
-          <span style={{ fontSize: 9, color: leg.position === 'buy' ? 'var(--text-green)' : 'var(--text-red)', marginLeft: 4 }}>
+          <span style={{ fontSize: 11, color: leg.position === 'buy' ? 'var(--text-green)' : 'var(--text-red)', marginLeft: 4 }}>
             {leg.position.toUpperCase()}
           </span>
         </span>
@@ -262,11 +262,11 @@ function LegCard({
             <label className="t-label">Segment</label>
             <div className="t-btn-group" style={{ width: '100%' }}>
               <button className={`t-btn t-btn-sm ${leg.segment === 'options' ? 'active' : ''}`}
-                style={{ flex: 1, fontSize: 10 }}
+                style={{ flex: 1, fontSize: 12 }}
                 onClick={() => { seg('options'); if (leg.option_type === null) opt('CE') }}
                 disabled={disabled}>Options</button>
               <button className={`t-btn t-btn-sm ${leg.segment === 'futures' ? 'active' : ''}`}
-                style={{ flex: 1, fontSize: 10 }}
+                style={{ flex: 1, fontSize: 12 }}
                 onClick={() => { seg('futures'); opt(null as unknown as string) }}
                 disabled={disabled}>Futures</button>
             </div>
@@ -277,10 +277,10 @@ function LegCard({
             <label className="t-label">Side</label>
             <div className="t-btn-group" style={{ width: '100%' }}>
               <button className={`t-btn t-btn-sm ${leg.position === 'buy' ? 'active' : ''}`}
-                style={{ flex: 1, fontSize: 10, color: 'var(--text-green)' }}
+                style={{ flex: 1, fontSize: 12, color: 'var(--text-green)' }}
                 onClick={() => pos('buy')} disabled={disabled}>Buy</button>
               <button className={`t-btn t-btn-sm ${leg.position === 'sell' ? 'active' : ''}`}
-                style={{ flex: 1, fontSize: 10, color: 'var(--text-red)' }}
+                style={{ flex: 1, fontSize: 12, color: 'var(--text-red)' }}
                 onClick={() => pos('sell')} disabled={disabled}>Sell</button>
             </div>
             {err('position') && <p className="t-builder-err">{err('position')}</p>}
@@ -298,9 +298,9 @@ function LegCard({
                 <label className="t-label">Type</label>
                 <div className="t-btn-group" style={{ width: '100%' }}>
                   <button className={`t-btn t-btn-sm ${leg.option_type === 'CE' ? 'active' : ''}`}
-                    style={{ flex: 1, fontSize: 10 }} onClick={() => opt('CE')} disabled={disabled}>CE</button>
+                    style={{ flex: 1, fontSize: 12 }} onClick={() => opt('CE')} disabled={disabled}>CE</button>
                   <button className={`t-btn t-btn-sm ${leg.option_type === 'PE' ? 'active' : ''}`}
-                    style={{ flex: 1, fontSize: 10 }} onClick={() => opt('PE')} disabled={disabled}>PE</button>
+                    style={{ flex: 1, fontSize: 12 }} onClick={() => opt('PE')} disabled={disabled}>PE</button>
                 </div>
                 {err('option_type') && <p className="t-builder-err">{err('option_type')}</p>}
               </div>
@@ -308,7 +308,7 @@ function LegCard({
               <div>
                 <label className="t-label">Expiry</label>
                 <select className="t-select" value={leg.expiry} onChange={e => exp(e.target.value)}
-                  disabled={disabled} style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                  disabled={disabled} style={{ height: 26, fontSize: 12, padding: '2px 20px 2px 6px' }}>
                   {EXPIRY_OPTIONS.map(o => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
@@ -320,7 +320,7 @@ function LegCard({
 
           {!isOpt && (
             <div style={{ gridColumn: '1 / -1' }}>
-              <label className="t-label" style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+              <label className="t-label" style={{ fontSize: 12, color: 'var(--text-faint)' }}>
                 No option type for futures segment
               </label>
             </div>
@@ -332,7 +332,7 @@ function LegCard({
               <div style={{ gridColumn: '1 / -1' }}>
                 <label className="t-label">Strike Criteria</label>
                 <select className="t-select" value={leg.strike_criteria} onChange={e => sc(e.target.value)}
-                  disabled={disabled} style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                  disabled={disabled} style={{ height: 26, fontSize: 12, padding: '2px 20px 2px 6px' }}>
                   {STRIKE_CRITERIA_OPTIONS.map(o => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
@@ -355,7 +355,7 @@ function LegCard({
                     <input className="t-input" type="number" value={leg.strike_value || ''}
                       onChange={e => onChange({ ...leg, strike_value: parseFloat(e.target.value) || 0 })}
                       placeholder="e.g. 150" disabled={disabled}
-                      style={{ height: 26, fontSize: 10, padding: '2px 6px' }} />
+                      style={{ height: 26, fontSize: 12, padding: '2px 6px' }} />
                     {err('strike_value') && <p className="t-builder-err">{err('strike_value')}</p>}
                   </div>
                 )}
@@ -366,8 +366,8 @@ function LegCard({
                       <input className="t-input" type="number" value={leg.strike_value || ''}
                         onChange={e => onChange({ ...leg, strike_value: parseFloat(e.target.value) || 0 })}
                         placeholder="Min" disabled={disabled}
-                        style={{ height: 26, fontSize: 10, padding: '2px 6px', flex: 1 }} />
-                      <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>to</span>
+                        style={{ height: 26, fontSize: 12, padding: '2px 6px', flex: 1 }} />
+                      <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>to</span>
                     </div>
                     {err('strike_value') && <p className="t-builder-err">{err('strike_value')}</p>}
                   </div>
@@ -379,7 +379,7 @@ function LegCard({
                       value={leg.strike_value || ''}
                       onChange={e => onChange({ ...leg, strike_value: parseFloat(e.target.value) || 0 })}
                       placeholder="e.g. 0.5" disabled={disabled}
-                      style={{ height: 26, fontSize: 10, padding: '2px 6px' }} />
+                      style={{ height: 26, fontSize: 12, padding: '2px 6px' }} />
                     {err('strike_value') && <p className="t-builder-err">{err('strike_value')}</p>}
                   </div>
                 )}
@@ -393,7 +393,7 @@ function LegCard({
             <select className="t-select" value={leg.leg_sl_type || ''}
               onChange={e => onChange({ ...leg, leg_sl_type: e.target.value || null, leg_sl_value: e.target.value ? leg.leg_sl_value : null })}
               disabled={disabled}
-              style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+              style={{ height: 26, fontSize: 12, padding: '2px 20px 2px 6px' }}>
               {SL_TARGET_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
@@ -404,14 +404,14 @@ function LegCard({
             <input className="t-input" type="number" value={leg.leg_sl_value ?? ''}
               onChange={e => onChange({ ...leg, leg_sl_value: parseFloat(e.target.value) || null })}
               disabled={disabled || !leg.leg_sl_type}
-              style={{ height: 26, fontSize: 10, padding: '2px 6px' }} />
+              style={{ height: 26, fontSize: 12, padding: '2px 6px' }} />
           </div>
           <div>
             <label className="t-label">Target Type</label>
             <select className="t-select" value={leg.leg_target_type || ''}
               onChange={e => onChange({ ...leg, leg_target_type: e.target.value || null, leg_target_value: e.target.value ? leg.leg_target_value : null })}
               disabled={disabled}
-              style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+              style={{ height: 26, fontSize: 12, padding: '2px 20px 2px 6px' }}>
               {SL_TARGET_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
@@ -422,12 +422,12 @@ function LegCard({
             <input className="t-input" type="number" value={leg.leg_target_value ?? ''}
               onChange={e => onChange({ ...leg, leg_target_value: parseFloat(e.target.value) || null })}
               disabled={disabled || !leg.leg_target_type}
-              style={{ height: 26, fontSize: 10, padding: '2px 6px' }} />
+              style={{ height: 26, fontSize: 12, padding: '2px 6px' }} />
           </div>
 
           {/* ── Trailing SL ── */}
           <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 4 }}>
-            <label className="t-label" style={{ fontSize: 10, color: 'var(--cyan)', marginBottom: 4, display: 'block' }}>
+            <label className="t-label" style={{ fontSize: 12, color: 'var(--cyan)', marginBottom: 4, display: 'block' }}>
               Trailing SL
             </label>
             <div className="t-builder-leg-grid">
@@ -436,7 +436,7 @@ function LegCard({
                 <select className="t-select" value={leg.trailing_sl_type || ''}
                   onChange={e => onChange({ ...leg, trailing_sl_type: e.target.value || null, trailing_sl_value: e.target.value ? leg.trailing_sl_value : null })}
                   disabled={disabled}
-                  style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                  style={{ height: 26, fontSize: 12, padding: '2px 20px 2px 6px' }}>
                   {SL_TARGET_OPTIONS.map(o => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
@@ -447,14 +447,14 @@ function LegCard({
                 <input className="t-input" type="number" value={leg.trailing_sl_value ?? ''}
                   onChange={e => onChange({ ...leg, trailing_sl_value: parseFloat(e.target.value) || null })}
                   disabled={disabled || !leg.trailing_sl_type}
-                  style={{ height: 26, fontSize: 10, padding: '2px 6px' }} />
+                  style={{ height: 26, fontSize: 12, padding: '2px 6px' }} />
               </div>
               <div>
                 <label className="t-label">Activation (%)</label>
                 <input className="t-input" type="number" value={leg.trailing_activation ?? ''}
                   onChange={e => onChange({ ...leg, trailing_activation: parseFloat(e.target.value) || null })}
                   disabled={disabled || !leg.trailing_sl_type}
-                  style={{ height: 26, fontSize: 10, padding: '2px 6px' }}
+                  style={{ height: 26, fontSize: 12, padding: '2px 6px' }}
                   placeholder="e.g. 1.5" />
               </div>
             </div>
@@ -462,7 +462,7 @@ function LegCard({
 
           {/* ── Re-entry ── */}
           <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 4 }}>
-            <label className="t-label" style={{ fontSize: 10, color: 'var(--amber)', marginBottom: 4, display: 'block' }}>
+            <label className="t-label" style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 4, display: 'block' }}>
               Re-entry
             </label>
             <div className="t-builder-leg-grid">
@@ -471,7 +471,7 @@ function LegCard({
                 <select className="t-select" value={leg.reentry_mode || ''}
                   onChange={e => onChange({ ...leg, reentry_mode: (e.target.value || null) as StrategyLeg['reentry_mode'] })}
                   disabled={disabled}
-                  style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                  style={{ height: 26, fontSize: 12, padding: '2px 20px 2px 6px' }}>
                   <option value="">None</option>
                   <option value="RE_ASAP">ASAP</option>
                   <option value="RE_COST">Cost-Based</option>
@@ -482,7 +482,7 @@ function LegCard({
                 <select className="t-select" value={leg.max_reentries}
                   onChange={e => onChange({ ...leg, max_reentries: parseInt(e.target.value) || 3 })}
                   disabled={disabled || !leg.reentry_mode}
-                  style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                  style={{ height: 26, fontSize: 12, padding: '2px 20px 2px 6px' }}>
                   {[1, 2, 3].map(n => (
                     <option key={n} value={n}>{n}</option>
                   ))}
@@ -508,8 +508,8 @@ function PayoffPreview({
   if (!spotPrice) {
     return (
       <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
-        <p style={{ fontSize: 11, color: 'var(--text-faint)' }}>Payoff Lab — Preview unavailable</p>
-        <p style={{ fontSize: 10, color: 'var(--text-sub)', marginTop: 4 }}>Market data not available for {indexSymbol} — add legs to see institutional payoff</p>
+        <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>Payoff Lab — Preview unavailable</p>
+        <p style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 4 }}>Market data not available for {indexSymbol} — add legs to see institutional payoff</p>
       </div>
     )
   }
@@ -581,10 +581,10 @@ function PayoffPreview({
   return (
     <div className="t-panel" style={{ position: 'relative' }}>
       <div className="t-panel-header" style={{ padding: '8px 12px', minHeight: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span className="t-panel-title" style={{ fontSize: 11, letterSpacing: '0.08em' }}>PAYOFF LAB — EXPIRY</span>
+        <span className="t-panel-title" style={{ fontSize: 13, letterSpacing: '0.08em' }}>PAYOFF LAB — EXPIRY</span>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', background: 'var(--cyan-dim)', border: '1px solid var(--cyan-dim)', padding: '2px 6px', borderRadius: 4 }}>Spot {fmtNum(spotPrice)}</span>
-          {isSimulated && <span className="t-badge t-badge-amber" style={{ fontSize: 8 }}>SIMULATED</span>}
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--cyan)', background: 'var(--cyan-dim)', border: '1px solid var(--cyan-dim)', padding: '2px 6px', borderRadius: 4 }}>Spot {fmtNum(spotPrice)}</span>
+          {isSimulated && <span className="t-badge t-badge-amber" style={{ fontSize: 10 }}>SIMULATED</span>}
         </div>
       </div>
       <div className="t-panel-body" style={{ padding: 0, overflow: 'hidden' }}>
@@ -595,12 +595,12 @@ function PayoffPreview({
             return (
               <g key={i}>
                 <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="var(--border)" strokeWidth={0.5} opacity={0.6} />
-                <text x={pad.left - 6} y={y + 3} textAnchor="end" fill="var(--text-faint)" fontSize={7} fontFamily="var(--font-mono)">{val >= 0 ? '+' : ''}{fmtNum(val)}</text>
+                <text x={pad.left - 6} y={y + 3} textAnchor="end" fill="var(--text-faint)" fontSize={10} fontFamily="var(--font-mono)">{val >= 0 ? '+' : ''}{fmtNum(val)}</text>
               </g>
             )
           })}
           <line x1={pad.left} y1={zeroY} x2={width - pad.right} y2={zeroY} stroke="var(--text-sub)" strokeWidth={0.7} strokeDasharray="4 3" />
-          <text x={width - pad.right + 2} y={zeroY + 3} fill="var(--text-faint)" fontSize={7} fontFamily="var(--font-mono)">0</text>
+          <text x={width - pad.right + 2} y={zeroY + 3} fill="var(--text-faint)" fontSize={10} fontFamily="var(--font-mono)">0</text>
           <path d={d} fill="none" stroke="var(--violet)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           <path d={`${d} L${xPos(points.length - 1)},${zeroY} L${xPos(0)},${zeroY} Z`} fill="url(#payoffGradient2)" opacity={0.18} />
           <defs>
@@ -612,31 +612,31 @@ function PayoffPreview({
           {breakevens.map(be => {
             const idx = prices.findIndex(p => p >= be)
             if (idx < 0) return null
-            return <g key={be}><line x1={xPos(idx)} y1={pad.top} x2={xPos(idx)} y2={height - pad.bottom} stroke="var(--amber)" strokeWidth={0.7} strokeDasharray="3 3" /><circle cx={xPos(idx)} cy={zeroY} r={2.5} fill="var(--amber)" /><text x={xPos(idx)} y={height - 6} textAnchor="middle" fill="var(--amber)" fontSize={7} fontFamily="var(--font-mono)" fontWeight={700}>BE {be}</text></g>
+            return <g key={be}><line x1={xPos(idx)} y1={pad.top} x2={xPos(idx)} y2={height - pad.bottom} stroke="var(--amber)" strokeWidth={0.7} strokeDasharray="3 3" /><circle cx={xPos(idx)} cy={zeroY} r={2.5} fill="var(--amber)" /><text x={xPos(idx)} y={height - 6} textAnchor="middle" fill="var(--amber)" fontSize={10} fontFamily="var(--font-mono)" fontWeight={700}>BE {be}</text></g>
           })}
           <line x1={xPos(Math.round((spotPrice - minPrice) / step))} y1={pad.top} x2={xPos(Math.round((spotPrice - minPrice) / step))} y2={height - pad.bottom} stroke="var(--cyan)" strokeWidth={1} strokeDasharray="2 3" opacity={0.7} />
-          <text x={xPos(Math.round((spotPrice - minPrice) / step))} y={pad.top - 2} textAnchor="middle" fill="var(--cyan)" fontSize={7} fontFamily="var(--font-mono)" fontWeight={700}>SPOT</text>
+          <text x={xPos(Math.round((spotPrice - minPrice) / step))} y={pad.top - 2} textAnchor="middle" fill="var(--cyan)" fontSize={10} fontFamily="var(--font-mono)" fontWeight={700}>SPOT</text>
         </svg>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 0, borderTop: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 0, borderTop: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
         <div style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid var(--border)' }}>
-          <div style={{ color: 'var(--text-faint)', fontSize: 8, letterSpacing: '0.08em' }}>MAX PROFIT</div>
+          <div style={{ color: 'var(--text-faint)', fontSize: 10, letterSpacing: '0.08em' }}>MAX PROFIT</div>
           <div style={{ color: 'var(--green)', fontWeight: 700, marginTop: 2 }}>+₹{fmtNum(maxProfit)}</div>
         </div>
         <div style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid var(--border)' }}>
-          <div style={{ color: 'var(--text-faint)', fontSize: 8, letterSpacing: '0.08em' }}>MAX LOSS</div>
+          <div style={{ color: 'var(--text-faint)', fontSize: 10, letterSpacing: '0.08em' }}>MAX LOSS</div>
           <div style={{ color: 'var(--red)', fontWeight: 700, marginTop: 2 }}>₹{fmtNum(maxLoss)}</div>
         </div>
         <div style={{ padding: '8px 10px', textAlign: 'center', borderRight: '1px solid var(--border)' }}>
-          <div style={{ color: 'var(--text-faint)', fontSize: 8, letterSpacing: '0.08em' }}>BREAKEVEN</div>
+          <div style={{ color: 'var(--text-faint)', fontSize: 10, letterSpacing: '0.08em' }}>BREAKEVEN</div>
           <div style={{ color: 'var(--amber)', fontWeight: 700, marginTop: 2 }}>{breakevens.length ? breakevens.join(', ') : '—'}</div>
         </div>
         <div style={{ padding: '8px 10px', textAlign: 'center' }}>
-          <div style={{ color: 'var(--text-faint)', fontSize: 8, letterSpacing: '0.08em' }}>R:R</div>
+          <div style={{ color: 'var(--text-faint)', fontSize: 10, letterSpacing: '0.08em' }}>R:R</div>
           <div style={{ color: 'var(--text)', fontWeight: 700, marginTop: 2 }}>{Math.abs(maxLoss) > 0 ? (maxProfit / Math.abs(maxLoss)).toFixed(2) : '∞'}</div>
         </div>
       </div>
-      <div style={{ padding: '6px 10px', fontSize: 9, color: 'var(--text-faint)', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ padding: '6px 10px', fontSize: 11, color: 'var(--text-faint)', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <span>{legs.length} leg{legs.length !== 1 ? 's' : ''} · {indexSymbol} · Lot 50</span>
         <span>·</span>
         <span>Premium from chain LTP when available, else intrinsic</span>
@@ -675,7 +675,7 @@ function StrategyList({
   if (strategies.length === 0) {
     return (
       <div className="t-panel" style={{ padding: 40, textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-faint)', fontSize: 13 }}>No strategies yet &mdash; create your first</p>
+        <p style={{ color: 'var(--text-faint)', fontSize: 16 }}>No strategies yet &mdash; create your first</p>
       </div>
     )
   }
@@ -689,12 +689,12 @@ function StrategyList({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{s.name}</span>
-                  <span className={STATUS_CHIP[s.status] || 't-badge-sub'} style={{ fontSize: 9 }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{s.name}</span>
+                  <span className={STATUS_CHIP[s.status] || 't-badge-sub'} style={{ fontSize: 11 }}>
                     {STATUS_LABEL[s.status] || s.status.toUpperCase()}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--text-sub)' }}>
+                <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-sub)' }}>
                   <span>{s.index_symbol}</span>
                   <span>{s.strategy_type}</span>
                   <span>{legCount} leg{legCount !== 1 ? 's' : ''}</span>
@@ -720,20 +720,20 @@ function StrategyList({
             </div>
             {activeStrategyId === s.id && (
               <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-                <p style={{ fontSize: 10, color: 'var(--text-sub)', marginBottom: 4 }}>Activity Feed</p>
+                <p style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 4 }}>Activity Feed</p>
                 {activityLoading ? (
-                  <p style={{ fontSize: 10, color: 'var(--text-faint)' }}>Loading...</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>Loading...</p>
                 ) : strategyActivity[s.id]?.length ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
                     {strategyActivity[s.id].map((e) => (
-                      <div key={e.created_at} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-sub)', padding: '2px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div key={e.created_at} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-sub)', padding: '2px 0', borderBottom: '1px solid var(--border)' }}>
                         <span>{e.event.replace(/_/g, ' ')}</span>
-                        <span style={{ color: 'var(--text-faint)', fontSize: 9 }}>{new Date(e.created_at).toLocaleString()}</span>
+                        <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>{new Date(e.created_at).toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p style={{ fontSize: 10, color: 'var(--text-faint)' }}>No activity yet</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>No activity yet</p>
                 )}
               </div>
             )}
@@ -1132,8 +1132,8 @@ export default function BuilderPage() {
       <div className="t-page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button className="t-btn t-btn-ghost" onClick={handleBack}
-            style={{ fontSize: 16, padding: '2px 6px', lineHeight: 1 }}>&larr;</button>
-          <h1 className="t-page-title" style={{ fontSize: 16 }}>
+            style={{ fontSize: 19, padding: '2px 6px', lineHeight: 1 }}>&larr;</button>
+          <h1 className="t-page-title" style={{ fontSize: 19 }}>
             {editingId ? 'Edit Strategy' : 'New Strategy'}
           </h1>
         </div>
@@ -1146,7 +1146,7 @@ export default function BuilderPage() {
       </div>
 
       {serverError && (
-        <div className="alert alert-error" style={{ fontSize: 11, padding: '6px 10px' }}>
+        <div className="alert alert-error" style={{ fontSize: 13, padding: '6px 10px' }}>
           {serverError}
         </div>
       )}
@@ -1155,14 +1155,14 @@ export default function BuilderPage() {
         {/* ── Left: Settings ── */}
         <div className="t-builder-settings">
           <div className="t-panel">
-            <div className="t-panel-header"><span className="t-panel-title" style={{ fontSize: 12 }}>Strategy Settings</span></div>
+            <div className="t-panel-header"><span className="t-panel-title" style={{ fontSize: 14 }}>Strategy Settings</span></div>
             <div className="t-panel-body" style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               {/* Name */}
               <div>
                 <label className="t-label">Name</label>
                 <input className="t-input" type="text" value={form.name}
                   onChange={e => { setForm({ ...form, name: e.target.value }); setTouched(true) }}
-                  placeholder="My Strategy" style={{ height: 28, fontSize: 11 }} />
+                  placeholder="My Strategy" style={{ height: 28, fontSize: 13 }} />
                 {touched && errors.name && <p className="t-builder-err">{errors.name}</p>}
               </div>
 
@@ -1171,10 +1171,10 @@ export default function BuilderPage() {
                 <label className="t-label">Type</label>
                 <div className="t-btn-group" style={{ width: '100%' }}>
                   <button className={`t-btn t-btn-sm ${form.strategy_type === 'intraday' ? 'active' : ''}`}
-                    style={{ flex: 1, fontSize: 10, textTransform: 'uppercase' }}
+                    style={{ flex: 1, fontSize: 12, textTransform: 'uppercase' }}
                     onClick={() => setForm({ ...form, strategy_type: 'intraday' })}>Intraday</button>
                   <button className={`t-btn t-btn-sm ${form.strategy_type === 'positional' ? 'active' : ''}`}
-                    style={{ flex: 1, fontSize: 10, textTransform: 'uppercase' }}
+                    style={{ flex: 1, fontSize: 12, textTransform: 'uppercase' }}
                     onClick={() => setForm({ ...form, strategy_type: 'positional' })}>Positional</button>
                 </div>
               </div>
@@ -1184,7 +1184,7 @@ export default function BuilderPage() {
                 <label className="t-label">Index</label>
                 <select className="t-select" value={form.index_symbol}
                   onChange={e => setForm({ ...form, index_symbol: e.target.value })}
-                  style={{ height: 28, fontSize: 11, padding: '4px 24px 4px 8px' }}>
+                  style={{ height: 28, fontSize: 13, padding: '4px 24px 4px 8px' }}>
                   {INDEX_SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
@@ -1194,10 +1194,10 @@ export default function BuilderPage() {
                 <label className="t-label">Underlying</label>
                 <div className="t-btn-group" style={{ width: '100%' }}>
                   <button className={`t-btn t-btn-sm ${form.underlying_from === 'cash' ? 'active' : ''}`}
-                    style={{ flex: 1, fontSize: 10 }}
+                    style={{ flex: 1, fontSize: 12 }}
                     onClick={() => setForm({ ...form, underlying_from: 'cash' })}>Cash</button>
                   <button className={`t-btn t-btn-sm ${form.underlying_from === 'futures' ? 'active' : ''}`}
-                    style={{ flex: 1, fontSize: 10 }}
+                    style={{ flex: 1, fontSize: 12 }}
                     onClick={() => setForm({ ...form, underlying_from: 'futures' })}>Futures</button>
                 </div>
               </div>
@@ -1208,14 +1208,14 @@ export default function BuilderPage() {
                   <label className="t-label">Entry</label>
                   <input className="t-input" type="time" value={form.entry_time}
                     onChange={e => { setForm({ ...form, entry_time: e.target.value }); setTouched(true) }}
-                    style={{ height: 28, fontSize: 11 }} />
+                    style={{ height: 28, fontSize: 13 }} />
                   {touched && errors.entry_time && <p className="t-builder-err">{errors.entry_time}</p>}
                 </div>
                 <div>
                   <label className="t-label">Exit</label>
                   <input className="t-input" type="time" value={form.exit_time}
                     onChange={e => { setForm({ ...form, exit_time: e.target.value }); setTouched(true) }}
-                    style={{ height: 28, fontSize: 11 }} />
+                    style={{ height: 28, fontSize: 13 }} />
                   {touched && errors.exit_time && <p className="t-builder-err">{errors.exit_time}</p>}
                 </div>
               </div>
@@ -1228,7 +1228,7 @@ export default function BuilderPage() {
                     const active = form.days_of_week.includes(i + 1)
                     return (
                       <button key={d} className={`t-chip ${active ? 'active' : ''}`}
-                        style={{ fontSize: 10, padding: '2px 8px', height: 24 }}
+                        style={{ fontSize: 12, padding: '2px 8px', height: 24 }}
                         onClick={() => {
                           const next = active
                             ? form.days_of_week.filter(x => x !== i + 1)
@@ -1248,7 +1248,7 @@ export default function BuilderPage() {
                   <label className="t-label">Overall SL</label>
                   <select className="t-select" value={form.overall_sl_type || ''}
                     onChange={e => setForm({ ...form, overall_sl_type: e.target.value || null, overall_sl_value: e.target.value ? form.overall_sl_value : null })}
-                    style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                    style={{ height: 26, fontSize: 12, padding: '2px 20px 2px 6px' }}>
                     {SL_TARGET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
@@ -1257,7 +1257,7 @@ export default function BuilderPage() {
                   <input className="t-input" type="number" value={form.overall_sl_value ?? ''}
                     onChange={e => setForm({ ...form, overall_sl_value: parseFloat(e.target.value) || null })}
                     disabled={!form.overall_sl_type}
-                    style={{ height: 26, fontSize: 10, padding: '2px 6px' }} />
+                    style={{ height: 26, fontSize: 12, padding: '2px 6px' }} />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -1265,7 +1265,7 @@ export default function BuilderPage() {
                   <label className="t-label">Overall Target</label>
                   <select className="t-select" value={form.overall_target_type || ''}
                     onChange={e => setForm({ ...form, overall_target_type: e.target.value || null, overall_target_value: e.target.value ? form.overall_target_value : null })}
-                    style={{ height: 26, fontSize: 10, padding: '2px 20px 2px 6px' }}>
+                    style={{ height: 26, fontSize: 12, padding: '2px 20px 2px 6px' }}>
                     {SL_TARGET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
@@ -1274,7 +1274,7 @@ export default function BuilderPage() {
                   <input className="t-input" type="number" value={form.overall_target_value ?? ''}
                     onChange={e => setForm({ ...form, overall_target_value: parseFloat(e.target.value) || null })}
                     disabled={!form.overall_target_type}
-                    style={{ height: 26, fontSize: 10, padding: '2px 6px' }} />
+                    style={{ height: 26, fontSize: 12, padding: '2px 6px' }} />
                 </div>
               </div>
             </div>
@@ -1292,7 +1292,7 @@ export default function BuilderPage() {
           {/* Margin Estimate */}
           <div className="t-panel">
             <div className="t-panel-header">
-              <span className="t-panel-title" style={{ fontSize: 12 }}>Margin Estimate</span>
+              <span className="t-panel-title" style={{ fontSize: 14 }}>Margin Estimate</span>
             </div>
             <div className="t-panel-body" style={{ padding: '8px 10px' }}>
               <button className="t-btn t-btn-sm t-btn-primary" onClick={fetchMarginEstimate}
@@ -1301,7 +1301,7 @@ export default function BuilderPage() {
                 {marginLoading ? 'Estimating...' : 'Estimate'}
               </button>
               {marginEstimate && (
-                <div style={{ fontSize: 11, lineHeight: 1.6 }}>
+                <div style={{ fontSize: 13, lineHeight: 1.6 }}>
                   {marginEstimate.supported ? (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px solid var(--border)' }}>
@@ -1322,12 +1322,12 @@ export default function BuilderPage() {
                           &fnof; {marginEstimate.exposure_margin.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 4 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>
                         Via {marginEstimate.broker.toUpperCase()}
                       </div>
                     </>
                   ) : (
-                    <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0, textAlign: 'center' }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: 0, textAlign: 'center' }}>
                       {marginEstimate.error || 'Margin estimate not available for this broker'}
                     </p>
                   )}
@@ -1340,7 +1340,7 @@ export default function BuilderPage() {
         {/* ── Right: Leg Cards ── */}
         <div className="t-builder-legs">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
               Legs ({legs.length}/{MAX_LEGS})
             </span>
             <button className="t-btn t-btn-sm t-btn-primary"

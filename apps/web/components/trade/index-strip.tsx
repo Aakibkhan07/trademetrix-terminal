@@ -14,13 +14,13 @@ export function IndexStrip({ index, onIndexChange, spot, changePct, connected }:
   const meta = indexMeta(index)
   return (
     <div className="t-panel" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-      <span className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', marginRight: 2 }}>INDEX</span>
+      <span className="t-faint" style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', marginRight: 2 }}>INDEX</span>
       {INDEXES.map(i => (
         <button
           key={i.key}
           data-kb={`index-${i.key}`}
           className={`t-chip ${index === i.key ? 'active' : ''}`}
-          style={{ fontSize: 11, fontWeight: index === i.key ? 700 : 500 }}
+          style={{ fontSize: 13, fontWeight: index === i.key ? 700 : 500 }}
           onClick={() => onIndexChange(i.key)}
         >
           {i.name}
@@ -28,13 +28,13 @@ export function IndexStrip({ index, onIndexChange, spot, changePct, connected }:
       ))}
       <span style={{ flex: 1 }} />
       <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-sub'}`} />
-      <span className="t-faint" style={{ fontSize: 10 }}>{connected ? 'LIVE' : 'SYNCING'}</span>
+      <span className="t-faint" style={{ fontSize: 12 }}>{connected ? 'LIVE' : 'SYNCING'}</span>
       <div style={{ textAlign: 'right', lineHeight: 1.15 }}>
-        <div className="t-faint" style={{ fontSize: 9 }}>{meta.spotSymbol}</div>
-        <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+        <div className="t-faint" style={{ fontSize: 11 }}>{meta.spotSymbol}</div>
+        <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
           {spot !== null && isFinite(spot) ? spot.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—'}
         </div>
-        <div style={{ fontSize: 10, fontWeight: 600, color: changePct !== null && changePct > 0 ? 'var(--green)' : changePct !== null && changePct < 0 ? 'var(--red)' : 'var(--text-faint)' }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: changePct !== null && changePct > 0 ? 'var(--green)' : changePct !== null && changePct < 0 ? 'var(--red)' : 'var(--text-faint)' }}>
           {changePct !== null ? `${changePct > 0 ? '+' : ''}${changePct.toFixed(2)}%` : '—'}
         </div>
       </div>

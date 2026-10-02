@@ -46,23 +46,23 @@ export default function FundsPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Funds</h1>
-          <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
+          <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: 0, color: 'var(--text)' }}>Funds</h1>
+          <p style={{ color: 'var(--text-sub)', fontSize: 14, margin: '2px 0 0' }}>
             Available capital and margin {broker ? `· ${broker}` : ''}
           </p>
         </div>
-        <Link href="/brokers" className="t-btn t-btn-sm" style={{ textDecoration: 'none', fontSize: 10 }}>
+        <Link href="/brokers" className="t-btn t-btn-sm" style={{ textDecoration: 'none', fontSize: 12 }}>
           Manage Brokers
         </Link>
       </div>
 
       {!hasBroker && (
         <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>No broker connected</div>
-          <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 16px' }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>No broker connected</div>
+          <p style={{ fontSize: 14, color: 'var(--text-faint)', margin: '0 0 16px' }}>
             Connect a broker to see your live funds, margin and buying power.
           </p>
-          <Link href="/brokers" className="t-btn t-btn-primary t-btn-sm" style={{ textDecoration: 'none', fontSize: 11 }}>
+          <Link href="/brokers" className="t-btn t-btn-primary t-btn-sm" style={{ textDecoration: 'none', fontSize: 13 }}>
             Connect Broker
           </Link>
         </div>
@@ -77,8 +77,8 @@ export default function FundsPage() {
               { label: 'Available Margin', value: funds.available_margin || 0, color: 'var(--green)' },
             ].map(m => (
               <div key={m.label} className="t-panel" style={{ padding: 12 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 4 }}>{m.label}</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 4 }}>{m.label}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
                   ₹{m.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </div>
                 <div className="t-progress">
@@ -89,7 +89,7 @@ export default function FundsPage() {
           </div>
 
           <div className="t-panel" style={{ padding: 12 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>Margin Breakdown</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>Margin Breakdown</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
               {[
                 { label: 'Pay-in', value: funds.payin ?? 0 },
@@ -98,8 +98,8 @@ export default function FundsPage() {
                 { label: 'MTM (Unrealized)', value: funds.m2m_unrealised ?? 0 },
               ].map(m => (
                 <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--violet-dim)' }}>
-                  <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.value >= 0 ? 'var(--text)' : 'var(--text-red)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 17, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.value >= 0 ? 'var(--text)' : 'var(--text-red)' }}>
                     ₹{m.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </div>
                 </div>
@@ -109,7 +109,7 @@ export default function FundsPage() {
 
           {(dailyPnl || cumPnl) && (
             <div className="t-panel" style={{ padding: 12 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>P&L</div>
+              <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>P&L</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
                 {/*
                   `value` is `number | null`, and null renders as a dash. The old version
@@ -120,18 +120,18 @@ export default function FundsPage() {
                 */}
                 {pnlTiles(dailyPnlData, cumPnlData).map(m => (
                   <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--violet-dim)' }}>
-                    <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.tone === 'unknown' ? 'var(--text-faint)' : m.tone === 'up' ? 'var(--text-green)' : 'var(--text-red)' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 17, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.tone === 'unknown' ? 'var(--text-faint)' : m.tone === 'up' ? 'var(--text-green)' : 'var(--text-red)' }}>
                       {formatPnlTile(m.value)}
                     </div>
-                    <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 1 }}>{m.hint}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>{m.hint}</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <p style={{ fontSize: 10, color: 'var(--text-faint)', margin: 0 }}>
+          <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: 0 }}>
             Funds data is fetched live from your broker. Broker connection and tokens are managed on the Brokers page.
           </p>
         </>

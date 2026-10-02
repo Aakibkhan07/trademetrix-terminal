@@ -9,11 +9,11 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 12, padding: 24, textAlign: 'center' }}>
-      <div style={{ fontSize: 32 }}>⚠️</div>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
+      <div style={{ fontSize: 38 }}>⚠️</div>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
         Something went wrong
       </h1>
-      <p style={{ fontSize: 12, color: 'var(--text-sub)', margin: 0, maxWidth: 420 }}>
+      <p style={{ fontSize: 14, color: 'var(--text-sub)', margin: 0, maxWidth: 420 }}>
         The page hit an unexpected error. Your data is safe — try reloading this view.
       </p>
       <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
@@ -22,7 +22,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           style={{
             padding: '8px 16px', borderRadius: 'var(--radius-md)',
             background: 'var(--gradient-primary)', border: 'none',
-            color: 'var(--text-inverse)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            color: 'var(--text-inverse)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
           }}
         >
           Try again
@@ -30,14 +30,14 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         <a href="/dashboard" style={{
           padding: '8px 16px', borderRadius: 'var(--radius-md)',
           background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-          color: 'var(--text)', fontSize: 12, fontWeight: 700, textDecoration: 'none',
+          color: 'var(--text)', fontSize: 14, fontWeight: 700, textDecoration: 'none',
           display: 'inline-flex', alignItems: 'center',
         }}>
           Back to Dashboard
         </a>
       </div>
       {process.env.NODE_ENV === 'development' && (
-        <pre style={{ fontSize: 10, color: 'var(--text-faint)', maxWidth: 640, overflow: 'auto', textAlign: 'left', marginTop: 8 }}>
+        <pre style={{ fontSize: 12, color: 'var(--text-faint)', maxWidth: 640, overflow: 'auto', textAlign: 'left', marginTop: 8 }}>
           {error.message}
         </pre>
       )}

@@ -35,15 +35,15 @@ export function ChainPanel({ rows, metrics, spot, selectedStrike, selectedSide, 
   return (
     <div className="t-panel" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid color-mix(in srgb, var(--text-inverse) 6%, transparent)' }}>
-        <span className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em' }}>OPTION CHAIN</span>
+        <span className="t-faint" style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em' }}>OPTION CHAIN</span>
         {spot !== null && atmStrike !== null && (
-          <span className="t-faint" style={{ fontSize: 10 }}>
+          <span className="t-faint" style={{ fontSize: 12 }}>
             ATM <b style={{ color: 'var(--text)' }}>{atmStrike.toLocaleString('en-IN')}</b>
             {spot !== null && <>&nbsp;· SPOT <b style={{ color: 'var(--text)' }}>{spot.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</b></>}
           </span>
         )}
         <span style={{ flex: 1 }} />
-        <button type="button" className="t-chip" style={{ fontSize: 10 }} onClick={() => setAdvanced(v => !v)} data-kb="chain-advanced">
+        <button type="button" className="t-chip" style={{ fontSize: 12 }} onClick={() => setAdvanced(v => !v)} data-kb="chain-advanced">
           {advanced ? 'Hide' : 'Show'} {advanced ? '▲' : '▼'} Advanced
         </button>
       </div>
@@ -51,25 +51,25 @@ export function ChainPanel({ rows, metrics, spot, selectedStrike, selectedSide, 
       {advanced && metrics.pcr !== null && (
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', padding: '8px 12px', borderBottom: '1px solid color-mix(in srgb, var(--text-inverse) 6%, transparent)' }}>
           <div>
-            <div className="t-faint" style={{ fontSize: 9 }}>PCR</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{metrics.pcr.toFixed(2)}</div>
+            <div className="t-faint" style={{ fontSize: 11 }}>PCR</div>
+            <div style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{metrics.pcr.toFixed(2)}</div>
           </div>
           {metrics.maxPain !== null && (
             <div>
-              <div className="t-faint" style={{ fontSize: 9 }}>Max Pain</div>
-              <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{metrics.maxPain.toLocaleString('en-IN')}</div>
+              <div className="t-faint" style={{ fontSize: 11 }}>Max Pain</div>
+              <div style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{metrics.maxPain.toLocaleString('en-IN')}</div>
             </div>
           )}
-          <div className="t-faint" style={{ alignSelf: 'center', fontSize: 9 }}>
+          <div className="t-faint" style={{ alignSelf: 'center', fontSize: 11 }}>
             IV · OI · Volume shown per side below
           </div>
         </div>
       )}
 
       <div style={{ overflowX: 'auto' }}>
-        <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+        <table className="t-table" style={{ fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ fontSize: 9, color: 'var(--text-faint)' }}>
+            <tr style={{ fontSize: 11, color: 'var(--text-faint)' }}>
               <th style={{ textAlign: 'right', padding: '4px 6px' }}>CE {advanced ? 'IV' : 'LTP'}</th>
               {advanced && <th style={{ textAlign: 'right', padding: '4px 6px' }}>OI</th>}
               {advanced && <th style={{ textAlign: 'right', padding: '4px 6px' }}>Vol</th>}
@@ -103,7 +103,7 @@ export function ChainPanel({ rows, metrics, spot, selectedStrike, selectedSide, 
                         onClick={e => { e.stopPropagation(); onSelectSide(r.strike, 'CE') }}
                       >
                         {r.call.ltp > 0 ? r.call.ltp.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : '—'}
-                        {advanced && <span className="t-faint" style={{ fontSize: 8, marginLeft: 3 }}>{r.call.iv > 0 ? r.call.iv.toFixed(0) + '%' : ''}</span>}
+                        {advanced && <span className="t-faint" style={{ fontSize: 10, marginLeft: 3 }}>{r.call.iv > 0 ? r.call.iv.toFixed(0) + '%' : ''}</span>}
                       </button>
                     </div>
                   </td>
@@ -123,7 +123,7 @@ export function ChainPanel({ rows, metrics, spot, selectedStrike, selectedSide, 
                         style={{ minWidth: 0 }}
                         onClick={e => { e.stopPropagation(); onSelectSide(r.strike, 'PE') }}
                       >
-                        {advanced && <span className="t-faint" style={{ fontSize: 8, marginRight: 3 }}>{r.put.iv > 0 ? r.put.iv.toFixed(0) + '%' : ''}</span>}
+                        {advanced && <span className="t-faint" style={{ fontSize: 10, marginRight: 3 }}>{r.put.iv > 0 ? r.put.iv.toFixed(0) + '%' : ''}</span>}
                         {r.put.ltp > 0 ? r.put.ltp.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : '—'}
                       </button>
                     </div>
@@ -136,7 +136,7 @@ export function ChainPanel({ rows, metrics, spot, selectedStrike, selectedSide, 
       </div>
 
       {notionalLots > 0 && selectedStrike !== null && (
-        <div style={{ padding: '6px 12px', borderTop: '1px solid color-mix(in srgb, var(--text-inverse) 6%, transparent)', fontSize: 10, color: 'var(--text-faint)' }}>
+        <div style={{ padding: '6px 12px', borderTop: '1px solid color-mix(in srgb, var(--text-inverse) 6%, transparent)', fontSize: 12, color: 'var(--text-faint)' }}>
           Selected <b style={{ color: 'var(--text)' }}>{selectedStrike.toLocaleString('en-IN')}</b> — quantity uses the order panel lots. Clicking a row never places an order.
         </div>
       )}

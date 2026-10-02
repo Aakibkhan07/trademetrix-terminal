@@ -65,23 +65,23 @@ export default function OptionChainPanel({ symbol, name, onClose }: OptionChainP
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 800 }}>☰ Option Chain</div>
-          <div className="t-faint" style={{ fontSize: 10 }}>{name} · {symbol}{pcr ? ` · PCR ${pcr}` : ''}</div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>☰ Option Chain</div>
+          <div className="t-faint" style={{ fontSize: 12 }}>{name} · {symbol}{pcr ? ` · PCR ${pcr}` : ''}</div>
         </div>
         <button className="t-btn t-btn-sm t-btn-ghost" onClick={onClose}>✕</button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
-        {loading && <span className="t-faint" style={{ fontSize: 11 }}>Loading chain…</span>}
+        {loading && <span className="t-faint" style={{ fontSize: 13 }}>Loading chain…</span>}
         {!loading && rows.length === 0 && (
-          <span className="t-faint" style={{ fontSize: 11 }}>Option chain unavailable for {name}.</span>
+          <span className="t-faint" style={{ fontSize: 13 }}>Option chain unavailable for {name}.</span>
         )}
         {rows.length > 0 && (
           <table className="t-table" style={{ width: '100%', minWidth: 0, borderCollapse: 'collapse' }}>
             <thead style={{ position: 'sticky', top: 0, background: 'var(--panel)', zIndex: 2 }}>
               <tr>
-                <th style={{ fontSize: 8 }}>CE LTP</th><th style={{ fontSize: 8 }}>CE OI</th>
-                <th style={{ fontSize: 8 }}>STRIKE</th>
-                <th style={{ fontSize: 8 }}>PE OI</th><th style={{ fontSize: 8 }}>PE LTP</th>
+                <th style={{ fontSize: 10 }}>CE LTP</th><th style={{ fontSize: 10 }}>CE OI</th>
+                <th style={{ fontSize: 10 }}>STRIKE</th>
+                <th style={{ fontSize: 10 }}>PE OI</th><th style={{ fontSize: 10 }}>PE LTP</th>
               </tr>
             </thead>
             <tbody>
@@ -93,18 +93,18 @@ export default function OptionChainPanel({ symbol, name, onClose }: OptionChainP
                 return (
                   <tr key={r.strikePrice} style={{ background: isAtm ? 'var(--cyan-dim)' : undefined }}>
                     <td>
-                      <span className="t-num" style={{ fontSize: 10, color: itmCe ? 'var(--green)' : undefined }}>{fmt(r.call?.ltp)}</span>
-                      <button className="t-btn t-btn-xs t-btn-ghost" title="Buy CE" style={{ marginLeft: 4, padding: 0, fontSize: 10, color: 'var(--green)' }}
+                      <span className="t-num" style={{ fontSize: 12, color: itmCe ? 'var(--green)' : undefined }}>{fmt(r.call?.ltp)}</span>
+                      <button className="t-btn t-btn-xs t-btn-ghost" title="Buy CE" style={{ marginLeft: 4, padding: 0, fontSize: 12, color: 'var(--green)' }}
                         onClick={() => openQuickOrder(symbol, name, 'BUY')}>B</button>
                     </td>
-                    <td><span className="t-num t-faint" style={{ fontSize: 9 }}>{oiFmt(r.call?.oi)}</span></td>
+                    <td><span className="t-num t-faint" style={{ fontSize: 11 }}>{oiFmt(r.call?.oi)}</span></td>
                     <td style={{ textAlign: 'center' }}>
-                      <span className={`t-num ${isAtm ? 't-up' : ''}`} style={{ fontSize: 10, fontWeight: 800 }}>{r.strikePrice}</span>
+                      <span className={`t-num ${isAtm ? 't-up' : ''}`} style={{ fontSize: 12, fontWeight: 800 }}>{r.strikePrice}</span>
                     </td>
-                    <td><span className="t-num t-faint" style={{ fontSize: 9 }}>{oiFmt(r.put?.oi)}</span></td>
+                    <td><span className="t-num t-faint" style={{ fontSize: 11 }}>{oiFmt(r.put?.oi)}</span></td>
                     <td>
-                      <span className="t-num" style={{ fontSize: 10, color: itmPe ? 'var(--red)' : undefined }}>{fmt(r.put?.ltp)}</span>
-                      <button className="t-btn t-btn-xs t-btn-ghost" title="Sell PE" style={{ marginLeft: 4, padding: 0, fontSize: 10, color: 'var(--red)' }}
+                      <span className="t-num" style={{ fontSize: 12, color: itmPe ? 'var(--red)' : undefined }}>{fmt(r.put?.ltp)}</span>
+                      <button className="t-btn t-btn-xs t-btn-ghost" title="Sell PE" style={{ marginLeft: 4, padding: 0, fontSize: 12, color: 'var(--red)' }}
                         onClick={() => openQuickOrder(symbol, name, 'SELL')}>S</button>
                     </td>
                   </tr>
@@ -113,7 +113,7 @@ export default function OptionChainPanel({ symbol, name, onClose }: OptionChainP
             </tbody>
           </table>
         )}
-        <div className="t-faint" style={{ fontSize: 9, marginTop: 8, lineHeight: 1.5 }}>
+        <div className="t-faint" style={{ fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
           Buy/Sell on the chain opens the order drawer (strike snapping handled by the engine on execution).
         </div>
       </div>

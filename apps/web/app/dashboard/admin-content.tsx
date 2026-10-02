@@ -70,7 +70,7 @@ function SkeletonCard() {
 export function NotAuthorized() {
   return (
     <div>
-      <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13 }}>
+      <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 16 }}>
         You do not have admin access.
       </div>
     </div>
@@ -130,9 +130,9 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
   if (error) {
     return (
       <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--red)' }}>
-        <div className="t-faint" style={{ fontSize: 9, fontWeight: 600 }}>ERROR</div>
-        <div style={{ fontSize: 13, marginTop: 4 }}>Failed to load dashboard stats.</div>
-        <div className="t-faint" style={{ fontSize: 11, marginTop: 4 }}>{error.message}</div>
+        <div className="t-faint" style={{ fontSize: 11, fontWeight: 600 }}>ERROR</div>
+        <div style={{ fontSize: 16, marginTop: 4 }}>Failed to load dashboard stats.</div>
+        <div className="t-faint" style={{ fontSize: 13, marginTop: 4 }}>{error.message}</div>
       </div>
     )
   }
@@ -147,26 +147,26 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
     <div>
       <div className="t-grid-4" style={{ gap: 10, marginBottom: 16 }}>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--cyan)' }}>
-          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>TOTAL USERS</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+          <div className="t-faint" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>TOTAL USERS</div>
+          <div style={{ fontSize: 31, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
             {statsData ? statsData.total_users : '—'}
           </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--green)' }}>
-          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ACTIVE ASSIGNMENTS</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+          <div className="t-faint" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>ACTIVE ASSIGNMENTS</div>
+          <div style={{ fontSize: 31, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
             {statsData ? statsData.active_assignments : '—'}
           </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--violet)' }}>
-          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>ADMINS</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+          <div className="t-faint" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>ADMINS</div>
+          <div style={{ fontSize: 31, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
             {statsData ? statsData.total_admins : '—'}
           </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', borderLeft: '3px solid var(--amber)' }}>
-          <div className="t-faint" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>STRATEGIES</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+          <div className="t-faint" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em' }}>STRATEGIES</div>
+          <div style={{ fontSize: 31, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
             {statsData ? statsData.total_strategies : '—'}
           </div>
         </div>
@@ -174,57 +174,57 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
 
       {/* Quick Actions */}
       <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 16 }}>
-        <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>QUICK ACTIONS</h3>
+        <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, letterSpacing: '0.03em' }}>QUICK ACTIONS</h3>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=users')}
-            style={{ fontSize: 10, background: 'var(--cyan-dim)', borderColor: 'color-mix(in srgb, var(--cyan) 20%, transparent)' }}>
+            style={{ fontSize: 12, background: 'var(--cyan-dim)', borderColor: 'color-mix(in srgb, var(--cyan) 20%, transparent)' }}>
             Manage Users
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=users')}
-            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--violet) 20%, transparent)' }}>
+            style={{ fontSize: 12, background: 'color-mix(in srgb, var(--violet) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--violet) 20%, transparent)' }}>
             Assign Strategy
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=trades')}
-            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
+            style={{ fontSize: 12, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
             Place Trade
           </button>
           <button className="t-btn t-btn-sm" onClick={() => onBroadcast?.()}
-            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
+            style={{ fontSize: 12, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
             Broadcast
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=risk')}
-            style={{ fontSize: 10, background: 'var(--red-dim)', borderColor: 'color-mix(in srgb, var(--red) 20%, transparent)' }}>
+            style={{ fontSize: 12, background: 'var(--red-dim)', borderColor: 'color-mix(in srgb, var(--red) 20%, transparent)' }}>
             Risk Controls
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=audit')}
-            style={{ fontSize: 10 }}>
+            style={{ fontSize: 12 }}>
             Audit Log
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=trading-logs')}
-            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
+            style={{ fontSize: 12, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
             Trading Logs
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=activity')}
-            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
+            style={{ fontSize: 12, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--amber) 20%, transparent)' }}>
             Activity Timeline
           </button>
           <button className="t-btn t-btn-sm" onClick={() => router.push('/dashboard?tab=pnl')}
-            style={{ fontSize: 10, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
+            style={{ fontSize: 12, background: 'color-mix(in srgb, var(--green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--green) 20%, transparent)' }}>
             P&L Dashboard
           </button>
         </div>
       </div>
 
       <div className="t-panel" style={{ padding: '14px 16px' }}>
-        <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>OVERVIEW</h3>
+        <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, letterSpacing: '0.03em' }}>OVERVIEW</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span className="t-faint">Tier Distribution</span>
               <span style={{ fontWeight: 600 }}>
                 {statsData ? Object.entries(statsData.tier_distribution).filter(([,c]) => c > 0).length + ' tiers active' : '—'}
               </span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span className="t-faint">Strategies per User</span>
               <span style={{ fontWeight: 600 }}>
                 {statsData && statsData.total_users > 0
@@ -233,7 +233,7 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
                 }
               </span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span className="t-faint">Admin Ratio</span>
               <span style={{ fontWeight: 600 }}>
                 {statsData && statsData.total_users > 0
@@ -247,7 +247,7 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
 
       {statsData && (
         <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 16 }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>TIER DISTRIBUTION</h3>
+          <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, letterSpacing: '0.03em' }}>TIER DISTRIBUTION</h3>
           <div style={{ display: 'flex', gap: 4, height: 6, borderRadius: 3, overflow: 'hidden' }}>
             {['free', 'starter', 'pro', 'enterprise'].map(tier => {
               const count = statsData.tier_distribution[tier] || 0
@@ -269,7 +269,7 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
               if (count === 0) return null
               const color = tier === 'free' ? 'var(--text-sub)' : tier === 'starter' ? 'var(--cyan)' : tier === 'pro' ? 'var(--violet)' : 'var(--red)'
               return (
-                <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+                <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
                   <span style={{ textTransform: 'capitalize', color: 'var(--text-sub)' }}>{tier}</span>
                   <span style={{ fontWeight: 600 }}>{count}</span>
@@ -282,7 +282,7 @@ function DashboardTab({ onBroadcast }: { onBroadcast?: () => void }) {
 
       {!statsData && (
         <div className="t-panel" style={{ padding: '14px 16px' }}>
-          <div className="t-faint" style={{ fontSize: 12 }}>No stats available yet.</div>
+          <div className="t-faint" style={{ fontSize: 14 }}>No stats available yet.</div>
         </div>
       )}
     </div>
@@ -383,12 +383,12 @@ function UsersTab() {
   return (
     <div>
       {tierError && (
-        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 12, marginBottom: 12 }}>
+        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 14, marginBottom: 12 }}>
           {tierError}
         </div>
       )}
       {tierSuccess && (
-        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--green) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--green) 20%, transparent)', borderRadius: 8, color: 'var(--green)', fontSize: 12, marginBottom: 12 }}>
+        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--green) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--green) 20%, transparent)', borderRadius: 8, color: 'var(--green)', fontSize: 14, marginBottom: 12 }}>
           {tierSuccess}
         </div>
       )}
@@ -399,12 +399,12 @@ function UsersTab() {
             placeholder="Search users..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ marginBottom: 8, fontSize: 12 }}
+            style={{ marginBottom: 8, fontSize: 14 }}
           />
           {usersLoading && Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
           {!usersLoading && filteredUsers.length === 0 && (
             <div style={{ background: 'color-mix(in srgb, var(--cyan) 6%, transparent)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 10, padding: '12px 16px' }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--cyan)', fontWeight: 500 }}>
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--cyan)', fontWeight: 500 }}>
                 {search ? 'No matching users' : 'No users found'}
               </p>
             </div>
@@ -420,14 +420,14 @@ function UsersTab() {
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
                   {u.full_name || u.email.split('@')[0]}
                 </span>
                 <TierBadge tier={u.subscription_tier} small />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{u.email}</span>
-                <span style={{ fontSize: 9, color: 'var(--text-sub)', background: 'var(--violet-dim)', borderRadius: 4, padding: '1px 6px' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{u.email}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-sub)', background: 'var(--violet-dim)', borderRadius: 4, padding: '1px 6px' }}>
                   {u.active_assignments}/{u.max_active_strategies}
                 </span>
               </div>
@@ -438,55 +438,55 @@ function UsersTab() {
         <div style={{ flex: 1, minWidth: 0 }}>
           {!selectedUser && !usersLoading && (
             <div className="t-panel" style={{ padding: 20, textAlign: 'center' }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>Select a user from the list.</p>
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>Select a user from the list.</p>
             </div>
           )}
           {selectedUser && (
             <div className="t-panel" style={{ padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                 <div>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 15, margin: 0 }}>{selectedUser.full_name || selectedUser.email}</h2>
-                  <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--text-faint)' }}>{selectedUser.email}</p>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, margin: 0 }}>{selectedUser.full_name || selectedUser.email}</h2>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>{selectedUser.email}</p>
                 </div>
                 <TierBadge tier={selectedUser.subscription_tier} />
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <label style={{ color: 'var(--text-sub)', fontSize: 10, display: 'block', marginBottom: 3, fontWeight: 600 }}>Subscription Tier</label>
+                <label style={{ color: 'var(--text-sub)', fontSize: 12, display: 'block', marginBottom: 3, fontWeight: 600 }}>Subscription Tier</label>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <select className="t-select" value={selectedUser.subscription_tier}
-                    onChange={(e) => handleTierChange(e.target.value)} disabled={tierUpdating} style={{ maxWidth: 160, fontSize: 12 }}>
+                    onChange={(e) => handleTierChange(e.target.value)} disabled={tierUpdating} style={{ maxWidth: 160, fontSize: 14 }}>
                     {TIERS.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                   </select>
-                  {tierUpdating && <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>Updating...</span>}
+                  {tierUpdating && <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>Updating...</span>}
                 </div>
               </div>
 
-              <div style={{ fontSize: 11, color: 'var(--text-sub)', marginBottom: 12 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-sub)', marginBottom: 12 }}>
                 Active strategies: {activeAssignments.length}/{selectedUser.max_active_strategies}
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: '0 0 6px', color: 'var(--text)' }}>Assigned ({activeAssignments.length})</h3>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 6px', color: 'var(--text)' }}>Assigned ({activeAssignments.length})</h3>
                 {assignmentsLoading && <SkeletonLine w="60%" />}
-                {!assignmentsLoading && activeAssignments.length === 0 && <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0 }}>None.</p>}
+                {!assignmentsLoading && activeAssignments.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-faint)', margin: 0 }}>None.</p>}
                 {!assignmentsLoading && activeAssignments.map(a => {
                   const info = catalog.find(c => c.key === a.strategy_key)
                   return (
                     <div key={a.id} className="t-panel" style={{ padding: '6px 10px', marginBottom: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{info?.name || a.strategy_key}</span>
-                        <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 6 }}><TierBadge tier={a.required_tier} small /></span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{info?.name || a.strategy_key}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 6 }}><TierBadge tier={a.required_tier} small /></span>
                       </div>
-                      <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleUnassign(a.id)} style={{ fontSize: 9 }}>Remove</button>
+                      <button className="t-btn t-btn-sm t-btn-danger" onClick={() => handleUnassign(a.id)} style={{ fontSize: 11 }}>Remove</button>
                     </div>
                   )
                 })}
               </div>
 
               <div>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: '0 0 6px', color: 'var(--text)' }}>Available ({available.length})</h3>
-                {available.length === 0 && <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0 }}>All assigned.</p>}
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 6px', color: 'var(--text)' }}>Available ({available.length})</h3>
+                {available.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-faint)', margin: 0 }}>All assigned.</p>}
                 {available.map(s => {
                   const userTierRank = TIER_ORDER[selectedUser.subscription_tier] ?? 0
                   const reqTierRank = TIER_ORDER[s.required_tier] ?? 99
@@ -496,11 +496,11 @@ function UsersTab() {
                   return (
                     <div key={s.key} className="t-panel" style={{ padding: '6px 10px', marginBottom: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{s.name}</span>
-                        <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 6 }}><TierBadge tier={s.required_tier} small /></span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{s.name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 6 }}><TierBadge tier={s.required_tier} small /></span>
                       </div>
                       <button className={`t-btn t-btn-sm`} onClick={() => !disabled && handleAssign(s.key)}
-                        disabled={disabled} style={{ fontSize: 9, opacity: disabled ? 0.5 : 1 }}
+                        disabled={disabled} style={{ fontSize: 11, opacity: disabled ? 0.5 : 1 }}
                         title={!canAssign ? `Requires ${s.required_tier}` : atLimit ? 'Limit reached' : `Assign ${s.name}`}>
                         {canAssign ? (atLimit ? 'limit' : 'Assign') : `needs ${s.required_tier}`}
                       </button>
@@ -567,11 +567,11 @@ function BrokersTab() {
       {/* Admin Broker Credentials Setup */}
       <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: 0, color: 'var(--text)' }}>My Broker Credentials</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, margin: 0, color: 'var(--text)' }}>My Broker Credentials</h3>
         </div>
         <div style={{ marginBottom: 10 }}>
-          <label className="t-label" style={{ fontSize: 10, marginBottom: 4 }}>Select Broker</label>
-          <select className="t-input" style={{ fontSize: 11, width: '100%' }}
+          <label className="t-label" style={{ fontSize: 12, marginBottom: 4 }}>Select Broker</label>
+          <select className="t-input" style={{ fontSize: 13, width: '100%' }}
             value={selectedBroker}
             onChange={e => { setSelectedBroker(e.target.value); setFields({}); setAdditionalParams({}); setMsg(''); setAuthUrl('') }}>
             <option value="">-- Choose a broker --</option>
@@ -586,7 +586,7 @@ function BrokersTab() {
           return (
             <>
               {meta.instructions && (
-                <div style={{ fontSize: 10, color: 'var(--text-sub)', lineHeight: 1.5, marginBottom: 10, padding: 8, background: 'color-mix(in srgb, var(--violet) 6%, transparent)', borderRadius: 6, whiteSpace: 'pre-line' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.5, marginBottom: 10, padding: 8, background: 'color-mix(in srgb, var(--violet) 6%, transparent)', borderRadius: 6, whiteSpace: 'pre-line' }}>
                   {meta.instructions}
                 </div>
               )}
@@ -596,7 +596,7 @@ function BrokersTab() {
                     type={f.type === 'password' ? 'password' : 'text'}
                     value={fields[f.key] || ''}
                     placeholder={f.placeholder || f.label}
-                    style={{ fontSize: 11, width: '100%' }}
+                    style={{ fontSize: 13, width: '100%' }}
                     onChange={e => setFields(s => ({ ...s, [f.key]: e.target.value }))} />
                 ))}
                 {meta.has_additional_params && meta.additional_params_fields?.map(f => (
@@ -604,16 +604,16 @@ function BrokersTab() {
                     type={f.type === 'password' ? 'password' : 'text'}
                     value={additionalParams[f.key] || ''}
                     placeholder={f.placeholder || f.label}
-                    style={{ fontSize: 11, width: '100%' }}
+                    style={{ fontSize: 13, width: '100%' }}
                     onChange={e => setAdditionalParams(s => ({ ...s, [f.key]: e.target.value }))} />
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button className="t-btn t-btn-sm" onClick={handleSave} disabled={saving} style={{ fontSize: 10 }}>
+                <button className="t-btn t-btn-sm" onClick={handleSave} disabled={saving} style={{ fontSize: 12 }}>
                   {saving ? 'Saving...' : 'Save Credentials'}
                 </button>
                 {meta.oauth_available && (
-                  <button className="t-btn t-btn-sm" style={{ fontSize: 10 }}
+                  <button className="t-btn t-btn-sm" style={{ fontSize: 12 }}
                     onClick={async () => {
                       try {
                         if (selectedBroker === 'fyers') {
@@ -631,11 +631,11 @@ function BrokersTab() {
               </div>
               {authUrl && (
                 <a href={authUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-block', marginTop: 8, fontSize: 10, color: 'var(--cyan)' }}>
+                  style={{ display: 'inline-block', marginTop: 8, fontSize: 12, color: 'var(--cyan)' }}>
                   Open {getMeta(selectedBroker)?.display_name || selectedBroker} login page
                 </a>
               )}
-              {msg && <p style={{ fontSize: 10, margin: '4px 0 0', color: msg.includes('saved') || msg.includes('success') ? 'var(--green)' : 'var(--red)' }}>{msg}</p>}
+              {msg && <p style={{ fontSize: 12, margin: '4px 0 0', color: msg.includes('saved') || msg.includes('success') ? 'var(--green)' : 'var(--red)' }}>{msg}</p>}
             </>
           )
         })()}
@@ -643,25 +643,25 @@ function BrokersTab() {
 
       {/* All user connections */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <p className="t-sub" style={{ fontSize: 12, margin: 0 }}>All users’ broker connections</p>
-        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
+        <p className="t-sub" style={{ fontSize: 14, margin: 0 }}>All users’ broker connections</p>
+        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 12 }}>Refresh</button>
       </div>
       {loading && <SkeletonCard />}
       {!loading && brokers.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No broker connections found.</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No broker connections found.</p>
         </div>
       )}
       {!loading && brokers.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
+          <table className="t-table" style={{ fontSize: 13, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>USER</th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>BROKER</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ACTIVE</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>AUTH</th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>CONNECTED</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>USER</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>BROKER</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>ACTIVE</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>AUTH</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>CONNECTED</th>
               </tr>
             </thead>
             <tbody>
@@ -671,7 +671,7 @@ function BrokersTab() {
                   <tr key={b.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                     <td style={{ padding: '8px 10px' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text)' }}>{b.full_name || b.email?.split('@')[0] || '—'}</div>
-                      <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>{b.email}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{b.email}</div>
                     </td>
                     <td style={{ padding: '8px 10px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -679,7 +679,7 @@ function BrokersTab() {
                         <span>{meta?.display_name || b.broker}</span>
                       </span>
                       {b.broker === 'fyers' && !b.has_access_token && (
-                        <button className="t-btn t-btn-xs" style={{ marginLeft: 6, fontSize: 8 }}
+                        <button className="t-btn t-btn-xs" style={{ marginLeft: 6, fontSize: 10 }}
                           onClick={async () => {
                             try {
                               const res = await api.get<{ auth_url: string }>('/brokers/fyers/auth-url')
@@ -698,11 +698,11 @@ function BrokersTab() {
                     </td>
                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                       {b.has_access_token
-                        ? <span style={{ color: 'var(--green)', fontSize: 10 }}>Authenticated</span>
-                        : <span style={{ color: 'var(--red)', fontSize: 10 }}>Not authorized</span>
+                        ? <span style={{ color: 'var(--green)', fontSize: 12 }}>Authenticated</span>
+                        : <span style={{ color: 'var(--red)', fontSize: 12 }}>Not authorized</span>
                       }
                     </td>
-                    <td style={{ padding: '8px 10px', fontSize: 10, color: 'var(--text-faint)' }}>
+                    <td style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-faint)' }}>
                       {b.created_at ? new Date(b.created_at).toLocaleDateString() : '—'}
                     </td>
                   </tr>
@@ -750,25 +750,25 @@ function FyersTokenSection() {
   return (
     <div className="t-panel" style={{ padding: 16, marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: 0, color: 'var(--text)' }}>Fyers Token Management</h3>
-        <button className="t-btn t-btn-sm" onClick={runValidate} disabled={loading} style={{ fontSize: 10 }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, margin: 0, color: 'var(--text)' }}>Fyers Token Management</h3>
+        <button className="t-btn t-btn-sm" onClick={runValidate} disabled={loading} style={{ fontSize: 12 }}>
           {loading ? 'Checking...' : 'Validate All Tokens'}
         </button>
       </div>
-      {msg && <p style={{ fontSize: 10, margin: '0 0 10px', color: msg.includes('expired') ? 'var(--red)' : 'var(--green)' }}>{msg}</p>}
+      {msg && <p style={{ fontSize: 12, margin: '0 0 10px', color: msg.includes('expired') ? 'var(--red)' : 'var(--green)' }}>{msg}</p>}
       {healthResults && healthResults.length === 0 && (
-        <p style={{ fontSize: 11, color: 'var(--text-faint)' }}>No Fyers credentials found.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>No Fyers credentials found.</p>
       )}
       {healthResults && healthResults.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
+          <table className="t-table" style={{ fontSize: 13, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>USER</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>TOKEN</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>STATUS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ERROR</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ACTION</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>USER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>TOKEN</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>STATUS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>ERROR</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>ACTION</th>
               </tr>
             </thead>
             <tbody>
@@ -779,26 +779,26 @@ function FyersTokenSection() {
                   <tr key={r.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                     <td style={{ padding: '6px 8px' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text)' }}>{r.full_name || '—'}</div>
-                      <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>{r.email}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{r.email}</div>
                     </td>
                     <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                       <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: statusColor }} />
                     </td>
-                    <td style={{ padding: '6px 8px', textAlign: 'center', fontSize: 10, fontWeight: 600, color: statusColor }}>
+                    <td style={{ padding: '6px 8px', textAlign: 'center', fontSize: 12, fontWeight: 600, color: statusColor }}>
                       {statusText}
                     </td>
-                    <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--red)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--red)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {r.error || '—'}
                     </td>
                     <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                       {(!r.has_token || !r.valid) && (
-                        <button className="t-btn t-btn-xs" style={{ fontSize: 8 }}
+                        <button className="t-btn t-btn-xs" style={{ fontSize: 10 }}
                           onClick={() => reAuth(r.id)}>
                           Re-authorize
                         </button>
                       )}
                       {r.has_token && r.valid && (
-                        <button className="t-btn t-btn-xs" style={{ fontSize: 8 }}
+                        <button className="t-btn t-btn-xs" style={{ fontSize: 10 }}
                           onClick={() => reAuth(r.id)}>
                           Refresh
                         </button>
@@ -875,11 +875,11 @@ function StrategyComparisonChart({ catalog, assignments, users, compact }: {
                         <td style={{ padding: '5px 8px', color: 'var(--text-sub)', fontSize: compact ? 8 : 9 }}>{s.description}</td>
                         {!compact && <td style={{ padding: '5px 8px', textAlign: 'center' }}>
                           <span style={{ fontWeight: 600 }}>{assigned.length}</span>
-                          <span className="t-faint" style={{ fontSize: 8, marginLeft: 2 }}>/ {users.length}</span>
+                          <span className="t-faint" style={{ fontSize: 10, marginLeft: 2 }}>/ {users.length}</span>
                         </td>}
                         {!compact && <td style={{ padding: '5px 8px', textAlign: 'center' }}>
                           {assigned.length < users.length && (
-                            <span style={{ fontSize: 9, color: 'var(--cyan)', cursor: 'default' }}>Upgrade eligible</span>
+                            <span style={{ fontSize: 11, color: 'var(--cyan)', cursor: 'default' }}>Upgrade eligible</span>
                           )}
                         </td>}
                       </tr>
@@ -1033,10 +1033,10 @@ function StrategiesTab() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <p className="t-sub" style={{ fontSize: 11, margin: 0 }}>Strategy catalog &amp; assignment management</p>
+        <p className="t-sub" style={{ fontSize: 13, margin: 0 }}>Strategy catalog &amp; assignment management</p>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button className="t-btn t-btn-sm" onClick={handleExport} style={{ fontSize: 9 }}>Export</button>
-          <label className="t-btn t-btn-sm" style={{ fontSize: 9, cursor: 'pointer' }}>
+          <button className="t-btn t-btn-sm" onClick={handleExport} style={{ fontSize: 11 }}>Export</button>
+          <label className="t-btn t-btn-sm" style={{ fontSize: 11, cursor: 'pointer' }}>
             Import
             <input type="file" accept=".json" style={{ display: 'none' }} onChange={async (e) => {
               const file = e.target.files?.[0]; if (!file) return; setImporting(true)
@@ -1049,10 +1049,10 @@ function StrategiesTab() {
               finally { setImporting(false); e.target.value = '' }
             }} />
           </label>
-          <button className="t-btn t-btn-sm" onClick={() => setShowBatchAssign(!showBatchAssign)} style={{ fontSize: 9 }}>
+          <button className="t-btn t-btn-sm" onClick={() => setShowBatchAssign(!showBatchAssign)} style={{ fontSize: 11 }}>
             {showBatchAssign ? 'Cancel' : 'Batch Assign'}
           </button>
-          <button className="t-btn t-btn-sm" onClick={() => setShowAddForm(!showAddForm)} style={{ fontSize: 10 }}>
+          <button className="t-btn t-btn-sm" onClick={() => setShowAddForm(!showAddForm)} style={{ fontSize: 12 }}>
             {showAddForm ? 'Cancel' : '+ Add Strategy'}
           </button>
         </div>
@@ -1060,19 +1060,19 @@ function StrategiesTab() {
 
       {showBatchAssign && (
         <div className="t-panel" style={{ padding: 12, marginBottom: 12 }}>
-          <h4 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600 }}>Batch Assign Strategy</h4>
+          <h4 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>Batch Assign Strategy</h4>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
             <select value={batchStrategy} onChange={e => setBatchStrategy(e.target.value)}
-              className="t-input" style={{ fontSize: 10, maxWidth: 200 }}>
+              className="t-input" style={{ fontSize: 12, maxWidth: 200 }}>
               <option value="">Select strategy...</option>
               {catalog.map(s => <option key={s.key} value={s.key}>{s.name}</option>)}
             </select>
-            <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{batchUsers.size} user(s) selected</span>
+            <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{batchUsers.size} user(s) selected</span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxHeight: 150, overflowY: 'auto', marginBottom: 8 }}>
             {users.map(u => (
               <label key={u.id} style={{
-                display: 'flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 4, fontSize: 10, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 4, fontSize: 12, cursor: 'pointer',
                 background: batchUsers.has(u.id) ? 'color-mix(in srgb, var(--violet) 15%, transparent)' : 'color-mix(in srgb, var(--violet) 5%, transparent)',
               }}>
                 <input type="checkbox" checked={batchUsers.has(u.id)} onChange={() => {
@@ -1085,30 +1085,30 @@ function StrategiesTab() {
             ))}
           </div>
           <button className="t-btn t-btn-xs" onClick={handleBatchAssign} disabled={!batchStrategy || batchUsers.size === 0}
-            style={{ fontSize: 9 }}>
+            style={{ fontSize: 11 }}>
             Assign to {batchUsers.size} user(s)
           </button>
-          {batchMsg && <span style={{ marginLeft: 8, fontSize: 10, color: batchMsg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>{batchMsg}</span>}
+          {batchMsg && <span style={{ marginLeft: 8, fontSize: 12, color: batchMsg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>{batchMsg}</span>}
         </div>
       )}
 
       {showAddForm && (
         <div className="t-panel" style={{ padding: 12, marginBottom: 12 }}>
-          <h4 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600 }}>New Strategy</h4>
+          <h4 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>New Strategy</h4>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             <input className="t-input" value={addKey} onChange={e => setAddKey(e.target.value)}
-              placeholder="Key (e.g. my_strategy)" style={{ fontSize: 10, width: 140 }} />
+              placeholder="Key (e.g. my_strategy)" style={{ fontSize: 12, width: 140 }} />
             <input className="t-input" value={addName} onChange={e => setAddName(e.target.value)}
-              placeholder="Display name" style={{ fontSize: 10, width: 140 }} />
+              placeholder="Display name" style={{ fontSize: 12, width: 140 }} />
             <input className="t-input" value={addDesc} onChange={e => setAddDesc(e.target.value)}
-              placeholder="Description" style={{ fontSize: 10, width: 200 }} />
-            <select value={addTier} onChange={e => setAddTier(e.target.value)} className="t-input" style={{ fontSize: 10, width: 90 }}>
+              placeholder="Description" style={{ fontSize: 12, width: 200 }} />
+            <select value={addTier} onChange={e => setAddTier(e.target.value)} className="t-input" style={{ fontSize: 12, width: 90 }}>
               {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            <select value={addCat} onChange={e => setAddCat(e.target.value)} className="t-input" style={{ fontSize: 10, width: 100 }}>
+            <select value={addCat} onChange={e => setAddCat(e.target.value)} className="t-input" style={{ fontSize: 12, width: 100 }}>
               {CAT_OPTIONS.map(c => <option key={c} value={c}>{catLabels[c]}</option>)}
             </select>
-            <button className="t-btn t-btn-xs" onClick={handleAdd} disabled={adding} style={{ fontSize: 9 }}>
+            <button className="t-btn t-btn-xs" onClick={handleAdd} disabled={adding} style={{ fontSize: 11 }}>
               {adding ? '...' : 'Create'}
             </button>
           </div>
@@ -1118,8 +1118,8 @@ function StrategiesTab() {
       {!catalogLoading && catalog.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <h3 style={{ fontSize: 11, fontWeight: 600, margin: 0, letterSpacing: '0.03em' }}>STRATEGY COMPARISON</h3>
-            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setShowChart(!showChart)} style={{ fontSize: 9 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, margin: 0, letterSpacing: '0.03em' }}>STRATEGY COMPARISON</h3>
+            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setShowChart(!showChart)} style={{ fontSize: 11 }}>
               {showChart ? 'Hide' : 'Show'}
             </button>
           </div>
@@ -1141,52 +1141,52 @@ function StrategiesTab() {
                 <div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 }}>
                     <input className="t-input" value={editName} onChange={e => setEditName(e.target.value)}
-                      placeholder="Name" style={{ fontSize: 10, width: 140 }} />
-                    <select value={editTier} onChange={e => setEditTier(e.target.value)} className="t-input" style={{ fontSize: 10, width: 80 }}>
+                      placeholder="Name" style={{ fontSize: 12, width: 140 }} />
+                    <select value={editTier} onChange={e => setEditTier(e.target.value)} className="t-input" style={{ fontSize: 12, width: 80 }}>
                       {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <select value={editCat} onChange={e => setEditCat(e.target.value)} className="t-input" style={{ fontSize: 10, width: 90 }}>
+                    <select value={editCat} onChange={e => setEditCat(e.target.value)} className="t-input" style={{ fontSize: 12, width: 90 }}>
                       {CAT_OPTIONS.map(c => <option key={c} value={c}>{catLabels[c]}</option>)}
                     </select>
-                    <span className="t-faint" style={{ fontSize: 9, fontFamily: 'var(--font-mono)' }}>{s.key}</span>
+                    <span className="t-faint" style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>{s.key}</span>
                   </div>
                   <input className="t-input" value={editDesc} onChange={e => setEditDesc(e.target.value)}
-                    placeholder="Description" style={{ fontSize: 10, width: '100%', marginBottom: 6 }} />
+                    placeholder="Description" style={{ fontSize: 12, width: '100%', marginBottom: 6 }} />
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="t-btn t-btn-xs" onClick={() => handleEditSave(s.key)} disabled={saving} style={{ fontSize: 9 }}>
+                    <button className="t-btn t-btn-xs" onClick={() => handleEditSave(s.key)} disabled={saving} style={{ fontSize: 11 }}>
                       {saving ? '...' : 'Save'}
                     </button>
-                    <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setEditingKey(null)} style={{ fontSize: 9 }}>Cancel</button>
+                    <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setEditingKey(null)} style={{ fontSize: 11 }}>Cancel</button>
                   </div>
                 </div>
               ) : (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</span>
+                      <span style={{ fontWeight: 600, fontSize: 16 }}>{s.name}</span>
                       <TierBadge tier={s.required_tier} small />
-                      {s.category && <span className="t-faint" style={{ fontSize: 8, textTransform: 'uppercase' }}>{catLabels[s.category] || s.category}</span>}
+                      {s.category && <span className="t-faint" style={{ fontSize: 10, textTransform: 'uppercase' }}>{catLabels[s.category] || s.category}</span>}
                     </div>
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                      <span className="t-faint" style={{ fontSize: 9, fontFamily: 'var(--font-mono)' }}>{s.key}</span>
+                      <span className="t-faint" style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>{s.key}</span>
                       {s.db_id && (
                         <>
-                          <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => startEdit(s)} style={{ fontSize: 8, padding: '1px 4px' }}>Edit</button>
+                          <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => startEdit(s)} style={{ fontSize: 10, padding: '1px 4px' }}>Edit</button>
                           {deleting === s.key ? (
                             <>
-                              <button className="t-btn t-btn-xs" onClick={() => handleDelete(s.key)} disabled={saving} style={{ fontSize: 8, padding: '1px 4px', color: 'var(--red)' }}>
+                              <button className="t-btn t-btn-xs" onClick={() => handleDelete(s.key)} disabled={saving} style={{ fontSize: 10, padding: '1px 4px', color: 'var(--red)' }}>
                                 {saving ? '...' : 'Confirm'}
                               </button>
-                              <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setDeleting(null)} style={{ fontSize: 8, padding: '1px 4px' }}>No</button>
+                              <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setDeleting(null)} style={{ fontSize: 10, padding: '1px 4px' }}>No</button>
                             </>
                           ) : (
-                            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setDeleting(s.key)} style={{ fontSize: 8, padding: '1px 4px', color: 'var(--text-faint)' }}>Del</button>
+                            <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setDeleting(s.key)} style={{ fontSize: 10, padding: '1px 4px', color: 'var(--text-faint)' }}>Del</button>
                           )}
                         </>
                       )}
                     </div>
                   </div>
-                  <div className="t-faint" style={{ fontSize: 11, marginBottom: 6 }}>{s.description}</div>
+                  <div className="t-faint" style={{ fontSize: 13, marginBottom: 6 }}>{s.description}</div>
                 </>
               )}
 
@@ -1199,7 +1199,7 @@ function StrategiesTab() {
                         return (
                           <span key={a.id} style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4,
-                            padding: '1px 6px', borderRadius: 4, fontSize: 10,
+                            padding: '1px 6px', borderRadius: 4, fontSize: 12,
                             background: 'color-mix(in srgb, var(--green) 12%, transparent)',
                             border: '1px solid color-mix(in srgb, var(--green) 20%, transparent)',
                           }}>
@@ -1215,7 +1215,7 @@ function StrategiesTab() {
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     <select value={selStrategy === s.key ? selUser : ''}
                       onChange={e => { setSelStrategy(s.key); setSelUser(e.target.value) }}
-                      style={{ fontSize: 10, padding: '2px 6px', maxWidth: 180 }}>
+                      style={{ fontSize: 12, padding: '2px 6px', maxWidth: 180 }}>
                       <option value="">Assign to user...</option>
                       {users.map(u => (
                         <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.subscription_tier})</option>
@@ -1223,7 +1223,7 @@ function StrategiesTab() {
                     </select>
                     {selStrategy === s.key && selUser && (
                       <button className="t-btn t-btn-xs" onClick={handleAssign} disabled={assigning}
-                        style={{ fontSize: 9, padding: '2px 8px' }}>
+                        style={{ fontSize: 11, padding: '2px 8px' }}>
                         {assigning ? '...' : 'Assign'}
                       </button>
                     )}
@@ -1236,7 +1236,7 @@ function StrategiesTab() {
       )}
 
       {assignMsg && (
-        <div style={{ marginTop: 8, fontSize: 11, color: assignMsg.includes('Failed') || assignMsg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>
+        <div style={{ marginTop: 8, fontSize: 13, color: assignMsg.includes('Failed') || assignMsg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>
           {assignMsg}
         </div>
       )}
@@ -1292,68 +1292,68 @@ function BuyerStrategiesTab() {
   return (
     <div>
       <div className="t-panel" style={{ padding: 16, marginBottom: 16 }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 13, margin: '0 0 12px', color: 'var(--text)' }}>Activate Buyer Strategy</h3>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, margin: '0 0 12px', color: 'var(--text)' }}>Activate Buyer Strategy</h3>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
           <select className="t-input" value={strategyKey} onChange={e => setStrategyKey(e.target.value)}
-            style={{ fontSize: 11, width: 220 }}>
+            style={{ fontSize: 13, width: 220 }}>
             {BUYER_STRATEGY_OPTIONS.map(s => (
               <option key={s.key} value={s.key}>{s.name} ({s.tier})</option>
             ))}
           </select>
           <select className="t-input" value={index} onChange={e => setIndex(e.target.value)}
-            style={{ fontSize: 11, width: 100 }}>
+            style={{ fontSize: 13, width: 100 }}>
             <option value="NIFTY">NIFTY</option>
             <option value="SENSEX">SENSEX</option>
           </select>
           <input className="t-input" type="number" value={capital} onChange={e => setCapital(e.target.value)}
-            placeholder="Capital" style={{ fontSize: 11, width: 120 }} />
+            placeholder="Capital" style={{ fontSize: 13, width: 120 }} />
           <input className="t-input" type="number" value={targetDelta} onChange={e => setTargetDelta(e.target.value)}
-            placeholder="Delta (0=ATM)" step="0.05" style={{ fontSize: 11, width: 100 }} />
-          <button className="t-btn t-btn-sm" onClick={handleActivate} disabled={activating} style={{ fontSize: 10 }}>
+            placeholder="Delta (0=ATM)" step="0.05" style={{ fontSize: 13, width: 100 }} />
+          <button className="t-btn t-btn-sm" onClick={handleActivate} disabled={activating} style={{ fontSize: 12 }}>
             {activating ? 'Activating...' : 'Activate'}
           </button>
         </div>
         {BUYER_STRATEGY_OPTIONS.filter(s => s.key === strategyKey).map(s => (
-          <p key={s.key} style={{ fontSize: 10, color: 'var(--text-sub)', margin: 0 }}>{s.desc}</p>
+          <p key={s.key} style={{ fontSize: 12, color: 'var(--text-sub)', margin: 0 }}>{s.desc}</p>
         ))}
-        {msg && <p style={{ fontSize: 10, marginTop: 6, color: msg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>{msg}</p>}
+        {msg && <p style={{ fontSize: 12, marginTop: 6, color: msg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>{msg}</p>}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <p className="t-sub" style={{ fontSize: 12, margin: 0 }}>Active Strategies</p>
-        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
+        <p className="t-sub" style={{ fontSize: 14, margin: 0 }}>Active Strategies</p>
+        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 12 }}>Refresh</button>
       </div>
       {loading && <SkeletonCard />}
       {!loading && strategies.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No active buyer strategies.</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No active buyer strategies.</p>
         </div>
       )}
       {!loading && strategies.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="t-table" style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
+          <table className="t-table" style={{ fontSize: 13, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ID</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>STRATEGY</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>INDEX</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>STATUS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 9 }}>ACTION</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>ID</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>STRATEGY</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>INDEX</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>STATUS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 11 }}>ACTION</th>
               </tr>
             </thead>
             <tbody>
               {strategies.map(s => (
                 <tr key={s.strategy_id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
-                  <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text)' }}>{s.strategy_id}</td>
+                  <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text)' }}>{s.strategy_id}</td>
                   <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--text)' }}>{s.strategy_key}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>{s.index}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                    <span style={{ color: s.running ? 'var(--green)' : 'var(--amber)', fontSize: 10, fontWeight: 600 }}>
+                    <span style={{ color: s.running ? 'var(--green)' : 'var(--amber)', fontSize: 12, fontWeight: 600 }}>
                       {s.running ? 'Running' : 'Idle'}
                     </span>
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                    <button className="t-btn t-btn-xs" style={{ fontSize: 8 }}
+                    <button className="t-btn t-btn-xs" style={{ fontSize: 10 }}
                       onClick={() => handleDeactivate(s.strategy_id)}>
                       Deactivate
                     </button>
@@ -1489,8 +1489,8 @@ function TradesTab() {
     <div>
       <div className="t-panel" style={{ padding: 12, marginBottom: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: placeOpen ? 12 : 0 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 12, margin: 0, color: 'var(--text)' }}>Place Trade for User</h3>
-          <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setPlaceOpen(!placeOpen)} style={{ fontSize: 10 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: 0, color: 'var(--text)' }}>Place Trade for User</h3>
+          <button className="t-btn t-btn-xs t-btn-ghost" onClick={() => setPlaceOpen(!placeOpen)} style={{ fontSize: 12 }}>
             {placeOpen ? 'Close' : 'Open'}
           </button>
         </div>
@@ -1498,24 +1498,24 @@ function TradesTab() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <select className="t-input" value={placeUserId} onChange={e => setPlaceUserId(e.target.value)}
-                style={{ fontSize: 12, flex: '1 1 200px', maxWidth: 300 }}>
+                style={{ fontSize: 14, flex: '1 1 200px', maxWidth: 300 }}>
                 <option value="">— Select User —</option>
                 {users.map(u => (
                   <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.email})</option>
                 ))}
               </select>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button onClick={() => setLots(Math.max(1, lots - 1))} style={{ padding: '2px 8px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>−</button>
-                <span style={{ fontSize: 12, fontWeight: 700, padding: '0 6px' }}>{lots}</span>
-                <button onClick={() => setLots(lots + 1)} style={{ padding: '2px 8px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>+</button>
-                {results.find((r: any) => r.type === 'strike') && <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>lot × {lotSize}</span>}
+                <button onClick={() => setLots(Math.max(1, lots - 1))} style={{ padding: '2px 8px', fontSize: 16, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>−</button>
+                <span style={{ fontSize: 14, fontWeight: 700, padding: '0 6px' }}>{lots}</span>
+                <button onClick={() => setLots(lots + 1)} style={{ padding: '2px 8px', fontSize: 16, border: '1px solid var(--border)', borderRadius: 3, background: 'var(--bg-tertiary)', cursor: 'pointer', color: 'var(--text)', lineHeight: 1 }}>+</button>
+                {results.find((r: any) => r.type === 'strike') && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>lot × {lotSize}</span>}
               </div>
             </div>
             <div ref={searchRef} style={{ position: 'relative' }}>
               <input className="t-input" value={query} onChange={e => { setQuery(e.target.value); setLotSize(1) }}
                 placeholder="Search symbol or strike (e.g. 24200, NIFTY, RELIANCE)..."
-                style={{ width: '100%', fontSize: 14, padding: '10px 12px' }} />
-              {searching && <span style={{ position: 'absolute', right: 12, top: 12, fontSize: 10, color: 'var(--text-faint)' }}>searching...</span>}
+                style={{ width: '100%', fontSize: 17, padding: '10px 12px' }} />
+              {searching && <span style={{ position: 'absolute', right: 12, top: 12, fontSize: 12, color: 'var(--text-faint)' }}>searching...</span>}
               {dropdownOpen && results.length > 0 && (
                 <div style={{
                   position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
@@ -1524,36 +1524,36 @@ function TradesTab() {
                 }}>
                   {results[0]?.type === 'strike' ? results.map((r: any, i: number) => (
                     <div key={i} style={{ padding: '10px 14px', borderBottom: '1px solid color-mix(in srgb, var(--border) 30%, transparent)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <strong style={{ fontSize: 14, minWidth: 80 }}>{r.symbol}</strong>
-                      <span style={{ fontSize: 13, fontWeight: 600, minWidth: 60 }}>{r.strike}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-faint)', minWidth: 70 }}>Exp: {r.expiry?.slice(0, 10)}</span>
-                    <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 700, minWidth: 100 }}>CE: {r.ce != null ? r.ce : '—'} {r.ceChg != null ? <span style={{ fontSize: 10, color: r.ceChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.ceChg >= 0 ? '+' : ''}{r.ceChg}%)</span> : ''}</span>
-                    <span style={{ fontSize: 13, color: 'var(--red)', fontWeight: 700, minWidth: 100 }}>PE: {r.pe != null ? r.pe : '—'} {r.peChg != null ? <span style={{ fontSize: 10, color: r.peChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.peChg >= 0 ? '+' : ''}{r.peChg}%)</span> : ''}</span>
+                      <strong style={{ fontSize: 17, minWidth: 80 }}>{r.symbol}</strong>
+                      <span style={{ fontSize: 16, fontWeight: 600, minWidth: 60 }}>{r.strike}</span>
+                      <span style={{ fontSize: 13, color: 'var(--text-faint)', minWidth: 70 }}>Exp: {r.expiry?.slice(0, 10)}</span>
+                    <span style={{ fontSize: 16, color: 'var(--green)', fontWeight: 700, minWidth: 100 }}>CE: {r.ce != null ? r.ce : '—'} {r.ceChg != null ? <span style={{ fontSize: 12, color: r.ceChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.ceChg >= 0 ? '+' : ''}{r.ceChg}%)</span> : ''}</span>
+                    <span style={{ fontSize: 16, color: 'var(--red)', fontWeight: 700, minWidth: 100 }}>PE: {r.pe != null ? r.pe : '—'} {r.peChg != null ? <span style={{ fontSize: 12, color: r.peChg >= 0 ? 'var(--green)' : 'var(--red)' }}>({r.peChg >= 0 ? '+' : ''}{r.peChg}%)</span> : ''}</span>
                       <button onClick={() => { setLotSize(r.lotSize); buyStrike(r.symbol, r.strike, 'CE', r.lotSize, r.expiry) }}
                         disabled={placing !== null || !r.ce}
-                        style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.ce ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--green) 12%, transparent)', color: 'var(--green)' }}>
+                        style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.ce ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--green) 12%, transparent)', color: 'var(--green)' }}>
                         {placing === `${r.symbol}-${r.strike}-CE` ? '...' : 'CE Buy'}
                       </button>
                       <button onClick={() => { setLotSize(r.lotSize); buyStrike(r.symbol, r.strike, 'PE', r.lotSize, r.expiry) }}
                         disabled={placing !== null || !r.pe}
-                        style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.pe ? 'pointer' : 'default', background: 'var(--red-dim)', color: 'var(--red)' }}>
+                        style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 3, border: 'none', cursor: placing ? 'wait' : r.pe ? 'pointer' : 'default', background: 'var(--red-dim)', color: 'var(--red)' }}>
                         {placing === `${r.symbol}-${r.strike}-PE` ? '...' : 'PE Buy'}
                       </button>
                     </div>
                   )) : results.map((s: any, i: number) => (
                     <div key={i} onClick={() => { setQuery(s.symbol || s.name || ''); setDropdownOpen(false) }}
-                      style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid color-mix(in srgb, var(--border) 30%, transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                      style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 16, borderBottom: '1px solid color-mix(in srgb, var(--border) 30%, transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--violet) 6%, var(--bg))')}
                       onMouseLeave={e => (e.currentTarget.style.background = '')}>
                       <span><strong>{s.symbol || s.name || ''}</strong></span>
-                      <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{s.exchange || ''} {s.instrument_type || ''}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{s.exchange || ''} {s.instrument_type || ''}</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
             {resultMsg && (
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: resultMsg.success ? 'var(--green)' : 'var(--red)' }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: resultMsg.success ? 'var(--green)' : 'var(--red)' }}>
                 {resultMsg.success ? '✓ ' : '✗ '}{resultMsg.message}
               </p>
             )}
@@ -1563,37 +1563,37 @@ function TradesTab() {
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <input className="t-input" placeholder="Filter by user ID" value={filterUser}
-          onChange={e => setFilterUser(e.target.value)} style={{ width: 200, fontSize: 11 }} />
+          onChange={e => setFilterUser(e.target.value)} style={{ width: 200, fontSize: 13 }} />
         <select className="t-select" value={filterPaper} onChange={e => setFilterPaper(e.target.value)}
-          style={{ fontSize: 11, maxWidth: 120 }}>
+          style={{ fontSize: 13, maxWidth: 120 }}>
           <option value="">All types</option>
           <option value="true">Paper</option>
           <option value="false">Live</option>
         </select>
-        <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{data?.count || orders.length} orders</span>
-        <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>(auto-refreshes)</span>
+        <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{data?.count || orders.length} orders</span>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>(auto-refreshes)</span>
       </div>
       {loading && <SkeletonCard />}
       {!loading && orders.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No orders found.</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No orders found.</p>
         </div>
       )}
       {!loading && orders.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+          <table className="t-table" style={{ fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SYMBOL</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SEG</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SIDE</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>QTY</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>PRICE</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>BROKER</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>STATUS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>TYPE</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>AT</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>USER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>SYMBOL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>SEG</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>SIDE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>QTY</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>PRICE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>BROKER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>STATUS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>TYPE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>AT</th>
               </tr>
             </thead>
             <tbody>
@@ -1601,12 +1601,12 @@ function TradesTab() {
                 <tr key={o.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                   <td style={{ padding: '6px 8px' }}>
                     <div style={{ color: 'var(--text)', fontWeight: 500 }}>{o.full_name || '—'}</div>
-                    <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{o.email}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{o.email}</div>
                   </td>
                   <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--text)' }}>{o.symbol?.split(':').pop()}</td>
                   <td style={{ padding: '6px 8px' }}>
                     <span className={`t-badge ${o.instrument_type === 'OPT' ? 't-badge-violet' : o.instrument_type === 'FUT' ? 't-badge-cyan' : 't-badge-green'}`}
-                      style={{ fontSize: 8, padding: '0 4px' }}>{o.instrument_type || 'EQ'}</span>
+                      style={{ fontSize: 10, padding: '0 4px' }}>{o.instrument_type || 'EQ'}</span>
                   </td>
                   <td style={{ padding: '6px 8px', color: o.side === 'BUY' ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{o.side}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.quantity}</td>
@@ -1616,18 +1616,18 @@ function TradesTab() {
                     <span style={{
                       color: o.status === 'FILLED' || o.status === 'OPEN' ? 'var(--green)'
                         : o.status === 'REJECTED' ? 'var(--red)' : 'var(--amber)',
-                      fontSize: 9, fontWeight: 600,
+                      fontSize: 11, fontWeight: 600,
                     }}>
                       {o.status}
                     </span>
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                     {o.is_paper
-                      ? <span style={{ color: 'var(--amber)', fontSize: 9 }}>Paper</span>
-                      : <span style={{ color: 'var(--green)', fontSize: 9 }}>Live</span>
+                      ? <span style={{ color: 'var(--amber)', fontSize: 11 }}>Paper</span>
+                      : <span style={{ color: 'var(--green)', fontSize: 11 }}>Live</span>
                     }
                   </td>
-                  <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)' }}>
+                  <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-faint)' }}>
                     {o.created_at ? new Date(o.created_at).toLocaleString() : '—'}
                   </td>
                 </tr>
@@ -1682,14 +1682,14 @@ function PositionsOrderBookTab() {
 
   const segmentBadge = (t: string) => {
     const map: Record<string, string> = { EQ: 't-badge-green', FUT: 't-badge-cyan', OPT: 't-badge-violet' }
-    return <span className={`t-badge ${map[t] || 't-badge-green'}`} style={{ fontSize: 9 }}>{t || 'EQ'}</span>
+    return <span className={`t-badge ${map[t] || 't-badge-green'}`} style={{ fontSize: 11 }}>{t || 'EQ'}</span>
   }
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <select className="t-input" value={userFilter} onChange={e => { setUserFilter(e.target.value); if (livePositions && !e.target.value) { setLivePositions(false); setLiveData(null) }}}
-          style={{ fontSize: 11, maxWidth: 220 }}>
+          style={{ fontSize: 13, maxWidth: 220 }}>
           <option value="">— All users —</option>
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.email})</option>
@@ -1699,7 +1699,7 @@ function PositionsOrderBookTab() {
           {(['positions', 'orders'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               style={{
-                padding: '4px 14px', fontSize: 10, fontWeight: 600, borderRadius: 4, border: 'none', cursor: 'pointer',
+                padding: '4px 14px', fontSize: 12, fontWeight: 600, borderRadius: 4, border: 'none', cursor: 'pointer',
                 background: tab === t ? 'var(--violet)' : 'transparent',
                 color: tab === t ? 'var(--text-inverse)' : 'var(--text-sub)',
                 textTransform: 'capitalize',
@@ -1708,40 +1708,40 @@ function PositionsOrderBookTab() {
         </div>
         {tab === 'positions' && (
           <button className={`t-btn t-btn-xs`} onClick={() => { setLivePositions(!livePositions); if (!livePositions && userFilter) fetchLivePositions() }}
-            style={{ fontSize: 9, color: livePositions ? 'var(--green)' : 'var(--text-sub)' }}>
+            style={{ fontSize: 11, color: livePositions ? 'var(--green)' : 'var(--text-sub)' }}>
             {livePositions ? 'Live' : 'DB'}
           </button>
         )}
         {livePositions && userFilter && (
           <button className="t-btn t-btn-xs" onClick={fetchLivePositions} disabled={liveLoading}
-            style={{ fontSize: 9 }}>
+            style={{ fontSize: 11 }}>
             {liveLoading ? '...' : 'Refresh'}
           </button>
         )}
-        <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{livePositions ? 'live broker' : 'auto-refreshes'}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{livePositions ? 'live broker' : 'auto-refreshes'}</span>
       </div>
 
       {tab === 'positions' && (
         posLoading ? <SkeletonCard /> :
         positions.length === 0 ? (
           <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No open positions.</p>
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No open positions.</p>
           </div>
         ) : (
           <div className="t-panel" style={{ padding: 0 }}>
             <div style={{ overflowX: 'auto' }}>
-              <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+              <table className="t-table" style={{ fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SYMBOL</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SEG</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>QTY</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>BUY AVG</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>Unrealised P&L</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>Realised P&L</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>PRODUCT</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>BROKER</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>USER</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>SYMBOL</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>SEG</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>QTY</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>BUY AVG</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>Unrealised P&L</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>Realised P&L</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>PRODUCT</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>BROKER</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1749,7 +1749,7 @@ function PositionsOrderBookTab() {
                     <tr key={i} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                       <td style={{ padding: '6px 8px' }}>
                         <div style={{ fontWeight: 500 }}>{p.full_name || '—'}</div>
-                        <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{p.email}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{p.email}</div>
                       </td>
                       <td style={{ padding: '6px 8px', fontWeight: 600 }}>{p.symbol?.split(':').pop()}</td>
                       <td style={{ padding: '6px 8px' }}>{segmentBadge(p.instrument_type)}</td>
@@ -1762,7 +1762,7 @@ function PositionsOrderBookTab() {
                         {(p.realised_pnl || 0) >= 0 ? '+' : ''}{p.realised_pnl?.toFixed(0) || '0'}
                       </td>
                       <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                        <span style={{ fontSize: 9, opacity: 0.7 }}>{p.product}</span>
+                        <span style={{ fontSize: 11, opacity: 0.7 }}>{p.product}</span>
                       </td>
                       <td style={{ padding: '6px 8px', textTransform: 'capitalize' }}>{p.broker}</td>
                     </tr>
@@ -1778,25 +1778,25 @@ function PositionsOrderBookTab() {
         ordLoading ? <SkeletonCard /> :
         orders.length === 0 ? (
           <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No orders found.</p>
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No orders found.</p>
           </div>
         ) : (
           <div className="t-panel" style={{ padding: 0 }}>
             <div style={{ overflowX: 'auto' }}>
-              <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+              <table className="t-table" style={{ fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SYMBOL</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SEG</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>SIDE</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>QTY</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>PRICE</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>FILLED</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>AVG</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>STATUS</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>TYPE</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>AT</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>USER</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>SYMBOL</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>SEG</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>SIDE</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>QTY</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>PRICE</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>FILLED</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>AVG</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>STATUS</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>TYPE</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>AT</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1804,7 +1804,7 @@ function PositionsOrderBookTab() {
                     <tr key={o.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                       <td style={{ padding: '6px 8px' }}>
                         <div style={{ fontWeight: 500 }}>{o.full_name || '—'}</div>
-                        <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{o.email}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{o.email}</div>
                       </td>
                       <td style={{ padding: '6px 8px', fontWeight: 600 }}>{o.symbol?.split(':').pop()}</td>
                       <td style={{ padding: '6px 8px' }}>{segmentBadge(o.instrument_type)}</td>
@@ -1815,15 +1815,15 @@ function PositionsOrderBookTab() {
                       <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{o.average_price?.toFixed(1) || '-'}</td>
                       <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                         <span className={`t-badge ${o.status === 'FILLED' ? 't-badge-green' : o.status === 'OPEN' || o.status === 'PENDING' ? 't-badge-cyan' : o.status === 'REJECTED' ? 't-badge-red' : 't-badge-violet'}`}
-                          style={{ fontSize: 8 }}>{o.status}</span>
+                          style={{ fontSize: 10 }}>{o.status}</span>
                       </td>
                       <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                         {o.is_paper
-                          ? <span style={{ color: 'var(--amber)', fontSize: 9 }}>Paper</span>
-                          : <span style={{ color: 'var(--green)', fontSize: 9 }}>Live</span>
+                          ? <span style={{ color: 'var(--amber)', fontSize: 11 }}>Paper</span>
+                          : <span style={{ color: 'var(--green)', fontSize: 11 }}>Live</span>
                         }
                       </td>
-                      <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)' }}>
+                      <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-faint)' }}>
                         {o.created_at ? new Date(o.created_at).toLocaleString() : '—'}
                       </td>
                     </tr>
@@ -1858,38 +1858,38 @@ function AuditTab() {
     <div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <select className="t-select" value={filterAction} onChange={e => setFilterAction(e.target.value)}
-          style={{ fontSize: 11, maxWidth: 200 }}>
+          style={{ fontSize: 13, maxWidth: 200 }}>
           <option value="">All actions</option>
           {distinctActions.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{data?.count || entries.length} entries</span>
-        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
+        <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{data?.count || entries.length} entries</span>
+        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 12 }}>Refresh</button>
       </div>
       {loading && <SkeletonCard />}
       {!loading && entries.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No audit entries found.</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No audit entries found.</p>
         </div>
       )}
       {!loading && entries.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+          <table className="t-table" style={{ fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>TIME</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER ID</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>ACTION</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>RESOURCE</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>DETAILS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>TIME</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>USER ID</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>ACTION</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>RESOURCE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>DETAILS</th>
               </tr>
             </thead>
             <tbody>
               {entries.map(e => (
                 <tr key={e.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
-                  <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
                     {e.created_at ? new Date(e.created_at).toLocaleString() : '—'}
                   </td>
-                  <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-sub)' }}>
+                  <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-sub)' }}>
                     {e.user_id?.slice(0, 12)}...
                   </td>
                   <td style={{ padding: '6px 8px', fontWeight: 500 }}>
@@ -1903,7 +1903,7 @@ function AuditTab() {
                     </span>
                   </td>
                   <td style={{ padding: '6px 8px', color: 'var(--text-faint)' }}>{e.resource}</td>
-                  <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-faint)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {e.details ? JSON.stringify(e.details).slice(0, 80) : '—'}
                   </td>
                 </tr>
@@ -1922,26 +1922,26 @@ function RiskTab() {
 
   return (
     <div>
-      <p className="t-sub" style={{ fontSize: 11, marginBottom: 12 }}>All users’ risk settings &amp; controls</p>
+      <p className="t-sub" style={{ fontSize: 13, marginBottom: 12 }}>All users’ risk settings &amp; controls</p>
       {loading && <SkeletonCard />}
       {!loading && settings.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No risk settings configured.</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No risk settings configured.</p>
         </div>
       )}
       {!loading && settings.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+          <table className="t-table" style={{ fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>USER</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>CAPITAL</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>MAX POS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>MAX LOSS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>DRAWDOWN</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>OPEN POS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>KILL</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>LIVE</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>USER</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>CAPITAL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>MAX POS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>MAX LOSS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>DRAWDOWN</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>OPEN POS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>KILL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>LIVE</th>
               </tr>
             </thead>
             <tbody>
@@ -1949,7 +1949,7 @@ function RiskTab() {
                 <tr key={s.user_id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                   <td style={{ padding: '6px 8px' }}>
                     <div style={{ fontWeight: 600, color: 'var(--text)' }}>{s.full_name || s.email?.split('@')[0] || '—'}</div>
-                    <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>{s.email}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{s.email}</div>
                   </td>
                   <td className="t-num" style={{ fontFamily: 'var(--font-mono)' }}>{s.max_capital ? `₹${s.max_capital.toLocaleString()}` : '—'}</td>
                   <td className="t-num" style={{ fontFamily: 'var(--font-mono)' }}>{s.max_position_size ? `₹${s.max_position_size.toLocaleString()}` : '—'}</td>
@@ -1968,8 +1968,8 @@ function RiskTab() {
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                     {s.is_live
-                      ? <span style={{ color: 'var(--green)', fontSize: 9, fontWeight: 600 }}>LIVE</span>
-                      : <span style={{ color: 'var(--amber)', fontSize: 9 }}>Paper</span>
+                      ? <span style={{ color: 'var(--green)', fontSize: 11, fontWeight: 600 }}>LIVE</span>
+                      : <span style={{ color: 'var(--amber)', fontSize: 11 }}>Paper</span>
                     }
                   </td>
                 </tr>

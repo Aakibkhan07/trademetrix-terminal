@@ -70,7 +70,7 @@ function DashboardInner() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <h1 className="t-page-title" style={{ margin: 0, fontSize: 18 }}>{tabTitle}</h1>
+        <h1 className="t-page-title" style={{ margin: 0, fontSize: 22 }}>{tabTitle}</h1>
       </div>
       <AdminDashboard />
     </div>

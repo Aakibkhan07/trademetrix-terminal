@@ -55,7 +55,7 @@ function SvgEquityCurve({ points, height = 160 }: { points: number[]; height?: n
   if (!points || points.length < 2) {
     return (
       <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="t-faint" style={{ fontSize: 12 }}>No equity data available</span>
+        <span className="t-faint" style={{ fontSize: 14 }}>No equity data available</span>
       </div>
     )
   }
@@ -95,7 +95,7 @@ function MonthlyBars({ data }: { data: { month: string; return_pct: number }[] }
   if (!data || !data.length) {
     return (
       <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="t-faint" style={{ fontSize: 12 }}>No monthly data</span>
+        <span className="t-faint" style={{ fontSize: 14 }}>No monthly data</span>
       </div>
     )
   }
@@ -108,7 +108,7 @@ function MonthlyBars({ data }: { data: { month: string; return_pct: number }[] }
         const isPos = d.return_pct >= 0
         return (
           <div key={d.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <span style={{ fontSize: 8, color: isPos ? 'var(--text-green)' : 'var(--text-red)' }}>
+            <span style={{ fontSize: 10, color: isPos ? 'var(--text-green)' : 'var(--text-red)' }}>
               {d.return_pct.toFixed(1)}%
             </span>
             <div style={{
@@ -116,7 +116,7 @@ function MonthlyBars({ data }: { data: { month: string; return_pct: number }[] }
               background: isPos ? 'var(--green)' : 'var(--red)',
               opacity: 0.8,
             }} />
-            <span className="t-faint" style={{ fontSize: 7, writingMode: 'vertical-lr', textOrientation: 'mixed' }}>
+            <span className="t-faint" style={{ fontSize: 10, writingMode: 'vertical-lr', textOrientation: 'mixed' }}>
               {d.month}
             </span>
           </div>
@@ -179,9 +179,9 @@ export default function JournalPage() {
 
       {!hasData && !loading && !error && (
         <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 24, marginBottom: 8 }}>T</div>
-          <h3 style={{ fontSize: 16, marginBottom: 4 }}>No trading data yet</h3>
-          <p className="t-faint" style={{ fontSize: 12, margin: 0 }}>
+          <div style={{ fontSize: 29, marginBottom: 8 }}>T</div>
+          <h3 style={{ fontSize: 19, marginBottom: 4 }}>No trading data yet</h3>
+          <p className="t-faint" style={{ fontSize: 14, margin: 0 }}>
             Start trading to see your performance analytics here.
           </p>
         </div>
@@ -233,7 +233,7 @@ export default function JournalPage() {
             </div>
             <div className="t-panel" style={{ padding: '12px 16px' }}>
               <span className="t-stat-label">Best / Worst</span>
-              <p className="t-stat-value" style={{ fontSize: 13 }}>
+              <p className="t-stat-value" style={{ fontSize: 16 }}>
                 <span className="t-up">\u20B9{fmt(journalData!.largest_win)}</span>
                 <span className="t-faint" style={{ margin: '0 4px' }}>/</span>
                 <span className="t-down">\u20B9{fmt(Math.abs(journalData!.largest_loss))}</span>
@@ -280,15 +280,15 @@ export default function JournalPage() {
             )}
             <input className="t-input" placeholder="Filter symbol..."
               value={searchFilter} onChange={e => setSearchFilter(e.target.value)}
-              style={{ width: 140, height: 24, fontSize: 11, padding: '2px 8px' }} />
+              style={{ width: 140, height: 24, fontSize: 13, padding: '2px 8px' }} />
             <select className="t-select" value={sideFilter}
               onChange={e => setSideFilter(e.target.value as 'ALL' | 'BUY' | 'SELL')}
-              style={{ width: 80, height: 24, fontSize: 11, padding: '2px 8px' }}>
+              style={{ width: 80, height: 24, fontSize: 13, padding: '2px 8px' }}>
               <option value="ALL">All</option>
               <option value="BUY">Buy</option>
               <option value="SELL">Sell</option>
             </select>
-            <span className="t-faint" style={{ fontSize: 11 }}>{filteredTrades.length} trades</span>
+            <span className="t-faint" style={{ fontSize: 13 }}>{filteredTrades.length} trades</span>
           </div>
         </div>
         {tradesLoading ? (
@@ -346,16 +346,16 @@ export default function JournalPage() {
             <h3 className="t-panel-title" style={{ marginBottom: 8 }}>Win/Loss Breakdown</h3>
             <div style={{ display: 'flex', gap: 16 }}>
               <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-green)' }}>{winTrades.length}</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Wins</div>
+                <div style={{ fontSize: 29, fontWeight: 700, color: 'var(--text-green)' }}>{winTrades.length}</div>
+                <div className="t-faint" style={{ fontSize: 12 }}>Wins</div>
               </div>
               <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-red)' }}>{lossTrades.length}</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Losses</div>
+                <div style={{ fontSize: 29, fontWeight: 700, color: 'var(--text-red)' }}>{lossTrades.length}</div>
+                <div className="t-faint" style={{ fontSize: 12 }}>Losses</div>
               </div>
               <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>{filteredTrades.length}</div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Total</div>
+                <div style={{ fontSize: 29, fontWeight: 700 }}>{filteredTrades.length}</div>
+                <div className="t-faint" style={{ fontSize: 12 }}>Total</div>
               </div>
             </div>
             <div style={{
@@ -372,22 +372,22 @@ export default function JournalPage() {
             <h3 className="t-panel-title" style={{ marginBottom: 8 }}>P&amp;L Summary</h3>
             <div className="t-grid-2" style={{ gap: 8 }}>
               <div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Gross Profit</div>
-                <div className="t-up" style={{ fontSize: 16, fontWeight: 700 }}>
+                <div className="t-faint" style={{ fontSize: 12 }}>Gross Profit</div>
+                <div className="t-up" style={{ fontSize: 19, fontWeight: 700 }}>
                   \u20B9{fmt(winTrades.reduce((s, t) => s + (t.pnl || 0), 0))}
                 </div>
               </div>
               <div>
-                <div className="t-faint" style={{ fontSize: 10 }}>Gross Loss</div>
-                <div className="t-down" style={{ fontSize: 16, fontWeight: 700 }}>
+                <div className="t-faint" style={{ fontSize: 12 }}>Gross Loss</div>
+                <div className="t-down" style={{ fontSize: 19, fontWeight: 700 }}>
                   -\u20B9{fmt(Math.abs(lossTrades.reduce((s, t) => s + (t.pnl || 0), 0)))}
                 </div>
               </div>
             </div>
             <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-              <div className="t-faint" style={{ fontSize: 10 }}>Net P&amp;L</div>
+              <div className="t-faint" style={{ fontSize: 12 }}>Net P&amp;L</div>
               <div style={{
-                fontSize: 18, fontWeight: 700,
+                fontSize: 22, fontWeight: 700,
                 color: totalPnl >= 0 ? 'var(--text-green)' : 'var(--text-red)',
               }}>
                 {totalPnl >= 0 ? '+' : ''}\u20B9{fmt(totalPnl)}

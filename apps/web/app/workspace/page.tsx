@@ -19,11 +19,11 @@ import AlertModal from '@/components/workspace/alert-modal'
 
 const AnalyzerPanel = dynamic(() => import('@/components/workspace/analyzer-panel'), {
   ssr: false,
-  loading: () => <div className="t-faint" style={{ padding: 12, fontSize: 11 }}>Loading analyzer…</div>,
+  loading: () => <div className="t-faint" style={{ padding: 12, fontSize: 13 }}>Loading analyzer…</div>,
 })
 const OptionChainPanel = dynamic(() => import('@/components/workspace/option-chain-panel'), {
   ssr: false,
-  loading: () => <div className="t-faint" style={{ padding: 12, fontSize: 11 }}>Loading chain…</div>,
+  loading: () => <div className="t-faint" style={{ padding: 12, fontSize: 13 }}>Loading chain…</div>,
 })
 
 export default function WorkspacePage() {
@@ -135,7 +135,7 @@ export default function WorkspacePage() {
                   position
                     ? <PositionCard position={position} tick={ticks[activeSymbol]} holdingStart={holdingStart}
                         onModify={(sym, nm, side, qty) => store.openQuickOrder(sym, nm, side, qty)} />
-                    : <span className="t-faint" style={{ fontSize: 11 }}>No open position for {activeName || activeSymbol}. Use BUY/SELL above to open one.</span>
+                    : <span className="t-faint" style={{ fontSize: 13 }}>No open position for {activeName || activeSymbol}. Use BUY/SELL above to open one.</span>
                 )}
                 {bottomTab === 'orders' && <OrderTimeline symbol={activeSymbol} />}
               </div>

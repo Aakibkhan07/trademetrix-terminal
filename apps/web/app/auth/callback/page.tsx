@@ -57,8 +57,8 @@ export default function AuthCallbackPage() {
       <div style={{ textAlign: 'center', maxWidth: 420 }}>
         {error ? (
           <>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 8 }}>Sign-in failed</h1>
-            <p style={{ color: 'var(--text-faint)', fontSize: 14, marginBottom: 16 }}>{error}</p>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, marginBottom: 8 }}>Sign-in failed</h1>
+            <p style={{ color: 'var(--text-faint)', fontSize: 17, marginBottom: 16 }}>{error}</p>
             <Link href="/auth" className="t-btn t-btn-primary">Back to Sign In</Link>
           </>
         ) : (
@@ -68,7 +68,7 @@ export default function AuthCallbackPage() {
               borderTopColor: 'var(--violet)', display: 'inline-block', animation: 'spin var(--spinner-speed) linear infinite',
               marginBottom: 16,
             }} />
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>Completing Google sign-in…</h1>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22 }}>Completing Google sign-in…</h1>
           </>
         )}
       </div>

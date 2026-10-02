@@ -75,7 +75,7 @@ export default function RiskPage() {
     }
   }
 
-  if (loading) return <p style={{ color: 'var(--text-faint)', fontSize: 12 }}>Loading risk settings...</p>
+  if (loading) return <p style={{ color: 'var(--text-faint)', fontSize: 14 }}>Loading risk settings...</p>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -86,8 +86,8 @@ export default function RiskPage() {
         </div>
       )}
       <div>
-        <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Risk Control</h1>
-        <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>
+        <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: 0, color: 'var(--text)' }}>Risk Control</h1>
+        <p style={{ color: 'var(--text-sub)', fontSize: 14, margin: '2px 0 0' }}>
           Manage trading risk and safety controls
         </p>
       </div>
@@ -104,15 +104,15 @@ export default function RiskPage() {
             width: 48, height: 48, borderRadius: 'var(--radius-md)',
             background: killSwitch ? 'color-mix(in srgb, var(--red) 12%, transparent)' : 'var(--bg-tertiary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, flexShrink: 0,
+            fontSize: 24, flexShrink: 0,
           }}>
             {killSwitch ? '🔴' : '🟢'}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
               Global Kill Switch
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 2 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-sub)', marginTop: 2 }}>
               {killSwitch
                 ? 'All trading is halted platform-wide. No orders can be placed.'
                 : 'Trading is enabled. Global kill switch is inactive.'}
@@ -125,7 +125,7 @@ export default function RiskPage() {
                 padding: '8px 20px', borderRadius: 'var(--radius-sm)',
                 border: 'none', cursor: 'pointer',
                 background: killSwitch ? 'var(--red)' : 'var(--green)',
-                color: 'var(--text-inverse)', fontSize: 12, fontWeight: 700,
+                color: 'var(--text-inverse)', fontSize: 14, fontWeight: 700,
                 fontFamily: 'var(--font-sans)',
                 transition: 'all var(--transition-fast)',
               }}
@@ -134,7 +134,7 @@ export default function RiskPage() {
             </button>
           ) : (
             <span style={{
-              fontSize: 11, color: 'var(--text-faint)', fontStyle: 'italic',
+              fontSize: 13, color: 'var(--text-faint)', fontStyle: 'italic',
               padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
             }}>
               Admin only
@@ -146,7 +146,7 @@ export default function RiskPage() {
           <div style={{
             marginTop: 12, padding: '8px 12px',
             background: 'var(--red-dim)', borderRadius: 'var(--radius-sm)',
-            fontSize: 11, color: 'var(--text-red)', fontWeight: 600,
+            fontSize: 13, color: 'var(--text-red)', fontWeight: 600,
           }}>
             ⚠ Kill switch is ACTIVE — all order placement is blocked
           </div>
@@ -159,8 +159,8 @@ export default function RiskPage() {
           padding: '8px 12px', borderBottom: '1px solid var(--border)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Guardrails · Live Status</span>
-          <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>auto-enforced on every order</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Guardrails · Live Status</span>
+          <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>auto-enforced on every order</span>
         </div>
         <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
           {([
@@ -177,9 +177,9 @@ export default function RiskPage() {
             return (
               <div key={row.label}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 11 }}>{row.label}</span>
+                  <span style={{ fontSize: 13 }}>{row.label}</span>
                   <span style={{
-                    fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                    fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700,
                     color: over ? 'var(--red)' : 'var(--text)',
                   }}>
                     {row.used == null ? '—' : row.fmt(row.used)}
@@ -199,7 +199,7 @@ export default function RiskPage() {
           })}
           <div style={{
             padding: '8px 10px', background: 'color-mix(in srgb, var(--violet) 6%, transparent)',
-            borderRadius: 'var(--radius-sm)', fontSize: 11, color: 'var(--text-sub)',
+            borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--text-sub)',
           }}>
             🛡️ Every order passes the risk gate before reaching your broker: kill switch → daily loss → drawdown halt →
             position &amp; exposure caps. Breaches halt trading automatically — plus the one-tap emergency stop above.
@@ -213,7 +213,7 @@ export default function RiskPage() {
           padding: '8px 12px', borderBottom: '1px solid var(--border)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Risk Limits</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Risk Limits</span>
           <button className="t-btn t-btn-xs" onClick={() => { setEditing(!editing); if (!editing) setEditValues(limits) }}>
             {editing ? 'Cancel' : 'Edit'}
           </button>
@@ -222,15 +222,15 @@ export default function RiskPage() {
           {editing ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Max Daily Loss (₹)</label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Max Daily Loss (₹)</label>
                 <input className="t-input" type="number" value={editValues.max_daily_loss} onChange={e => setEditValues(p => ({ ...p, max_daily_loss: Number(e.target.value) }))} />
               </div>
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Max Drawdown (%)</label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Max Drawdown (%)</label>
                 <input className="t-input" type="number" value={editValues.max_drawdown} onChange={e => setEditValues(p => ({ ...p, max_drawdown: Number(e.target.value) }))} step={0.1} min={0} max={100} />
               </div>
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Max Open Positions</label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Max Open Positions</label>
                 <input className="t-input" type="number" value={editValues.max_open_positions} onChange={e => setEditValues(p => ({ ...p, max_open_positions: Number(e.target.value) }))} min={1} />
               </div>
               <button className="t-btn t-btn-primary" onClick={handleSaveLimits}>Save Limits</button>
@@ -241,8 +241,8 @@ export default function RiskPage() {
                 padding: 12, background: 'var(--bg-tertiary)',
                 borderRadius: 'var(--radius-sm)',
               }}>
-                <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Max Daily Loss</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Max Daily Loss</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
                   {limits.max_daily_loss ? `₹${limits.max_daily_loss.toLocaleString()}` : '∞'}
                 </div>
               </div>
@@ -250,8 +250,8 @@ export default function RiskPage() {
                 padding: 12, background: 'var(--bg-tertiary)',
                 borderRadius: 'var(--radius-sm)',
               }}>
-                <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Max Drawdown</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Max Drawdown</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
                   {limits.max_drawdown ? `${limits.max_drawdown}%` : '∞'}
                 </div>
               </div>
@@ -259,8 +259,8 @@ export default function RiskPage() {
                 padding: 12, background: 'var(--bg-tertiary)',
                 borderRadius: 'var(--radius-sm)',
               }}>
-                <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Max Positions</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Max Positions</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
                   {limits.max_open_positions}
                 </div>
               </div>
@@ -271,8 +271,8 @@ export default function RiskPage() {
 
       {/* Info */}
       <div className="t-panel" style={{ padding: 12 }}>
-        <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>About Risk Controls</div>
-        <div style={{ fontSize: 11, color: 'var(--text-sub)', lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>About Risk Controls</div>
+        <div style={{ fontSize: 13, color: 'var(--text-sub)', lineHeight: 1.5 }}>
           <p style={{ margin: '0 0 6px' }}>
             <strong style={{ color: 'var(--text)' }}>Kill Switch</strong> — Immediately halts all trading. No orders can be placed until disabled.
           </p>

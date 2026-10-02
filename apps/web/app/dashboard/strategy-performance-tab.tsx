@@ -42,7 +42,7 @@ const TIER_COLORS: Record<string, string> = {
 function TierBadge({ tier }: { tier: string }) {
   const c = TIER_COLORS[tier] || 'var(--text-sub)'
   return <span style={{
-    padding: '1px 6px', borderRadius: 4, fontSize: 8, fontWeight: 500,
+    padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 500,
     background: `color-mix(in srgb, ${c} 15%, transparent)`, color: c,
     border: `1px solid color-mix(in srgb, ${c} 20%, transparent)`,
     textTransform: 'capitalize',
@@ -73,45 +73,45 @@ export function StrategyPerformanceTab() {
           {(['total_pnl', 'win_rate', 'total_trades'] as const).map(s => (
             <button key={s} onClick={() => setSortBy(s)}
               style={{
-                padding: '4px 10px', fontSize: 9, fontWeight: 600, border: 'none', cursor: 'pointer',
+                padding: '4px 10px', fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer',
                 background: sortBy === s ? 'var(--violet)' : 'transparent',
                 color: sortBy === s ? 'var(--text-inverse)' : 'var(--text-sub)',
               }}>{s.replace('_', ' ').toUpperCase()}</button>
           ))}
         </div>
         <select className="t-input" value={filterTier} onChange={e => setFilterTier(e.target.value)}
-          style={{ fontSize: 11, maxWidth: 120 }}>
+          style={{ fontSize: 13, maxWidth: 120 }}>
           <option value="">All tiers</option>
           <option value="free">Free</option>
           <option value="starter">Starter</option>
           <option value="pro">Pro</option>
           <option value="enterprise">Enterprise</option>
         </select>
-        <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{sorted.length} strategies</span>
-        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
+        <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{sorted.length} strategies</span>
+        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 12 }}>Refresh</button>
       </div>
 
       {summary && (
         <div className="t-grid-4" style={{ gap: 10, marginBottom: 16 }}>
           <div className="t-panel" style={{ padding: '12px 14px', borderLeft: '3px solid var(--violet)' }}>
-            <div className="t-faint" style={{ fontSize: 8, fontWeight: 600 }}>TOTAL P&L</div>
-            <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: summary.total_pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
+            <div className="t-faint" style={{ fontSize: 10, fontWeight: 600 }}>TOTAL P&L</div>
+            <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: summary.total_pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
               ₹{Math.abs(summary.total_pnl).toLocaleString()}
             </div>
           </div>
           <div className="t-panel" style={{ padding: '12px 14px', borderLeft: '3px solid var(--green)' }}>
-            <div className="t-faint" style={{ fontSize: 8, fontWeight: 600 }}>WIN RATE</div>
-            <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{summary.win_rate}%</div>
+            <div className="t-faint" style={{ fontSize: 10, fontWeight: 600 }}>WIN RATE</div>
+            <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{summary.win_rate}%</div>
           </div>
           <div className="t-panel" style={{ padding: '12px 14px', borderLeft: '3px solid var(--cyan)' }}>
-            <div className="t-faint" style={{ fontSize: 8, fontWeight: 600 }}>SHARPE RATIO</div>
-            <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: summary.sharpe_ratio > 1 ? 'var(--green)' : summary.sharpe_ratio > 0 ? 'var(--amber)' : 'var(--red)' }}>
+            <div className="t-faint" style={{ fontSize: 10, fontWeight: 600 }}>SHARPE RATIO</div>
+            <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: summary.sharpe_ratio > 1 ? 'var(--green)' : summary.sharpe_ratio > 0 ? 'var(--amber)' : 'var(--red)' }}>
               {summary.sharpe_ratio}
             </div>
           </div>
           <div className="t-panel" style={{ padding: '12px 14px', borderLeft: '3px solid var(--amber)' }}>
-            <div className="t-faint" style={{ fontSize: 8, fontWeight: 600 }}>TOTAL TRADES</div>
-            <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{summary.total_trades}</div>
+            <div className="t-faint" style={{ fontSize: 10, fontWeight: 600 }}>TOTAL TRADES</div>
+            <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{summary.total_trades}</div>
           </div>
         </div>
       )}
@@ -124,7 +124,7 @@ export function StrategyPerformanceTab() {
 
       {!loading && sorted.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No strategy performance data.</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No strategy performance data.</p>
         </div>
       )}
 
@@ -133,14 +133,14 @@ export function StrategyPerformanceTab() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontWeight: 600, fontSize: 12 }}>{s.name}</span>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
                 <TierBadge tier={s.tier} />
-                <span style={{ fontSize: 9, color: 'var(--text-faint)', textTransform: 'capitalize' }}>{s.category}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'capitalize' }}>{s.category}</span>
               </div>
-              <div style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{s.key}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{s.key}</div>
             </div>
             <div style={{
-              fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)',
+              fontSize: 19, fontWeight: 700, fontFamily: 'var(--font-mono)',
               color: s.total_pnl >= 0 ? 'var(--green)' : 'var(--red)',
             }}>
               ₹{Math.abs(s.total_pnl).toLocaleString()}
@@ -148,9 +148,9 @@ export function StrategyPerformanceTab() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
             <div>
-              <div className="t-faint" style={{ fontSize: 8 }}>Win Rate</div>
+              <div className="t-faint" style={{ fontSize: 10 }}>Win Rate</div>
               <div style={{
-                fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)',
+                fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono)',
                 color: s.win_rate >= 60 ? 'var(--green)' : s.win_rate >= 40 ? 'var(--amber)' : 'var(--red)',
               }}>{s.win_rate}%</div>
               <div style={{ width: '100%', height: 3, background: 'var(--violet-dim)', borderRadius: 2, marginTop: 2 }}>
@@ -158,33 +158,33 @@ export function StrategyPerformanceTab() {
               </div>
             </div>
             <div>
-              <div className="t-faint" style={{ fontSize: 8 }}>Avg Return</div>
-              <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+              <div className="t-faint" style={{ fontSize: 10 }}>Avg Return</div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 ₹{s.avg_return.toLocaleString()}
               </div>
             </div>
             <div>
-              <div className="t-faint" style={{ fontSize: 8 }}>Sharpe</div>
+              <div className="t-faint" style={{ fontSize: 10 }}>Sharpe</div>
               <div style={{
-                fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)',
+                fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono)',
                 color: s.sharpe_ratio > 1 ? 'var(--green)' : s.sharpe_ratio > 0 ? 'var(--amber)' : 'var(--red)',
               }}>{s.sharpe_ratio}</div>
             </div>
             <div>
-              <div className="t-faint" style={{ fontSize: 8 }}>Trades</div>
-              <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-                {s.total_trades} <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>({s.live_trades} live)</span>
+              <div className="t-faint" style={{ fontSize: 10 }}>Trades</div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                {s.total_trades} <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>({s.live_trades} live)</span>
               </div>
             </div>
             <div>
-              <div className="t-faint" style={{ fontSize: 8 }}>Users</div>
-              <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+              <div className="t-faint" style={{ fontSize: 10 }}>Users</div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 {s.users_assigned}
               </div>
             </div>
             <div>
-              <div className="t-faint" style={{ fontSize: 8 }}>Runs</div>
-              <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+              <div className="t-faint" style={{ fontSize: 10 }}>Runs</div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 {s.active_runs} active / {s.live_runs} live
               </div>
             </div>

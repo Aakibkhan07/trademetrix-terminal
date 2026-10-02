@@ -40,8 +40,8 @@ export function FillsTicker({ load, intervalMs = 5000 }: {
   if (error && !fills.length) {
     return (
       <div className="t-panel" style={{ padding: '8px 12px' }}>
-        <span className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em' }}>FILLS</span>
-        <span className="t-faint" style={{ fontSize: 10, marginLeft: 8 }}>Unavailable — feed offline</span>
+        <span className="t-faint" style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em' }}>FILLS</span>
+        <span className="t-faint" style={{ fontSize: 12, marginLeft: 8 }}>Unavailable — feed offline</span>
       </div>
     )
   }
@@ -49,13 +49,13 @@ export function FillsTicker({ load, intervalMs = 5000 }: {
   return (
     <div className="t-panel" style={{ padding: '8px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em' }}>FILLS</span>
-        {error && <span className="t-faint" style={{ fontSize: 9 }}>stale</span>}
+        <span className="t-faint" style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em' }}>FILLS</span>
+        {error && <span className="t-faint" style={{ fontSize: 11 }}>stale</span>}
         <span style={{ flex: 1 }} />
-        <span className="t-faint" style={{ fontSize: 9 }}>last {fills.length}</span>
+        <span className="t-faint" style={{ fontSize: 11 }}>last {fills.length}</span>
       </div>
       {fills.length === 0 ? (
-        <div className="t-faint" style={{ fontSize: 10, padding: '6px 0' }}>No fills yet</div>
+        <div className="t-faint" style={{ fontSize: 12, padding: '6px 0' }}>No fills yet</div>
       ) : (
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '6px 0' }}>
           {fills.map(f => (
@@ -68,11 +68,11 @@ export function FillsTicker({ load, intervalMs = 5000 }: {
               background: 'color-mix(in srgb, var(--text-inverse) 3%, transparent)',
               minWidth: 140,
             }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: (f.side || '').toUpperCase() === 'BUY' ? 'var(--green)' : 'var(--red)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: (f.side || '').toUpperCase() === 'BUY' ? 'var(--green)' : 'var(--red)' }}>
                 {(f.side || '').toUpperCase()} {f.quantity}
               </div>
-              <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)' }}>{f.symbol}</div>
-              <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>
+              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>{f.symbol}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>
                 @ {f.price > 0 ? f.price.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—'}
                 {f.is_paper ? ' · paper' : ''}
               </div>

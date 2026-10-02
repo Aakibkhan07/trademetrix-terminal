@@ -21,7 +21,7 @@ function ParamInput({ def, value, onChange }: { def: ParamDef; value: unknown; o
         value={value === true ? 'true' : value === false ? 'false' : ''}
         onChange={e => onChange(e.target.value === 'true')}
         className="t-select"
-        style={{ width: '100%', fontSize: 10, padding: '2px 4px' }}
+        style={{ width: '100%', fontSize: 12, padding: '2px 4px' }}
       >
         <option value="">—</option>
         <option value="true">Yes</option>
@@ -35,7 +35,7 @@ function ParamInput({ def, value, onChange }: { def: ParamDef; value: unknown; o
         value={String(value ?? def.default ?? '')}
         onChange={e => onChange(e.target.value)}
         className="t-select"
-        style={{ width: '100%', fontSize: 10, padding: '2px 4px' }}
+        style={{ width: '100%', fontSize: 12, padding: '2px 4px' }}
       >
         <option value="">—</option>
         {def.options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -51,7 +51,7 @@ function ParamInput({ def, value, onChange }: { def: ParamDef; value: unknown; o
         max={def.max ?? undefined}
         step={def.step ?? 'any'}
         onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))}
-        style={{ width: '100%', fontSize: 10, padding: '2px 4px', background: 'var(--bg-input, #0d1117)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', outline: 'none' }}
+        style={{ width: '100%', fontSize: 12, padding: '2px 4px', background: 'var(--bg-input, #0d1117)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', outline: 'none' }}
       />
     )
   }
@@ -60,7 +60,7 @@ function ParamInput({ def, value, onChange }: { def: ParamDef; value: unknown; o
       type="text"
       value={value === undefined || value === null ? '' : String(value)}
       onChange={e => onChange(e.target.value)}
-      style={{ width: '100%', fontSize: 10, padding: '2px 4px', background: 'var(--bg-input, #0d1117)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', outline: 'none' }}
+      style={{ width: '100%', fontSize: 12, padding: '2px 4px', background: 'var(--bg-input, #0d1117)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', outline: 'none' }}
     />
   )
 }
@@ -83,7 +83,7 @@ function Port({ port, dir }: { port: PortDef; dir: 'in' | 'out' }) {
           border: '1px solid var(--text-sub)', boxSizing: 'border-box', flexShrink: 0,
         }}
       />
-      <span className="t-faint" style={{ fontSize: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <span className="t-faint" style={{ fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {port.label || port.name}
       </span>
     </div>
@@ -132,13 +132,13 @@ export default function CanvasNode({ node, meta, selected, onDrag, onDelete, onP
         }}
       >
         <span style={{ width: 6, height: 6, borderRadius: 3, background: color, flexShrink: 0 }} />
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {meta?.display_name || meta?.name || node.block_type}
         </span>
         <button
           onClick={() => onDelete(node.id)}
           title="Delete node"
-          style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: 12, cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
+          style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: 14, cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
         >✕</button>
       </div>
 
@@ -156,7 +156,7 @@ export default function CanvasNode({ node, meta, selected, onDrag, onDelete, onP
           <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
             {(meta?.params || []).map(p => (
               <label key={p.name} style={{ display: 'block' }}>
-                <span className="t-faint" style={{ fontSize: 8, textTransform: 'uppercase', display: 'block', marginBottom: 1 }}>
+                <span className="t-faint" style={{ fontSize: 10, textTransform: 'uppercase', display: 'block', marginBottom: 1 }}>
                   {p.label || p.name.replace(/_/g, ' ')}
                 </span>
                 <ParamInput def={p} value={node.params?.[p.name]} onChange={v => onParamChange(node.id, p.name, v)} />

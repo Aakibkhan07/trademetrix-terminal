@@ -81,12 +81,12 @@ export default function MarketplacePage() {
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, margin: 0, color: 'var(--text)', letterSpacing: '-0.02em' }}>Strategy Marketplace</h1>
-          <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '4px 0 0' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 26, margin: 0, color: 'var(--text)', letterSpacing: '-0.02em' }}>Strategy Marketplace</h1>
+          <p style={{ color: 'var(--text-sub)', fontSize: 14, margin: '4px 0 0' }}>
             Institutional strategies — <span style={{ color: 'var(--text)', fontWeight: 600 }}>{stats.total} listed</span> · avg <span style={{ color: 'var(--green)', fontWeight: 600 }}>{stats.avgWin}% win</span> · {stats.profitable} profitable
           </p>
         </div>
-        <Link href="/strategies/builder" className="t-btn t-btn-primary" style={{ textDecoration: 'none', height: 34, padding: '0 16px', fontSize: 12 }}>+ Sell Your Strategy</Link>
+        <Link href="/strategies/builder" className="t-btn t-btn-primary" style={{ textDecoration: 'none', height: 34, padding: '0 16px', fontSize: 14 }}>+ Sell Your Strategy</Link>
       </div>
 
       <div className="t-grid-3" style={{ marginBottom: 4 }}>
@@ -95,8 +95,8 @@ export default function MarketplacePage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" strokeWidth="1.7"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Listed</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{stats.total}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Listed</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{stats.total}</div>
           </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -104,8 +104,8 @@ export default function MarketplacePage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.7"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
           </div>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Avg Win Rate</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--green)' }}>{stats.avgWin}%</div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Avg Win Rate</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--green)' }}>{stats.avgWin}%</div>
           </div>
         </div>
         <div className="t-panel" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -113,8 +113,8 @@ export default function MarketplacePage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="1.7"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
           </div>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Profitable</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--cyan)' }}>{stats.profitable}/{stats.total}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Profitable</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--cyan)' }}>{stats.profitable}/{stats.total}</div>
           </div>
         </div>
       </div>
@@ -175,7 +175,7 @@ export default function MarketplacePage() {
       {error && (
         <div style={{
           background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.2)',
-          borderRadius: 'var(--radius-md)', padding: '10px 12px', color: 'var(--text-red)', fontSize: 12,
+          borderRadius: 'var(--radius-md)', padding: '10px 12px', color: 'var(--text-red)', fontSize: 14,
         }}>
           {friendlyApiError(error)}
         </div>
@@ -187,8 +187,8 @@ export default function MarketplacePage() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
           }}>
-            <span style={{ color: 'var(--amber)', fontSize: 16 }}>★</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Featured Strategies</span>
+            <span style={{ color: 'var(--amber)', fontSize: 19 }}>★</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Featured Strategies</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
             {featured.map(s => (
@@ -199,26 +199,26 @@ export default function MarketplacePage() {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{s.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>{s.key}</div>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>{s.key}</div>
                   </div>
-                  <span className="t-badge t-badge-amber" style={{ fontSize: 9 }}>Featured</span>
+                  <span className="t-badge t-badge-amber" style={{ fontSize: 11 }}>Featured</span>
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: '0 0 10px', lineHeight: 1.4 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-sub)', margin: '0 0 10px', lineHeight: 1.4 }}>
                   {s.description}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Trades</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{s.total_trades}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>Trades</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{s.total_trades}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Users</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{s.user_count}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>Users</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{s.user_count}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>Win Rate</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-green)' }}>{s.win_rate}%</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>Win Rate</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-green)' }}>{s.win_rate}%</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -233,11 +233,11 @@ export default function MarketplacePage() {
                   <Link
                     href={`/strategies/${s.key}`}
                     className="t-btn t-btn-sm"
-                    style={{ fontSize: 11, textDecoration: 'none' }}
+                    style={{ fontSize: 13, textDecoration: 'none' }}
                   >
                     Details
                   </Link>
-                  <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-sub' : 't-badge-violet'}`} style={{ fontSize: 9 }}>
+                  <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-sub' : 't-badge-violet'}`} style={{ fontSize: 11 }}>
                     {s.required_tier}
                   </span>
                 </div>
@@ -251,7 +251,7 @@ export default function MarketplacePage() {
       {!loading && !error && filtered.length > 0 && (
         <div>
           {(!(featured.length > 0 && activeCategory === 'all' && !search && tierFilter === 'all')) && (
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>
               {filtered.length} {filtered.length === 1 ? 'Strategy' : 'Strategies'}
             </div>
           )}
@@ -269,24 +269,24 @@ export default function MarketplacePage() {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{s.name}</div>
-                      <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 1 }}>{catLabel}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{s.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>{catLabel}</div>
                     </div>
-                    <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-sub' : 't-badge-violet'}`} style={{ fontSize: 8 }}>
+                    <span className={`t-badge ${s.required_tier === 'free' ? 't-badge-sub' : 't-badge-violet'}`} style={{ fontSize: 10 }}>
                       {s.required_tier}
                     </span>
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: '0 0 10px', lineHeight: 1.4, flex: 1 }}>
+                  <p style={{ fontSize: 13, color: 'var(--text-sub)', margin: '0 0 10px', lineHeight: 1.4, flex: 1 }}>
                     {s.description}
                   </p>
                   <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-                    <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
                       {s.user_count} users
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-green)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-green)' }}>
                       {s.win_rate}% win
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
                       {s.total_trades} trades
                     </div>
                   </div>
@@ -302,7 +302,7 @@ export default function MarketplacePage() {
                     <Link
                       href={`/strategies/${s.key}`}
                       className="t-btn t-btn-sm"
-                      style={{ fontSize: 11, textDecoration: 'none' }}
+                      style={{ fontSize: 13, textDecoration: 'none' }}
                     >
                       Details
                     </Link>
@@ -319,10 +319,10 @@ export default function MarketplacePage() {
           background: 'var(--cyan-dim)', border: '1px solid rgba(34,211,238,0.2)',
           borderRadius: 'var(--radius-md)', padding: 24, textAlign: 'center',
         }}>
-          <p style={{ color: 'var(--text-sub)', fontSize: 13, margin: '0 0 4px' }}>
+          <p style={{ color: 'var(--text-sub)', fontSize: 16, margin: '0 0 4px' }}>
             No strategies match your search
           </p>
-          <p style={{ color: 'var(--text-faint)', fontSize: 11, margin: 0 }}>
+          <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: 0 }}>
             Try adjusting filters or search terms
           </p>
         </div>
@@ -330,7 +330,7 @@ export default function MarketplacePage() {
 
       {!loading && !error && strategies.length === 0 && (
         <div className="t-panel" style={{ padding: 24, textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: 0 }}>
+          <p style={{ color: 'var(--text-faint)', fontSize: 16, margin: 0 }}>
             Marketplace is currently empty. Check back later for new strategies.
           </p>
         </div>

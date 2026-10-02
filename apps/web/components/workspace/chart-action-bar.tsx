@@ -45,7 +45,7 @@ export default function ChartActionBar({ onAnalyze, onOpenChain }: ChartActionBa
       {btn('📈 Backtest', () => { window.location.assign(`/backtest?symbol=${encodeURIComponent(activeSymbol)}`) })}
       {btn('🔔 Alert', () => setAlertOpen(true))}
       {btn('📓 Journal', () => { window.location.assign('/journal') })}
-      <span className="t-faint" style={{ fontSize: 9, marginLeft: 'auto' }}>{activeName} · {activeSymbol}</span>
+      <span className="t-faint" style={{ fontSize: 11, marginLeft: 'auto' }}>{activeName} · {activeSymbol}</span>
 
       {alertOpen && <AlertModal item={{ symbol: activeSymbol, name: activeName }} onClose={() => setAlertOpen(false)} />}
     </div>

@@ -43,7 +43,7 @@ export function chartOptions({ height, rightScaleMargins, crosshairMode, fontFam
     layout: {
       background: { type: ColorType.Solid, color: 'transparent' },
       textColor: colorVar('--text-sub'),
-      fontSize: 10,
+      fontSize: 12,
       fontFamily: fontFamily || 'var(--font-sans)',
     },
     grid: {

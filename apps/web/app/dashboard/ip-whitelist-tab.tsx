@@ -57,45 +57,45 @@ export function IPWhitelistTab() {
     <div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <input className="t-input" value={newIP} onChange={e => setNewIP(e.target.value)}
-          placeholder="IP address (e.g. 103.xx.xx.xx or 192.168.1.0/24)" style={{ fontSize: 11, flex: '1 1 260px', minWidth: 200 }} />
+          placeholder="IP address (e.g. 103.xx.xx.xx or 192.168.1.0/24)" style={{ fontSize: 13, flex: '1 1 260px', minWidth: 200 }} />
         <input className="t-input" value={newLabel} onChange={e => setNewLabel(e.target.value)}
-          placeholder="Label (optional)" style={{ fontSize: 11, flex: '0 1 160px', minWidth: 120 }} />
+          placeholder="Label (optional)" style={{ fontSize: 13, flex: '0 1 160px', minWidth: 120 }} />
         <button onClick={addIP} disabled={adding || !newIP.trim()}
           style={{
-            padding: '5px 14px', fontSize: 11, fontWeight: 600, borderRadius: 4,
+            padding: '5px 14px', fontSize: 13, fontWeight: 600, borderRadius: 4,
             background: newIP.trim() ? 'var(--violet)' : 'var(--bg)', color: newIP.trim() ? 'var(--text-inverse)' : 'var(--text-faint)',
             border: 'none', cursor: adding ? 'wait' : newIP.trim() ? 'pointer' : 'not-allowed',
           }}>
           {adding ? 'Adding...' : 'Add IP'}
         </button>
-        <button onClick={load} className="t-btn t-btn-sm" style={{ fontSize: 10 }}>Refresh</button>
+        <button onClick={load} className="t-btn t-btn-sm" style={{ fontSize: 12 }}>Refresh</button>
       </div>
 
       {msg && (
         <div style={{
-          padding: '6px 12px', marginBottom: 10, borderRadius: 4, fontSize: 10,
+          padding: '6px 12px', marginBottom: 10, borderRadius: 4, fontSize: 12,
           background: msg.type === 'ok' ? 'color-mix(in srgb, var(--green) 10%, var(--bg))' : 'color-mix(in srgb, var(--red) 10%, var(--bg))',
           border: `1px solid color-mix(in srgb, ${msg.type === 'ok' ? 'var(--green)' : 'var(--red)'} 20%, transparent)`,
           color: msg.type === 'ok' ? 'var(--green)' : 'var(--red)',
         }}>{msg.text}</div>
       )}
 
-      {loading && <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}><p style={{ fontSize: 12, color: 'var(--text-faint)' }}>Loading...</p></div>}
+      {loading && <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}><p style={{ fontSize: 14, color: 'var(--text-faint)' }}>Loading...</p></div>}
       {!loading && ips.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No IPs whitelisted. Everyone can access admin.</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No IPs whitelisted. Everyone can access admin.</p>
         </div>
       )}
 
       {!loading && ips.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+          <table className="t-table" style={{ fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>IP ADDRESS</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>LABEL</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>ADDED</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>ACTIONS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>IP ADDRESS</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>LABEL</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>ADDED</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>ACTIONS</th>
               </tr>
             </thead>
             <tbody>
@@ -103,16 +103,16 @@ export function IPWhitelistTab() {
                 <tr key={ip.id} style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)' }}>
                   <td style={{ padding: '6px 8px', fontFamily: 'monospace', color: ip.ip_address === '*' ? 'var(--amber)' : 'var(--text)' }}>
                     {ip.ip_address}
-                    {ip.ip_address === '*' && <span style={{ fontSize: 8, color: 'var(--text-faint)', marginLeft: 6 }}>(allow all)</span>}
+                    {ip.ip_address === '*' && <span style={{ fontSize: 10, color: 'var(--text-faint)', marginLeft: 6 }}>(allow all)</span>}
                   </td>
-                  <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-sub)' }}>{ip.label || '—'}</td>
-                  <td style={{ padding: '6px 8px', fontSize: 9, color: 'var(--text-faint)' }}>
+                  <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-sub)' }}>{ip.label || '—'}</td>
+                  <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-faint)' }}>
                     {ip.created_at ? new Date(ip.created_at).toLocaleString() : '—'}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                     <button onClick={() => removeIP(ip.id)}
                       style={{
-                        padding: '2px 8px', fontSize: 8, borderRadius: 3, border: 'none', cursor: 'pointer',
+                        padding: '2px 8px', fontSize: 10, borderRadius: 3, border: 'none', cursor: 'pointer',
                         background: 'var(--red-dim)', color: 'var(--red)',
                       }}>
                       Remove

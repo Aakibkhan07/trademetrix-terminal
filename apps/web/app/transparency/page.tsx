@@ -42,7 +42,7 @@ export default function TransparencyPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, margin: 0 }}>Transparency Dashboard</h1>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 29, margin: 0 }}>Transparency Dashboard</h1>
         <p className="t-sub" style={{ margin: '4px 0 0' }}>
           Full order lifecycle — every signal, every check, every fill
         </p>
@@ -127,28 +127,28 @@ export default function TransparencyPage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             <div>
-              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Signal</p>
-              <p style={{ fontSize: 13, margin: 0 }}>When the strategy generated the signal</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 13, textTransform: 'uppercase', margin: '0 0 4px' }}>Signal</p>
+              <p style={{ fontSize: 16, margin: 0 }}>When the strategy generated the signal</p>
             </div>
             <div>
-              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Risk Check</p>
-              <p style={{ fontSize: 13, margin: 0 }}>When RiskGuard validated the signal</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 13, textTransform: 'uppercase', margin: '0 0 4px' }}>Risk Check</p>
+              <p style={{ fontSize: 16, margin: 0 }}>When RiskGuard validated the signal</p>
             </div>
             <div>
-              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Sent</p>
-              <p style={{ fontSize: 13, margin: 0 }}>When the order was sent to the broker</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 13, textTransform: 'uppercase', margin: '0 0 4px' }}>Sent</p>
+              <p style={{ fontSize: 16, margin: 0 }}>When the order was sent to the broker</p>
             </div>
             <div>
-              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Filled</p>
-              <p style={{ fontSize: 13, margin: 0 }}>When the broker confirmed the fill</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 13, textTransform: 'uppercase', margin: '0 0 4px' }}>Filled</p>
+              <p style={{ fontSize: 16, margin: 0 }}>When the broker confirmed the fill</p>
             </div>
             <div>
-              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Latency</p>
-              <p style={{ fontSize: 13, margin: 0 }}>Round-trip time: signal → fill (lower is better)</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 13, textTransform: 'uppercase', margin: '0 0 4px' }}>Latency</p>
+              <p style={{ fontSize: 16, margin: 0 }}>Round-trip time: signal → fill (lower is better)</p>
             </div>
             <div>
-              <p style={{ color: 'var(--text-sub)', fontSize: 11, textTransform: 'uppercase', margin: '0 0 4px' }}>Slippage</p>
-              <p style={{ fontSize: 13, margin: 0 }}>Difference between expected and actual fill price</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: 13, textTransform: 'uppercase', margin: '0 0 4px' }}>Slippage</p>
+              <p style={{ fontSize: 16, margin: 0 }}>Difference between expected and actual fill price</p>
             </div>
           </div>
         </div>

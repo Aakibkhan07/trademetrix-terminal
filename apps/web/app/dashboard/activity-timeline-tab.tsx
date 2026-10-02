@@ -34,7 +34,7 @@ const ACTION_ICONS: Record<string, string> = {
 
 function ActionIcon({ action }: { action: string }) {
   const icon = ACTION_ICONS[action] || '•'
-  return <span style={{ fontSize: 14 }}>{icon}</span>
+  return <span style={{ fontSize: 17 }}>{icon}</span>
 }
 
 function ActionLabel({ action }: { action: string }) {
@@ -54,14 +54,14 @@ function ActionLabel({ action }: { action: string }) {
     order_executed: 'Order executed',
     order_failed: 'Order failed',
   }
-  return <span style={{ fontWeight: 500, fontSize: 11 }}>{labels[action] || action}</span>
+  return <span style={{ fontWeight: 500, fontSize: 13 }}>{labels[action] || action}</span>
 }
 
 function UserBadge({ userId, userMap }: { userId: string; userMap: Record<string, AdminUser> }) {
   const u = userMap[userId]
-  if (!u) return <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-faint)' }}>{userId.slice(0, 8)}</span>
+  if (!u) return <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-faint)' }}>{userId.slice(0, 8)}</span>
   return (
-    <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text)' }}>
+    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>
       {u.full_name || u.email?.split('@')[0] || userId.slice(0, 8)}
     </span>
   )
@@ -113,25 +113,25 @@ export function ActivityTimelineTab() {
     <div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <select className="t-input" value={userFilter} onChange={e => setUserFilter(e.target.value)}
-          style={{ fontSize: 11, maxWidth: 220 }}>
+          style={{ fontSize: 13, maxWidth: 220 }}>
           <option value="">— All users —</option>
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.email})</option>
           ))}
         </select>
         <select className="t-input" value={actionFilter} onChange={e => setActionFilter(e.target.value)}
-          style={{ fontSize: 11, maxWidth: 160 }}>
+          style={{ fontSize: 13, maxWidth: 160 }}>
           <option value="">All actions</option>
           {Object.entries(ACTION_ICONS).map(([a, icon]) => (
             <option key={a} value={a}>{icon} {a.replace(/_/g, ' ')}</option>
           ))}
         </select>
         <input className="t-input" type="date" value={fromDate}
-          onChange={e => setFromDate(e.target.value)} style={{ width: 130, fontSize: 11 }} />
+          onChange={e => setFromDate(e.target.value)} style={{ width: 130, fontSize: 13 }} />
         <input className="t-input" type="date" value={toDate}
-          onChange={e => setToDate(e.target.value)} style={{ width: 130, fontSize: 11 }} />
-        <span style={{ fontSize: 10, color: 'var(--text-sub)' }}>{entries.length} events</span>
-        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
+          onChange={e => setToDate(e.target.value)} style={{ width: 130, fontSize: 13 }} />
+        <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{entries.length} events</span>
+        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 12 }}>Refresh</button>
       </div>
 
       {loading && (
@@ -153,7 +153,7 @@ export function ActivityTimelineTab() {
 
       {!loading && entries.length === 0 && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No activity found.</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No activity found.</p>
         </div>
       )}
 
@@ -164,7 +164,7 @@ export function ActivityTimelineTab() {
               <div style={{
                 position: 'sticky', top: 0, zIndex: 1,
                 padding: '4px 12px', marginBottom: 8,
-                fontSize: 10, fontWeight: 600, color: 'var(--text-sub)',
+                fontSize: 12, fontWeight: 600, color: 'var(--text-sub)',
                 background: 'color-mix(in srgb, var(--bg) 90%, transparent)',
                 backdropFilter: 'blur(8px)',
                 borderRadius: 4,
@@ -195,14 +195,14 @@ export function ActivityTimelineTab() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <ActionLabel action={e.action} />
-                        <span style={{ fontSize: 9, color: 'var(--text-sub)' }}>by</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-sub)' }}>by</span>
                         <UserBadge userId={e.user_id} userMap={userMap} />
-                        <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 'auto' }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 'auto' }}>
                           {e.created_at ? new Date(e.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
                         </span>
                       </div>
                       {details && (
-                        <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 2 }}>{details}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>{details}</div>
                       )}
                     </div>
                   )

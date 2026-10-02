@@ -95,7 +95,7 @@ export default function StrategyDetailPage() {
     return (
       <div style={{
         background: 'var(--red-dim)', border: '1px solid rgba(248,113,113,0.2)',
-        borderRadius: 'var(--radius-md)', padding: '10px 12px', color: 'var(--text-red)', fontSize: 12,
+        borderRadius: 'var(--radius-md)', padding: '10px 12px', color: 'var(--text-red)', fontSize: 14,
       }}>
         {error}
       </div>
@@ -112,7 +112,7 @@ export default function StrategyDetailPage() {
       <Link
         href="/marketplace"
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12,
+          display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 14,
           color: 'var(--text-sub)', textDecoration: 'none',
         }}
       >
@@ -127,16 +127,16 @@ export default function StrategyDetailPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20, margin: 0, color: 'var(--text)' }}>
+              <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 24, margin: 0, color: 'var(--text)' }}>
                 {detail.name}
               </h1>
               <TierPill tier={detail.required_tier} borderMix="15%" />
-              <span className="t-badge t-badge-violet" style={{ fontSize: 9 }}>{catLabel}</span>
+              <span className="t-badge t-badge-violet" style={{ fontSize: 11 }}>{catLabel}</span>
             </div>
-            <p style={{ fontSize: 11, color: 'var(--text-sub)', margin: 0, lineHeight: 1.5 }}>{detail.description}</p>
+            <p style={{ fontSize: 13, color: 'var(--text-sub)', margin: 0, lineHeight: 1.5 }}>{detail.description}</p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>
               {detail.user_count} user{detail.user_count !== 1 ? 's' : ''}
             </span>
           </div>
@@ -154,7 +154,7 @@ export default function StrategyDetailPage() {
 
       {/* Performance Metrics */}
       <div>
-        <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+        <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
           Performance Metrics
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
@@ -168,14 +168,14 @@ export default function StrategyDetailPage() {
       {/* Recent Trades */}
       {(detail.recent_trades ?? []).length > 0 && (
         <div>
-          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
             Recent Trades
           </h2>
           <div style={{
             background: 'var(--panel)', border: '1px solid var(--border)',
             borderRadius: 'var(--radius-md)', overflowX: 'auto',
           }}>
-            <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 11 }}>
+            <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-faint)', fontWeight: 500 }}>Symbol</th>
@@ -206,11 +206,11 @@ export default function StrategyDetailPage() {
                         t.status === 'FILLED' ? 't-badge-green' :
                         t.status === 'REJECTED' || t.status === 'CANCELLED' ? 't-badge-red' :
                         't-badge-sub'
-                      }`} style={{ fontSize: 8 }}>
+                      }`} style={{ fontSize: 10 }}>
                         {t.status}
                       </span>
                     </td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-faint)', fontSize: 10 }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-faint)', fontSize: 12 }}>
                       {t.created_at ? new Date(t.created_at).toLocaleDateString() : '-'}
                     </td>
                   </tr>
@@ -226,8 +226,8 @@ export default function StrategyDetailPage() {
           background: 'var(--cyan-dim)', border: '1px solid var(--cyan-dim)',
           borderRadius: 'var(--radius-md)', padding: 24, textAlign: 'center',
         }}>
-          <p style={{ color: 'var(--text-sub)', fontSize: 13, margin: '0 0 4px' }}>No trades yet</p>
-          <p style={{ color: 'var(--text-faint)', fontSize: 11, margin: 0 }}>
+          <p style={{ color: 'var(--text-sub)', fontSize: 16, margin: '0 0 4px' }}>No trades yet</p>
+          <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: 0 }}>
             Deploy this strategy to start trading
           </p>
         </div>

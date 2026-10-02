@@ -2,7 +2,7 @@ import Link from 'next/link'
 import Logo from '@/components/logo'
 
 const footerColumnTitle: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+  fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
   color: 'var(--text-sub)', marginBottom: 10,
 }
 const footerLink: React.CSSProperties = { color: 'var(--text-faint)', textDecoration: 'none' }
@@ -21,7 +21,7 @@ export default function LandingPage() {
       }}>
         <Link href="/" style={{
           display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none',
-          fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700,
+          fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700,
           background: 'var(--gradient-primary)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>
@@ -30,23 +30,23 @@ export default function LandingPage() {
         </Link>
         <nav style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Link href="/pricing" style={{
-            fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
+            fontSize: 13, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.02em', transition: 'color 0.15s',
           }}>Pricing</Link>
           <Link href="/status" style={{
-            fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
+            fontSize: 13, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.02em', transition: 'color 0.15s',
           }}>System Status</Link>
           <Link href="/live" style={{
-            fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
+            fontSize: 13, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.02em', transition: 'color 0.15s',
           }}>Dashboard</Link>
           <Link href="/auth" style={{
-            fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
+            fontSize: 13, fontWeight: 600, color: 'var(--text-sub)', textDecoration: 'none',
             letterSpacing: '0.02em', transition: 'color 0.15s',
           }}>Sign In</Link>
           <Link href="/live" style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
+            fontSize: 13, fontWeight: 700, letterSpacing: '0.03em',
             padding: '6px 14px', borderRadius: 'var(--radius-sm)', textDecoration: 'none',
             background: 'var(--gradient-primary)',
             color: 'var(--text-inverse)', transition: 'opacity 0.15s',
@@ -57,7 +57,7 @@ export default function LandingPage() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 16px', textAlign: 'center' }}>
         <div style={{ maxWidth: 680 }}>
           <div style={{
-            display: 'inline-block', padding: '3px 10px', borderRadius: 'var(--radius-pill)', fontSize: 9,
+            display: 'inline-block', padding: '3px 10px', borderRadius: 'var(--radius-pill)', fontSize: 11,
             fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
             background: 'var(--cyan-dim)', color: 'var(--cyan)',
             border: '1px solid var(--cyan-dim)', marginBottom: 20,
@@ -74,20 +74,20 @@ export default function LandingPage() {
             {' '}with one terminal
           </h1>
 
-          <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-sub)', maxWidth: 500, margin: '0 auto 24px' }}>
+          <p style={{ fontSize: 17, lineHeight: 1.6, color: 'var(--text-sub)', maxWidth: 500, margin: '0 auto 24px' }}>
             Automated trading strategies, real-time market data, AI-powered analytics,
             and risk management — all in one place. Connect your broker and start trading.
           </p>
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/live" style={{
-              padding: '10px 24px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 700,
+              padding: '10px 24px', borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 700,
               letterSpacing: '0.02em', textDecoration: 'none',
               background: 'var(--gradient-primary)',
               color: 'var(--text-inverse)', transition: 'opacity 0.15s',
             }}>Launch Live Dashboard</Link>
             <Link href="/auth" style={{
-              padding: '10px 24px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 600,
+              padding: '10px 24px', borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 600,
               letterSpacing: '0.02em', textDecoration: 'none',
               border: '1px solid var(--border)',
               color: 'var(--text)', transition: 'border-color 0.15s',
@@ -100,12 +100,12 @@ export default function LandingPage() {
         }}>
           {['FYERS','ZERODHA','ANGEL ONE','DHAN','UPSTOX','KOTAK NEO'].map(b => (
             <span key={b} style={{
-              fontSize: 8, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 8px', borderRadius: 'var(--radius-pill)',
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 8px', borderRadius: 'var(--radius-pill)',
               border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text-faint)',
               fontFamily: 'var(--font-mono)',
             }}>{b}</span>
           ))}
-          <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 8px', borderRadius: 'var(--radius-pill)', background: 'var(--green-dim)', border: '1px solid var(--green-dim)', color: 'var(--green)' }}>+ 4 MORE</span>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 8px', borderRadius: 'var(--radius-pill)', background: 'var(--green-dim)', border: '1px solid var(--green-dim)', color: 'var(--green)' }}>+ 4 MORE</span>
         </div>
 
         <div style={{
@@ -136,13 +136,13 @@ export default function LandingPage() {
                 justifyContent: 'center', marginBottom: 8,
                 background: 'var(--cyan-dim)', color: 'var(--cyan)',
               }}>{c.icon}</div>
-              <h3 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 3px', color: 'var(--text)' }}>{c.title}</h3>
-              <p style={{ fontSize: 10, lineHeight: 1.5, color: 'var(--text-faint)', margin: 0 }}>{c.desc}</p>
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 3px', color: 'var(--text)' }}>{c.title}</h3>
+              <p style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-faint)', margin: 0 }}>{c.desc}</p>
             </div>
           ))}
         </div>
 
-        <div style={{ marginTop: 24, display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+        <div style={{ marginTop: 24, display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
           <span style={{ color: 'var(--text-faint)' }}><span style={{ color: 'var(--text)', fontWeight: 700 }}>1060+</span> tests passing</span>
           <span style={{ color: 'var(--border)' }}>|</span>
           <span style={{ color: 'var(--text-faint)' }}><span style={{ color: 'var(--green)', fontWeight: 700 }}>● LIVE</span> paper & live execution</span>
@@ -155,15 +155,15 @@ export default function LandingPage() {
           border: '1px solid var(--cyan-dim)',
           background: 'var(--panel)',
         }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px', color: 'var(--text)' }}>
+          <h2 style={{ fontSize: 19, fontWeight: 700, margin: '0 0 6px', color: 'var(--text)' }}>
             Get started in 2 minutes
           </h2>
-          <p style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-sub)', margin: '0 0 16px' }}>
+          <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text-sub)', margin: '0 0 16px' }}>
             Create your account, connect your broker, and start trading with automated strategies.
             No credit card required.
           </p>
           <Link href="/live" style={{
-            display: 'inline-block', padding: '8px 20px', borderRadius: 'var(--radius-sm)', fontSize: 11,
+            display: 'inline-block', padding: '8px 20px', borderRadius: 'var(--radius-sm)', fontSize: 13,
             fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'none',
             background: 'var(--gradient-primary)',
             color: 'var(--text-inverse)',
@@ -173,7 +173,7 @@ export default function LandingPage() {
 
       <footer style={{
         padding: '24px 24px 16px', borderTop: '1px solid var(--border)',
-        fontSize: 10, color: 'var(--text-faint)', fontFamily: 'var(--font-sans)',
+        fontSize: 12, color: 'var(--text-faint)', fontFamily: 'var(--font-sans)',
         display: 'flex', flexDirection: 'column', gap: 18,
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 18, maxWidth: 800, width: '100%', margin: '0 auto' }}>
@@ -203,7 +203,7 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-        <div style={{ textAlign: 'center', fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-faint)' }}>
+        <div style={{ textAlign: 'center', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-faint)' }}>
           TradeMetrix Terminal © 2026 · Trading involves substantial risk. Trade responsibly.
         </div>
       </footer>

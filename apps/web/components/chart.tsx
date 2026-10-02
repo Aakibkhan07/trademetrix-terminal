@@ -130,10 +130,10 @@ export default function Chart({ symbol, height = 400, interval: controlledInterv
             </button>
           ))}
         </div>
-        {loading && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>Loading...</span>}
+        {loading && <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>Loading...</span>}
       </div>
       {error && (
-        <p style={{ color: 'var(--red)', fontSize: 12, margin: '0 0 8px' }}>{error}</p>
+        <p style={{ color: 'var(--red)', fontSize: 14, margin: '0 0 8px' }}>{error}</p>
       )}
       <div ref={containerRef} />
     </div>

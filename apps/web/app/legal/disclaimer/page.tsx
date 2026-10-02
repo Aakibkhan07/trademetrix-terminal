@@ -3,8 +3,8 @@ export default function DisclaimerPage() {
   return (
     <div style={{ maxWidth: 700, margin: '0 auto' }}>
       <h1 className="t-page-title">Disclaimer</h1>
-      <p className="t-sub" style={{ fontSize: 13, marginBottom: 20 }}>Last updated: July 4, 2026</p>
-      <div className="t-panel" style={{ padding: 20, fontSize: 12, lineHeight: 1.7 }}>
+      <p className="t-sub" style={{ fontSize: 16, marginBottom: 20 }}>Last updated: July 4, 2026</p>
+      <div className="t-panel" style={{ padding: 20, fontSize: 14, lineHeight: 1.7 }}>
         <h3>No Financial Advice</h3>
         <p>TradeMetrix Terminal is a technology platform. We do not provide financial, investment, or trading advice.</p>
         <h3>Risk of Loss</h3>

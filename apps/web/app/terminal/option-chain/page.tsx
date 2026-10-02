@@ -186,29 +186,29 @@ export default function OptionChainPage() {
       {/* ── Header Controls ── */}
       <div className="t-panel" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <select className="t-select" value={symbol} onChange={e => { setSymbol(e.target.value); setLoading(true) }}
-          style={{ width: 130, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+          style={{ width: 130, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text)', fontSize: 14, fontFamily: 'var(--font-mono)' }}>
           {SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
         <select className="t-select" value={expiry} onChange={e => { setExpiry(e.target.value); setLoading(true) }}
-          style={{ width: 100, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+          style={{ width: 100, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-tertiary)', color: 'var(--text)', fontSize: 14, fontFamily: 'var(--font-mono)' }}>
           {expiries.map(e => <option key={e} value={e}>{e}</option>)}
         </select>
 
-        <span style={{ fontSize: 10, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
           {lastUpdated ? `Updated ${lastUpdated}` : ''}
         </span>
 
-        {loading && <span style={{ fontSize: 10, color: 'var(--cyan)', fontFamily: 'var(--font-mono)' }}>loading...</span>}
+        {loading && <span style={{ fontSize: 12, color: 'var(--cyan)', fontFamily: 'var(--font-mono)' }}>loading...</span>}
 
         {isSimulated && (
-          <span className="t-badge t-badge-amber" style={{ fontSize: 9 }}>
+          <span className="t-badge t-badge-amber" style={{ fontSize: 11 }}>
             SIMULATED DATA
           </span>
         )}
 
         <span style={{ flex: 1 }} />
-        <button className="t-btn t-btn-sm t-btn-ghost" style={{ fontSize: 10 }} onClick={() => setAdvanced(v => !v)}>
+        <button className="t-btn t-btn-sm t-btn-ghost" style={{ fontSize: 12 }} onClick={() => setAdvanced(v => !v)}>
           {advanced ? 'Hide advanced ▲' : 'Advanced ▼'} (OI · Vol · IV · PCR)
         </button>
       </div>
@@ -218,17 +218,17 @@ export default function OptionChainPage() {
         <div className="t-panel" style={{ padding: '10px 14px', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
         <div>
           <div className="t-stat-label">PCR (OI)</div>
-          <div className="t-stat-value" style={{ color: pcrZone(pcr).color, fontSize: 18 }}>{pcr.toFixed(2)}</div>
+          <div className="t-stat-value" style={{ color: pcrZone(pcr).color, fontSize: 22 }}>{pcr.toFixed(2)}</div>
           <div className="t-stat-sub" style={{ color: pcrZone(pcr).color }}>{pcrZone(pcr).label}</div>
         </div>
         <div>
           <div className="t-stat-label">Max Pain</div>
-          <div className="t-stat-value" style={{ fontSize: 18 }}>{fmt(maxPain)}</div>
+          <div className="t-stat-value" style={{ fontSize: 22 }}>{fmt(maxPain)}</div>
           <div className="t-stat-sub t-sub">Max option writer pain</div>
         </div>
         <div>
           <div className="t-stat-label">Call Resistance</div>
-          <div className="t-stat-value" style={{ fontSize: 18, color: 'var(--text-red)' }}>
+          <div className="t-stat-value" style={{ fontSize: 22, color: 'var(--text-red)' }}>
             {(() => {
               const maxCe = [...rows].sort((a, b) => (b.call.oi ?? 0) - (a.call.oi ?? 0))[0]
               return maxCe ? fmt(maxCe.strike) : '-'
@@ -238,7 +238,7 @@ export default function OptionChainPage() {
         </div>
         <div>
           <div className="t-stat-label">Put Support</div>
-          <div className="t-stat-value" style={{ fontSize: 18, color: 'var(--text-green)' }}>
+          <div className="t-stat-value" style={{ fontSize: 22, color: 'var(--text-green)' }}>
             {(() => {
               const maxPe = [...rows].sort((a, b) => (b.put.oi ?? 0) - (a.put.oi ?? 0))[0]
               return maxPe ? fmt(maxPe.strike) : '-'
@@ -251,12 +251,12 @@ export default function OptionChainPage() {
 
       {/* ── Chain Table ── */}
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <table className="t-table" style={{ minWidth: advanced ? 580 : 240, fontSize: 11, borderCollapse: 'collapse', width: '100%' }}>
+        <table className="t-table" style={{ minWidth: advanced ? 580 : 240, fontSize: 13, borderCollapse: 'collapse', width: '100%' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              <th colSpan={advanced ? 5 : 1} style={{ textAlign: 'center', padding: '6px 4px', color: 'var(--text-green)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>CALL</th>
-              <th style={{ padding: '6px 8px', textAlign: 'center', position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-secondary)', borderRight: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>STRIKE</th>
-              <th colSpan={advanced ? 5 : 1} style={{ textAlign: 'center', padding: '6px 4px', color: 'var(--text-red)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>PUT</th>
+              <th colSpan={advanced ? 5 : 1} style={{ textAlign: 'center', padding: '6px 4px', color: 'var(--text-green)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>CALL</th>
+              <th style={{ padding: '6px 8px', textAlign: 'center', position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-secondary)', borderRight: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>STRIKE</th>
+              <th colSpan={advanced ? 5 : 1} style={{ textAlign: 'center', padding: '6px 4px', color: 'var(--text-red)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>PUT</th>
             </tr>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {advanced ? (
@@ -348,7 +348,7 @@ export default function OptionChainPage() {
 
 const cellHeader: React.CSSProperties = {
   padding: '4px 6px',
-  fontSize: 9,
+  fontSize: 11,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   color: 'var(--text-faint)',
@@ -362,7 +362,7 @@ const cellData: React.CSSProperties = {
   whiteSpace: 'nowrap',
   textAlign: 'right',
   fontFamily: 'var(--font-mono)',
-  fontSize: 10,
+  fontSize: 12,
   fontVariantNumeric: 'tabular-nums',
 }
 

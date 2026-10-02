@@ -63,7 +63,7 @@ function StatusBadge({ children, color }: { children: ReactNode; color: string }
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 600,
+      padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
       background: `${color}20`, color,
     }}>
       {children}
@@ -156,7 +156,7 @@ export default function StatusPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <h1 className="t-page-title" style={{ margin: 0 }}>System Status</h1>
-          <p className="t-sub" style={{ fontSize: 12, margin: '4px 0 0' }}>
+          <p className="t-sub" style={{ fontSize: 14, margin: '4px 0 0' }}>
             {lastChecked ? `Last checked: ${lastChecked} · refreshes automatically` : 'Checking live health...'}
           </p>
         </div>
@@ -169,7 +169,7 @@ export default function StatusPage() {
         </StatusBadge>
       </div>
 
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: 'var(--text)' }}>System Components</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 17, margin: '0 0 12px', color: 'var(--text)' }}>System Components</h2>
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
           <SkeletonCard />
@@ -182,58 +182,58 @@ export default function StatusPage() {
             <div key={c.name} className="t-panel" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <StatusDot status={c.status} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{c.name}</span>
+                <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{c.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{
-                  fontSize: 11, fontWeight: 500,
+                  fontSize: 13, fontWeight: 500,
                   color: c.status === 'operational' ? 'var(--green)' : c.status === 'down' ? 'var(--red)' : 'var(--amber)',
                 }}>
                   {c.status === 'operational' ? 'Operational' : c.status === 'down' ? 'Down' : 'Degraded'}
                 </span>
-                <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>{c.lastChecked}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{c.lastChecked}</span>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: 'var(--text)' }}>Service Details</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 17, margin: '0 0 12px', color: 'var(--text)' }}>Service Details</h2>
       <div className="t-panel" style={{ padding: 16, marginBottom: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 9, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>SERVICE</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{health?.service || '—'}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>SERVICE</div>
+            <div style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{health?.service || '—'}</div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>VERSION</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{health?.version || '—'}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>VERSION</div>
+            <div style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{health?.version || '—'}</div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>API UPTIME</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>API UPTIME</div>
+            <div style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>
               {health?.uptime_seconds ? formatUptime(health.uptime_seconds) : '—'}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>CPU</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>CPU</div>
+            <div style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
               {sys?.cpu_percent != null ? `${sys.cpu_percent.toFixed(1)}%` : '—'}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>MEMORY</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>MEMORY</div>
+            <div style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
               {sys?.memory_rss_bytes ? `${(sys.memory_rss_bytes / 1024 / 1024).toFixed(0)} MB` : '—'}
             </div>
           </div>
           {req && (
             <div>
-              <div style={{ fontSize: 9, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>REQUESTS</div>
-              <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.03em', marginBottom: 4 }}>REQUESTS</div>
+              <div style={{ fontSize: 17, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
                 {totalRequests?.toLocaleString() ?? '—'}
               </div>
-              <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
                 {topPath ? `${topPath[0]} · ${topPath[1].avg_ms?.toFixed(0)}ms` : ''}
               </div>
             </div>
@@ -241,14 +241,14 @@ export default function StatusPage() {
         </div>
       </div>
 
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 14, margin: '0 0 12px', color: 'var(--text)' }}>Maintenance</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 17, margin: '0 0 12px', color: 'var(--text)' }}>Maintenance</h2>
       <div className="t-panel" style={{ padding: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
             display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
             background: 'var(--green)',
           }} />
-          <span style={{ fontSize: 13, color: 'var(--text)' }}>No scheduled maintenance — deploy updates appear in the Changelog.</span>
+          <span style={{ fontSize: 16, color: 'var(--text)' }}>No scheduled maintenance — deploy updates appear in the Changelog.</span>
         </div>
       </div>
     </div>

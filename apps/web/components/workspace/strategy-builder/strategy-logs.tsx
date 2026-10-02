@@ -39,19 +39,19 @@ export default function StrategyLogs({ strategyId }: { strategyId: string }) {
     return () => clearInterval(t)
   }, [load])
 
-  if (error) return <p style={{ fontSize: 10, color: 'var(--red)' }}>{error}</p>
+  if (error) return <p style={{ fontSize: 12, color: 'var(--red)' }}>{error}</p>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto' }}>
-      {logs.length === 0 && <p className="t-faint" style={{ fontSize: 10 }}>No activity yet.</p>}
+      {logs.length === 0 && <p className="t-faint" style={{ fontSize: 12 }}>No activity yet.</p>}
       {logs.map(l => {
         const color = KIND_COLOR[l.kind] || 'var(--text-faint)'
         let ts = ''
         try { ts = new Date(l.ts).toLocaleTimeString() } catch { ts = '' }
         return (
-          <div key={l.id} style={{ display: 'flex', gap: 8, fontSize: 10, alignItems: 'baseline' }}>
+          <div key={l.id} style={{ display: 'flex', gap: 8, fontSize: 12, alignItems: 'baseline' }}>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-faint)', flexShrink: 0 }}>{ts}</span>
-            <span className="t-badge" style={{ fontSize: 8, background: 'transparent', border: `1px solid ${color}`, color, flexShrink: 0, padding: '0 4px' }}>
+            <span className="t-badge" style={{ fontSize: 10, background: 'transparent', border: `1px solid ${color}`, color, flexShrink: 0, padding: '0 4px' }}>
               {l.kind}
             </span>
             <span style={{ color: l.level === 'error' ? 'var(--red)' : l.level === 'warning' ? 'var(--yellow)' : 'var(--text)', flex: 1 }}>{l.message}</span>

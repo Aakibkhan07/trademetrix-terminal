@@ -3,8 +3,8 @@ export default function TermsPage() {
   return (
     <div style={{ maxWidth: 700, margin: '0 auto' }}>
       <h1 className="t-page-title">Terms of Service</h1>
-      <p className="t-sub" style={{ fontSize: 13, marginBottom: 20 }}>Last updated: July 4, 2026</p>
-      <div className="t-panel" style={{ padding: 20, fontSize: 12, lineHeight: 1.7 }}>
+      <p className="t-sub" style={{ fontSize: 16, marginBottom: 20 }}>Last updated: July 4, 2026</p>
+      <div className="t-panel" style={{ padding: 20, fontSize: 14, lineHeight: 1.7 }}>
         <h3>Acceptance</h3>
         <p>By using TradeMetrix Terminal, you agree to these terms. If you do not agree, do not use the platform.</p>
         <h3>Eligibility</h3>

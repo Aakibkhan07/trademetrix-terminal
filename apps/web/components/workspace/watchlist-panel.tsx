@@ -219,23 +219,23 @@ export default function WatchlistPanel({ activeSymbol, onSelectSymbol, onAnalyze
               key={g}
               className={`t-tab ${group === g ? 'active' : ''}`}
               onClick={() => setGroup(g)}
-              style={{ fontSize: 10, padding: '5px 8px' }}
+              style={{ fontSize: 12, padding: '5px 8px' }}
             >
               {g === 'all' ? 'All' : g === 'etf' ? 'ETF' : g[0].toUpperCase() + g.slice(1)}
             </button>
           ))}
         </div>
         <input className="t-input" placeholder="Filter…" value={search}
-          onChange={e => setSearch(e.target.value)} style={{ marginTop: 8, fontSize: 11, padding: '6px 8px' }} />
+          onChange={e => setSearch(e.target.value)} style={{ marginTop: 8, fontSize: 13, padding: '6px 8px' }} />
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }} id="ws-watch-scroll">
         <table className="t-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--panel)' }}>
             <tr>
-              <th style={{ fontSize: 9 }}>SYM</th><th style={{ fontSize: 9 }}>LTP</th><th style={{ fontSize: 9 }}>%</th>
-              <th style={{ fontSize: 9 }}>OI</th><th style={{ fontSize: 9 }}>VOL</th><th style={{ fontSize: 9 }}>TREND</th>
-              <th style={{ fontSize: 9 }}>CHART</th><th style={{ fontSize: 9 }}>ACTIONS</th>
+              <th style={{ fontSize: 11 }}>SYM</th><th style={{ fontSize: 11 }}>LTP</th><th style={{ fontSize: 11 }}>%</th>
+              <th style={{ fontSize: 11 }}>OI</th><th style={{ fontSize: 11 }}>VOL</th><th style={{ fontSize: 11 }}>TREND</th>
+              <th style={{ fontSize: 11 }}>CHART</th><th style={{ fontSize: 11 }}>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
@@ -258,36 +258,36 @@ export default function WatchlistPanel({ activeSymbol, onSelectSymbol, onAnalyze
             ))}
             {padBottom > 0 && <tr style={{ height: padBottom }}><td colSpan={8} /></tr>}
             {visibleItems.length === 0 && (
-              <tr><td colSpan={8} style={{ textAlign: 'center', padding: 20 }}><span className="t-faint" style={{ fontSize: 11 }}>Empty — add symbols</span></td></tr>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: 20 }}><span className="t-faint" style={{ fontSize: 13 }}>Empty — add symbols</span></td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       <div style={{ padding: 8, borderTop: '1px solid var(--border)', display: 'flex', gap: 6 }}>
-        <button className="t-btn t-btn-sm t-btn-ghost" style={{ flex: 1, fontSize: 11 }} onClick={() => setShowAdd(true)}>+ Add</button>
-        <button className="t-btn t-btn-sm t-btn-ghost" style={{ flex: 1, fontSize: 11 }} onClick={() => window.location.assign('/marketdata')}>Alerts</button>
+        <button className="t-btn t-btn-sm t-btn-ghost" style={{ flex: 1, fontSize: 13 }} onClick={() => setShowAdd(true)}>+ Add</button>
+        <button className="t-btn t-btn-sm t-btn-ghost" style={{ flex: 1, fontSize: 13 }} onClick={() => window.location.assign('/marketdata')}>Alerts</button>
       </div>
 
       {showAdd && (
         <Dialog onClose={() => setShowAdd(false)} maxWidth={380} title={<h3 className="t-modal-title">Add to {group === 'all' ? 'Intraday' : group}</h3>}>
-            <input className="t-input" placeholder="Search…" value={addSearch} onChange={e => setAddSearch(e.target.value)} autoFocus style={{ marginBottom: 8, fontSize: 12 }} />
+            <input className="t-input" placeholder="Search…" value={addSearch} onChange={e => setAddSearch(e.target.value)} autoFocus style={{ marginBottom: 8, fontSize: 14 }} />
             <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
               {addableSymbols.slice(0, 25).map(s => (
-                <div key={s.symbol} className="t-hover-bg" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+                <div key={s.symbol} className="t-hover-bg" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 14 }}
                   onClick={() => addItem(s)}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{s.name}</div>
-                    <div className="t-faint" style={{ fontSize: 10 }}>{s.symbol}</div>
+                    <div className="t-faint" style={{ fontSize: 12 }}>{s.symbol}</div>
                   </div>
-                  <span className={`t-badge ${s.type === 'index' ? 't-badge-violet' : s.type === 'option' ? 't-badge-amber' : 't-badge-cyan'}`} style={{ fontSize: 9 }}>{s.type}</span>
+                  <span className={`t-badge ${s.type === 'index' ? 't-badge-violet' : s.type === 'option' ? 't-badge-amber' : 't-badge-cyan'}`} style={{ fontSize: 11 }}>{s.type}</span>
                 </div>
               ))}
-              {addableSymbols.length === 0 && <span className="t-faint" style={{ padding: 8, fontSize: 11 }}>No matches</span>}
+              {addableSymbols.length === 0 && <span className="t-faint" style={{ padding: 8, fontSize: 13 }}>No matches</span>}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
-              <input className="t-input" placeholder="Any symbol e.g. NSE:NIFTY26AUG25000CE" value={freeText} onChange={e => setFreeText(e.target.value)} style={{ flex: 1, fontSize: 11 }} />
-              <button className="t-btn t-btn-primary" onClick={addFreeText} style={{ fontSize: 11 }}>Add</button>
+              <input className="t-input" placeholder="Any symbol e.g. NSE:NIFTY26AUG25000CE" value={freeText} onChange={e => setFreeText(e.target.value)} style={{ flex: 1, fontSize: 13 }} />
+              <button className="t-btn t-btn-primary" onClick={addFreeText} style={{ fontSize: 13 }}>Add</button>
             </div>
         </Dialog>
       )}

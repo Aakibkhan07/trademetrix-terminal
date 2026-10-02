@@ -28,7 +28,7 @@ interface PnLData {
 }
 
 function BarChart({ data, height = 160 }: { data: { date: string; pnl: number }[]; height?: number }) {
-  if (!data.length) return <div style={{ fontSize: 11, color: 'var(--text-faint)', padding: 16, textAlign: 'center' }}>No data</div>
+  if (!data.length) return <div style={{ fontSize: 13, color: 'var(--text-faint)', padding: 16, textAlign: 'center' }}>No data</div>
   const max = Math.max(...data.map(d => Math.abs(d.pnl)), 1)
   const w = Math.max(8, Math.min(40, 600 / data.length))
 
@@ -48,7 +48,7 @@ function BarChart({ data, height = 160 }: { data: { date: string; pnl: number }[
               position: 'relative',
             }} title={`${d.date}: ₹${d.pnl.toLocaleString()}`} />
             {data.length < 20 && (
-              <span style={{ fontSize: 7, color: 'var(--text-faint)', marginTop: 2, writingMode: 'vertical-lr' as any, transform: 'rotate(180deg)' }}>
+              <span style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2, writingMode: 'vertical-lr' as any, transform: 'rotate(180deg)' }}>
                 {d.date.slice(5)}
               </span>
             )}
@@ -105,7 +105,7 @@ export function PnLDashboardTab() {
     <div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <select className="t-input" value={userFilter} onChange={e => setUserFilter(e.target.value)}
-          style={{ fontSize: 11, maxWidth: 220 }}>
+          style={{ fontSize: 13, maxWidth: 220 }}>
           <option value="">— All users —</option>
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.email})</option>
@@ -115,13 +115,13 @@ export function PnLDashboardTab() {
           {(['daily', 'weekly', 'monthly'] as const).map(p => (
             <button key={p} onClick={() => setPeriod(p)}
               style={{
-                padding: '4px 10px', fontSize: 9, fontWeight: 600, border: 'none', cursor: 'pointer',
+                padding: '4px 10px', fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer',
                 background: period === p ? 'var(--violet)' : 'transparent',
                 color: period === p ? 'var(--text-inverse)' : 'var(--text-sub)',
               }}>{p.charAt(0).toUpperCase() + p.slice(1)}</button>
           ))}
         </div>
-        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 10 }}>Refresh</button>
+        <button className="t-btn t-btn-sm" onClick={() => setRefreshKey(k => k + 1)} style={{ fontSize: 12 }}>Refresh</button>
       </div>
 
       {loading && (
@@ -148,22 +148,22 @@ export function PnLDashboardTab() {
       {!loading && summary && (
         <div className="t-panel" style={{ padding: '14px 16px', marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>
+            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, letterSpacing: '0.03em' }}>
               {period === 'daily' ? 'DAILY' : period === 'weekly' ? 'WEEKLY' : 'MONTHLY'} P&L
             </h3>
-            <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
               {chartData.length} {period === 'daily' ? 'days' : period === 'weekly' ? 'weeks' : 'months'}
             </span>
           </div>
           {chartData.length > 0 && (
             <div>
               <div style={{
-                fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                fontSize: 29, fontWeight: 700, fontFamily: 'var(--font-mono)',
                 color: chartData.reduce((s, d) => s + d.pnl, 0) >= 0 ? 'var(--green)' : 'var(--red)',
                 marginBottom: 8,
               }}>
                 ₹{Math.abs(chartData.reduce((s, d) => s + d.pnl, 0)).toLocaleString()}
-                <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-sub)', marginLeft: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-sub)', marginLeft: 6 }}>
                   total ({chartData.reduce((s, d) => s + d.pnl, 0) >= 0 ? 'profit' : 'loss'})
                 </span>
               </div>
@@ -175,15 +175,15 @@ export function PnLDashboardTab() {
 
       {!loading && summary && dailyPnl.length > 0 && (
         <div className="t-panel" style={{ padding: '14px 16px' }}>
-          <h3 style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>RECENT TRADES</h3>
+          <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, letterSpacing: '0.03em' }}>RECENT TRADES</h3>
           <div style={{ overflowX: 'auto' }}>
-            <table className="t-table" style={{ fontSize: 10, width: '100%', borderCollapse: 'collapse' }}>
+            <table className="t-table" style={{ fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid color-mix(in srgb, var(--violet) 12%, transparent)' }}>
-                  <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>DATE</th>
-                  <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>P&L</th>
-                  <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>TRADES</th>
-                  <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 8 }}>PAPER</th>
+                  <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>DATE</th>
+                  <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>P&L</th>
+                  <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>TRADES</th>
+                  <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600, color: 'var(--text-sub)', fontSize: 10 }}>PAPER</th>
                 </tr>
               </thead>
               <tbody>
@@ -207,7 +207,7 @@ export function PnLDashboardTab() {
 
       {!loading && !summary && (
         <div className="t-panel" style={{ padding: 16, textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>No P&L data available.</p>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-faint)' }}>No P&L data available.</p>
         </div>
       )}
     </div>

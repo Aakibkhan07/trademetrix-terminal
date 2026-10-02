@@ -23,7 +23,7 @@ function BarChart({ data, height = 100 }: { data: { label: string; value: number
         return (
           <g key={d.label}>
             <rect x={i * 28 + 4} y={yPos} width={20} height={Math.max(2, barH)} rx={2} fill={d.color || (d.value >= 0 ? 'var(--green)' : 'var(--red)')} opacity={0.7} />
-            <text x={i * 28 + 14} y={height - 8} textAnchor="middle" fill="var(--text-faint)" fontSize={8} fontFamily="var(--font-sans)">
+            <text x={i * 28 + 14} y={height - 8} textAnchor="middle" fill="var(--text-faint)" fontSize={10} fontFamily="var(--font-sans)">
               {d.label}
             </text>
           </g>
@@ -94,8 +94,8 @@ export default function AnalyticsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div>
-        <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, margin: 0, color: 'var(--text)' }}>Analytics</h1>
-        <p style={{ color: 'var(--text-sub)', fontSize: 12, margin: '2px 0 0' }}>Performance metrics and trade analysis</p>
+        <h1 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: 0, color: 'var(--text)' }}>Analytics</h1>
+        <p style={{ color: 'var(--text-sub)', fontSize: 14, margin: '2px 0 0' }}>Performance metrics and trade analysis</p>
       </div>
 
       {/* KPI Row */}
@@ -109,9 +109,9 @@ export default function AnalyticsPage() {
           { label: 'Active Runs', value: `${analytics.activeRuns}`, sub: `${runs.length} total runs` },
         ].map(kpi => (
           <div key={kpi.label} className="t-panel" style={{ padding: 12 }}>
-            <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{kpi.label}</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: kpi.color || 'var(--text)', marginBottom: 1 }}>{kpi.value}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{kpi.sub}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{kpi.label}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: kpi.color || 'var(--text)', marginBottom: 1 }}>{kpi.value}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{kpi.sub}</div>
           </div>
         ))}
       </div>
@@ -120,7 +120,7 @@ export default function AnalyticsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
         {/* Equity Curve */}
         <div className="t-panel" style={{ padding: 12 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Equity Curve</div>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Equity Curve</div>
           {analytics.equityCurve.length > 1 ? (
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 100 }}>
               {analytics.equityCurve.map((v: number, i: number) => {
@@ -139,29 +139,29 @@ export default function AnalyticsPage() {
               })}
             </div>
           ) : (
-            <p style={{ color: 'var(--text-faint)', fontSize: 11, margin: '32px 0', textAlign: 'center' }}>No position data</p>
+            <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: '32px 0', textAlign: 'center' }}>No position data</p>
           )}
         </div>
 
         {/* Orders by Day */}
         <div className="t-panel" style={{ padding: 12 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Orders by Day</div>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Orders by Day</div>
           <BarChart data={analytics.dayOrder.map(d => ({ label: d, value: analytics.dayOfWeek[d] || 0 }))} height={100} />
           {Object.keys(analytics.dayOfWeek).length === 0 && (
-            <p style={{ color: 'var(--text-faint)', fontSize: 11, margin: '32px 0', textAlign: 'center' }}>No data</p>
+            <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: '32px 0', textAlign: 'center' }}>No data</p>
           )}
         </div>
 
         {/* Positions Breakdown */}
         <div className="t-panel" style={{ padding: 12 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Positions</div>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 6 }}>Positions</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {positions.length > 0 ? (
               positions.map((p: any, i: number) => {
                 const pnl = p.unrealised_pnl || 0
                 return (
                   <div key={i}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 2 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
                       <span style={{ fontWeight: 600, color: 'var(--text)' }}>{p.symbol?.split(':').pop()}</span>
                       <span style={{ fontFamily: 'var(--font-mono)', color: pnl >= 0 ? 'var(--text-green)' : 'var(--text-red)', fontWeight: 700 }}>
                         {pnl >= 0 ? '+' : ''}{pnl.toFixed(0)}
@@ -172,7 +172,7 @@ export default function AnalyticsPage() {
                 )
               })
             ) : (
-              <p style={{ color: 'var(--text-faint)', fontSize: 11, margin: '28px 0', textAlign: 'center' }}>No positions</p>
+              <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: '28px 0', textAlign: 'center' }}>No positions</p>
             )}
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function AnalyticsPage() {
       {/* P&L Snapshot (live portfolio P&L) */}
       {(pnlState || mtm !== null) && (
         <div className="t-panel" style={{ padding: 12 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>
             P&L Snapshot {pnlStateData?.broker ? `· ${pnlStateData.broker}` : ''}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
@@ -196,8 +196,8 @@ export default function AnalyticsPage() {
               { label: 'MTM Exposure', value: mtm, fmt: (v: number) => `₹${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
             ].map(m => (
               <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--violet-dim)' }}>
-                <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.value === null ? 'var(--text-faint)' : (m.label === 'Drawdown' || m.label === 'MTM Exposure' || m.label === 'Current Equity' ? 'var(--text)' : ((m.value as number) >= 0 ? 'var(--text-green)' : 'var(--text-red)')) }}>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 17, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.value === null ? 'var(--text-faint)' : (m.label === 'Drawdown' || m.label === 'MTM Exposure' || m.label === 'Current Equity' ? 'var(--text)' : ((m.value as number) >= 0 ? 'var(--text-green)' : 'var(--text-red)')) }}>
                   {m.value === null ? '—' : m.fmt(m.value as number)}
                 </div>
               </div>
@@ -211,7 +211,7 @@ export default function AnalyticsPage() {
         {/* Holdings Table */}
         <div className="t-panel" style={{ padding: 0 }}>
           <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Holdings ({positions.length})</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Holdings ({positions.length})</span>
           </div>
           {positions.length > 0 ? (
             <div style={{ overflowX: 'auto' }}>
@@ -228,7 +228,7 @@ export default function AnalyticsPage() {
                 <tbody>
                   {positions.map((p: any, i: number) => (
                     <tr key={i}>
-                      <td style={{ fontWeight: 600, fontSize: 12 }}>{p.symbol?.split(':').pop()}</td>
+                      <td style={{ fontWeight: 600, fontSize: 14 }}>{p.symbol?.split(':').pop()}</td>
                       <td className="t-num">{p.quantity || 0}</td>
                       <td className="t-num">{(p.average_buy_price || 0).toFixed(1)}</td>
                       <td className="t-num">{(p.last_price || 0).toFixed(1)}</td>
@@ -241,15 +241,15 @@ export default function AnalyticsPage() {
               </table>
             </div>
           ) : (
-            <p style={{ color: 'var(--text-faint)', fontSize: 11, textAlign: 'center', padding: 20, margin: 0 }}>No open positions</p>
+            <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: 20, margin: 0 }}>No open positions</p>
           )}
         </div>
 
         {/* Recent Runs */}
         <div className="t-panel" style={{ padding: 0 }}>
           <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Recent Engine Runs</span>
-            <span className="t-faint" style={{ fontSize: 10 }}>{runs.length} total</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Recent Engine Runs</span>
+            <span className="t-faint" style={{ fontSize: 12 }}>{runs.length} total</span>
           </div>
           {runs.length > 0 ? (
             <div style={{ maxHeight: 200, overflowY: 'auto' }}>
@@ -257,20 +257,20 @@ export default function AnalyticsPage() {
                 <div key={r.id || i} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '6px 12px', borderBottom: '1px solid color-mix(in srgb, var(--text-inverse) 3%, transparent)',
-                  fontSize: 11,
+                  fontSize: 13,
                 }}>
                   <div>
                     <div style={{ fontWeight: 600, color: 'var(--text)' }}>{r.strategy_name || r.strategy_id || 'Run'}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{r.symbol || ''} {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{r.symbol || ''} {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}</div>
                   </div>
-                  <span className={`t-badge ${r.status === 'active' ? 't-badge-green' : r.status === 'error' ? 't-badge-red' : 't-badge-sub'}`} style={{ fontSize: 8 }}>
+                  <span className={`t-badge ${r.status === 'active' ? 't-badge-green' : r.status === 'error' ? 't-badge-red' : 't-badge-sub'}`} style={{ fontSize: 10 }}>
                     {r.status || 'unknown'}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p style={{ color: 'var(--text-faint)', fontSize: 11, textAlign: 'center', padding: 20, margin: 0 }}>No engine runs yet</p>
+            <p style={{ color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', padding: 20, margin: 0 }}>No engine runs yet</p>
           )}
         </div>
       </div>
@@ -284,8 +284,8 @@ export default function AnalyticsPage() {
             { label: 'Available Margin', value: `₹${(funds.available_margin || 0).toLocaleString()}`, pct: funds.total_margin ? ((funds.available_margin || 0) / funds.total_margin) * 100 : 0, color: 'var(--green)' },
           ].map(m => (
             <div key={m.label} className="t-panel" style={{ padding: 12 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 4 }}>{m.label}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{m.value}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 4 }}>{m.label}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{m.value}</div>
               <div className="t-progress">
                 <div className="t-progress-fill" style={{ width: `${Math.min(m.pct, 100)}%`, background: m.color }} />
               </div>

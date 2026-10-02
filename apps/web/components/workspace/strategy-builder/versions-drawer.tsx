@@ -98,26 +98,26 @@ export default function VersionsDrawer({
   return (
     <Dialog onClose={onClose} maxWidth={620} padding={0} title={
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-        <span style={{ fontSize: 13, fontWeight: 700 }}>Versions & History</span>
+        <span style={{ fontSize: 16, fontWeight: 700 }}>Versions & History</span>
         <button className="t-btn t-btn-sm" onClick={onClose}>✕</button>
       </div>
     }>
         <div style={{ padding: 14, maxHeight: '60vh', overflowY: 'auto' }}>
-          {busy && <p className="t-faint" style={{ fontSize: 11 }}>{busy}</p>}
-          {error && <p style={{ margin: '0 0 10px', fontSize: 11, color: 'var(--red)' }}>{error}</p>}
+          {busy && <p className="t-faint" style={{ fontSize: 13 }}>{busy}</p>}
+          {error && <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--red)' }}>{error}</p>}
 
           {versions.length === 0 && !busy && (
-            <p className="t-faint" style={{ fontSize: 12 }}>No versions yet — versions are snapshotted on every save.</p>
+            <p className="t-faint" style={{ fontSize: 14 }}>No versions yet — versions are snapshotted on every save.</p>
           )}
 
           {versions.length > 0 && (
             <>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-                <select className="t-select" value={fromV ?? ''} onChange={e => setFromV(Number(e.target.value))} style={{ fontSize: 11 }}>
+                <select className="t-select" value={fromV ?? ''} onChange={e => setFromV(Number(e.target.value))} style={{ fontSize: 13 }}>
                   {versions.slice(0, -1).map(v => <option key={v.version} value={v.version}>v{v.version} → {fmt(v.saved_at)}</option>)}
                 </select>
-                <span className="t-faint" style={{ fontSize: 11 }}>vs</span>
-                <select className="t-select" value={toV ?? ''} onChange={e => setToV(Number(e.target.value))} style={{ fontSize: 11 }}>
+                <span className="t-faint" style={{ fontSize: 13 }}>vs</span>
+                <select className="t-select" value={toV ?? ''} onChange={e => setToV(Number(e.target.value))} style={{ fontSize: 13 }}>
                   {versions.map(v => <option key={v.version} value={v.version}>v{v.version} → {fmt(v.saved_at)}</option>)}
                 </select>
                 <button className="t-btn t-btn-sm" onClick={compare} disabled={fromV === null || toV === null || fromV === toV}>Compare</button>
@@ -125,9 +125,9 @@ export default function VersionsDrawer({
 
               {diffSummary && (
                 <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-                  <span className="t-badge t-badge-green" style={{ fontSize: 9 }}>+{diffSummary.added} added</span>
-                  <span className="t-badge t-badge-sub" style={{ fontSize: 9 }}>−{diffSummary.removed} removed</span>
-                  <span className="t-badge t-badge-cyan" style={{ fontSize: 9 }}>~{diffSummary.changed} changed</span>
+                  <span className="t-badge t-badge-green" style={{ fontSize: 11 }}>+{diffSummary.added} added</span>
+                  <span className="t-badge t-badge-sub" style={{ fontSize: 11 }}>−{diffSummary.removed} removed</span>
+                  <span className="t-badge t-badge-cyan" style={{ fontSize: 11 }}>~{diffSummary.changed} changed</span>
                 </div>
               )}
 
@@ -135,7 +135,7 @@ export default function VersionsDrawer({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
                   {diff.map((c, i) => (
                     <div key={i} style={{
-                      fontSize: 11, padding: '5px 8px', borderRadius: 6, fontFamily: 'var(--font-mono)',
+                      fontSize: 13, padding: '5px 8px', borderRadius: 6, fontFamily: 'var(--font-mono)',
                       background: c.kind === 'added' ? 'color-mix(in srgb, var(--green) 8%, transparent)'
                         : c.kind === 'removed' ? 'color-mix(in srgb, var(--red) 8%, transparent)'
                         : 'color-mix(in srgb, var(--cyan) 8%, transparent)',
@@ -153,9 +153,9 @@ export default function VersionsDrawer({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {[...versions].reverse().map(v => (
                   <div key={v.version} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                    <span className="t-badge t-badge-cyan" style={{ fontSize: 9 }}>v{v.version}</span>
-                    <span className="t-faint" style={{ fontSize: 10, flex: 1 }}>{fmt(v.saved_at)}</span>
-                    <button className="t-btn t-btn-sm" onClick={() => restore(v.version)} style={{ fontSize: 10 }}>Restore</button>
+                    <span className="t-badge t-badge-cyan" style={{ fontSize: 11 }}>v{v.version}</span>
+                    <span className="t-faint" style={{ fontSize: 12, flex: 1 }}>{fmt(v.saved_at)}</span>
+                    <button className="t-btn t-btn-sm" onClick={() => restore(v.version)} style={{ fontSize: 12 }}>Restore</button>
                   </div>
                 ))}
               </div>

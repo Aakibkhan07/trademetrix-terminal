@@ -40,7 +40,7 @@ export default function BeginnerBuilder({ onResult, onError }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 14, maxWidth: 720 }}>
       <div>
-        <div className="t-stat-label" style={{ fontSize: 10, fontWeight: 700, marginBottom: 6 }}>
+        <div className="t-stat-label" style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
           DESCRIBE YOUR STRATEGY IN PLAIN ENGLISH
         </div>
         <textarea
@@ -48,31 +48,31 @@ export default function BeginnerBuilder({ onResult, onError }: Props) {
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
           placeholder="e.g. Buy NIFTY when EMA 9 crosses above EMA 21, exit at +1% target with 0.5% SL, only 09:30–14:30 on weekdays"
-          style={{ width: '100%', minHeight: 84, fontSize: 12, resize: 'vertical', fontFamily: 'var(--font-sans)' }}
+          style={{ width: '100%', minHeight: 84, fontSize: 14, resize: 'vertical', fontFamily: 'var(--font-sans)' }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
           <button className="t-btn t-btn-primary t-btn-sm" onClick={generate} disabled={busy || !prompt.trim()}>
             {busy ? 'Generating…' : '✨ Generate strategy'}
           </button>
-          {err && <span style={{ color: 'var(--text-red)', fontSize: 11 }}>{err}</span>}
+          {err && <span style={{ color: 'var(--text-red)', fontSize: 13 }}>{err}</span>}
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span className="t-faint" style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <span className="t-faint" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Try an example
         </span>
         {EXAMPLES.map((ex, i) => (
           <button
             key={i}
             className="t-btn t-btn-ghost"
-            style={{ textAlign: 'left', fontSize: 10, padding: '5px 8px', height: 'auto', lineHeight: 1.4, color: 'var(--text-sub)' }}
+            style={{ textAlign: 'left', fontSize: 12, padding: '5px 8px', height: 'auto', lineHeight: 1.4, color: 'var(--text-sub)' }}
             onClick={() => setPrompt(ex)}
           >
             {ex}
           </button>
         ))}
       </div>
-      <p className="t-faint" style={{ fontSize: 10, margin: 0 }}>
+      <p className="t-faint" style={{ fontSize: 12, margin: 0 }}>
         The AI draft is a starting point — you can review, fix and publish it in Advanced mode. Everything passes the same validation as hand-built strategies.
       </p>
     </div>

@@ -38,8 +38,8 @@ export function BroadcastDialog({ onClose }: BroadcastDialogProps) {
       overlayStyle={{ zIndex: 1000, backdropFilter: 'blur(4px)' }}
       title={
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Broadcast Notification</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>Broadcast Notification</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 19 }}>✕</button>
         </div>
       }
       style={{ width: 500, maxWidth: '90vw', maxHeight: '85vh', overflowY: 'auto', padding: 20 }}
@@ -47,33 +47,33 @@ export function BroadcastDialog({ onClose }: BroadcastDialogProps) {
     >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label className="t-label" style={{ fontSize: 10, marginBottom: 4, display: 'block' }}>Title</label>
+            <label className="t-label" style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>Title</label>
             <input className="t-input" value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="e.g. System Maintenance Tonight" style={{ width: '100%', fontSize: 12 }} />
+              placeholder="e.g. System Maintenance Tonight" style={{ width: '100%', fontSize: 14 }} />
           </div>
 
           <div>
-            <label className="t-label" style={{ fontSize: 10, marginBottom: 4, display: 'block' }}>Message</label>
+            <label className="t-label" style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>Message</label>
             <textarea className="t-input" value={message} onChange={e => setMessage(e.target.value)}
               placeholder="Type your message here..."
-              rows={5} style={{ width: '100%', fontSize: 12, resize: 'vertical', fontFamily: 'inherit' }} />
-            <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 2 }}>{message.length} chars</div>
+              rows={5} style={{ width: '100%', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }} />
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>{message.length} chars</div>
           </div>
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <div>
-              <label className="t-label" style={{ fontSize: 10, marginBottom: 4, display: 'block' }}>Channel</label>
+              <label className="t-label" style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>Channel</label>
               <select className="t-input" value={type} onChange={e => setType(e.target.value as any)}
-                style={{ fontSize: 11 }}>
+                style={{ fontSize: 13 }}>
                 <option value="email">Email</option>
                 <option value="sms">SMS</option>
                 <option value="both">Email + SMS</option>
               </select>
             </div>
             <div>
-              <label className="t-label" style={{ fontSize: 10, marginBottom: 4, display: 'block' }}>Recipients</label>
+              <label className="t-label" style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>Recipients</label>
               <select className="t-input" value={sendToAll ? 'all' : 'selected'} onChange={e => setSendToAll(e.target.value === 'all')}
-                style={{ fontSize: 11 }}>
+                style={{ fontSize: 13 }}>
                 <option value="all">All users</option>
                 <option value="selected">Selected users</option>
               </select>
@@ -81,14 +81,14 @@ export function BroadcastDialog({ onClose }: BroadcastDialogProps) {
           </div>
 
           {error && (
-            <div style={{ padding: 8, background: 'color-mix(in srgb, var(--red) 10%, transparent)', borderRadius: 6, fontSize: 11, color: 'var(--red)' }}>
+            <div style={{ padding: 8, background: 'color-mix(in srgb, var(--red) 10%, transparent)', borderRadius: 6, fontSize: 13, color: 'var(--red)' }}>
               {error}
             </div>
           )}
 
           {result && (
             <div style={{
-              padding: 12, borderRadius: 6, fontSize: 11,
+              padding: 12, borderRadius: 6, fontSize: 13,
               background: result.failed === 0
                 ? 'color-mix(in srgb, var(--green) 10%, transparent)'
                 : 'color-mix(in srgb, var(--amber) 10%, transparent)',
@@ -99,10 +99,10 @@ export function BroadcastDialog({ onClose }: BroadcastDialogProps) {
           )}
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-            <button className="t-btn t-btn-sm" onClick={onClose} style={{ fontSize: 10 }}>Cancel</button>
+            <button className="t-btn t-btn-sm" onClick={onClose} style={{ fontSize: 12 }}>Cancel</button>
             <button className="t-btn t-btn-sm" onClick={handleSend} disabled={sending || !title.trim() || !message.trim()}
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 background: 'var(--violet-dim)',
                 border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)',
                 color: 'var(--violet)',

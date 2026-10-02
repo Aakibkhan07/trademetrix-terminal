@@ -64,7 +64,7 @@ export default function StrategyCatalogPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 className="t-page-title">Strategy Catalog</h1>
-        <p className="t-sub" style={{ fontSize: 13 }}>
+        <p className="t-sub" style={{ fontSize: 16 }}>
           Browse all available built-in trading strategies
         </p>
       </div>
@@ -91,25 +91,25 @@ export default function StrategyCatalogPage() {
           ))}
         </select>
         <button className="t-btn t-btn-sm" onClick={() => setShowCompare(!showCompare)}
-          style={{ fontSize: 10, marginLeft: 'auto', background: showCompare ? 'var(--violet)' : 'color-mix(in srgb, var(--violet) 10%, transparent)', color: showCompare ? 'var(--text-inverse)' : 'var(--text)', border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)' }}>
+          style={{ fontSize: 12, marginLeft: 'auto', background: showCompare ? 'var(--violet)' : 'color-mix(in srgb, var(--violet) 10%, transparent)', color: showCompare ? 'var(--text-inverse)' : 'var(--text)', border: '1px solid color-mix(in srgb, var(--violet) 20%, transparent)' }}>
           {showCompare ? 'Hide Comparison' : 'Compare All Strategies'}
         </button>
       </div>
 
       {!loading && !error && strategies.length > 0 && showCompare && (
         <div className="t-panel" style={{ padding: 14, marginBottom: 20 }}>
-          <h3 style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 600 }}>Side-by-Side Comparison</h3>
-          <p className="t-faint" style={{ fontSize: 10, marginBottom: 10 }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 600 }}>Side-by-Side Comparison</h3>
+          <p className="t-faint" style={{ fontSize: 12, marginBottom: 10 }}>
             Compare all strategies by tier to find what works best for your trading style. Upgrade your plan to unlock higher-tier strategies.
           </p>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 9 }}>Strategy</th>
-                  <th style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 9 }}>Tier</th>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 9 }}>Description</th>
-                  <th style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 9 }}>Action</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 11 }}>Strategy</th>
+                  <th style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 11 }}>Tier</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 11 }}>Description</th>
+                  <th style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '2px solid color-mix(in srgb, var(--violet) 20%, transparent)', fontWeight: 600, fontSize: 11 }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -120,7 +120,7 @@ export default function StrategyCatalogPage() {
                     <React.Fragment key={tier}>
                       <tr>
                         <td colSpan={4} style={{
-                          padding: '4px 8px', fontWeight: 700, fontSize: 9,
+                          padding: '4px 8px', fontWeight: 700, fontSize: 11,
                           textTransform: 'uppercase', letterSpacing: '0.06em',
                           color: tierColor(tier),
                           borderBottom: `1px solid color-mix(in srgb, ${tierColor(tier)} 15%, transparent)`,
@@ -135,12 +135,12 @@ export default function StrategyCatalogPage() {
                           <td style={{ padding: '5px 8px', textAlign: 'center' }}>
                             <TierBadge tier={s.required_tier} />
                           </td>
-                          <td style={{ padding: '5px 8px', color: 'var(--text-sub)', fontSize: 9 }}>{s.description}</td>
+                          <td style={{ padding: '5px 8px', color: 'var(--text-sub)', fontSize: 11 }}>{s.description}</td>
                           <td style={{ padding: '5px 8px', textAlign: 'center' }}>
                             <a href={`/pricing?ref=${s.required_tier}`}
                               style={{
                                 display: 'inline-block', padding: '3px 12px', borderRadius: 4,
-                                fontSize: 9, fontWeight: 600, textDecoration: 'none',
+                                fontSize: 11, fontWeight: 600, textDecoration: 'none',
                                 background: s.required_tier === 'free' ? 'color-mix(in srgb, var(--green) 15%, transparent)' : 'var(--gradient-primary)',
                                 color: s.required_tier === 'free' ? 'var(--green)' : 'var(--text-inverse)',
                               }}>
@@ -159,7 +159,7 @@ export default function StrategyCatalogPage() {
       )}
 
       {error && (
-        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, color: 'var(--red)', fontSize: 16, marginBottom: 16 }}>
           {friendlyApiError(error)}
         </div>
       )}
@@ -179,10 +179,10 @@ export default function StrategyCatalogPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--cyan)', fontWeight: 500 }}>
+            <p style={{ margin: 0, fontSize: 16, color: 'var(--cyan)', fontWeight: 500 }}>
               {search || tierFilter !== 'all' ? 'No matching strategies' : 'No strategies available'}
             </p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
+            <p style={{ margin: '2px 0 0', fontSize: 14, color: 'var(--text-faint)' }}>
               {search || tierFilter !== 'all'
                 ? 'Try adjusting your search or filter.'
                 : 'The strategy catalog is currently empty.'}
@@ -200,18 +200,18 @@ export default function StrategyCatalogPage() {
               <div style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12,
               }}>
-                <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 14, margin: 0 }}>
+                <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 17, margin: 0 }}>
                   {s.name}
                 </h3>
                 <TierBadge tier={s.required_tier} />
               </div>
               <p style={{
-                margin: 0, fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.5, flex: 1,
+                margin: 0, fontSize: 13, color: 'var(--text-faint)', lineHeight: 1.5, flex: 1,
               }}>
                 {s.description}
               </p>
               <div style={{ marginTop: 12 }}>
-                <span className="t-badge t-badge-violet" style={{ fontSize: 9, padding: '2px 8px' }}>
+                <span className="t-badge t-badge-violet" style={{ fontSize: 11, padding: '2px 8px' }}>
                   {s.key}
                 </span>
               </div>
