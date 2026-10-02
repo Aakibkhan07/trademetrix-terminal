@@ -1,3 +1,189 @@
+## Unreleased — the Trade Journal had never rendered its own analytics, and 8 tables the code depends on were never in a migration
+
+> `/journal` declared three response shapes and **none of them existed**. Its `JournalData`
+> interface is recognisably a *backtest* result payload — `win_rate`, `sharpe_ratio`,
+> `max_drawdown`, `equity_curve`, `monthly_returns` are what `PerformanceAnalytics` produces and
+> what `routes/v1_backtest.py` serves — applied to a page reading a live journal endpoint that
+> returns `{ analysis, stats }`. Nothing computes those figures for live trading anywhere in the
+> codebase.
+>
+> The page passed every check available. It threw nothing, logged nothing, and rendered its
+> "No trading data yet" empty state **permanently**, because the guard
+> `total_trades > 0 || entries?.length > 0` was reading two `undefined` values and so was always
+> false. A page that is quietly always-empty looks exactly like a working one.
+
+### Fixed
+
+1. **`/journal` crashed the moment a user wrote a journal entry** (`apps/web/app/journal/page.tsx`).
+   The trade table renders when `filteredTrades.length > 0` and was fed `/ai/journal/entries` —
+   rows of `journal_entries`, whose columns are `id, user_id, entry_type, content, tags,
+   trade_ids, created_at`. Only `id` was in the declared `Trade` shape, so `fmt(t.price)` received
+   `undefined` and threw.
+   **Verified rather than argued:** inserting one `journal_entries` row put `/journal` into its
+   error boundary with `Cannot read properties of undefined (reading 'toLocaleString')`. A user's
+   first journal entry took the page down. The route crawler could not see it, because the crash
+   requires the data to be present and the test user had none.
+
+2. **`/journal` rewritten against what exists** (`apps/web/app/journal/page.tsx`). Four tiles
+   labelled with what `_compute_stats` returns; the AI narrative, which is the one genuinely rich
+   thing the endpoint returns, given real estate instead of being buried; trade history rebuilt on
+   `/engine/orders`, whose rows carry real `symbol`, `side`, `quantity`, `filled_quantity`,
+   `average_price`, `status`, `broker` and timestamps; journal entries listed with their real
+   columns. `SvgEquityCurve` and `MonthlyBars` were **removed rather than left rendering nothing** —
+   a component that cannot produce output is a codebase that lies about what it does.
+   The per-trade analytics are gone rather than rendered as zero, and the page says why.
+
+3. **The symbol search and Buy/Sell filter on `/journal` work for the first time.** Both compared
+   against `undefined` because `Trade.side` and `Trade.symbol` did not exist; selecting either side
+   always produced an empty table.
+
+4. **`ai/copilot.py` read a table nothing has ever written** (`apps/api/ai/copilot.py`). The
+   recent-backtests context read `backtest_results`; `backtest/manager.py` persists to
+   `backtest_runs`. PostgREST answered `PGRST205`, `async_safe_execute` caught it, and the
+   context was set to `[]`. **The copilot has always reasoned about a user with no trading history**
+   regardless of what they ran. The only evidence was one WARNING per request.
+
+5. **`/api/v1/alerts/` returned 500 for every alert** — `user_alerts` did not exist in this
+   repository at all (see the migration below). The `/alerts` page showed an empty list, which is
+   indistinguishable from a user who has set none. Found only by creating an alert through the
+   product's own endpoint; loading the page would never have revealed it.
+
+6. **The market-data / execution credential split did not work, and its own migration is why**
+   (`supabase/migrations/20261003_03000_drop_stale_broker_credentials_unique.sql`,
+   `apps/api/broker_connect/db/connections.py`). Two migrations disagree about uniqueness:
+   `20260828_02200` creates a standalone unique **index** `uq_broker_credentials_user_broker` on
+   `(user_id, broker)` for the OAuth upsert, and `20261002_01000` later adds the `role` column with
+   `UNIQUE (user_id, broker, role)`. `01000` tried to clear the way with
+   `DROP CONSTRAINT broker_credentials_user_id_broker_key` — but that is the *init* migration's
+   inline constraint, a different object. **`DROP CONSTRAINT` cannot drop a plain unique index.**
+   The stricter index survived, so two rows for the same `(user_id, broker)` are impossible no
+   matter what `role` says, and saving a market-data credential raises `duplicate key value
+   violates unique constraint`.
+   The `on_conflict="user_id,broker"` in the connect upsert had the same problem: it would collide
+   with an execution row and overwrite it instead of inserting a second role. Now `user_id,broker,role`.
+
+### Why the production verification of `01000` did not catch this
+
+It could not have. `verify_production_broker_roles.py` checks that the `role` column is readable
+and that rows are addressable by role; it does not **insert** a second role. All 17 production
+rows are `execution`, so no pair ever collided and the stale index stayed invisible. **The same
+defect is therefore likely present in production** and needs `03000` applied there — which needs
+the Supabase DB password, not available from this workstation.
+
+### Added — migrations
+
+7. **`supabase/migrations/20261003_02000_missing_runtime_tables.sql`** — the eight tables the API
+   reads or writes and no migration in this directory creates: `user_alerts`,
+   `notification_prefs`, `margin_snapshot`, `squareoff_config`, `strategy_health`,
+   `multi_leg_strategies`, `multi_leg_strategy_legs`. Every one exists in production because it was
+   created there by hand; none of it was ever captured.
+   **A fresh environment built from this repository could not start**, and the failure was silent:
+   `core.safe_query` catches every query error and returns `None`/`[]`, so callers read "no rows"
+   where the truth is "no table". Columns are taken from the code that uses them —
+   `strategy_health` mirrored from `alembic/versions/003_…`, `multi_leg_*` from the insert payloads
+   — rather than guessed. `backtest_results` is deliberately **not** created: creating it would make
+   the copilot's dead query look alive.
+   Idempotent, and a verified no-op on production where all eight already exist.
+
+8. **`supabase/migrations/20261003_03000_drop_stale_broker_credentials_unique.sql`** — drops the
+   stale index and re-asserts `(user_id, broker, role)` uniqueness. Skips the constraint when the
+   `role` column does not exist yet, so it is safe to apply before deploying `01000`.
+
+Applying the full migration set in order, as a rebuild would, is now clean: **22 applied, 7 no-ops,
+1 failure, all 7 being `already exists` duplicates** — no genuine breakage.
+
+### Added — tooling, each validated by mutation rather than by reading it
+
+9. **`scripts/browser/crawl_all_routes.js`** — crawls all 51 routes, and now also fails a route
+   whose rendered text contains `NaN`, `undefined`, `[object Object]`, `Infinity` or `₹NaN`. The
+   existing crawler only caught *failures*; a mismatched type produces no failure, it renders a
+   value that is not a value. Proven by injecting all five forms into `/journal` and confirming
+   exactly that route is flagged.
+
+10. **`apps/web/scripts/audit_api_contracts.py`** — diffs each declared response type **and each
+    untyped `as { … }` cast** against the keys the endpoints actually returned. `api.ts` has 119
+    `request()` calls, 25 without a generic, and pages cast 22 more results by hand; a cast asserts a
+    shape as firmly as a declared type and fails exactly as silently.
+    Result: **47 endpoints, 31 declarations, 22 casts, 0 mismatches.** Four are reported as
+    *not auditable* rather than passed — two generic instantiations the resolver does not handle and
+    one endpoint with no rows — which is the only honest thing to say about them.
+
+11. **`apps/api/scripts/audit_table_coverage.py`** — reports tables the code touches that the schema
+    lacks, and for each whether a migration **creates** it (comments stripped first) or merely
+    mentions it. Found the eight above; revalidated by reintroducing the `backtest_results` bug.
+
+### Four bugs in the audit tool itself, each found by distrusting its own output
+
+Worth recording because each would have made the tool report things that were not true, and for a
+bug-finder that is worse than having none — the findings get ignored.
+
+- **Field extraction by regex.** `[^{]` also matches `}`, so a greedy group ran past the end of one
+  interface and captured the next one's body. `Alert` resolved to `JournalNote`'s fields; every
+  finding was fabricated. Now extracted by brace matching.
+- **An apostrophe in a comment.** `/** the model's parsed output */` was read as an unterminated
+  string literal, swallowing the closing brace of the type being resolved. `JournalResponse` was
+  "unresolvable" while sitting in plain sight.
+- **A kind vocabulary that did not match itself.** `resolve_named_type` returned `'fields'` where
+  the caller compared against `'inline'`, so every *successfully resolved* named type was reported
+  as unresolved — the audit skipped exactly the declarations it exists to check, and looked clean
+  because of it.
+- **Empty data read as a mismatch.** Two endpoints returned no rows, so comparing a declared type
+  against an empty set marked every field missing. Both produced a page of invented findings.
+  Absence of data is now reported as not-auditable.
+
+The table-coverage tool made the same class of mistake twice more: it read the wrong repository root
+and reported `0` migrations, and it matched its own source file as a phantom table named `x`.
+
+### Earlier in this session
+
+12. **Session P0** (`apps/web/app/auth/page.tsx`) — the sign-in handler's `finally` block cleared
+    `tm_auth_token` after a **successful** login, and session restoration gates on that key. Every
+    full page load bounced to `/auth` while every API call returned 200, because the httponly cookie
+    was still valid. Symptom: "logged out again". No test could have caught it — nothing throws,
+    nothing 4xx's, and the cookie stays valid.
+13. **CSP made local development impossible** (`apps/web/next.config.js`) — `'unsafe-eval'` was
+    omitted from `script-src`, so hydration failed and pages sat on skeletons making **zero network
+    requests**; and the API origin in `connect-src` was hardcoded, silently overriding
+    `NEXT_PUBLIC_API_URL`. Now environment-aware, and the production policy is byte-identical to
+    the string it replaces.
+14. **`useApi` never resolved** (`apps/web/lib/use-api.ts`) — the shared inflight promise was bound
+    to the hook's own `AbortController`, so React 18 StrictMode's mount/cleanup/mount aborted it and
+    the second mount reused the dead promise. 16 files' worth of pages reported
+    `Request timed out` against requests the server answered in milliseconds. **Development only** —
+    verified by serving a production build with the original code, which renders all seven pages
+    correctly.
+15. **Three pages crashed on every render** (`/transparency`, `/reports/daily`, `/forward-test`) —
+    `x !== null` is not a presence check (`undefined !== null` is true), `{data ? … : '—'}` guards
+    the envelope rather than the field, and `GET /forward-tests/` answers `{ items: [...] }` while
+    the client typed it as a bare array. Added `lib/format.ts` so the next page does not re-derive a
+    guard.
+16. **The whole type scale was 0.8125x smaller than written.** `html, body` shared one rule with
+    `font-size: var(--text-base)`; on the root element a `rem` resolves against the *initial* 16px,
+    not against itself, so the root became 13px and **every other rem token then resolved against
+    13px instead of the 16px it was authored against**. Median rendered text 10.07px → 12.07px,
+    smallest 8px → 10px, measured across three independent size mechanisms.
+
+### Verification
+
+Route crawler **51/51**, with the bad-value detector active. Web lib tests 42 passed, `tsc --noEmit`
+clean, `npm run lint` 0 errors, build compiles. API suite **1198 passed, 1 xfailed**, ruff clean.
+Table coverage: every table the code touches exists and the schema is reproducible from the
+migrations in order.
+
+### Known gaps — nothing here was verified against production
+
+The VPS is unreachable from this workstation (DNS resolves `187.127.185.56`, general egress works,
+the host does not answer), so none of this was confirmed against production. Specifically:
+
+- **`20261003_03000` needs applying to production** for the credential split to work there.
+  `02000` should be a no-op there, but that is inferred from `IF NOT EXISTS`, not measured.
+- **`apps/api/.env` still points at the local database** — the backup was lost when the server was
+  restarted, `.env.vault` is encrypted and needs a `DOTENV_KEY` that is not present locally, and the
+  VPS is unreachable. **Deploys are unaffected**: `deploy.sh` requires `apps/api/.env` on the host
+  and it is gitignored, so it survives `git reset --hard`. Only local development is affected.
+- Load Test has never passed — it needs a `DOCKERHUB_TOKEN` secret.
+- Fyers needs a manual re-auth (PIN + OTP). Dhan market data is not subscribed until Oct 4.
+
 ## Unreleased — every position row on `/paper` was coloured as a loss
 
 > `/paper` coloured its positions table with `p.side === 'BUY'`. A position's `side` is

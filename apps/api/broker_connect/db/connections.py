@@ -105,10 +105,19 @@ def upsert_connection(user_id: str, broker: str, token: BrokerToken) -> dict:
         row["encrypted_secret_key"] = secret_enc
     if api_key_enc:
         row["encrypted_api_key"] = api_key_enc
-    # Requires a unique/constraint on (user_id, broker). If your table allows
-    # multiple creds per broker, change on_conflict to your PK or add the
-    # constraint. See INTEGRATION.md.
-    res = _sb().table(TABLE).upsert(row, on_conflict="user_id,broker").execute()
+    # The conflict target must include `role`.
+    #
+    # This said `on_conflict="user_id,broker"`, which was correct before the `role` column
+    # existed but is not now. Uniqueness on this table is `(user_id, broker, role)` — a tenant
+    # may hold an execution credential and a market-data-only credential for the *same* broker,
+    # which is the entire point of that column. Upserting on `(user_id, broker)` without the role
+    # means a market-data row collides with the execution row and the upsert overwrites it instead
+    # of inserting a second one.
+    #
+    # `row` does not set `role`, so the column default `execution` applies and that is the value
+    # the conflict key matches on. That keeps this path's behaviour identical to before the column
+    # was introduced while no longer blocking a second role from existing.
+    res = _sb().table(TABLE).upsert(row, on_conflict="user_id,broker,role").execute()
     return res.data[0] if res.data else row
 
 

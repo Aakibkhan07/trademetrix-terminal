@@ -3,6 +3,36 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-02 — Browser-driven bug hunt: 4 production bugs, a page that had never worked, and 8 tables missing from the repo (PRODUCTION NOT VERIFIED — VPS unreachable)
+
+### What was done
+1. **Session P0** (`apps/web/app/auth/page.tsx`) — the sign-in `finally` block cleared `tm_auth_token` after a *successful* login, and `lib/auth-context.tsx` gates session restore on that key. Every full page load bounced to `/auth` while every API call returned 200. `npm run verify:session` (6 checks) is the regression.
+2. **CSP made local dev impossible** (`next.config.js`) — no `'unsafe-eval'` in `script-src` → hydration throws → pages sit on skeletons with **zero network requests**; plus `connect-src` hardcoded to the prod API, silently overriding `NEXT_PUBLIC_API_URL`. Production policy asserted byte-identical to the old string.
+3. **`useApi` never resolved** (`lib/use-api.ts`) — inflight promise bound to the hook's `AbortController`; StrictMode's mount/cleanup/mount aborted it and the second mount reused the dead promise. 16 consumer files. **Development-only, verified** by serving a prod build with the original code (all 7 pages fine).
+4. **Three pages crashed every render** — `/transparency` and `/reports/daily` (`x !== null` is not a presence check; `{data ? … : '—'}` guards the envelope not the field), `/forward-test` (`{items:[…]}` typed as a bare array). New `lib/format.ts` + 14 tests.
+5. **`/journal` had never rendered its own analytics** — declared `JournalData` is the *backtest* result payload applied to a live endpoint returning `{analysis, stats}`; `hasData` was permanently false so the KPI section never rendered for anyone, and one journal entry crashed the page (`fmt(undefined)` → error boundary, verified by inserting a row).
+6. **Type scale was 0.8125x too small** — `html, body` shared `font-size: var(--text-base)`; `rem` on the root resolves against the *initial* 16px, so the root became 13px and every other rem token then resolved against 13px. Median rendered text 10.07px → 12.07px, min 8px → 10px across 3 independent mechanisms (rem refs / inline px / CSS px + SVG attrs).
+7. **8 tables the code depends on had no migration** (`20261003_02000`) — `user_alerts`, `notification_prefs`, `margin_snapshot`, `squareoff_config`, `strategy_health`, `multi_leg_strategies`, `multi_leg_strategy_legs`. `/alerts` POST returned **500**; found only by creating an alert through the product's API. `ai/copilot.py` read `backtest_results`, a table nothing writes — the copilot's backtest context has always been empty.
+8. **The credential split was dead, caused by its own migration** (`20261003_03000`) — `20260828_02200` made a standalone unique *index* on `(user_id, broker)`; `20261002_01000` tried to remove the old *constraint* (a different object) and `DROP CONSTRAINT` cannot drop a plain index. The stricter index survived and blocked the `role` split. Also fixed `on_conflict="user_id,broker"` → `user_id,broker,role`.
+9. **Tooling**: `crawl_all_routes.js` now fails a route rendering `NaN`/`undefined`/`[object Object]`/`Infinity`/`₹NaN`; `scripts/audit_api_contracts.py` diffs declared types **and** untyped `as {…}` casts against real response keys; `apps/api/scripts/audit_table_coverage.py` reports uncreated tables. Each validated by mutation. Four self-bugs in the audit tool are documented in CHANGELOG — all four would have fabricated findings.
+
+### Reference
+- **A declared type cannot fail a test.** `useApi<JournalData>('/ai/journal')` compiles, lints and returns 200 while describing a shape that endpoint has never returned. Three such bugs shipped (`/forward-test`, `/journal`, `/reports/daily`); none was visible to tsc, a unit test, or the route crawler. `npm run verify:contracts` is the check now.
+- **`core.safe_query` hides missing tables.** `async_safe_single`/`async_safe_execute` catch everything and return `None`/`[]`, so a missing table reads as "no rows" and PGRST205 sits unread in the log. Always check `information_schema` before believing an empty result.
+- **Verification discipline that worked**: distrust your own tool's output. Every audit finding was checked against the source before acting; four of them were fabricated by the audit itself (regex field extraction crossing interface boundaries, an apostrophe in a comment swallowing a brace, a kind-vocabulary mismatch, empty-data-as-mismatch). Mutate-and-confirm catches what reading does not.
+- **CSS uppercases panel titles** — `.t-stat-label`/`.t-panel-title` are `text-transform: uppercase`, so `innerText` returns `TRADING CONTROLS` not `Trading Controls`. Assert case-insensitively, or query the DOM node.
+- **Wait strategy**: `/auth` → `networkidle2` + 800ms settle (a selector match precedes React hydration, so typing does nothing); app pages → `domcontentloaded` (they poll, so `networkidle2` times out on a healthy page).
+- **`paper` P&L is randomised ±1.5% per poll** by `get_paper_positions` — never assert the *sign* of a paper position's P&L. Assert only invariants.
+- **The VPS is unreachable from this workstation** (DNS resolves, general egress works, host does not answer). `.env` backup was lost to a server restart; `.env.vault` needs a `DOTENV_KEY` not present locally. **Deploys are unaffected** — `deploy.sh` requires `apps/api/.env` on the host and it is gitignored, surviving `git reset --hard`.
+- **`DROP CONSTRAINT` cannot drop a plain unique index.** Migrations that add a `role` column must drop the old standalone index explicitly, and `on_conflict` must include the new column.
+- Full migration set applied in order: 22 clean, 7 no-ops, 1 failure — all 7 being `already exists`. That is what a rebuild does, and it is what surfaced the stale index.
+
+### Known gaps
+- `20261003_03000` must be applied to **production** for the credential split to work there. `verify_production_broker_roles.py` could not have caught it: it checks that `role` is readable, not that a second role can be inserted, and all 17 production rows are `execution` so no pair ever collided.
+- `20261003_02000` should be a no-op in production; inferred from `IF NOT EXISTS`, not measured.
+- Load Test needs a `DOCKERHUB_TOKEN` secret. Fyers needs manual re-auth. Dhan market data not subscribed until Oct 4.
+- The contract audit can only compare endpoints that returned data. One endpoint (`/forward-tests`) remains not-auditable locally because it needs a real backtest run.
+
 ## Session: 2026-08-25 — Growth sprints A/B/C + landing honesty pass + image rebuild (v1.8.x, PRODUCTION VERIFIED)
 
 ### What was done

@@ -90,8 +90,18 @@ QUOTED_PATH_RE = re.compile(r"""[\'\"`](?P<path>/[^\'\"`]*)[\'\"`]""")
 IDENT_END_RE = re.compile(r"([A-Za-z_]\w*)\s*\??\s*$")
 
 
+TEMPLATE_SEG_RE = re.compile(r"\$\{[^}]*\}")
+
+
 def normalise(path: str) -> str:
-    p = path.split("?", 1)[0]
+    """Canonical endpoint key.
+
+    A client method may build its path from a template literal — `` `/brokers/${broker}/auth-url` ``
+    — while the crawler records what was actually requested, `` /brokers/fyers/auth-url ``. The
+    interpolated segment becomes `*` on both sides so the two line up; without that, every cast on
+    a parameterised endpoint was silently skipped and the audit quietly under-reported.
+    """
+    p = TEMPLATE_SEG_RE.sub("*", path.split("?", 1)[0])
     for prefix in ("/api/v1", "/api"):
         if p.startswith(prefix):
             p = p[len(prefix):] or "/"
@@ -247,7 +257,13 @@ def declared_kind_and_fields(raw: str) -> tuple[str, set[str] | None]:
         if close < 0:
             return "unknown", None
         return "inline", top_level_fields(t[open_at + 1:close])
-    if re.fullmatch(r"[A-Za-z_]\w*", t):
+    # A generic instantiation is resolved by its base name. `PnlEnvelope<DailyPnl>` and
+    # `PnlEnvelope<CumulativePnl>` assert different *types* on the `pnl` field, but this audit
+    # compares field *names*, which the argument does not affect — so substituting it would add
+    # machinery and change no finding. Two `/funds` declarations were unauditable purely because
+    # the generic was not stripped.
+    base = re.sub(r"<[^<>]*(?:<[^<>]*>[^<>]*)*>$", "", t).strip()
+    if re.fullmatch(r"[A-Za-z_]\w*", base):
         return "named", None
     return "unknown", None
 
@@ -301,6 +317,89 @@ def resolve_named_type(name: str) -> tuple[str, set[str] | None]:
         if len(distinct) > 1:
             return "unknown", None
     return hits[0]
+
+
+API_GROUP_RE = re.compile(r"^\s{2}([A-Za-z_]\w*):\s*\{", re.M)
+API_METHOD_RE = re.compile(r"^\s{4}([A-Za-z_]\w*):\s*\(", re.M)
+QUOTED_ARG_RE = re.compile(r"""[\'"`](?P<path>/[^\'"`]*)[\'"`]""")
+
+
+def client_paths() -> dict[str, str]:
+    """`{'group.method': '/path'}` from `lib/api.ts`.
+
+    Group and method blocks are located by brace depth rather than by pattern, because a method's
+    body routinely contains braces of its own — `api.engine.trades` is an arrow function with a
+    body, not a brace-delimited record — and matching on indentation alone silently misattributes
+    methods to whichever group happens to precede them.
+
+    A path written with a template literal (`/paper/trades?limit=${limit}`) keeps only its static
+    prefix; the query string is dropped, since it is not part of the endpoint identity.
+    """
+    src = mask_comments((WEB_ROOT / "lib" / "api.ts").read_text())
+    out: dict[str, str] = {}
+    groups = [(m.start(), m.end(), m.group(1)) for m in API_GROUP_RE.finditer(src)]
+    for idx, (_g_start, g_end_of_open, gname) in enumerate(groups):
+        g_close = matching_brace(src, g_end_of_open - 1)
+        g_end = g_close if g_close > 0 else len(src)
+        # Do not let a group swallow the next one if brace matching failed.
+        nxt = groups[idx + 1][0] if idx + 1 < len(groups) else len(src)
+        g_end = min(g_end, nxt)
+        # Scan from just inside the group's opening brace to its closing brace. The previous
+        # version passed `g_end` as both the start and the end of the window, which is a
+        # zero-width range: it matched nothing, and the cast audit reported "0 casts found" —
+        # which reads exactly like "there are no casts to worry about".
+        body_start = g_end_of_open
+        for mm in API_METHOD_RE.finditer(src, body_start, g_end):
+            tail = src[mm.end():]
+            op = tail.find("(")
+            if op < 0 or op > 200:
+                continue
+            pm = QUOTED_ARG_RE.search(tail[op:])
+            if not pm:
+                continue
+            out[f"{gname}.{mm.group(1)}"] = pm.group("path").split("?")[0]
+    return out
+
+
+API_CALL_RE = re.compile(r"api\.(?P<group>[a-zA-Z_]\w*)\.(?P<method>[a-zA-Z_]\w*)\(")
+
+
+def find_casts() -> list[tuple[str, str, set[str], Path, int]]:
+    """`[(api method, path, cast fields, file, line)]` for every `api.x.y(...) as { ... }`.
+
+    Restricted to a cast on the same line as the call. That is where they are written, and it is
+    the only restriction that keeps this from pairing a call with an unrelated cast further down
+    the same statement — a false pairing here is indistinguishable from a real bug.
+
+    This is the blind spot the typed-declaration audit cannot see. `api.ts` has 119 `request()`
+    calls and 25 carry no generic, and pages additionally cast the result with `as { ... }`. A cast
+    asserts a shape just as firmly as a declared type and fails exactly as silently.
+    """
+    paths = client_paths()
+    out: list[tuple[str, str, set[str], Path, int]] = []
+    for f in scan_files():
+        if f.name == "api.ts":
+            continue  # a client does not cast its own response
+        text = f.read_text()
+        for m in API_CALL_RE.finditer(text):
+            method = f"{m.group('group')}.{m.group('method')}"
+            path = paths.get(method)
+            if not path:
+                continue
+            eol = text.find("\n", m.end())
+            line_end = eol if eol > 0 else len(text)
+            am = re.compile(r"\bas\s*\{").search(text, m.end(), line_end)
+            if not am:
+                continue
+            open_at = text.index("{", am.start())
+            close = matching_brace(text, open_at)
+            if close < 0:
+                continue
+            fields = top_level_fields(text[open_at + 1:close])
+            if not fields:
+                continue
+            out.append((method, normalise(path), fields, f, text[:m.start()].count("\n") + 1))
+    return out
 
 
 def main() -> int:
@@ -365,7 +464,9 @@ def main() -> int:
                     )
                 continue
             if kind == "named":
-                kind2, fields = resolve_named_type(raw.strip())
+                kind2, fields = resolve_named_type(
+                    re.sub(r"<[^<>]*(?:<[^<>]*>[^<>]*)*>$", "", raw.strip()).strip()
+                )
                 if kind2 == "unknown" or fields is None:
                     unresolved.append(f"{path}  ({raw.strip()} at {f.relative_to(WEB_ROOT)}:{line})")
                     continue
@@ -405,15 +506,51 @@ def main() -> int:
                 + (f"  present but undeclared: {', '.join(extra)}\n" if extra else "")
             )
 
+    casts = find_casts()
+
     print(f"endpoints observed        : {len(observed)}")
     print(f"declarations compared     : {audited}")
     print(f"declarations unresolved   : {len(unresolved)}  (named type not resolvable, skipped)")
     print(f"not auditable, no rows    : {len(no_data)}  (endpoint returned an empty list)")
     print(f"mismatching declarations  : {findings}")
-    print(f"fields read but not served: {missing_total}\n")
+    print(f"untyped `as` casts found  : {len(casts)}  (asserted shapes, not declarations)")
+    cast_findings = 0
+    cast_missing_total = 0
+    cast_report: list[str] = []
+    for method, path, fields, f, line in casts:
+        if path not in observed:
+            continue  # not exercised on any route
+        real_top = observed[path]["keys"]
+        real_item = observed[path]["itemKeys"]
+        if not real_top:
+            continue
+        names_top = bool(fields & real_top)
+        if not names_top and len(real_top) == 1:
+            if not observed[path]["itemAvailable"]:
+                continue
+            target = real_item
+        else:
+            target = real_top
+        missing = {d.rstrip("?") for d in fields if d.rstrip("?") not in target}
+        if not missing:
+            continue
+        cast_findings += 1
+        cast_missing_total += len(missing)
+        cast_report.append(
+            f"MISMATCH  {path}  (via api.{method})\n"
+            f"  cast at        : {f.relative_to(WEB_ROOT)}:{line}\n"
+            f"  asserts        : {', '.join(sorted(fields))}\n"
+            f"  NOT present    : {', '.join(sorted(missing))}\n"
+        )
+
+    if cast_report:
+        print("\n".join(cast_report))
+        report.extend(cast_report)
+
+    print(f"fields read but not served: {missing_total} declared + {cast_missing_total} cast\n")
 
     if report:
-        print("\n".join(report))
+        pass
     if unresolved:
         print("could not resolve, so not audited:")
         for u in unresolved:
@@ -424,10 +561,13 @@ def main() -> int:
             print(f"  {u}")
     print()
 
-    if not findings:
-        print("no mismatches: every resolvable typed field is present in the observed response")
+    total = findings + cast_findings
+    if not total:
+        print("no mismatches: every resolvable typed field and every audited cast is present in")
+        print("the observed response")
         return 0
-    print(f"{findings} declaration(s) read at least one field the endpoint does not return.")
+    print(f"{total} shape(s) read at least one field the endpoint does not return"
+          f" ({findings} declared, {cast_findings} cast).")
     print("\nEach is a place the page renders `undefined` or `NaN`, or takes a permanently-false")
     print("branch. A `?? 0` in the middle turns that into a confident zero, which is worse than an")
     print("error: it tells the user their profit is nothing.")

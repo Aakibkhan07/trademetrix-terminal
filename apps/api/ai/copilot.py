@@ -191,9 +191,20 @@ INSTRUCTIONS:
             context["journal"] = []
 
         # Backtest results
+        #
+        # The table is `backtest_runs`, which is what `backtest/manager.py` has always persisted
+        # to. This read said `backtest_results` — a table nothing in the codebase has ever written,
+        # and which no migration creates either. PostgREST answered PGRST205, `async_safe_execute`
+        # caught it, and `context["backtests"]` was set to `[]`. So the copilot's recent-backtests
+        # context has always been empty, and the AI was reasoning about a user with no trading
+        # history regardless of what they had actually run.
+        #
+        # The symptom was invisible twice over: the empty list is a perfectly valid answer, and the
+        # `except` logged at WARNING rather than raising, so the only evidence was one line in the
+        # log per request.
         try:
             backtests = await async_safe_execute(
-                supabase.table("backtest_results").select("*").eq("user_id", self.user_id).order("created_at", desc=True).limit(10)
+                supabase.table("backtest_runs").select("*").eq("user_id", self.user_id).order("created_at", desc=True).limit(10)
             ) or []
             context["backtests"] = backtests
         except Exception as e:
