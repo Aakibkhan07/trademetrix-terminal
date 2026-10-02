@@ -66,6 +66,31 @@ jobs:
       - run: npm ci
       - run: npm run lint
 
+  test-web-lib:
+    name: Test Web Lib
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      # Node-run assertions for the pure helpers in apps/web/lib. Deliberately a separate
+      # job from `build-web`: a logic regression and a compile error are unrelated
+      # failures, and reporting them under one name costs the next reader real time.
+      #
+      # This job exists because what it guards (`lib/positions.ts`) fixes silent
+      # money-display bugs. Both P&L errors returned a confident number for every input,
+      # including the inputs they were wrong about, so nothing but an assertion could
+      # catch them. Without a job here they are tested only on whichever machine happened
+      # to run `npm run test:lib`.
+      - run: npm run test:lib
+
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
