@@ -46,6 +46,9 @@ export default function AuthPage() {
     e.preventDefault()
     setError('')
     setSuccess('')
+    // Whether this attempt succeeded. The token cleanup in `finally` must only run on the
+    // failure path — see the long comment there before changing anything about it.
+    let signedIn = false
 
     if (mode === 'forgot') {
       if (!isValidEmail(email)) { setValidEmail(false); return }
@@ -78,6 +81,7 @@ export default function AuthPage() {
         router.push('/onboarding')
       } else {
         await signin(email, password)
+        signedIn = true
         track('login')
         const me = await api.auth.me().catch(() => null) as { is_admin?: boolean } | null
         if (me?.is_admin) {
@@ -94,7 +98,26 @@ export default function AuthPage() {
       }
     } finally {
       setLoading(false)
-      if (typeof window !== 'undefined') {
+      // Clear the stored token only when the attempt FAILED.
+      //
+      // This used to run unconditionally, so it also ran after a *successful* sign-in —
+      // deleting the `tm_auth_token` that `signin()` had written a moment earlier. The session
+      // still looked correct, because `signin` had also set `user` in React state and the
+      // httponly `tm_session` cookie was valid. But `lib/auth-context.tsx` decides whether to
+      // restore a session on load purely by looking for that localStorage key:
+      //
+      //     const saved = localStorage.getItem('tm_auth_token')
+      //     if (saved) fetchUser(); else setLoading(false)
+      //
+      // With the key always absent, `fetchUser` never ran, `user` stayed null, and
+      // `AppLayout` redirected to /auth — on **every full page load**: a refresh, a new tab, a
+      // shared link, or a pasted URL. Every API call returned 200 throughout, because the
+      // cookie was fine; only the client's own restore path was broken.
+      //
+      // Hence the symptom was "logged out again" with no failed request anywhere to explain it,
+      // and the API logs looked healthy. Found by driving a real browser: log in, watch it land
+      // correctly, then load a fresh URL and watch it bounce back to /auth.
+      if (!signedIn && typeof window !== 'undefined') {
         window.localStorage.removeItem('tm_auth_expiry')
         window.localStorage.removeItem('tm_auth_token')
       }
