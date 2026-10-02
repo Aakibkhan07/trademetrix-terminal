@@ -7,7 +7,6 @@ everything, and per-strategy risk limits (max daily trades / max positions /
 max exposure) are enforced at order time.
 """
 import asyncio
-import asyncio
 import pytest
 
 from strategy_runtime.mode import (
@@ -38,7 +37,6 @@ def _clear_emergency(_runtime_clean):
     """Per-test reset of the process-wide kill-switch flags (they otherwise
     leak between tests: once triggered, every later start would be refused).
     Also clears the Redis-persisted emergency-stop keys written by trigger."""
-    import asyncio
 
     from risk.kill_switch import EMERGENCY_REDIS_PREFIX, kill_switch
 
@@ -195,11 +193,16 @@ async def test_max_daily_trades_blocks_patiently(_runtime_clean):
     spec = _spec(SID_A, warmup=False).model_copy(
         update={"max_daily_trades": 1, "max_positions": 0, "max_risk_per_trade": 0.0})
     await mgr.start_strategy(spec)
-    await _emit_closed_candle(close=101.0, ts="2026-08-04T09:15:00")
-    await _emit_closed_candle(close=102.0, ts="2026-08-04T09:30:00")
-    # Wait for worker to process both candles' ticks through the queue.
-    # Each _emit_closed_candle sends 2 ticks (candle + flush), so 4 ticks total.
-    await asyncio.sleep(0.5)
+    await _emit_closed_candle(mgr, close=101.0, ts="2026-08-04T09:15:00")
+    await _emit_closed_candle(mgr, close=102.0, ts="2026-08-04T09:30:00")
+    # No sleep. Each `_emit_closed_candle` waits for the worker to finish that candle.
+    #
+    # This is the site AGENTS.md records as the original flake: "the test checked status
+    # before the worker processed all ticks from _emit_closed_candle", with the fix listed
+    # as `await asyncio.sleep(0.5)`. That fixed the symptom and left the cause — the count
+    # of ticks to wait for had to be reasoned about by hand ("each call sends 2 ticks, so
+    # 4 ticks total"), and a fixed duration is only right on the machine that measured it.
+    # Waiting on the worker's own queue makes the count irrelevant.
     status = await mgr.get_status(SID_A, user_id=USER)
     assert status["stats"]["orders_placed"] == 1
     assert status["stats"]["orders_rejected"] >= 1
@@ -223,7 +226,7 @@ async def test_max_positions_blocks_new_entry(_runtime_clean, monkeypatch):
     spec = _spec(SID_A, warmup=False).model_copy(
         update={"max_positions": 1, "max_daily_trades": 0, "max_risk_per_trade": 0.0})
     await mgr.start_strategy(spec)
-    await _emit_closed_candle(close=101.0, ts="2024-08-02T09:15:00")
+    await _emit_closed_candle(mgr, close=101.0, ts="2024-08-02T09:15:00")
     status = await mgr.get_status(SID_A, user_id=USER)
     assert status["stats"]["orders_placed"] == 0
     assert status["stats"]["orders_rejected"] >= 1
@@ -236,7 +239,7 @@ async def test_max_risk_per_trade_blocks_exposure(_runtime_clean):
         update={"max_positions": 0, "max_daily_trades": 0, "max_risk_per_trade": 500.0})
     await mgr.start_strategy(spec)
     # order qty 10 at close ~101 → notional ~1010 > 500 → blocked
-    await _emit_closed_candle(close=101.0, ts="2024-08-02T09:15:00")
+    await _emit_closed_candle(mgr, close=101.0, ts="2024-08-02T09:15:00")
     status = await mgr.get_status(SID_A, user_id=USER)
     assert status["stats"]["orders_placed"] == 0
     assert status["stats"]["orders_rejected"] >= 1
@@ -249,7 +252,7 @@ async def test_emergency_stop_blocks_runtime_order(_runtime_clean):
     await mgr.emergency_stop(USER, reason="mid-run")
     # resume against the active emergency → next candle order is blocked
     await mgr.resume_strategy(SID_A, user_id=USER)
-    await _emit_closed_candle(close=101.0, ts="2024-08-02T09:15:00")
+    await _emit_closed_candle(mgr, close=101.0, ts="2024-08-02T09:15:00")
     status = await mgr.get_status(SID_A, user_id=USER)
     assert status["stats"]["orders_placed"] == 0
     assert status["stats"]["orders_rejected"] >= 1

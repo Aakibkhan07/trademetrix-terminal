@@ -5,7 +5,6 @@ candle aggregation (multi-timeframe), strategy isolation (two strategies never
 share workers/queues), manual evaluation, session events, broker disconnect/
 reconnect, and deterministic no-duplicate evaluation (seen-candle dedup).
 """
-import asyncio
 import datetime
 import uuid
 
@@ -28,6 +27,12 @@ USER = str(uuid.uuid4())
 SID_A = str(uuid.uuid4())
 SID_B = str(uuid.uuid4())
 SYMBOL = "NIFTY"
+
+#: How long `_emit_closed_candle` waits for the worker to catch up. Generous, because a
+#: timeout here is a hard failure and the alternative — an unbounded wait — turns a stuck
+#: worker into a hung CI job. Never shorten it to "make the suite faster": the wait is a
+#: backstop, and the normal case returns as soon as the work is genuinely done.
+_DRAIN_TIMEOUT = 10.0
 
 
 class FakeStrategy:
@@ -184,13 +189,31 @@ def _tick(close: float, ts: str, price: float | None = None) -> Tick:
     )
 
 
-async def _emit_closed_candle(close: float, ts: str) -> None:
-    """Drive one FULLY CLOSED candle through the MTF path.
+async def _emit_closed_candle(mgr, close: float, ts: str) -> None:
+    """Drive one FULLY CLOSED candle through the MTF path, and wait for it to land.
 
     The shared CandleAggregator emits the PREVIOUS period's candle when a tick
     of the next period arrives, so we send one tick in the candle's own period
     and a flush tick 15m later (which opens the next period's in-progress
     candle — its values are overwritten by the next real candle's ticks).
+
+    **Returns only once the worker has finished processing both ticks.**
+
+    That wait used to be `await asyncio.sleep(0.05)`, on the reasoning that it "gives the
+    worker time to process each candle tick". It does not reliably: the strategy's
+    `on_candle` can take longer than that, and then the test reads `stats` mid-evaluation
+    and asserts on a number that is not final. AGENTS.md records this exact race being
+    diagnosed in the auto-trading suite and then "fixed" by lengthening a sleep to 0.5s —
+    a bigger guess, which just moves the failure to a slower machine.
+
+    `drain()` waits on the actual condition instead, so a slow strategy makes the test
+    slower rather than wrong. It is an assert rather than a bare wait because a `drain()`
+    that gives up must fail loudly here, at the point where the numbers become
+    trustworthy, rather than turning into a confusing assertion three lines later.
+
+    The previous behaviour — "process before the next candle arrives, to avoid queue
+    backlog" — is a stronger guarantee than this and is deliberately kept, since two tests
+    emit several candles in a row and care about ordering.
     """
     from market.data_socket import shared_socket
 
@@ -198,9 +221,12 @@ async def _emit_closed_candle(close: float, ts: str) -> None:
     flush = (ts_dt + datetime.timedelta(minutes=15)).isoformat()
     await shared_socket.broadcast_tick(_tick(close=close, ts=ts, price=close - 0.5))
     await shared_socket.broadcast_tick(_tick(close=close, ts=flush, price=close))
-    # Give the worker time to process each candle tick + its flush before the
-    # next candle arrives (avoids queue backlog / lost ticks in tests).
-    await asyncio.sleep(0.05)
+
+    for worker in list(mgr._dispatcher._workers.get(SYMBOL, ())):
+        assert await worker.drain(timeout=_DRAIN_TIMEOUT), (
+            f"worker did not process the candle at {ts} within {_DRAIN_TIMEOUT}s; "
+            "the assertions after this would read stats that are not final"
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -271,8 +297,7 @@ async def test_restart_from_stopped(_clean_runtime):
 async def test_candle_close_evaluates_and_executes(_clean_runtime):
     mgr = _clean_runtime
     await mgr.start_strategy(_spec(SID_A))
-    await _emit_closed_candle(close=101.0, ts="2026-08-04T09:15:00+05:30")
-    await asyncio.sleep(0.1)
+    await _emit_closed_candle(mgr, close=101.0, ts="2026-08-04T09:15:00+05:30")
     status = await mgr.get_status(SID_A, USER)
     assert status["stats"]["candles_processed"] == 1
     assert status["stats"]["signals"] == 1
@@ -303,8 +328,7 @@ async def test_no_duplicate_evaluation_same_candle(_clean_runtime):
 async def test_no_signal_when_condition_false(_clean_runtime):
     mgr = _clean_runtime
     await mgr.start_strategy(_spec(SID_A))
-    await _emit_closed_candle(close=50.0, ts="2026-08-04T09:15:00+05:30")
-    await asyncio.sleep(0.05)
+    await _emit_closed_candle(mgr, close=50.0, ts="2026-08-04T09:15:00+05:30")
     status = await mgr.get_status(SID_A, USER)
     assert status["stats"]["candles_processed"] == 1
     assert status["stats"]["signals"] == 0
@@ -315,18 +339,15 @@ async def test_no_signal_when_condition_false(_clean_runtime):
 async def test_pause_halts_evaluation_resume_resets_aggregation(_clean_runtime):
     mgr = _clean_runtime
     await mgr.start_strategy(_spec(SID_A))
-    await _emit_closed_candle(close=101.0, ts="2026-08-04T09:15:00+05:30")
-    await asyncio.sleep(0.05)
+    await _emit_closed_candle(mgr, close=101.0, ts="2026-08-04T09:15:00+05:30")
     assert (await mgr.pause_strategy(SID_A, USER))["status"] == "paused"
-    await _emit_closed_candle(close=102.0, ts="2026-08-04T09:30:00+05:30")
-    await asyncio.sleep(0.05)
+    await _emit_closed_candle(mgr, close=102.0, ts="2026-08-04T09:30:00+05:30")
     status = await mgr.get_status(SID_A, USER)
     assert status["stats"]["candles_processed"] == 1  # paused -> no new eval
 
     assert (await mgr.resume_strategy(SID_A, USER))["status"] == "resumed"
     # resume resets MTF so pre-pause candles are never replayed
-    await _emit_closed_candle(close=103.0, ts="2026-08-04T09:45:00+05:30")
-    await asyncio.sleep(0.05)
+    await _emit_closed_candle(mgr, close=103.0, ts="2026-08-04T09:45:00+05:30")
     status = await mgr.get_status(SID_A, USER)
     assert status["stats"]["candles_processed"] == 2
 
@@ -338,8 +359,7 @@ async def test_strategy_isolation_two_strategies(_clean_runtime):
     mgr = _clean_runtime
     await mgr.start_strategy(_spec(SID_A))
     await mgr.start_strategy(_spec(SID_B))
-    await _emit_closed_candle(close=101.0, ts="2026-08-04T09:15:00+05:30")
-    await asyncio.sleep(0.1)
+    await _emit_closed_candle(mgr, close=101.0, ts="2026-08-04T09:15:00+05:30")
     sa = await mgr.get_status(SID_A, USER)
     sb = await mgr.get_status(SID_B, USER)
     assert sa["stats"]["candles_processed"] == 1
@@ -358,12 +378,14 @@ async def test_multi_timeframe_aggregation(_clean_runtime):
     mgr = _clean_runtime
     await mgr.start_strategy(_spec(SID_A, timeframes=["15m", "60m"]))
     # five 15m candles: the 4th closes the flush tick of the 5th
+    #
+    # Each `_emit_closed_candle` already waits for the worker to finish that candle, so
+    # there is no trailing sleep. This comment is what used to justify `sleep(2.0)`: five
+    # calls send 10 ticks, and the author could not tell whether they had all been
+    # processed, so they budgeted for the worst case on the slowest machine they had seen.
+    # Waiting on the condition instead removes the need to reason about the count at all.
     for i in range(5):
-        await _emit_closed_candle(close=101.0 + i, ts=_timestamp(i))
-    # Wait for worker queue to drain — each _emit_closed_candle sends 2 ticks
-    # (candle + flush) and the worker processes them via async queue. With 5 calls
-    # that's 10 ticks total + a final candle from the last flush, so allow time.
-    await asyncio.sleep(2.0)
+        await _emit_closed_candle(mgr, close=101.0 + i, ts=_timestamp(i))
     status = await mgr.get_status(SID_A, USER)
     assert status["stats"]["candles_processed"] == 5
     assert status["stats"]["signals"] == 5
@@ -379,8 +401,7 @@ async def test_manual_evaluate_dry_run(_clean_runtime):
     """Manual evaluation returns the signal but never places orders."""
     mgr = _clean_runtime
     await mgr.start_strategy(_spec(SID_A))
-    await _emit_closed_candle(close=101.0, ts="2026-08-04T09:15:00+05:30")
-    await asyncio.sleep(0.05)
+    await _emit_closed_candle(mgr, close=101.0, ts="2026-08-04T09:15:00+05:30")
     result = await mgr.manual_evaluate(SID_A, USER)
     assert result["evaluated"] is True
     assert result["signal"] is not None

@@ -133,6 +133,38 @@ class StrategyWorker:
         self._evaluation_allowed = True
         self._mtf.reset()
 
+    async def drain(self, timeout: float | None = None) -> bool:
+        """Wait until every tick dispatched so far has been fully processed.
+
+        Returns `True` once the queue is empty *and* no tick is still in flight. Both
+        matter: a tick that `_run` has already `get()`-ed is no longer in the queue, so
+        queue emptiness alone would return while the worker was still evaluating it —
+        which is the race the sleeping tests were losing.
+
+        `False` means the wait gave up, and the caller should treat the worker's stats as
+        not yet meaningful rather than asserting on them.
+
+        This exists because the alternative was duration-based waiting. AGENTS.md records
+        that race being "fixed" by lengthening a sleep to 0.5s: a bigger guess, on a
+        loaded machine, which is not a fix — just a flake with a longer fuse. `timeout` is
+        a backstop for a caller that must not block forever; the default of no timeout is
+        correct for tests and for shutdown paths.
+        """
+        worker_alive = bool(self._task and not self._task.done())
+        if not worker_alive:
+            # Nothing will ever drain the queue, so waiting could hang forever. With no
+            # live task there is also no tick in flight, which makes this exact rather
+            # than a guess.
+            return self._queue.empty()
+        try:
+            if timeout is None:
+                await self._queue.join()
+            else:
+                await asyncio.wait_for(self._queue.join(), timeout)
+        except TimeoutError:
+            return False
+        return True
+
     # -- tick path -----------------------------------------------------------
     def dispatch_tick(self, tick: Tick) -> None:
         self._last_price = tick.last_price
@@ -148,7 +180,17 @@ class StrategyWorker:
         try:
             while True:
                 tick = await self._queue.get()
-                await self._process_tick(tick)
+                # `task_done()` is what makes `drain()` meaningful. Without it
+                # `Queue.unfinished_tasks` never returns to zero, so `queue.join()` — the
+                # standard way to wait for a queue to be consumed — can never be used, and
+                # every caller that needs the worker to have caught up has to guess a
+                # sleep instead. The `finally` matters: `_process_tick` raises into the
+                # handler below, and without it the accounting would stay permanently
+                # unbalanced for the rest of the process's life.
+                try:
+                    await self._process_tick(tick)
+                finally:
+                    self._queue.task_done()
         except asyncio.CancelledError:
             pass
         except Exception as e:
