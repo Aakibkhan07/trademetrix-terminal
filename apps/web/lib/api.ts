@@ -824,7 +824,11 @@ export const api = {
     request<MarginEstimateResponse>('/margin-estimate/', { method: 'POST', body: data }),
 
   forwardTests: {
-    list: () => request<ForwardTestItem[]>('/forward-tests/'),
+    // `GET /forward-tests/` answers `{ items: ForwardTestItem[] }` — `ForwardTestListResponse`
+    // in `routes/v1_forward.py`. It was typed as a bare array, which is what let
+    // `/forward-test` hand the envelope to a `useState<ForwardTestItem[]>` and then call
+    // `.map` on an object. The type is the fix; the page's unwrap is belt and braces.
+    list: () => request<{ items: ForwardTestItem[] }>('/forward-tests/'),
     get: (ftId: string) => request<ForwardTestStatus>(`/forward-tests/${ftId}`),
     create: (data: { backtest_run_id: string; strategy_id: string; symbol?: string; interval?: string; initial_capital?: number; max_duration_hours?: number; deviation_threshold_pct?: number }) =>
       request<ForwardTestItem>('/forward-tests/', { method: 'POST', body: data }),

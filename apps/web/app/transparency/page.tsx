@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { field, fmtNum, fmtWithUnit } from '@/lib/format'
 
 interface OrderItem {
   id: string
@@ -93,17 +94,22 @@ export default function TransparencyPage() {
                   <td className="t-num">{o.risk_checked_at ? new Date(o.risk_checked_at).toLocaleTimeString() : '-'}</td>
                   <td className="t-num">{o.sent_at ? new Date(o.sent_at).toLocaleTimeString() : '-'}</td>
                   <td className="t-num">{o.filled_at ? new Date(o.filled_at).toLocaleTimeString() : '-'}</td>
+                  {/* `!== null` is not a presence check: `undefined !== null` is true, so a
+                      row that simply omits `latency_ms` passed the guard and then threw on
+                      `.toFixed`, taking the whole page to its error boundary with
+                      "Cannot read properties of undefined (reading 'toFixed')". `field`
+                      treats null and undefined alike, and the formatting is total. */}
                   <td className="t-num">
-                    {o.latency_ms !== null ? (
+                    {o.latency_ms !== null && o.latency_ms !== undefined ? (
                       <span style={{ color: (o.latency_ms || 0) < 100 ? 'var(--green)' : 'var(--amber)' }}>
-                        {o.latency_ms.toFixed(1)}ms
+                        {fmtWithUnit(o.latency_ms, 1, 'ms')}
                       </span>
                     ) : '-'}
                   </td>
                   <td className="t-num">
-                    {o.slippage !== null ? (
+                    {o.slippage !== null && o.slippage !== undefined ? (
                       <span style={{ color: (o.slippage || 0) === 0 ? 'var(--green)' : 'var(--red)' }}>
-                        {o.slippage.toFixed(2)}
+                        {fmtNum(o.slippage, 2)}
                       </span>
                     ) : '-'}
                   </td>

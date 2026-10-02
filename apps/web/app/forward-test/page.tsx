@@ -14,7 +14,19 @@ function ForwardTests() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.forwardTests.list().then(setItems).catch(() => {}).finally(() => setLoading(false))
+    // `GET /forward-tests/` answers `{ items: [...] }`, not a bare array. That envelope used
+    // to be typed as an array and handed straight to `setItems`, which left `items` an object:
+    // `items.length === 0` was then false, the render fell through to `items.map`, and the
+    // page died with `items.map is not a function`.
+    //
+    // Both halves of that are now fixed — the type in `lib/api.ts` and the unwrap here. The
+    // unwrap stays defensive on purpose: the failure mode is a whole page in an error
+    // boundary, so a shape change should cost an empty state rather than a crash.
+    api.forwardTests
+      .list()
+      .then((res) => setItems(Array.isArray(res?.items) ? res.items : []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <div style={{ padding: 20 }}><SkeletonCard /></div>

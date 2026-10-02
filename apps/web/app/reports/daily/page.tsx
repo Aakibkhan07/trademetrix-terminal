@@ -1,13 +1,55 @@
 'use client'
-import { useState } from 'react'
 import { useApi } from '@/lib/use-api'
+import { fmtMoney, fmtNum, NO_VALUE } from '@/lib/format'
 
-function fmt(n: number) { return n.toLocaleString('en-IN', { maximumFractionDigits: 0 }) }
+/**
+ * What `GET /ai/journal?lookback_days=1` actually answers — `ai/journal.py::analyze_trades`.
+ *
+ * This page used to declare a third shape that no endpoint returns:
+ * `{ entries: [{ date, pnl, trades_count, win_rate }], total_pnl, total_trades, win_rate,
+ * max_drawdown }`. Neither `/ai/journal` (`{ analysis, stats }`) nor `/ai/journal/entries`
+ * (`{ entries }` of `journal_entries` rows, which carry `entry_type`/`content`/`tags`) matches
+ * it, and `GET /reports/daily` — the endpoint named after this page — is a scaffold that says
+ * so in its own body: *"Use /ai/journal?lookback_days=1 for real daily P&L"*.
+ *
+ * So four of the five tiles read `undefined`, and because the guard was `{data ? … : '—'}`
+ * it checked the *envelope* rather than the *field*, which protected nothing. `max_drawdown`
+ * then reached `.toFixed` on `undefined` and threw, putting the page into its error boundary:
+ * "Something went wrong", twice over.
+ *
+ * `pnl`, `win_rate` and `max_drawdown` are not computed anywhere in the codebase. Rather than
+ * keep tiles labelled with figures nothing produces, the tiles below are labelled with what the
+ * response really carries, and the figures that do not exist are not shown at all. Adding them
+ * later means adding them to `_compute_stats` first.
+ */
+interface JournalStats {
+  total_trades?: number
+  buy_trades?: number
+  sell_trades?: number
+  unique_symbols?: number
+  total_value?: number
+  period_days?: number
+}
+
+interface JournalResponse {
+  /** A short narrative, or a plain sentence when the AI is unconfigured. */
+  analysis?: string | Record<string, unknown>
+  stats?: JournalStats
+}
 
 export default function DailyReportPage() {
   const today = new Date().toISOString().slice(0, 10)
-  const { data, loading } = useApi<{ entries: { date: string; pnl: number; trades_count: number; win_rate: number }[]; total_pnl: number; total_trades: number; win_rate: number; max_drawdown: number }>(`/ai/journal?lookback_days=1`)
-  const entry = data?.entries?.[0]
+  const { data, loading } = useApi<JournalResponse>(`/ai/journal?lookback_days=1`)
+  const stats = data?.stats ?? {}
+  // `analysis` is a string when the model answered and an object when it parsed; both render.
+  const analysisText =
+    typeof data?.analysis === 'string'
+      ? data.analysis
+      : data?.analysis && typeof data.analysis === 'object'
+        ? Object.entries(data.analysis as Record<string, unknown>)
+            .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+            .join('\n')
+        : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 900, margin: '0 auto' }}>
@@ -24,22 +66,46 @@ export default function DailyReportPage() {
 
       {loading ? <div className="t-panel" style={{ padding: 20, textAlign: 'center' }}><span className="t-faint">Loading…</span></div> : (
         <div className="t-grid-4">
+          {/* Labelled with what `_compute_stats` actually returns. The previous labels —
+              Net P&L Today, Win Rate, Max DD — named figures no endpoint computes, so three
+              of the four tiles were promises nothing kept. */}
           <div className="t-panel" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Net P&L Today</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: (entry?.pnl ?? 0) >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 4 }}>{entry ? `${entry.pnl >= 0 ? '+' : ''}₹${fmt(entry.pnl)}` : '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>{entry ? `${entry.trades_count} trades` : 'No trades today'}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Total Trades</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{fmtNum(stats.total_trades, 0)}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>
+              {stats.total_trades ? `over ${stats.period_days ?? 1}d` : 'no trades in window'}
+            </div>
           </div>
           <div className="t-panel" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Win Rate</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{entry ? `${entry.win_rate.toFixed(1)}%` : '—'}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Buys / Sells</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
+              {fmtNum(stats.buy_trades, 0)} / {fmtNum(stats.sell_trades, 0)}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>order sides</div>
           </div>
           <div className="t-panel" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Total Trades (30d)</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{data?.total_trades ?? '—'}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Symbols Traded</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{fmtNum(stats.unique_symbols, 0)}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>distinct instruments</div>
           </div>
           <div className="t-panel" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Max DD (30d)</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--red)', marginTop: 4 }}>{data ? `${data.max_drawdown.toFixed(1)}%` : '—'}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Traded Value</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
+              {stats.total_value === undefined || stats.total_value === null ? NO_VALUE : `₹${fmtMoney(stats.total_value)}`}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>not P&amp;L — turnover</div>
+          </div>
+        </div>
+      )}
+
+      {/* The narrative is the one genuinely rich thing the endpoint returns, so it gets real
+          estate instead of being buried. It reads as a plain sentence when the AI is not configured,
+          which is itself worth showing rather than hiding. */}
+      {analysisText && (
+        <div className="t-panel" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Journal</div>
+          <div style={{ fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+            {analysisText}
           </div>
         </div>
       )}
@@ -47,7 +113,8 @@ export default function DailyReportPage() {
       <div className="t-panel" style={{ padding: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>How it works</div>
         <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.7 }}>
-          <li>Every trading day 18:00 IST, server aggregates <code>orders</code> + <code>positions_snapshot</code> for daily P&L (FIFO) + win/drawdown.</li>
+          <li>Every trading day 18:00 IST the server aggregates each tenant&apos;s filled <code>orders</code> into <code>stats</code> — trade count, side split, symbols touched and turnover — which is what the tiles above show.</li>
+          <li>Daily P&amp;L (FIFO), win rate and drawdown are <strong>not</strong> computed yet. Adding them means extending <code>_compute_stats</code> in <code>ai/journal.py</code>; they are deliberately absent here rather than shown as zero.</li>
           <li>PDF is rendered from this page (Print → Save as PDF) and also pushed via <code>RESEND_API_KEY</code> (email) + <code>TELEGRAM_BOT_TOKEN</code> (Telegram) when set.</li>
           <li>Audit trail is the `audit_log` table — each trade, kill-switch, broadcast is logged.</li>
         </ol>
