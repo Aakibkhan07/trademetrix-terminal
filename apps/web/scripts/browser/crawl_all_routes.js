@@ -48,18 +48,6 @@ const BENIGN_HTTP = [
   { re: /\/auth\/me/, why: '401 — anonymous pre-login probe, also polled after sign-out' },
   { re: /\/analytics\/track-batch/, why: '403 — sendBeacon cannot carry the CSRF header (AGENTS.md)' },
   { re: /\/marketdata\/ws/, why: '403 — WebSocket handshake fails in this local setup' },
-  {
-    // Narrowly scoped on purpose. This endpoint answers 400 by design when it cannot get real
-    // candles — "No real market data available … backtests never run on fabricated candles" —
-    // which is the v1.7.0 honesty contract working, not a fault. Locally there is no data
-    // source at all: no broker token, and the Yahoo fallback is unreachable from here.
-    //
-    // Scoped to this path rather than to 400s generally, so a genuine 400 anywhere else still
-    // fails the crawl. Verified separately that `/workspace` absorbs it: no raw error string
-    // reaches the page and its error boundary is not triggered.
-    re: /\/marketdata\/historical/,
-    why: '400 — the documented refusal to serve fabricated candles when no data source exists',
-  },
 ]
 const BENIGN_CONSOLE = [
   /Failed to load resource/i,

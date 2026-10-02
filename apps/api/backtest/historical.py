@@ -71,23 +71,69 @@ class BacktestHistoricalData:
         if not force_refresh and cache_key in _CACHE:
             return _CACHE[cache_key]
 
-        stored = await self._load_from_db(symbol, exchange, interval, start_dt, end_dt)
+        # Fetch a day wider than was asked for, then narrow. See the widening note below: an
+        # intraday window of N calendar days can contain no session at all, and if the fetch is
+        # bounded by that window it returns nothing to widen *from*, so the fallback can never
+        # fire. The extra day costs one indexed range read and no extra network.
+        widen = not start and not end and self._is_intraday(interval)
+        fetch_start = start_dt - timedelta(days=1) if widen else start_dt
+
+        stored = await self._load_from_db(symbol, exchange, interval, fetch_start, end_dt)
         candles = list(stored)
 
-        if len(candles) < 2 or not self._covers_range(candles, start_dt, end_dt):
+        if len(candles) < 2 or not self._covers_range(candles, fetch_start, end_dt):
             fetched = await self._fetch_and_store(
                 symbol=symbol, exchange=exchange, interval=interval,
-                start_dt=start_dt, end_dt=end_dt, user_id=user_id,
+                start_dt=fetch_start, end_dt=end_dt, user_id=user_id,
             )
             if fetched:
                 candles = self._merge_candles(candles, fetched)
 
+        # Keep the untrimmed slice: the widening below has to re-trim from the full set, and
+        # widening an already-trimmed list is a no-op because that list is empty by definition.
+        raw = candles
         candles = self._trim_range(candles, start_dt, end_dt)
+
+        # A rolling `days` window is a *clock* window, not a *session* window, and the difference
+        # decides whether the answer is empty. For an intraday interval asked for at 23:13 IST,
+        # `days=1` resolves to [04:43 IST today, 04:43 IST tomorrow] — a stretch with no trading
+        # session in it at all, because today's session ended at 15:30 and tomorrow's has not
+        # opened. The store is fine and the fetch is fine; the window simply excludes every
+        # candle there is, and the caller is told there is no real market data, which is a true
+        # statement about the window and a false one about the market.
+        #
+        # `_covers_range` already tolerates a trading day of slack at the edges for exactly this
+        # reason, but neither `_trim_range` nor `_fetch_and_store` did, so the tolerance never
+        # reached the result: the fetch was bounded by the same window that was empty, filtered
+        # 1,498 real Yahoo candles down to zero, stored nothing and returned nothing.
+        #
+        # The exact window is still tried first, so a request made during a session returns only
+        # that session — the widening is a fallback for when there is genuinely nothing in range,
+        # not a way to over-deliver.
+        if len(candles) < 2 and widen:
+            widened = self._trim_range(raw, fetch_start, end_dt)
+            if len(widened) > len(candles):
+                logger.info(
+                    "No trading session inside the requested %s window for %s %s; "
+                    "widened by one day to reach the most recent session (%d candles)",
+                    days, symbol, interval, len(widened),
+                )
+                candles = widened
+
         candles.sort(key=lambda c: str(c.get("timestamp", "")))
 
         if len(_CACHE) >= _CACHE_LIMIT:
             _CACHE.clear()
-        _CACHE[cache_key] = candles
+        # An empty result is never cached. It means "the store had nothing and the fetch did not
+        # add anything" — which is indistinguishable, here, from a transient failure: a broker 403,
+        # a Yahoo timeout, a PGRST error swallowed upstream. Caching it turned any one of those
+        # into a permanent answer for that exact key, with no TTL and nothing to invalidate it, so
+        # a single blip kept serving "no data" for the life of the process.
+        #
+        # The cost of not caching is repeated work for a symbol that genuinely has no data, and
+        # the durable store makes that cheap: it is one indexed range read, no network.
+        if candles:
+            _CACHE[cache_key] = candles
         return candles
 
     async def _load_from_db(
@@ -364,6 +410,14 @@ class BacktestHistoricalData:
             return False
         tolerance = timedelta(days=1)
         return first <= start_dt + tolerance and last >= end_dt - tolerance
+
+    @staticmethod
+    def _is_intraday(interval: str) -> bool:
+        """True for intervals measured in minutes or hours, i.e. ones that only exist during a
+        session. Daily and coarser intervals have a bar for every calendar day, so a rolling
+        window is never empty for them and this must not apply."""
+        s = str(interval).lower().strip()
+        return not (s.endswith("d") or s in ("1d", "day", "daily", "1wk", "wk", "week", "1mo", "mo"))
 
     def _merge_candles(self, stored: list[dict], fetched: list[dict]) -> list[dict]:
         """Union stored + fetched candles by timestamp, preferring fetched on conflicts."""
