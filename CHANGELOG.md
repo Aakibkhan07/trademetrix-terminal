@@ -1,3 +1,56 @@
+## Unreleased — the migrations could not stand up a working database
+
+> Applying the market-data-role migration locally surfaced something much larger. On a
+> database built from this directory, `service_role` — the role behind every API read and
+> write — had **no privileges on any of the 28 public tables**. Every query returned `42501`,
+> `core.safe_query` swallowed it, and the UI showed empty accounts rather than an error.
+> Production has these grants, applied by hand and never captured in a migration, so nobody
+> noticed. A restore, a staging box or a new machine built from these migrations would have
+> looked healthy on `/health` and empty everywhere else.
+
+### Fixed
+1. **`20261002_02000_grant_service_role_privileges.sql`** (new) — grants `service_role` full
+   table, sequence and function privileges on `public`, plus `ALTER DEFAULT PRIVILEGES` so a
+   future migration that creates a table does not reintroduce the gap. Without the default
+   privileges the problem returns one release later, which is how it survived in the first
+   place. Scoped to `service_role` deliberately: it carries `BYPASSRLS` and is only ever used
+   server-side with the secret key. `authenticated` is **not** granted DML here — twelve of
+   the 28 tables have RLS disabled, so a blanket grant would expose every row to every
+   signed-in user, and which of those should be client-readable is a security review, not a
+   side effect of this fix. `anon` needs nothing: it is only sent as the `apikey` header on
+   GoTrue calls.
+2. **A test file that would have written to production.** The new database-backed tests call
+   `activate_broker`, which issues UPDATEs — and `apps/api/.env` points at production
+   (`*.supabase.co`), not the local stack. They reached production and only failed to write
+   because production has no `role` column, so every role-aware query errored first. That was
+   luck, not a safeguard. The file now pins itself to the local database read from `.env.test`
+   and *refuses to run* if the resolved client URL is not localhost.
+
+### Verified against the real local database
+3. **`20261002_01000_broker_credentials_market_data_role.sql` applied locally**, PostgREST
+   schema cache reloaded, and `tests/sql/prove_market_data_role.sql` confirms all five claims
+   the migration rests on: both roles coexist for one user and broker, a row written without a
+   role defaults to `execution`, a duplicate user+broker+role is refused by
+   `broker_credentials_user_id_broker_role_key`, an invalid role is refused by
+   `broker_credentials_role_check`, and each role is independently addressable.
+4. **`tests/test_broker_market_data_role_db.py`** (6 tests) — the repository against a real
+   migrated Postgres with a real tenant, rather than a stub. The gap it closes is that
+   `async_safe_single` turns a missing column into `None`, so a stubbed test cannot tell a
+   working query from a permission error. Each test creates its tenant by inserting into
+   `auth.users`, whose trigger creates the `profiles` row, so nothing is shared with a real
+   account.
+   Proven by mutation: dropping the `role` column fails 6 with an actionable message;
+   removing the execution fallback in `resolve_market_data_broker` fails 1.
+
+### Note for deployment
+5. **Both migrations must be applied to production before the code is deployed.** The role
+   column is what the role-aware reads select, and the grants are what let any query reach
+   the table at all. Deployed in the wrong order — code first — every broker read returns
+   `None` and every tenant is shown as "broker not connected" while being connected.
+
+### Validation
+- API suite **1198 passed, 1 xfailed**. `ruff check .` clean. Local database left with zero
+  test rows and no leftover auth users.
 ## Unreleased — lint job green for the first time; an FXTM broker key that resolved to nothing
 
 > The `Lint API` CI job had never passed — 0 green in 60 runs, since it was created on
