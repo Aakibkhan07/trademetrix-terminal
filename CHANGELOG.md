@@ -1,3 +1,46 @@
+## Unreleased — every position row on `/paper` was coloured as a loss
+
+> `/paper` coloured its positions table with `p.side === 'BUY'`. A position's `side` is
+> `LONG` / `SHORT` / `FLAT`, not `BUY` / `SELL` — those are the *order* vocabulary. The
+> comparison was therefore never true, and both directions rendered red. A profitable long
+> showed the text `LONG` in the loss colour, while a short was red by coincidence rather than
+> by being recognised. The colour carried no information at all.
+
+### Fixed
+1. **`/paper` positions Side column** (`apps/web/app/paper/page.tsx`) — now `isLong(p)`. The
+   trade list directly below it still compares against `'BUY'`, correctly, because those rows
+   are `TradeRecord`s and fills really do carry `OrderSide`. The comment at the cell records
+   why the two tables differ, since "why is one BUY and the other LONG" is the obvious next
+   question.
+2. **`lib/positions.ts` gains `PositionSide`, `positionSide()` and `isLong()`** — the direction
+   vocabulary named once, with 7 assertions. `positionSide()` prefers the `side` the API sent
+   but falls back to the sign of `quantity`, which is what `positions.py` uses to derive `side`
+   in the first place, so a payload that omits the field still classifies correctly. An
+   unrecognised `side` is treated as absent rather than trusted.
+
+Nine other sites in the web app compare `.side` against `'BUY'` and were checked: the rest
+either read orders and fills (which do carry `BUY`/`SELL`) or derive their own side from the
+sign of `quantity`, as `/positions` does. This was the only one reading a position.
+
+Proven by mutation: `isLong` reverted to `side === 'BUY'` → 2 failures.
+
+A test that only covered a short would have passed against the old code, since `SHORT !== 'BUY'`
+too. The long case is the one that separates "correct" from "always red", so that is the case
+written.
+
+### A false alarm worth recording
+3. The same sweep appeared to find four more missing fields on the paper positions interface —
+   `side`, `open_quantity`, `average_price` and `strategy_id` were all absent from
+   `paper/models.py::PaperPosition`. They are all present on `execution_engine/positions.py::EnginePosition`,
+   which is what `/paper/positions` actually returns: the service does
+   `p.model_dump(mode="json")` on `position_manager.get_positions(...)`, not on `PaperPosition`.
+   The frontend interface was right; the check had been run against the wrong model. Worth
+   stating plainly because the "four missing fields on a money table" framing was announced as
+   a significant find before the model was traced back to its source.
+
+### Validation
+- Web `lib` tests **28 passed**. `tsc --noEmit` clean, build compiles. API suite **1198 passed,
+  1 xfailed** — unchanged, frontend only.
 ## Unreleased — two of the three P&L tiles on `/funds` were permanently zero
 
 > `/funds` declared one TypeScript interface spanning both response shapes of

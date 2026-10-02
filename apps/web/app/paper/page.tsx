@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useEvents } from '@/lib/use-events'
+import { isLong, positionSide } from '@/lib/positions'
 import Link from 'next/link'
 import { SkeletonCard } from '@/components/skeleton'
 import { ErrorMessage } from '@/components/error-message'
@@ -306,7 +307,14 @@ export default function PaperTradingPage() {
                       {positions.map((p) => (
                         <tr key={p.symbol} style={{ borderTop: '1px solid var(--border)' }}>
                           <td style={{ padding: '8px', fontWeight: 600 }}>{p.symbol}</td>
-                          <td style={{ padding: '8px', color: p.side === 'BUY' ? 'var(--green)' : 'var(--red)' }}>{p.side}</td>
+                          {/* `isLong`, not `p.side === 'BUY'`. A position's `side` is
+                              LONG/SHORT/FLAT — `BUY`/`SELL` is the *order* vocabulary, and a
+                              position's side never equals it. So the old comparison was never
+                              true and every row here rendered in the loss colour: a profitable
+                              long showed "LONG" in red, and a short was red by coincidence
+                              rather than by being recognised. The trade list below this table
+                              does use 'BUY', because those are fills — see `TradeRecord.side`. */}
+                          <td style={{ padding: '8px', color: isLong(p) ? 'var(--green)' : 'var(--red)' }}>{p.side ?? positionSide(p)}</td>
                           <td style={{ padding: '8px' }}>{p.open_quantity || p.quantity}</td>
                           <td style={{ padding: '8px' }}>{p.average_price}</td>
                           <td style={{ padding: '8px' }}>{p.last_price || '—'}</td>

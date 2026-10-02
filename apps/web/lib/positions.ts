@@ -28,6 +28,52 @@
  */
 
 /**
+ * Which way a position points.
+ *
+ * **Not `"BUY"` / `"SELL"`, and that is the whole point of naming them here.**
+ * `execution_engine/positions.py` defines `LONG = "LONG"` / `SHORT = "SHORT"` / `FLAT =
+ * "FLAT"` and assigns `side` from the sign of the net quantity. Orders and fills use a
+ * genuinely different vocabulary — `OrderSide.BUY` / `SELL` in `core/models.py` — and the two
+ * never mix within one response.
+ *
+ * `/paper` compared a *position's* `side` against `'BUY'`, which is never true, so every row
+ * on that table rendered in the loss colour: a profitable long showed the text `LONG` in red,
+ * and a short showed `SHORT` in red for the right reason by coincidence. The comparison
+ * could not distinguish the two cases, so the colour carried no information at all.
+ *
+ * Ten sites in the web app compare `.side` against `'BUY'`; only the one reading a position
+ * was wrong. That is the hazard — the vocabulary is per-response, and TypeScript cannot see
+ * it, so the wrong comparison type-checks. Naming it once here is cheaper than auditing ten
+ * sites every time a comparison moves.
+ */
+export type PositionSide = 'LONG' | 'SHORT' | 'FLAT'
+
+/** The three values the engine actually stores. */
+const POSITION_SIDES: ReadonlySet<string> = new Set<PositionSide>(['LONG', 'SHORT', 'FLAT'])
+
+/**
+ * A position's direction, preferring the value the API sent.
+ *
+ * Falls back to the sign of `quantity`, which is what `positions.py` uses to derive `side` in
+ * the first place — so a payload that omits or misspells the field still classifies correctly
+ * rather than silently reading as flat. An unrecognised `side` is treated as absent rather
+ * than trusted, because a colour that means nothing is worse than one derived from the sign.
+ */
+export function positionSide(p: { side?: unknown; quantity?: number | string }): PositionSide {
+  if (typeof p.side === 'string') {
+    const upper = p.side.toUpperCase()
+    if (POSITION_SIDES.has(upper)) return upper as PositionSide
+  }
+  const qty = num(p.quantity)
+  return qty > 0 ? 'LONG' : qty < 0 ? 'SHORT' : 'FLAT'
+}
+
+/** True when the position is long. The only question the Side column is actually asking. */
+export function isLong(p: { side?: unknown; quantity?: number | string }): boolean {
+  return positionSide(p) === 'LONG'
+}
+
+/**
  * The shape these helpers need. Every field optional, because it is a broker response.
  *
  * `number | string` is not hedging — it is what the brokers actually send. Dhan's margin

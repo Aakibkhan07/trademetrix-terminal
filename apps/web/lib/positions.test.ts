@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { displayPrice, positionPnl, usablePrice } from './positions.js'
+import { displayPrice, isLong, positionPnl, positionSide, usablePrice } from './positions.js'
 
 // A long: bought 100, now 110. +10 per unit.
 const LONG = { quantity: 10, average_buy_price: 100, average_sell_price: 0, unrealised_pnl: 0 }
@@ -85,4 +85,66 @@ test('displayPrice falls back to the position last_price, and then to nothing', 
 
 test('a string price from a broker response is coerced, not NaN', () => {
   assert.equal(positionPnl({ quantity: 10, average_buy_price: '100' }, '110'), 100)
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Position direction.
+//
+// The bug these guard: `/paper` compared a position's `side` against `'BUY'`, the value an
+// *order* carries. A position's `side` is `LONG` / `SHORT` / `FLAT`, so the comparison was
+// never true and every row rendered in the loss colour — including profitable longs.
+//
+// A test that only checked a short would have passed against the old code, because
+// `SHORT !== 'BUY'` too. The long case is the one that distinguishes "correct" from "always
+// red", so it is the one that has to be written.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('a long position is long, not "not BUY"', () => {
+  // Exactly what `EnginePosition(side=LONG, quantity=10).model_dump()` produces.
+  const p = { side: 'LONG', quantity: 10 }
+  assert.equal(positionSide(p), 'LONG')
+  assert.equal(isLong(p), true)
+  // The comparison the page used to make, kept so the regression is visible in the output.
+  assert.equal(p.side === 'BUY', false, "if this ever becomes true, the vocabulary merged")
+})
+
+test('a short position is a short', () => {
+  assert.equal(positionSide({ side: 'SHORT', quantity: -8 }), 'SHORT')
+  assert.equal(isLong({ side: 'SHORT', quantity: -8 }), false)
+})
+
+test('a flat position is flat', () => {
+  assert.equal(positionSide({ side: 'FLAT', quantity: 0 }), 'FLAT')
+  assert.equal(isLong({ side: 'FLAT', quantity: 0 }), false)
+})
+
+test('direction falls back to the sign of quantity when side is missing', () => {
+  // `positions.py` derives `side` from the sign of the net quantity, so the sign is the
+  // source of truth and is always available even if the field is absent.
+  assert.equal(positionSide({ quantity: 5 }), 'LONG')
+  assert.equal(positionSide({ quantity: -5 }), 'SHORT')
+  assert.equal(positionSide({ quantity: 0 }), 'FLAT')
+  assert.equal(positionSide({}), 'FLAT')
+})
+
+test('an unrecognised side value is not trusted — the sign wins', () => {
+  // A colour derived from a value that means nothing is worse than one derived from the sign.
+  assert.equal(positionSide({ side: 'BUY', quantity: 10 }), 'LONG')
+  assert.equal(positionSide({ side: 'sell', quantity: -3 }), 'SHORT')
+  assert.equal(positionSide({ side: 42, quantity: 7 }), 'LONG')
+})
+
+test('a string quantity still classifies, since brokers send strings', () => {
+  assert.equal(positionSide({ side: 'LONG', quantity: '10' }), 'LONG')
+  assert.equal(positionSide({ quantity: '-10' }), 'SHORT')
+})
+
+test('the three sides are mutually exclusive', () => {
+  const positions = [
+    { side: 'LONG', quantity: 1 },
+    { side: 'SHORT', quantity: -1 },
+    { side: 'FLAT', quantity: 0 },
+  ]
+  const longs = positions.filter(isLong).length
+  assert.equal(longs, 1, 'exactly one of the three is long')
 })
