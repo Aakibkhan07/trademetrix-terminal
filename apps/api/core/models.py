@@ -186,8 +186,17 @@ class Tick(BaseModel):
     ask_qty: int = 0
     volume: int = 0
     oi: int = 0
-    change: float = 0.0
-    change_pct: float = 0.0
+    # Nullable on purpose. These used to default to 0.0, which made "this broker sent no change
+    # data" and "this instrument is exactly flat" the same value on the wire — and the UI rendered
+    # the second one, in green, as "+0.00%". A market table asserting a direction it does not have
+    # is worse than showing nothing, and three adapters were manufacturing the zero:
+    # `float(msg.get("ch", 0))` and `getattr(q, 'change_percent', 0)` both yield 0.0 when the field is
+    # absent rather than when it is zero.
+    #
+    # Only three places read these, all of which pass them straight into a dict, so the type change
+    # is contained. Consumers should treat `None` as "unknown", not as 0.
+    change: float | None = None
+    change_pct: float | None = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     broker: str = ""
     instrument_type: InstrumentType = InstrumentType.EQ

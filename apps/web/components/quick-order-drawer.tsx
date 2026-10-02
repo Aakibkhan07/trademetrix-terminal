@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { useMarketData } from '@/lib/use-market-data'
 import { useToast } from '@/lib/use-toast'
 import { useUIStore } from '@/lib/stores/ui-store'
+import { fmtPct, numOrNull, NO_VALUE } from '@/lib/format'
 
 const LOT_SIZES: Record<string, number> = {
   NIFTY: 65, BANKNIFTY: 30, FINNIFTY: 60, SENSEX: 20, MIDCPNIFTY: 75,
@@ -145,6 +146,9 @@ export default function QuickOrderDrawer() {
     }
   }
 
+  // Resolved once, so the sign test and the rendered value cannot disagree.
+  const tickPct = numOrNull(ticks[symbol]?.change_pct)
+
   const paperMode = isPaper
   const notPaper = !isPaper
 
@@ -162,9 +166,13 @@ export default function QuickOrderDrawer() {
         <div className="t-drawer-body">
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
             <span className="t-num" style={{ fontSize: 31, fontWeight: 800 }}>{ltp ? fmt(ltp) : '—'}</span>
+            {/* `?? 0` here rendered "+0.00%" in green whenever the tick carried no `change_pct`,
+                which is exactly what the quote endpoint returns when it has no real change for
+                the instrument. The order ticket is the last screen before a trade; asserting a
+                direction there is the worst possible place to guess one. */}
             {ltp > 0 && (
-              <span className={`t-num ${(ticks[symbol]?.change_pct ?? 0) >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 16 }}>
-                {(ticks[symbol]?.change_pct ?? 0) >= 0 ? '+' : ''}{(ticks[symbol]?.change_pct ?? 0).toFixed(2)}%
+              <span className={`t-num ${tickPct === null ? '' : tickPct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 16 }}>
+                {tickPct === null ? NO_VALUE : fmtPct(tickPct, 2)}
               </span>
             )}
           </div>

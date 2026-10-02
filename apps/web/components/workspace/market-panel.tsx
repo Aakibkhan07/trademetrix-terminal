@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMarketData, type TickData } from '@/lib/use-market-data'
 import { api } from '@/lib/api'
 import { aiSummary } from './indicator'
+import { numOrNull } from '@/lib/format'
 
 interface ChainRow { strikePrice: number; call?: { ltp: number; oi: number; iv: number }; put?: { ltp: number; oi: number; iv: number } }
 
@@ -91,7 +92,14 @@ export default function MarketPanel({ activeSymbol, activeName, ticks, onAnalyze
 
   const ai = useMemo(() => {
     const summary = aiSummary({
-      trend: activeTick ? (activeTick.change_pct ?? 0) >= 0 ? 'trending up' : 'trending down' : 'no live tick',
+      // Not `(activeTick.change_pct ?? 0) >= 0`: a tick with no `change_pct` passed the tick check
+      // and then reported a direction. `numOrNull` keeps "we do not know" distinct from "flat".
+      trend:
+        activeTick && numOrNull(activeTick.change_pct) !== null
+          ? (numOrNull(activeTick.change_pct) as number) >= 0
+            ? 'trending up'
+            : 'trending down'
+          : 'no live tick',
       structure: '—',
       rsi: null,
       aboveVwap: null,

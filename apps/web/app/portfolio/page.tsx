@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/lib/auth-context'
 import { useUIStore } from '@/lib/stores/ui-store'
 import Logo from '@/components/logo'
+import { fmtPct, numOrNull, NO_VALUE } from '@/lib/format'
 
 interface WatchItem { symbol: string; name: string; type: string }
 interface Order {
@@ -290,13 +291,17 @@ export default function PortfolioPage() {
               <tbody>
                 {watchRows.map(item => {
                   const t = ticks[item.symbol]
-                  const pct = t?.change_pct ?? 0
+                  const pct = numOrNull(t?.change_pct)
                   return (
                     <tr key={item.symbol}>
                       <td style={{ fontWeight: 600, fontSize: 12 }}>{shortSymbol(item.symbol)}</td>
                       <td style={{ fontSize: 14 }}>{item.name}</td>
                       <td><span className="t-num">{t?.last_price ? fmt(t.last_price) : '-'}</span></td>
-                      <td><span className={`t-num ${pct >= 0 ? 't-up' : 't-down'}`}>{t ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '-'}</span></td>
+                      {/* Guarded on the value, not on the tick: `t ? ... : '-'` passed as soon as a
+                          tick existed, so a tick carrying `change_pct: null` rendered a green
+                          "+0.00%" — the page claiming the instrument is flat and positive when it
+                          simply has no change data. */}
+                      <td><span className={`t-num ${pct === null ? '' : pct >= 0 ? 't-up' : 't-down'}`}>{pct === null ? NO_VALUE : fmtPct(pct, 2)}</span></td>
                       <td>
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                           <button className="t-btn t-btn-xs" style={{ color: 'var(--green)' }} onClick={() => openQuickOrder(item.symbol, item.name, 'BUY')}>Buy</button>
@@ -472,13 +477,13 @@ export default function PortfolioPage() {
           <div className="t-grid-3" style={{ gap: 8 }}>
             {indices.map(item => {
               const t = ticks[item.symbol]
-              const pct = t?.change_pct ?? 0
+              const pct = numOrNull(t?.change_pct)
               return (
                 <div key={item.symbol} className="t-panel" style={{ padding: '10px 14px' }}>
                   <div className="t-faint" style={{ fontSize: 12, marginBottom: 2 }}>{item.name}</div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <span className="t-num" style={{ fontSize: 18, fontWeight: 700 }}>{t?.last_price ? fmt(t.last_price) : '—'}</span>
-                    <span className={`t-num ${pct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 12 }}>{t ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : ''}</span>
+                    <span className={`t-num ${pct === null ? '' : pct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 12 }}>{pct === null ? NO_VALUE : fmtPct(pct, 2)}</span>
                   </div>
                 </div>
               )

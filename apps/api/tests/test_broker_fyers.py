@@ -231,12 +231,41 @@ def test_parse_sdk_tick_full_payload_sets_change_pct(adapter: FyersAdapter):
     assert tick.oi == 345000
 
 
-def test_parse_sdk_tick_litemode_payload_zero_fill(adapter: FyersAdapter):
+def test_parse_sdk_tick_sparse_payload_has_no_change(adapter: FyersAdapter):
+    """A payload without `chp` must yield `change_pct is None`, not 0.0.
+
+    This asserted `change_pct == 0.0` for a message carrying only `symbol`, `ltp` and `type` — so it
+    encoded the fabrication directly: a tick with no change data was published as an instrument that
+    is exactly flat, and the UI rendered that as a green "+0.00%". `float(msg.get("chp", 0))` made
+    "absent" and "zero" the same number on the wire. The tick is still produced and the last price
+    is still correct; what changed is that it no longer claims a direction it does not have.
+    """
     msg = {"symbol": "NSE:NIFTY50-INDEX", "ltp": 24471.4, "type": "if"}
     tick = adapter._parse_sdk_tick(msg)
     assert tick is not None
     assert tick.last_price == 24471.4
-    assert tick.change_pct == 0.0
+    assert tick.change_pct is None
+    assert tick.change is None
+
+
+def test_parse_sdk_tick_reports_a_real_change_when_present(adapter: FyersAdapter):
+    """The other half: a genuine zero must still arrive as 0.0, not as None.
+
+    Without this the fix would be indistinguishable from throwing the field away — "absent" and
+    "genuinely flat" have to stay separable, or a real 0.00% would render as a dash.
+    """
+    flat = adapter._parse_sdk_tick(
+        {"symbol": "NSE:NIFTY50-INDEX", "ltp": 24471.4, "ch": 0, "chp": 0, "type": "if"}
+    )
+    assert flat is not None
+    assert flat.change_pct == 0.0
+
+    moved = adapter._parse_sdk_tick(
+        {"symbol": "NSE:NIFTY50-INDEX", "ltp": 24471.4, "ch": -120.5, "chp": -0.49, "type": "if"}
+    )
+    assert moved is not None
+    assert moved.change_pct == -0.49
+    assert moved.change == -120.5
 
 
 def test_subscribe_symbols_adds_to_feed(adapter: FyersAdapter):

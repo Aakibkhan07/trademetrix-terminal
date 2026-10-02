@@ -638,8 +638,9 @@ class AngelOneAdapter(BaseBroker, BrokerAdapterBase):
                 ask_qty=int(data.get("ask_qty", 0)),
                 volume=int(data.get("vol", 0)),
                 oi=int(data.get("oi", 0)),
-                change=float(data.get("ch", 0)),
-                change_pct=float(data.get("chp", 0)),
+                # `None`, not 0.0, when the broker omits the field. See `Tick.change`.
+                change=float(data["ch"]) if data.get("ch") is not None else None,
+                change_pct=float(data["chp"]) if data.get("chp") is not None else None,
                 timestamp=datetime.now(UTC),
                 broker=self.broker_name,
             )

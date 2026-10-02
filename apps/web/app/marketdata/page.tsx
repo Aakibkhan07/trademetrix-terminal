@@ -7,6 +7,7 @@ import { useToast } from '@/lib/use-toast'
 import { api } from '@/lib/api'
 import { useUIStore } from '@/lib/stores/ui-store'
 import Chart from '@/components/chart'
+import { fmtNum, fmtPct, fmtSigned, numOrNull, NO_VALUE } from '@/lib/format'
 
 type WatchItem = { symbol: string; name: string; type: string }
 
@@ -278,16 +279,26 @@ export default function MarketDataPage() {
       {sortedTicks.length > 0 && (
         <div className="t-grid-2" style={{ gap: 8 }}>
           {sortedTicks.slice(0, 8).map((t) => {
-            const pct = t.change_pct ?? 0
+            // Not `?? 0`. `GET /marketdata/quote` returns a real `last_price` with
+            // `change`/`change_pct` as **null** when it has no real change for the instrument, and
+            // coalescing that to zero renders "+0.00%" in green — the page asserting the
+            // instrument is flat, and positive, when the truth is that it does not know. Absence
+            // and "unchanged" are different claims and a market table should not make the first
+            // one in the second one's voice.
+            const pct = numOrNull(t.change_pct)
+            const last = numOrNull(t.last_price)
             const item = allItems.find(i => i.symbol === t.symbol)
             return (
               <div key={t.symbol} className="t-panel" style={{ padding: '10px 14px' }}>
                 <div className="t-panel-body" style={{ padding: 0 }}>
                   <div className="t-faint" style={{ fontSize: 13, marginBottom: 2 }}>{item?.name || t.symbol?.split(':').pop()}</div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span className="t-num" style={{ fontSize: 22 }}>{t.last_price?.toFixed(1)}</span>
-                    <span className={`t-num ${pct >= 0 ? 't-up' : 't-down'}`} style={{ fontSize: 14 }}>
-                      {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                    <span className="t-num" style={{ fontSize: 22 }}>{fmtNum(last, 1)}</span>
+                    <span
+                      className={`t-num ${pct === null ? '' : pct >= 0 ? 't-up' : 't-down'}`}
+                      style={{ fontSize: 14 }}
+                    >
+                      {pct === null ? NO_VALUE : `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
                     </span>
                   </div>
                 </div>
@@ -371,8 +382,8 @@ export default function MarketDataPage() {
               <tbody>
                 {filtered.map((item) => {
                   const t = ticks[item.symbol]
-                  const chg = t?.change ?? 0
-                  const pct = t?.change_pct ?? 0
+                  const chg = numOrNull(t?.change)
+                  const pct = numOrNull(t?.change_pct)
                   return (
                     <tr key={item.symbol} style={{ cursor: 'pointer' }}
                       onClick={() => setChartSymbol(item.symbol)}>
@@ -389,19 +400,22 @@ export default function MarketDataPage() {
                           {item.type}
                         </span>
                       </td>
-                      <td><span className="t-num">{t?.last_price?.toFixed(1) || '-'}</span></td>
+                      <td><span className="t-num">{fmtNum(t?.last_price, 1)}</span></td>
                       <td>
-                        <span className={`t-num ${chg >= 0 ? 't-up' : 't-down'}`}>
-                          {t ? `${chg >= 0 ? '+' : ''}${chg?.toFixed(1)}` : '-'}
+                        {/* Guarded on the value, not on the tick. `t ? ... : '-'` passes as soon as a
+                            tick exists, so a tick carrying `change: null` reached
+                            `${pct?.toFixed(2)}%` and rendered the literal text `undefined%`. */}
+                        <span className={`t-num ${chg === null ? '' : chg >= 0 ? 't-up' : 't-down'}`}>
+                          {chg === null ? NO_VALUE : fmtSigned(chg, 1)}
                         </span>
                       </td>
                       <td>
-                        <span className={`t-num ${pct >= 0 ? 't-up' : 't-down'}`}>
-                          {t ? `${pct >= 0 ? '+' : ''}${pct?.toFixed(2)}%` : '-'}
+                        <span className={`t-num ${pct === null ? '' : pct >= 0 ? 't-up' : 't-down'}`}>
+                          {pct === null ? NO_VALUE : fmtPct(pct, 2)}
                         </span>
                       </td>
-                      <td><span className="t-num t-up">{t?.bid || '-'}</span></td>
-                      <td><span className="t-num t-down">{t?.ask || '-'}</span></td>
+                      <td><span className="t-num t-up">{fmtNum(t?.bid, 0)}</span></td>
+                      <td><span className="t-num t-down">{fmtNum(t?.ask, 0)}</span></td>
                       <td><span className="t-num t-faint">{t?.volume ? t.volume.toLocaleString() : '-'}</span></td>
                       <td><span className="t-num t-faint">{t?.oi ? t.oi.toLocaleString() : '-'}</span></td>
                       <td>

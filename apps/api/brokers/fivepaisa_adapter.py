@@ -409,8 +409,10 @@ class FivePaisaAdapter(BaseBroker, BrokerAdapterBase):
                         symbol=q.symbol,
                         exchange=Exchange.NSE,
                         last_price=q.last_price,
+                        # `getattr(..., 0)` turned a missing field into a flat instrument.
+                        # See `Tick.change`.
                         change=q.change,
-                        change_pct=getattr(q, 'change_percent', 0),
+                        change_pct=getattr(q, 'change_percent', None),
                         volume=q.volume,
                         bid=q.bid,
                         ask=q.ask,

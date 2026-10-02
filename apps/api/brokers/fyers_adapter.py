@@ -824,8 +824,9 @@ class FyersAdapter(BaseBroker, BrokerAdapterBase):
                 ask_qty=int(msg.get("ask_size", msg.get("ask_qty", 0))),
                 volume=int(msg.get("volume", 0)),
                 oi=int(msg.get("oi", 0)),
-                change=round(float(msg.get("ch", 0)), 2),
-                change_pct=round(float(msg.get("chp", 0)), 2),
+                # `None`, not 0.0, when the broker omits the field. See `Tick.change`.
+                change=round(float(msg["ch"]), 2) if msg.get("ch") is not None else None,
+                change_pct=round(float(msg["chp"]), 2) if msg.get("chp") is not None else None,
                 timestamp=datetime.now(UTC),
                 broker=self.broker_name,
                 instrument_type=inst["instrument_type"],
