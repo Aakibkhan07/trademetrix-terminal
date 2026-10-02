@@ -272,7 +272,7 @@ function StepConnectBroker({ onDone }: { onDone: () => void }) {
                 <div style={{ flex: 1 }}>
                   <p style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{displayName(c.broker)}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-faint)' }}>
-                    Connected {new Date(c.created_at).toLocaleDateString()}
+                    Connected {c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '—'}
                   </p>
                 </div>
                 <span className={`t-badge ${c.is_active ? 't-badge-green' : 't-badge-violet'}`} style={{ fontSize: 11, padding: '2px 8px' }}>

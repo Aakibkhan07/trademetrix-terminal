@@ -112,7 +112,7 @@ export function ReferralsTab() {
                     }}>{r.reward_given ? '✓' : '—'}</span>
                   </td>
                   <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-faint)' }}>
-                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+                    {r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '—'}
                   </td>
                 </tr>
               ))}

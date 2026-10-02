@@ -138,6 +138,63 @@ export function displayPrice(p: PositionLike, price?: number | string | null): n
   return usablePrice(price) ?? usablePrice(p.last_price)
 }
 
+/**
+ * Unrealised P&L as a percentage of the position's cost basis, or `null` when it has none.
+ *
+ * ## Why this exists
+ *
+ * `/positions` computed the percentage inline, in three places, as
+ *
+ *     p.average_buy_price ? (pnl / (Math.abs(p.quantity) * p.average_buy_price) * 100) : 0
+ *
+ * which was wrong in two independent ways, and one of them rendered `NaN` in the P&L% column of
+ * every row whose position had been closed:
+ *
+ *     NSE:TCS-EQ   quantity=0   average_buy_price=2075.21   unrealised_pnl=0.0
+ *
+ * `Math.abs(0) * 2075.21` is `0`, and `0 / 0` is `NaN`, which `.toFixed(2)` renders as the
+ * string `"NaN"`. The guard tested `average_buy_price` and never the denominator, so a **closed**
+ * position — `quantity` zeroed, average price retained — slipped straight through. The CSV export
+ * had the same expression, so the downloaded file carried `NaN` too.
+ *
+ * This was unreachable until the order path was fixed. Nothing could close a position, because no
+ * order was ever recorded (see the `orders` missing-column migration), so the only positions that
+ * existed were seeded opens with a non-zero quantity. The bug was sitting in a state the system
+ * could not reach.
+ *
+ * ## The second way it was wrong
+ *
+ * A **short** has `average_buy_price = 0` — it was never bought — so the same expression fell
+ * through to the `else 0`, and every short position reported `0.00%`. Not NaN, which would at
+ * least have been visible, but a confident zero for a percentage that is certainly not zero. The
+ * basis for a short is `average_sell_price`, which is the price it was actually sold at.
+ *
+ * ## Why `null` and not `0`
+ *
+ * A percentage with no cost basis is not zero, it is uncomputable. `null` lets the caller print a
+ * dash; `0` would put a real-looking number in the cell and in the CSV, which is the failure mode
+ * this file exists to prevent.
+ */
+export function positionPnlPct(p: PositionLike, pnl?: number | string | null): number | null {
+  const qty = num(p.quantity)
+  const size = Math.abs(qty)
+  // A closed position has no exposure, so no percentage of cost basis exists. `size` is the guard
+  // that was missing; `avg_buy` alone let it through.
+  if (size <= 0) return null
+
+  // The side decides the basis. Same rule as `positionPnl` and as the backtest engine: a long
+  // entered at its average buy price, a short at its average sell price.
+  const qtyIsShort = qty < 0
+  const basis = qtyIsShort
+    ? usablePrice(p.average_sell_price) ?? usablePrice(p.average_buy_price)
+    : usablePrice(p.average_buy_price)
+  if (basis === null) return null
+
+  const value = pnl === undefined || pnl === null ? positionPnl(p) : num(pnl)
+  const pct = (value / (size * basis)) * 100
+  return Number.isFinite(pct) ? pct : null
+}
+
 /** Coerce to a finite number or 0, so a string price never renders as NaN. */
 function num(v: unknown): number {
   const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN

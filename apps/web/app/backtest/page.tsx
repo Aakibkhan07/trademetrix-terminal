@@ -1178,8 +1178,8 @@ function BacktestContent() {
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Source</label>
-            <select className="t-select" value={source} onChange={e => {
+            <label htmlFor="bt-source" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Source</label>
+            <select id="bt-source" className="t-select" value={source} onChange={e => {
               setSource(e.target.value as 'builtin' | 'builder')
               if (e.target.value === 'builder') setStrategy(builderStrategies[0]?.id || '')
             }}>
@@ -1201,34 +1201,34 @@ function BacktestContent() {
             )}
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Symbol</label>
-            <input className="t-input" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} />
+            <label htmlFor="bt-symbol" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Symbol</label>
+            <input id="bt-symbol" className="t-input" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Interval</label>
-            <select className="t-select" value={interval} onChange={e => setInterval(e.target.value)}>
+            <label htmlFor="bt-interval" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Interval</label>
+            <select id="bt-interval" className="t-select" value={interval} onChange={e => setInterval(e.target.value)}>
               {INTERVALS.map(i => <option key={i.id} value={i.id}>{i.label}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Days (up to 5y daily)</label>
-            <input className="t-input" type="number" value={days} onChange={e => setDays(Number(e.target.value))} min={1} max={1825} />
+            <label htmlFor="bt-days-up-to-5y-daily" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Days (up to 5y daily)</label>
+            <input id="bt-days-up-to-5y-daily" className="t-input" type="number" value={days} onChange={e => setDays(Number(e.target.value))} min={1} max={1825} />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Capital</label>
-            <input className="t-input" type="number" value={capital} onChange={e => setCapital(Number(e.target.value))} min={1000} />
+            <label htmlFor="bt-capital" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Capital</label>
+            <input id="bt-capital" className="t-input" type="number" value={capital} onChange={e => setCapital(Number(e.target.value))} min={1000} />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Slippage %</label>
-            <input className="t-input" type="number" value={slippage} onChange={e => setSlippage(Number(e.target.value))} min={0} step={0.01} />
+            <label htmlFor="bt-slippage" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Slippage %</label>
+            <input id="bt-slippage" className="t-input" type="number" value={slippage} onChange={e => setSlippage(Number(e.target.value))} min={0} step={0.01} />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Latency (candles)</label>
-            <input className="t-input" type="number" value={latency} onChange={e => setLatency(Number(e.target.value))} min={0} max={5} />
+            <label htmlFor="bt-latency-candles" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Latency (candles)</label>
+            <input id="bt-latency-candles" className="t-input" type="number" value={latency} onChange={e => setLatency(Number(e.target.value))} min={0} max={5} />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Partial fill %</label>
-            <input className="t-input" type="number" value={partialFill} onChange={e => setPartialFill(Number(e.target.value))} min={0} max={100} />
+            <label htmlFor="bt-partial-fill" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Partial fill %</label>
+            <input id="bt-partial-fill" className="t-input" type="number" value={partialFill} onChange={e => setPartialFill(Number(e.target.value))} min={0} max={100} />
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Risk checks</label>
@@ -1416,8 +1416,8 @@ function BacktestContent() {
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 10, flexWrap: 'wrap' }}>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Method</label>
-                  <select className="t-select" value={optMethod} onChange={e => setOptMethod(e.target.value)} style={{ width: 140 }}>
+                  <label htmlFor="bt-method" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Method</label>
+                  <select id="bt-method" className="t-select" value={optMethod} onChange={e => setOptMethod(e.target.value)} style={{ width: 140 }}>
                     <option value="grid">Grid search</option>
                     <option value="walk_forward">Walk-forward</option>
                     <option value="monte_carlo">Monte Carlo</option>
@@ -1425,8 +1425,8 @@ function BacktestContent() {
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Optimize metric</label>
-                  <select className="t-select" value={optMetric} onChange={e => setOptMetric(e.target.value)} style={{ width: 150 }}>
+                  <label htmlFor="bt-optimize-metric" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Optimize metric</label>
+                  <select id="bt-optimize-metric" className="t-select" value={optMetric} onChange={e => setOptMetric(e.target.value)} style={{ width: 150 }}>
                     <option value="sharpe_ratio">Sharpe</option>
                     <option value="net_pnl">Net P&L</option>
                     <option value="return_pct">Return %</option>
@@ -1516,8 +1516,8 @@ function BacktestContent() {
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 220 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
-                  <input className="t-input" value={compareIdsText} onChange={e => setCompareIdsText(e.target.value)}
+                  <label htmlFor="bt-run-ids" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
+                  <input id="bt-run-ids" className="t-input" value={compareIdsText} onChange={e => setCompareIdsText(e.target.value)}
                     placeholder={`${result.run_id}, <another run id>`} style={{ width: '100%' }} />
                 </div>
                 <button className="t-btn t-btn-primary" onClick={handleCompare} disabled={compareRunning}>
@@ -1619,8 +1619,8 @@ function BacktestContent() {
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 220 }}>
-                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
-                    <input className="t-input" value={compareIdsText} onChange={e => setCompareIdsText(e.target.value)}
+                    <label htmlFor="bt-run-ids-2" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Run IDs</label>
+                    <input id="bt-run-ids-2" className="t-input" value={compareIdsText} onChange={e => setCompareIdsText(e.target.value)}
                       placeholder={`${result.run_id}, <another run id>`} style={{ width: '100%' }} />
                   </div>
                   <button className="t-btn t-btn-sm t-btn-primary" onClick={handleCompare} disabled={compareRunning}>

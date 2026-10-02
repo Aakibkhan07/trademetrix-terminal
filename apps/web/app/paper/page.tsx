@@ -345,7 +345,7 @@ export default function PaperTradingPage() {
                       <span style={{ flex: 1 }} />
                       <Money value={t.realised_pnl} />
                       <span className="t-faint" style={{ fontSize: 11 }}>
-                        {t.executed_at ? new Date(t.executed_at).toLocaleTimeString() : ''}
+                        {t.executed_at ? new Date(t.executed_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : ''}
                       </span>
                     </div>
                   ))}

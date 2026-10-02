@@ -211,7 +211,7 @@ export default function StrategyDetailPage() {
                       </span>
                     </td>
                     <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-faint)', fontSize: 12 }}>
-                      {t.created_at ? new Date(t.created_at).toLocaleDateString() : '-'}
+                      {t.created_at ? new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '-'}
                     </td>
                   </tr>
                 ))}

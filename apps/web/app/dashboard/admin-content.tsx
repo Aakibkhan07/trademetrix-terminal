@@ -703,7 +703,7 @@ function BrokersTab() {
                       }
                     </td>
                     <td style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text-faint)' }}>
-                      {b.created_at ? new Date(b.created_at).toLocaleDateString() : '—'}
+                      {b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '—'}
                     </td>
                   </tr>
                 )

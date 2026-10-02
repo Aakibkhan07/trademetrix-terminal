@@ -261,7 +261,7 @@ export default function AnalyticsPage() {
                 }}>
                   <div>
                     <div style={{ fontWeight: 600, color: 'var(--text)' }}>{r.strategy_name || r.strategy_id || 'Run'}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{r.symbol || ''} {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{r.symbol || ''} {r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : ''}</div>
                   </div>
                   <span className={`t-badge ${r.status === 'active' ? 't-badge-green' : r.status === 'error' ? 't-badge-red' : 't-badge-sub'}`} style={{ fontSize: 10 }}>
                     {r.status || 'unknown'}

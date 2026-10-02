@@ -102,7 +102,7 @@ export function ActivityTimelineTab() {
   const groupByDate = useMemo(() => {
     const groups: Record<string, AuditEntry[]> = {}
     entries.forEach(e => {
-      const date = e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown'
+      const date = e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : 'Unknown'
       if (!groups[date]) groups[date] = []
       groups[date].push(e)
     })

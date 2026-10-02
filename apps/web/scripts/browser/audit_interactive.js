@@ -158,12 +158,32 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
       // browsers expose it as one. Leaving it out reported fifteen "input with no label" findings
       // across the app that were all fine — a noisy detector gets ignored, and a detector that
       // gets ignored finds nothing.
+      //
+      // `<label for>` and a wrapping `<label>` were missing, which is the more serious omission:
+      // they are the *canonical* HTML labelling mechanism and the one assistive technology actually
+      // uses. Seventeen controls across `/backtest` and `/terminal` carry a visible `<label>`
+      // correctly associated by `htmlFor`/`id`, and this detector called every one of them
+      // unlabelled — flagging correct markup as broken. A detector that reports correct code as
+      // defective trains you to ignore it, which is how the fifteen placeholder findings above
+      // happened in the first place.
+      const labelFor = (el) => {
+        if (!el.id) return ''
+        // `CSS.escape` because these ids are slugified from label text and can contain characters
+        // that are meaningful in a selector.
+        const explicit = document.querySelector(`label[for="${CSS.escape(el.id)}"]`)
+        if (explicit) return explicit.innerText || ''
+        // Nested label: also valid, and association is implicit.
+        const wrapping = el.closest('label')
+        return wrapping ? wrapping.innerText || '' : ''
+      }
+
       const name = (el) =>
         (
           el.innerText ||
           el.getAttribute('aria-label') ||
           el.getAttribute('title') ||
           el.getAttribute('placeholder') ||
+          labelFor(el) ||
           (el.getAttribute('aria-labelledby')
             ? (document.getElementById(el.getAttribute('aria-labelledby'))?.innerText ?? '')
             : '') ||

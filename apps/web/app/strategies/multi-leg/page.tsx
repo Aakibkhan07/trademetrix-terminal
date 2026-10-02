@@ -287,7 +287,7 @@ export default function MultiLegPage() {
                       </span>
                     </td>
                     <td className="t-faint t-num" style={{ fontSize: 13 }}>
-                      {s.created_at ? new Date(s.created_at).toLocaleDateString() : '-'}
+                      {s.created_at ? new Date(s.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '-'}
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>

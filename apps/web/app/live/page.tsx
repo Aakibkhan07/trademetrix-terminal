@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { useUIStore } from '@/lib/stores/ui-store'
 import { useLiveConnection } from '@/components/live/use-live-connection'
+import { useMountedClock } from '@/lib/use-mounted-clock'
 import { useLiveData } from '@/components/live/use-live-data'
 import { MarketOverview } from '@/components/live/market-overview'
 import { PositionsPanel } from '@/components/live/positions-panel'
@@ -24,6 +25,10 @@ type PrimaryTab = 'positions' | 'orders' | 'portfolio'
 export default function LivePage() {
   const { user, isAdmin, loading: authLoading } = useAuth()
   const conn = useLiveConnection()
+  // Null until after mount, so the server render and the first client render agree. A `new Date()`
+  // in this render body produced an intermittent "Text content did not match server-rendered HTML"
+  // whenever a minute boundary fell between the two passes.
+  const mountedClock = useMountedClock()
   const [primaryTab, setPrimaryTab] = useState<PrimaryTab>('positions')
   const [activeSymbol, setActiveSymbol] = useState('NSE:NIFTY50-INDEX')
   const [activeName, setActiveName] = useState('NIFTY 50')
@@ -100,7 +105,7 @@ export default function LivePage() {
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', padding: '1px 5px', borderRadius: 3, background: conn.isMarketOpen ? 'var(--green-dim)' : 'var(--amber-dim)', border: `1px solid ${conn.isMarketOpen ? 'var(--green-dim)' : 'var(--amber-dim)'}`, color: conn.isMarketOpen ? 'var(--green)' : 'var(--amber)' }}>{conn.isMarketOpen ? 'MARKET OPEN' : 'MARKET CLOSED'}</span>
             </h1>
             <div className="t-faint" style={{ fontSize: 13, marginTop: 3 }}>
-              Institutional cockpit — positions, orders, signals and risk in one view · <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} IST</span>
+              Institutional cockpit — positions, orders, signals and risk in one view · <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-sub)' }}>{mountedClock ?? '--:--'} IST</span>
             </div>
           </div>
           <div className="t-faint" style={{ fontSize: 12, display: 'flex', gap: 10, alignItems: 'center' }}>

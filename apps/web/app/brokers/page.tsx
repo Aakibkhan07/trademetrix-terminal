@@ -328,7 +328,7 @@ export default function BrokersPage() {
                       {/* Without this, a tenant holding one broker for orders and another
                           for prices sees the same name twice with nothing to tell them
                           apart, and cannot tell which card is which. */}
-                      {credRole(c) === 'market_data' ? 'Market data (prices)' : 'Execution (orders)'} &middot; Added {new Date(c.created_at).toLocaleDateString()}
+                      {credRole(c) === 'market_data' ? 'Market data (prices)' : 'Execution (orders)'} &middot; Added {new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}
                     </p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>

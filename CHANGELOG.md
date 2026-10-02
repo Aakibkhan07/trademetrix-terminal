@@ -1,3 +1,109 @@
+## Unreleased — the order audit trail exists, and with it two frontend bugs that were unreachable until now
+
+> Fixing the order path (previous entry) made `GET /engine/orders` return rows for the first time and
+> positions able to close for the first time. Both states were previously unreachable, and both were
+> hiding defects that had been sitting in the code the whole time. This is the clearest instance yet
+> of the pattern in this repo: **an empty response reads exactly like a working one.**
+
+### Fixed
+
+1. **`NaN` in the P&L% column of every closed position** (`apps/web/app/positions/page.tsx`,
+   `apps/web/lib/positions.ts`). The percentage was computed inline, in three places, as
+
+       p.average_buy_price ? (pnl / (Math.abs(p.quantity) * p.average_buy_price) * 100) : 0
+
+   A closed position has `quantity = 0` and keeps its average price, so `Math.abs(0) * 2075.21` is
+   `0`, and `0 / 0` is `NaN`, which `.toFixed(2)` renders as the string `"NaN"`. The guard tested
+   `average_buy_price` and never the denominator. The CSV export had the same expression, so the
+   downloaded file carried `NaN` too.
+
+   Unreachable until now: nothing could close a position, because no order could be recorded. The
+   observed row was `NSE:TCS-EQ  quantity=0  average_buy_price=2075.21  unrealised_pnl=0`.
+
+   The same expression was **also** wrong for shorts, more quietly: a short has
+   `average_buy_price = 0`, so every short position reported a confident `0.00%` rather than the
+   obviously-broken `NaN`. Now `positionPnlPct()` in `lib/positions.ts`, using the side-correct basis
+   (`average_sell_price` for a short, matching `positionPnl` and the backtest engine) and returning
+   `null` — not `0` — when there is no basis, so the cell shows `—`.
+
+2. **An intermittent hydration mismatch in `/live`** (`apps/web/lib/use-mounted-clock.ts`). The header
+   rendered `new Date().toLocaleTimeString(...)` **in the render body**. The server renders the tree,
+   ships that HTML, then the browser re-renders to hydrate; when a minute boundary fell between the
+   two passes the server wrote `03:38 am` and the browser computed `03:39 am`, and React reported
+   "Text content did not match server-rendered HTML". Intermittent by construction — the crawl is
+   clean most runs and fails whenever it happens to straddle a minute change, which is how something
+   like this survives a long time looking fine. `useMountedClock()` returns `null` until after mount,
+   so both passes agree on empty.
+
+   Verified structurally rather than by luck: the SSR HTML for `/live` now contains `--:--` and **no**
+   clock time at all, so the server cannot emit a non-deterministic value.
+
+3. **Every broker timestamp was formatted in the server's timezone** (11 call sites across 9 files).
+   `toLocaleTimeString()` with no `timeZone` formats in the *runtime's* zone: UTC on the server, IST
+   in an Indian user's browser. Same input, two different strings, hydration mismatch — and it cannot
+   reproduce on a laptop where both halves run in the same zone, so it is invisible to local testing
+   and would fire in production. Every broker timestamp is now pinned to `Asia/Kolkata`, which is also
+   simply correct for an Indian broker terminal. `app/strategies/page.tsx:344` also had a
+   `|| Date.now()` fallback, which is a render-time clock in its own right; it is guarded instead.
+
+4. **17 form controls had a visible but unassociated `<label>`** (`/backtest` 12, `/terminal` 5). The
+   label rendered directly above the control with no `htmlFor`/`id` pair, so nothing announced it.
+   Added the association — the canonical mechanism, and zero visual change.
+
+### Fixed — in the audit tool itself
+
+5. **`audit_interactive.js` called correctly-labelled controls unlabelled.** Its accessible-name
+   function checked `innerText`, `aria-label`, `title`, `placeholder` and `aria-labelledby`, and never
+   `<label for>` or a wrapping `<label>` — the canonical HTML mechanism, and the one assistive
+   technology actually uses. It reported all 17 controls in item 4 as defective.
+
+   This is the failure mode this tool already had once: an earlier version omitted `placeholder` and
+   produced fifteen false "no label" findings, fixed by adding `placeholder`. A detector that reports
+   correct code as broken trains you to ignore it, and a detector you ignore finds nothing — so this
+   was worth fixing properly rather than by suppressing the finding. It now resolves `label[for]` via
+   `CSS.escape` and falls back to `el.closest('label')`.
+
+   Mutation-validated both directions: 0 findings on the correct markup, and 1 finding when a single
+   `htmlFor` was removed.
+
+### Added
+
+- `apps/web/lib/use-mounted-clock.ts` — `useMountedClock()` and `IST_TIME`, with the reasoning for why
+  a clock cannot appear in a first render and why `timeZone` must be pinned.
+- `apps/web/lib/positions-pnl-pct.test.ts` — 11 tests, mutation-validated (restoring the original
+  expression fails 5).
+- Note on the `size <= 0` guard in `positionPnlPct`: it is **not** load-bearing on its own — the
+  trailing `Number.isFinite` check would also reject the `NaN`. It is kept because it states the
+  reason (a closed position has no exposure) more clearly than relying on catching `NaN`, and the
+  mutation that removes it alone correctly fails nothing.
+
+### Verification
+
+- API **1258 passed, 1 xfailed**; ruff clean. Web **53** lib tests (was 42), `tsc --noEmit` 0, lint 0.
+- Contract audit: 46 endpoints observed, 31 declarations, **0 mismatches**, 0 fields read but not
+  served — and this is the first run in which `/engine/orders` had rows to compare against, so that
+  endpoint is no longer unchecked.
+- Browser: crawl **51/51** clean (three consecutive runs), interactions **4/4**, session **6/6**,
+  interactive audit **0** unlabelled inputs. `/positions` and `/orders` probe: **0** `NaN` occurrences
+  after hydration, was 1 each.
+
+### Reference
+
+- **A guard on one operand is not a guard on the other.** `p.average_buy_price ? pnl / (|qty| * avg) : 0`
+  checks the numerator's companion and divides by an unchecked denominator. Any division needs both
+  sides checked.
+- **A fixture suite written only against reachable states passes against code that breaks when a new
+  state arrives.** Every position fixture in `lib/positions.test.ts` was an *open* position, because
+  that was all that could exist. The closed-position case was never written, so it was never wrong.
+- **Flaky detection needs a structural check, not more runs.** Three clean crawls do not prove a
+  minute-boundary race is gone; "the SSR HTML contains no clock time" does.
+- **Timezone bugs hide in local testing by construction.** Server and browser share a zone on a
+  developer machine, so the mismatch can only appear in production. Pin `timeZone` on anything
+  rendered from a broker timestamp.
+- **A CSS assertion beats a text assertion for a client-component page**: the `.next` dev server
+  compiles on demand, so the first hit can carry stale HTML. Check `app/page.tsx` (source) rather than
+  a rendered chunk when confirming a component was removed.
+
 ## Unreleased — orders could never be recorded, paper fills were invented, and the OMS retried resting orders into false rejections
 
 > Six defects on one path: place an order → it is recorded, priced honestly, and told to the user

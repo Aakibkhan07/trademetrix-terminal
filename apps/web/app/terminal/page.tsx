@@ -215,27 +215,27 @@ export default function TerminalPage() {
               {/* Symbol + Qty */}
               <div style={{ display: 'flex', gap: 6 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Symbol</label>
-                  <input className="t-input" placeholder="NIFTY, RELIANCE..." value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} />
+                  <label htmlFor="tm-symbol" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Symbol</label>
+                  <input id="tm-symbol" className="t-input" placeholder="NIFTY, RELIANCE..." value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} />
                 </div>
                 <div style={{ width: 80 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Qty</label>
-                  <input className="t-input" type="number" min={1} value={qty} onChange={e => setQty(Number(e.target.value))} />
+                  <label htmlFor="tm-qty" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Qty</label>
+                  <input id="tm-qty" className="t-input" type="number" min={1} value={qty} onChange={e => setQty(Number(e.target.value))} />
                 </div>
               </div>
 
               {/* Order Type + Product */}
               <div style={{ display: 'flex', gap: 6 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Type</label>
-                  <select className="t-select" value={orderType} onChange={e => setOrderType(e.target.value as 'MARKET' | 'LIMIT')}>
+                  <label htmlFor="tm-type" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Type</label>
+                  <select id="tm-type" className="t-select" value={orderType} onChange={e => setOrderType(e.target.value as 'MARKET' | 'LIMIT')}>
                     <option value="MARKET">Market</option>
                     <option value="LIMIT">Limit</option>
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Product</label>
-                  <select className="t-select" value={product} onChange={e => setProduct(e.target.value as 'INTRADAY' | 'NRML')}>
+                  <label htmlFor="tm-product" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Product</label>
+                  <select id="tm-product" className="t-select" value={product} onChange={e => setProduct(e.target.value as 'INTRADAY' | 'NRML')}>
                     <option value="INTRADAY">Intraday</option>
                     <option value="NRML">Delivery</option>
                   </select>
@@ -244,8 +244,8 @@ export default function TerminalPage() {
 
               {orderType === 'LIMIT' && (
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Limit Price</label>
-                  <input className="t-input" type="number" min={0} step={0.05} value={limitPrice} onChange={e => setLimitPrice(Number(e.target.value))} />
+                  <label htmlFor="tm-limit-price" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Limit Price</label>
+                  <input id="tm-limit-price" className="t-input" type="number" min={0} step={0.05} value={limitPrice} onChange={e => setLimitPrice(Number(e.target.value))} />
                 </div>
               )}
 

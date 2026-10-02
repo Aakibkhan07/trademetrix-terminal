@@ -341,7 +341,7 @@ export default function StrategiesPage() {
                         <div>
                           <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 17, margin: 0 }}>{s.name || s.id}</h3>
                           <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-faint)' }}>
-                            {s.type || s.template || 'visual'} · v{new Date(s.updated_at || Date.now()).toLocaleDateString()}
+                            {s.type || s.template || 'visual'}{s.updated_at ? ` · v${new Date(s.updated_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}` : ''}
                           </p>
                         </div>
                         <span
@@ -419,7 +419,7 @@ export default function StrategiesPage() {
                           </span>
                         </div>
                         <p style={{ margin: 0, fontSize: 13, color: 'var(--text-faint)' }}>
-                          Created {new Date(s.created_at).toLocaleDateString()}
+                          Created {new Date(s.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}
                         </p>
                       </div>
                       <div style={{ borderTop: '1px solid color-mix(in srgb, var(--violet) 6%, transparent)', padding: '10px 18px', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>

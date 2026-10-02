@@ -7,6 +7,8 @@ import { usePolling } from '@/lib/use-polling'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/lib/use-toast'
 import { PositionActions } from '@/components/positions/position-actions'
+import { positionPnlPct } from '@/lib/positions'
+import { fmtPct } from '@/lib/format'
 import type { ActionKind, TrailState } from '@/components/positions/position-actions'
 import type { OrderRow, PositionRow } from '@/components/trade/types'
 
@@ -292,8 +294,10 @@ export default function PositionsPage() {
               const data = positions.map(p => {
                 const ltp = ltpFor(p) || 0
                 const pnl = pnlFor(p)
-                const pnlPct = p.average_buy_price ? (pnl / (Math.abs(p.quantity) * p.average_buy_price) * 100) : 0
-                return [p.symbol, p.instrument_type || '', p.expiry_date || '', String(p.strike_price || ''), String(p.quantity), p.average_buy_price?.toFixed(1) || '', ltp.toFixed(1), pnl.toFixed(0), pnlPct.toFixed(2), p.product || '']              })
+                const pnlPct = positionPnlPct(p, pnl)
+                // Empty cell, not "NaN": a closed position has no cost basis to take a
+                // percentage of, and a spreadsheet will happily average a literal NaN.
+                return [p.symbol, p.instrument_type || '', p.expiry_date || '', String(p.strike_price || ''), String(p.quantity), p.average_buy_price?.toFixed(1) || '', ltp.toFixed(1), pnl.toFixed(0), pnlPct === null ? '' : pnlPct.toFixed(2), p.product || '']              })
               downloadCSV([header, ...data], `positions-${new Date().toISOString().slice(0, 10)}.csv`)
             }}>
               Export CSV
@@ -322,7 +326,7 @@ export default function PositionsPage() {
                 {positions.map(p => {
                   const ltp = ltpFor(p)
                   const pnl = pnlFor(p)
-                  const pnlPct = p.average_buy_price ? (pnl / (Math.abs(p.quantity) * p.average_buy_price) * 100) : 0
+                  const pnlPct = positionPnlPct(p, pnl)
                   const posKey = p.id || `${p.symbol}|${p.quantity}|${p.average_buy_price}`
                   const isOpen = expanded === posKey
                   const openOrder = orders.find(o => o.symbol === p.symbol && ['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status)) || null
@@ -421,7 +425,7 @@ export default function PositionsPage() {
                         </span>
                       </td>
                       <td className="t-faint t-num" style={{ fontSize: 12 }}>
-                        {o.created_at ? new Date(o.created_at).toLocaleTimeString() : '-'}
+                        {o.created_at ? new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}
                       </td>
                       <td>
                         {['OPEN', 'PENDING', 'PARTIALLY_FILLED'].includes(o.status) && (
@@ -450,7 +454,7 @@ function FragmentRow({ position, ltp, pnl, pnlPct, isOpen, trail, busy, onToggle
   position: PositionRow
   ltp: number | null
   pnl: number
-  pnlPct: number
+  pnlPct: number | null
   isOpen: boolean
   trail: TrailState | null
   busy: boolean
@@ -477,8 +481,8 @@ function FragmentRow({ position, ltp, pnl, pnlPct, isOpen, trail, busy, onToggle
         <td className={`t-num ${pnl >= 0 ? 't-up' : 't-down'}`} style={{ fontWeight: 600 }}>
           {pnl >= 0 ? '+' : ''}{pnl?.toFixed(0) || '0'}
         </td>
-        <td className={`t-num ${pnlPct >= 0 ? 't-up' : 't-down'}`}>
-          {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
+        <td className={`t-num ${pnlPct === null ? '' : pnlPct >= 0 ? 't-up' : 't-down'}`}>
+          {fmtPct(pnlPct)}
         </td>
         <td className="t-num">
           <span className={`t-badge ${p.product === 'INTRADAY' ? 't-badge-cyan' : 't-badge-violet'}`}>

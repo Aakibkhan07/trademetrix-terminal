@@ -47,7 +47,7 @@ export default function StrategyLogs({ strategyId }: { strategyId: string }) {
       {logs.map(l => {
         const color = KIND_COLOR[l.kind] || 'var(--text-faint)'
         let ts = ''
-        try { ts = new Date(l.ts).toLocaleTimeString() } catch { ts = '' }
+        try { ts = new Date(l.ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) } catch { ts = '' }
         return (
           <div key={l.id} style={{ display: 'flex', gap: 8, fontSize: 12, alignItems: 'baseline' }}>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-faint)', flexShrink: 0 }}>{ts}</span>

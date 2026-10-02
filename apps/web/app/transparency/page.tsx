@@ -90,10 +90,10 @@ export default function TransparencyPage() {
                       {o.status}
                     </span>
                   </td>
-                  <td className="t-num">{o.signal_at ? new Date(o.signal_at).toLocaleTimeString() : '-'}</td>
-                  <td className="t-num">{o.risk_checked_at ? new Date(o.risk_checked_at).toLocaleTimeString() : '-'}</td>
-                  <td className="t-num">{o.sent_at ? new Date(o.sent_at).toLocaleTimeString() : '-'}</td>
-                  <td className="t-num">{o.filled_at ? new Date(o.filled_at).toLocaleTimeString() : '-'}</td>
+                  <td className="t-num">{o.signal_at ? new Date(o.signal_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}</td>
+                  <td className="t-num">{o.risk_checked_at ? new Date(o.risk_checked_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}</td>
+                  <td className="t-num">{o.sent_at ? new Date(o.sent_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}</td>
+                  <td className="t-num">{o.filled_at ? new Date(o.filled_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}</td>
                   {/* `!== null` is not a presence check: `undefined !== null` is true, so a
                       row that simply omits `latency_ms` passed the guard and then threw on
                       `.toFixed`, taking the whole page to its error boundary with

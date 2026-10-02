@@ -101,7 +101,7 @@ export function UserStrategiesTab() {
                     }} />
                   </td>
                   <td style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-faint)' }}>
-                    {s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}
+                    {s.created_at ? new Date(s.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '—'}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                     <button onClick={() => handleDelete(s.id)} disabled={deleting === s.id}

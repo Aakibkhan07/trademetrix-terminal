@@ -3,6 +3,24 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — With the order audit trail alive, two frontend bugs that were previously unreachable (PRODUCTION NOT VERIFIED — VPS unreachable)
+
+### What was done
+1. **`NaN` in the P&L% column of every closed position** — `pnl / (|qty| * avg_buy)` guarded the average price and not the denominator, so a closed position (`qty=0`, avg retained) produced `0/0`. Same expression in the CSV export. Unreachable until the order path was fixed, because nothing could close a position. Also wrong for shorts: `average_buy_price=0` there, so every short showed a confident `0.00%`. Now `positionPnlPct()` in `lib/positions.ts`, side-correct basis, `null` (→ `—`) when there is no basis.
+2. **Intermittent `/live` hydration mismatch** — `new Date().toLocaleTimeString()` in the render body; a minute boundary between the server pass and hydration made the text differ. Now `useMountedClock()` (`lib/use-mounted-clock.ts`), null until mounted.
+3. **11 broker-timestamp formatters had no `timeZone`** — rendered in the runtime's zone (UTC server, IST browser). Invisible locally, would mismatch in production. All pinned to `Asia/Kolkata`.
+4. **17 controls had a visible but unassociated `<label>`** (`/backtest` 12, `/terminal` 5) — added `htmlFor`/`id`.
+5. **The audit tool itself was wrong** — `audit_interactive.js` never checked `<label for>` or a wrapping `<label>`, so it reported all 17 correctly-labelled controls as defective. Same failure mode it had once before with `placeholder`. Now resolves `label[for]` via `CSS.escape` + `closest('label')`; mutation-validated both directions (0 findings correct / 1 when a `htmlFor` is removed).
+
+### Reference
+- **An empty response reads exactly like a working one.** All five findings above were states the system could not previously reach. Fix the write path first, then re-crawl: two of these only appeared once orders were recordable.
+- **A guard on one operand is not a guard on the other** — `p.average_buy_price ? pnl / (|qty| * avg) : 0` checks the numerator's companion and divides by an unchecked denominator.
+- **A fixture suite written only against reachable states passes against code that breaks when a new state arrives.** Every position fixture was an *open* position because that was all that existed.
+- **Flaky detection needs a structural check, not more runs.** Three clean crawls do not prove a minute-boundary race is gone; "the SSR HTML contains no clock time" does.
+- **Timezone bugs hide in local testing by construction** — server and browser share a zone on a dev machine. Pin `timeZone` on anything rendered from a broker timestamp.
+- `positionPnlPct`'s `size <= 0` guard is **not** load-bearing alone (the `Number.isFinite` check also rejects the NaN); kept because it states the reason. Mutation removing it alone correctly fails nothing — recorded so a future reader does not assume it is covered.
+- Suite **1258 passed / 1 xfailed**; web **53** lib tests (was 42), tsc 0, lint 0. Contract audit 0 mismatches — the first run where `/engine/orders` had rows to compare. Crawl **51/51** (three runs), interactions 4/4, session 6/6, interactive audit 0 unlabelled. `/positions` + `/orders`: 0 `NaN` after hydration.
+
 ## Session: 2026-10-03 — Order path P0: orders could never be recorded; paper fills were invented; OMS retried resting orders into false REJECTEDs (PRODUCTION NOT VERIFIED — VPS unreachable)
 
 ### What was done
