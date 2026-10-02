@@ -104,35 +104,24 @@ class FillEngine:
             return self._quote_last_price(quote)
         if order.price and order.price > 0:
             return order.price
-        sym = (order.symbol or "").upper()
-        is_opt = "CE" in sym or "PE" in sym
-        if is_opt and order.strike_price and order.strike_price > 0:
-            try:
-                spot = None
-                for probe in ("NSE:NIFTY50-INDEX", "BSE:SENSEX-INDEX", "NSE:NIFTYBANK-INDEX"):
-                    q = market_cache.get_quote(probe)
-                    lp = self._quote_last_price(q)
-                    if lp > 0:
-                        if ("SENSEX" in sym and "SENSEX" in probe) or ("NIFTY" in sym and "NIFTY" in probe) or spot is None:
-                            spot = lp
-                            if ("SENSEX" in sym and "SENSEX" in probe) or ("NIFTY" in sym and probe == "NSE:NIFTY50-INDEX"):
-                                break
-                if spot is None or spot <= 0:
-                    spot = 81000.0 if "SENSEX" in sym else 24500.0
-                strike = float(order.strike_price)
-                interval = 100 if "SENSEX" in sym or "BANKNIFTY" in sym else 50
-                dist = abs(strike - spot) / interval if interval else 0
-                is_otm = (order.option_type == "CE" and strike > spot) or (order.option_type == "PE" and strike < spot) if hasattr(order, "option_type") and order.option_type else (strike > spot)
-                if dist <= 1:
-                    premium = 85 + (15 if not is_otm else -20)
-                else:
-                    premium = max(12, 95 - dist * 14 - (10 if is_otm else 0))
-                premium = round(max(8.0, premium + (hash(sym) % 7) - 3), 2)
-                market_cache.put_quote(order.symbol, {"last_price": premium, "ltp": premium})
-                return premium
-            except Exception:
-                pass
-        return order.price or 80.0 if is_opt else 0.0
+
+        # No resolvable price. Say so, rather than invent one.
+        #
+        # This branch used to fabricate an option premium when nothing could price the symbol: a
+        # hardcoded spot (24500, or 81000 for SENSEX), a distance-from-strike formula, a
+        # `hash(symbol) % 7` jitter, a floor of 8.0 — and then `market_cache.put_quote` the result,
+        # so an invented number became the cached "quote" for that symbol and every later reader of
+        # the cache, including the quote endpoints, inherited it as though it were a market price.
+        #
+        # It also contradicted the fill contract two methods up, which already returns
+        # `PaperOrderStatus.PENDING` when no quote resolves. An option paper order used to be
+        # "filled" at a number that never existed; now it stays pending, which is the honest
+        # outcome and the same one a cash order already got.
+        #
+        # Deriving a premium from a *real* underlying spot was rejected too: a distance formula is
+        # not a quote, it is a second guess with different numbers each time it is evaluated. A
+        # paper fill is worth exactly the last traded price, or nothing.
+        return 0.0
 
     def _apply_slippage(self, order: NormalizedOrder, price: float) -> float:
         if self._config.slippage_pct <= 0 or price <= 0:
@@ -151,7 +140,26 @@ class FillEngine:
         return quantity
 
     def _build_fill(self, order: NormalizedOrder, quantity: int, price: float, status: PaperOrderStatus = PaperOrderStatus.FILLED) -> PaperFill:
-        if quantity <= 0:
+        # No price is as disqualifying as no quantity.
+        #
+        # This guard used to check `quantity <= 0` alone, so a fill with a real quantity and **no
+        # price** was built and returned as FILLED. Every fill path funnels through here, and
+        # `simulate_fill` calls `_instant_fill` when the cached quote has no LTP — so a symbol
+        # nothing could price produced:
+        #
+        #     PaperFill(symbol='NSE:NIFTY25OCT24500CE', side='BUY',
+        #                filled_quantity=1, filled_price=0.0, net_amount=20.0)
+        #
+        # That is a fill of one lot at zero rupees, and it is the origin of the misleading record
+        # seen in the audit trail: `PaperBroker.place_order` only parks an order as PENDING when
+        # `filled_quantity <= 0`, so a zero-*price* fill sailed past that check, the order was
+        # written to `orders` as FILLED with `average_price = 0`, and the position layer later
+        # refused to apply it ("Skipping trade with zero fill price") — the audit trail claiming a
+        # fill that never happened, at no price.
+        #
+        # Returning an empty fill instead sends the order down the PENDING path it was always meant
+        # to take, so the outcome matches what the caller already handles correctly.
+        if quantity <= 0 or price <= 0:
             return PaperFill(
                 order_id=order.client_order_id or order.id,
                 symbol=order.symbol,

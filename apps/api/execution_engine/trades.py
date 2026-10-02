@@ -12,6 +12,7 @@ via the ``TradeStore`` protocol).
 """
 from __future__ import annotations
 
+import logging
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -71,6 +72,9 @@ class TradeStore(Protocol):
     async def load(self, user_id: str, broker: str | None = None, limit: int = 1000) -> list[TradeRecord]: ...
 
 
+logger = logging.getLogger(__name__)
+
+
 class TradeLedger:
     """Thread-safe in-memory fills book, capped per account."""
 
@@ -83,9 +87,38 @@ class TradeLedger:
         return f"{user_id}:{broker}"
 
     def add(self, trade: TradeRecord) -> None:
+        """Record one fill, ignoring a repeat of the same one.
+
+        A single paper fill was being recorded **twice**: once by the paper broker, under its own
+        `client_order_id` (`paper_1_…`), and once by the execution manager, under the engine's
+        (`e39181429f…`). Both carried the same `broker_order_id`, so the evidence that they describe
+        one fill was on the record all along:
+
+            client=paper_1_179097  broker_oid=paper_1_179097  NSE:NIFTY50-INDEX
+            client=e39181429f7dd6  broker_oid=paper_1_179097  NSE:NIFTY50-INDEX
+
+        `GET /paper/trades` therefore listed every fill twice, and anything aggregating over this
+        ledger — `turnover()`, `totals()` — double-counted it.
+
+        The dedupe key is `(broker_order_id, quantity, price)` rather than `broker_order_id` alone.
+        A partially-filled order legitimately produces more than one fill against the same broker
+        order id, and dropping those would lose quantity; a repeat of the *same* fill matches on all
+        three. Records with no `broker_order_id` are always kept, since there is nothing to compare
+        them on and dropping unidentified rows would be worse than a duplicate.
+        """
         with self._lock:
             key = self._key(trade.user_id, trade.broker)
             bucket = self._trades.setdefault(key, [])
+            if trade.broker_order_id:
+                fingerprint = (trade.broker_order_id, trade.quantity, trade.price)
+                for existing in bucket:
+                    if (existing.broker_order_id, existing.quantity, existing.price) == fingerprint:
+                        logger.debug(
+                            "Ignoring duplicate trade record for %s on %s "
+                            "(already recorded as %s)",
+                            trade.broker_order_id, trade.symbol, existing.trade_id,
+                        )
+                        return
             bucket.append(trade)
             if len(bucket) > self._max_per_account:
                 del bucket[: len(bucket) - self._max_per_account]

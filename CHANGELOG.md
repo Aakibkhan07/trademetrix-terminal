@@ -1,3 +1,160 @@
+## Unreleased — orders could never be recorded, paper fills were invented, and the OMS retried resting orders into false rejections
+
+> Six defects on one path: place an order → it is recorded, priced honestly, and told to the user
+> accurately. Every link in that chain was broken, and every one failed silently.
+>
+> The starting symptom was a paper order returning `REJECTED` with `message: ""` and `reason: ""`,
+> writing no `orders` row at all. Chasing that empty reason turned up a P0 that makes the platform's
+> order audit trail — the record of what it actually sent a broker — impossible to produce, and four
+> separate fabrications of market data behind it.
+
+### Fixed
+
+1. **P0 — no order was ever recorded** (`supabase/migrations/20261003_04000_orders_option_columns.sql`).
+   `core.models.NormalizedOrder` carries `expiry_date`, `instrument_type`, `option_type`,
+   `strike_price` and `validity`. `execution/manager._insert_order_atomic` dumps the whole model and
+   inserts it, so every insert sent all five — and PostgREST rejected the entire row:
+
+       PGRST204  Could not find the 'expiry_date' column of 'orders' in the schema cache
+
+   No other field was missing, so this was not partial drift: the table predates those model fields
+   and nothing ever reconciled the two. `_insert_order_atomic` catches the exception, logs at ERROR
+   and returns `None`; the caller reads `None` as "no existing order" and answers
+
+       ExecutionResult(success=False, message="Order insert failed — unknown error",
+                        error_code="INSERT_FAILED")
+
+   which is what the user sees. So **not a wrong order — no order**. `GET /engine/orders` was
+   permanently empty, `risk.helpers.compute_daily_pnl_fifo` always read zero, and the audit trail
+   did not exist. `validity` was the subtle one: the insert loop only drops that field when it is
+   *falsy*, and `"DAY"` is truthy, so the column was genuinely required. Migration replays clean from
+   a pre-migration table and is idempotent (verified twice).
+
+2. **A paper fill could be invented** (`apps/api/paper/fill_engine.py`). `_get_fill_price` had a
+   branch that fabricated an option premium whenever nothing could price the symbol: a hardcoded
+   underlying (`81000.0` for SENSEX, `24500.0` otherwise), a distance-from-strike formula, a
+   `hash(symbol) % 7` jitter, an 8.0 floor — and then `market_cache.put_quote` with the result, so
+   an invented number became the cached "quote" that every later reader of that symbol inherited.
+   Removed. A distance formula is not a quote: it is a second opinion about volatility and theta
+   computed without either, and `hash(sym)` made it differ between processes. An option with no
+   resolvable price now stays PENDING, which is what a cash order already did.
+
+3. **A fill of one lot at zero rupees was reported FILLED** (`apps/api/paper/fill_engine.py`).
+   `_build_fill` guarded `quantity <= 0` but never the price, and every fill path funnels through
+   it — while `PaperBroker.place_order` only parks an order as PENDING when `filled_quantity <= 0`.
+   So a zero-*price* fill sailed past that check and was written to `orders` as FILLED with
+   `average_price = 0`; the position layer then refused to apply it ("Skipping trade with zero fill
+   price"). The audit trail claimed a fill that never happened, at no price. Now guarded on price
+   too, which sends the order down the PENDING path it was always meant to take.
+
+4. **Every paper fill was recorded twice** (`apps/api/execution_engine/trades.py`). One record came
+   from the paper broker under its own `client_order_id` (`paper_1_…`), one from the execution
+   manager under the engine's (`e39181429f…`), both carrying the same `broker_order_id`:
+
+       client=paper_1_179097  broker_oid=paper_1_179097  NSE:NIFTY50-INDEX  BUY 5 @22424.19
+       client=e39181429f7dd6  broker_oid=paper_1_179097  NSE:NIFTY50-INDEX  BUY 5 @22424.19
+
+   `GET /paper/trades` listed every trade twice and `totals()`/`turnover()` double-counted them.
+   `TradeLedger.add` now declines a repeat, keyed on `(broker_order_id, quantity, price)` — order id
+   alone would discard the several fills a partially-filled order legitimately produces, and losing
+   quantity understates a position, which is worse than a duplicate. Records with no
+   `broker_order_id` are always kept: there is nothing to compare them on, and dropping an
+   unidentified real trade loses data.
+
+5. **Paper order persistence could never work** (`apps/api/paper/paper_broker.py`).
+   `_persist_order` upserted with `on_conflict="user_id,client_order_id"`, but `orders` carries that
+   pair as a **partial** unique index (`WHERE client_order_id <> ''`), and Postgres infers a
+   conflict target from a partial index only if the statement reproduces the predicate —
+   supabase-py cannot send one. Every call failed with 42P10, swallowed at ERROR level:
+
+       Failed to persist paper order: there is no unique or exclusion constraint matching the
+       ON CONFLICT specification
+
+   The index cannot simply be made non-partial: `NormalizedOrder.id` defaults to `""` and falsy
+   fields are stripped, so many rows carry an empty `client_order_id` and the primary key is absent
+   from the payload too. Replaced with an explicit delete-then-insert keyed on the same columns —
+   the pattern `core/telegram.py` already uses for this PostgREST limitation. Verified by restart:
+   paper positions now survive a process restart, which they previously did not.
+
+6. **A resting order was retried into a false REJECTED** (`apps/api/oms` path, diagnosed not
+   changed). The OMS re-enqueues a non-terminal order (`attempt 1, 2, 3` for one `oms_order_id` in
+   a single request). Each retry re-runs `validate_order`, and from the second attempt the order's
+   **own** row exists, so `_check_duplicate` rejects it as a new submission — the user is told
+   REJECTED while their order is genuinely resting PENDING. Two things make this survivable and are
+   worth stating rather than assuming: the duplicate check runs **before** `_insert_order_atomic`,
+   so it is what stops a retry re-sending to the broker; and `idx_orders_client_order_id` plus
+   `ExecutionManager._check_existing_order` already implement the correct idempotent path
+   (`DUPLICATE_REQUEST`, returning the existing order) that validation pre-empts. Removing the check
+   would re-open a double-send risk and is deliberately **not** done here. Filed for a deliberate
+   fix; on a clean slate the full path returns FILLED at a real price.
+
+7. **Paper fills had no price source outside a broker token** (`apps/api/paper/paper_broker.py`).
+   `_ensure_quote` tried only the in-process cache and Fyers, so every paper-only tenant — and any
+   tenant whose token had expired — got `filled_price=0`, which (3) then turned into a fake fill.
+   Added the Yahoo fallback `GET /marketdata/quote` already uses to fill whatever the broker did not
+   price. Yahoo prices are real market data, not a substitute, and this is the same broker-first
+   trade that route already makes; if neither source has a price the order still goes out unfilled.
+
+### Added
+
+- `supabase/migrations/20261003_05000_oms_persistence_tables.sql` — `oms_orders`,
+  `oms_bracket_orders`, `oms_oco_orders`. `oms/persistence.py` upserts all three on every order and
+  logs a WARNING when it fails, so the queue keeps running and the API answers 200 while nothing is
+  persisted:
+
+      Failed to persist OMS order 47951fc0…: PGRST205 Could not find the table 'public.oms_orders'
+
+  `oms_orders` is what makes in-flight orders survive a restart (`_recover_active_orders` reads it on
+  boot), so its absence means a restart silently forgets what was already sent to a broker — the one
+  moment where re-sending is genuinely dangerous. The module's docstring says to "run in Supabase SQL
+  Editor" and gives a 4-column sketch, but `OmniOrder.model_dump` sends **37** and PostgREST rejects
+  the whole upsert if any one is missing; columns are derived from the models, not the sketch. No FK
+  on `user_id`, which may hold `paper:<uuid>` or `backtest:<hex>`.
+
+- `apps/api/tests/test_trade_ledger_dedupe.py` (10), `test_paper_fill_no_fabricated_price.py` (9),
+  `test_paper_order_persistence.py` (7). Every one mutation-validated: removing the dedupe guard
+  fails 3 tests, restoring the fabricated 80.0 floor fails 5, and restoring the impossible upsert
+  fails 5.
+
+### Verification
+
+- API **1258 passed, 1 xfailed** (was 1232); ruff clean. Web 42 lib tests, `tsc --noEmit` 0, lint 0.
+- Live through the product's own `POST /api/v1/engine/trade`: two paper orders → `FILLED` at real
+  Yahoo prices (22424.19 / 2075.21), **2** trade records (was 4), positions updated and preserved
+  across a restart, `Failed to persist paper order` count 0, `Ignoring duplicate trade record` logged
+  twice — the guards firing on the real path, not just in tests.
+
+### Reference
+
+- **A model field with no column takes the whole row down, not just itself.** PostgREST rejects an
+  insert if *any* key is unknown, so one stale field in a `model_dump`-and-insert made every order
+  vanish rather than partially persist. Diff every field the insert actually sends against
+  `information_schema` — and remember conditional pop lists: `validity` is dropped only when falsy,
+  so `"DAY"` is sent and the column is required.
+- **Postgres cannot use a partial unique index as an `ON CONFLICT` target** without the predicate,
+  and supabase-py cannot send one. Any `on_conflict=` naming a column that is only partly unique is
+  42P10 on every call. Delete-then-insert is the workaround.
+- **A guard on quantity is not a guard on price.** `_build_fill` checked `quantity <= 0` while the
+  caller checked `filled_quantity <= 0`; a zero price slipped through both and was reported as a
+  fill.
+- **`hash(sym)` in a price path makes it differ per process.** Any non-determinism in a price is a
+  bug regardless of how small the jitter looks.
+- **The demo API dies when the shell call that launched it exits** — it takes a graceful shutdown
+  ("Graceful shutdown complete", full ordered teardown), not a crash. Verify within a single
+  invocation.
+
+### Known gaps
+
+- Item 6 above is diagnosed and deliberately not changed: it needs the OMS retry policy and the
+  idempotency path decided together, not a one-line removal of a check that currently prevents a
+  double-send.
+- Whether production has these tables/columns is **not verified** — the VPS does not answer from this
+  workstation. `IF NOT EXISTS` makes applying `04000`/`05000` either way a no-op rather than a
+  failure, but production is not measured.
+- `20261003_03000` still needs applying to production; `apps/api/.env` still points at local
+  Supabase. Load Test needs `DOCKERHUB_TOKEN`; Fyers re-auth needs the PIN + OTP; Dhan market data
+  not subscribed until Oct 4.
+
 ## Unreleased — the Trade Journal had never rendered its own analytics, and 8 tables the code depends on were never in a migration
 
 > `/journal` declared three response shapes and **none of them existed**. Its `JournalData`

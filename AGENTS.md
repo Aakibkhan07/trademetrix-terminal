@@ -3,6 +3,27 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — Order path P0: orders could never be recorded; paper fills were invented; OMS retried resting orders into false REJECTEDs (PRODUCTION NOT VERIFIED — VPS unreachable)
+
+### What was done
+1. **P0 — no order was ever recorded** (`20261003_04000_orders_option_columns.sql`). `NormalizedOrder` carries `expiry_date`/`instrument_type`/`option_type`/`strike_price`/`validity`; `_insert_order_atomic` dumps the whole model and inserts it, so PostgREST rejected **every** row with `PGRST204`. The caller read the caught-and-returned `None` as "no existing order" and answered "Order insert failed — unknown error". `/engine/orders` permanently empty, daily P&L always 0, no order audit trail.
+2. **Fabricated option premiums** (`paper/fill_engine.py`) — hardcoded spot (24500/81000), distance formula, `hash(sym) % 7` jitter, then cached via `market_cache.put_quote` as if it were a quote. Removed.
+3. **A fill of 1 lot at ₹0 was reported FILLED** — `_build_fill` guarded `quantity <= 0` but not price, while `place_order` only parks on `filled_quantity <= 0`. Zero-price fills sailed through and were written as FILLED @ `average_price=0`.
+4. **Every paper fill recorded twice** (`execution_engine/trades.py`) — paper broker and execution manager both appended, same `broker_order_id`, different `client_order_id`. `TradeLedger.add` now dedupes on `(broker_order_id, quantity, price)`; records with no `broker_order_id` always kept.
+5. **Paper order persistence could never work** (`paper/paper_broker.py`) — `on_conflict="user_id,client_order_id"` names a **partial** unique index, which Postgres cannot use as a conflict target without the predicate → 42P10 on every call, swallowed at ERROR. Now delete-then-insert. Paper positions now survive a restart (verified).
+6. **`oms_orders`/`oms_bracket_orders`/`oms_oco_orders` had no migration** (`20261003_05000`) — 37 columns derived from `OmniOrder.model_dump`, not the docstring's 4-column sketch. Their absence meant a restart forgot in-flight orders.
+7. **Paper fills had no price source without a broker token** — `_ensure_quote` now falls back to Yahoo, the same provider `GET /marketdata/quote` uses.
+
+### Reference
+- **A model field with no column takes the whole row down, not just itself.** PostgREST rejects the insert if *any* key is unknown. Diff every field the insert *actually sends* against `information_schema` — and conditional pop lists bite: `validity` is dropped only when falsy, so `"DAY"` is sent.
+- **Postgres cannot infer a partial unique index as an `ON CONFLICT` target** without its predicate, and supabase-py cannot send one. Any `on_conflict=` over a partly-unique column is 42P10 on every call → delete-then-insert.
+- **Diagnosed but deliberately NOT changed**: the OMS re-enqueues a non-terminal order (`attempt 1,2,3` for one id in one request), and from attempt 2 `validate_order`'s `_check_duplicate` sees the order's **own** row and rejects it — user sees REJECTED while the order rests PENDING. But that check runs *before* `_insert_order_atomic`, so it is what stops a retry re-sending to the broker, and the unique index + `_check_existing_order` already implement the correct `DUPLICATE_REQUEST` idempotent path that validation pre-empts. Removing it re-opens a double-send risk. Needs the retry policy and idempotency decided together.
+- **A guard on quantity is not a guard on price.** `_build_fill` checked `quantity <= 0`; the caller checked `filled_quantity <= 0`; a zero price passed both.
+- `hash(sym)` in a price path makes it differ per process.
+- **The demo API dies when the shell call that launched it exits** — a *graceful* shutdown ("Graceful shutdown complete", ordered teardown), not a crash. Do all verification inside one invocation.
+- 3 new mutation-validated test files (26 tests): removing the dedupe guard fails 3, restoring the fabricated 80.0 floor fails 5, restoring the impossible upsert fails 5.
+- Suite **1258 passed, 1 xfailed** (was 1232); ruff clean; web 42 lib tests, tsc 0, lint 0. Live: 2 paper orders → FILLED at real Yahoo prices, 2 trade records (was 4), positions preserved across restart, 0 persistence errors.
+
 ## Session: 2026-10-02 — Browser-driven bug hunt: 4 production bugs, a page that had never worked, and 8 tables missing from the repo (PRODUCTION NOT VERIFIED — VPS unreachable)
 
 ### What was done

@@ -68,8 +68,33 @@ class PaperBroker:
                 if getattr(q, "last_price", 0) > 0:
                     market_cache.put_quote(symbol, q.model_dump(mode="json"))
                     logger.info("Paper quote primed for %s: %.2f", symbol, q.last_price)
+                    return
         except Exception as e:
             logger.warning("Paper quote priming failed for %s: %s", symbol, e)
+
+        # Yahoo fallback, the same provider `GET /marketdata/quote` uses to fill whatever the
+        # broker did not price.
+        #
+        # Without it the only sources were the in-process cache and Fyers, so a tenant with no
+        # broker token — every paper-only user, and any user whose token has expired — got a fill at
+        # **price zero**. `execution_engine/trades.py` then skipped the trade for exactly that reason,
+        # so the order was recorded as FILLED with `average_price = 0` while no position was ever
+        # created: an audit trail claiming a fill that never happened, at no price.
+        #
+        # Yahoo prices are real market data, not a substitute or a simulation, so using them here is
+        # the same trade the quote route already makes — broker first, Yahoo for the rest. It is not
+        # a way to make an unfillable order fill: if neither source has a price the order still goes
+        # out unfilled, which is the honest outcome.
+        try:
+            from providers.yahoo import fetch_quotes
+            yq = await fetch_quotes([symbol])
+            if yq:
+                last = getattr(yq[0], "last_price", 0) or 0
+                if last > 0:
+                    market_cache.put_quote(symbol, yq[0].model_dump(mode="json"))
+                    logger.info("Paper quote for %s from Yahoo: %.2f", symbol, last)
+        except Exception as e:
+            logger.warning("Yahoo fallback for paper quote %s failed: %s", symbol, e)
 
     async def connect(self) -> bool:
         self._authenticated = True
@@ -392,13 +417,47 @@ class PaperBroker:
         )
 
     def _persist_order(self, order: NormalizedOrder, fill: PaperFill) -> None:
+        """Write the paper broker's view of an order to the shared `orders` table.
+
+        Why delete-then-insert rather than `upsert(..., on_conflict="user_id,client_order_id")`:
+
+        That upsert could never work here. `orders` carries **partial** unique indexes —
+
+            CREATE UNIQUE INDEX idx_orders_client_order_id ON orders (user_id, client_order_id)
+                WHERE (client_order_id <> '')
+
+        and Postgres will only infer a conflict target from a partial index if the statement
+        reproduces the index predicate. supabase-py has no way to send one, so every call failed:
+
+            Failed to persist paper order: 42P10 — there is no unique or exclusion constraint
+            matching the ON CONFLICT specification
+
+        The index has to stay partial: `NormalizedOrder.id` defaults to `""` and is stripped from
+        the payload, so most rows carry an empty `client_order_id` and a non-partial unique index
+        over it would reject the second such row outright. The primary key is not an option either,
+        for the same reason — `id` is absent from the payload.
+
+        So the row is replaced explicitly. This writes to the same row `execution/manager.py`
+        inserts into, keyed the same way, and `core/telegram.py` already establishes delete+insert
+        as the workaround for this exact PostgREST limitation.
+        """
         try:
             supabase = get_supabase()
             data = order.model_dump(mode="json")
             for field in ("id", "run_id", "signal_id", "validity", "disclosed_quantity"):
                 if field in data and not data[field]:
                     del data[field]
-            supabase.table("orders").upsert(data, on_conflict="user_id,client_order_id").execute()
+
+            client_order_id = data.get("client_order_id") or ""
+            if client_order_id:
+                (
+                    supabase.table("orders")
+                    .delete()
+                    .eq("user_id", data.get("user_id", ""))
+                    .eq("client_order_id", client_order_id)
+                    .execute()
+                )
+            supabase.table("orders").insert(data).execute()
         except Exception as e:
             logger.error("Failed to persist paper order: %s", e)
 
