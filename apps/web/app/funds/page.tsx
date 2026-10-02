@@ -5,6 +5,12 @@ import { useApi } from '@/lib/use-api'
 import { SkeletonGrid } from '@/components/skeleton'
 import { ErrorMessage } from '@/components/error-message'
 
+// The two `/analytics/pnl` response shapes and the tile mapping live in `lib/pnl.ts`, with
+// assertions in `lib/pnl.test.ts`. Kept out of the page rather than inline because the bug
+// this replaced was a silent zero, and inline JSX cannot be asserted on.
+import { formatPnlTile, pnlTiles } from '@/lib/pnl'
+import type { CumulativePnl, DailyPnl, PnlEnvelope } from '@/lib/pnl'
+
 interface Funds {
   total_margin: number
   used_margin: number
@@ -15,29 +21,25 @@ interface Funds {
   m2m_unrealised?: number
 }
 
-interface PnlResponse {
-  pnl: {
-    daily?: number
-    realised_pnl?: number
-    unrealised_pnl?: number
-  } | null
-  period: string
-  broker: string | null
-}
-
 export default function FundsPage() {
   const { data: fundsData, loading: fundsLoading, error: fundsError } = useApi<{ funds: Funds }>('/engine/funds')
-  const { data: pnlData, loading: pnlLoading, error: pnlError } = useApi<PnlResponse>('/analytics/pnl?period=1d')
+  // Two calls because the endpoint has two shapes, not because two numbers are wanted.
+  // `/analytics` already does exactly this; this page was trying to get both from one.
+  const { data: dailyPnlData, loading: dailyPnlLoading, error: dailyPnlError } =
+    useApi<PnlEnvelope<DailyPnl>>('/analytics/pnl?period=1d')
+  const { data: cumPnlData, loading: cumPnlLoading, error: cumPnlError } =
+    useApi<PnlEnvelope<CumulativePnl>>('/analytics/pnl?period=1w')
 
-  const loading = fundsLoading || pnlLoading
-  const error = fundsError || pnlError
+  const loading = fundsLoading || dailyPnlLoading || cumPnlLoading
+  const error = fundsError || dailyPnlError || cumPnlError
 
   if (loading) return <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}><SkeletonGrid count={4} /></div>
   if (error) return <ErrorMessage message="Failed to load funds" onRetry={() => window.location.reload()} />
 
   const funds = fundsData?.funds
-  const pnl = pnlData?.pnl ?? null
-  const broker = pnlData?.broker ?? null
+  const dailyPnl = dailyPnlData?.pnl ?? null
+  const cumPnl = cumPnlData?.pnl ?? null
+  const broker = dailyPnlData?.broker ?? cumPnlData?.broker ?? null
   const hasBroker = funds && (funds.total_margin > 0 || funds.available_margin > 0 || broker)
 
   return (
@@ -105,20 +107,24 @@ export default function FundsPage() {
             </div>
           </div>
 
-          {pnl && (
+          {(dailyPnl || cumPnl) && (
             <div className="t-panel" style={{ padding: 12 }}>
               <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700, marginBottom: 8 }}>P&L</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
-                {[
-                  { label: 'Today (realized)', value: pnl.daily ?? 0, color: (pnl.daily ?? 0) >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
-                  { label: 'Realized', value: pnl.realised_pnl ?? 0, color: (pnl.realised_pnl ?? 0) >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
-                  { label: 'Unrealized', value: pnl.unrealised_pnl ?? 0, color: (pnl.unrealised_pnl ?? 0) >= 0 ? 'var(--text-green)' : 'var(--text-red)' },
-                ].map(m => (
+                {/*
+                  `value` is `number | null`, and null renders as a dash. The old version
+                  used `?? 0`, which turned "this response never carried that field" into a
+                  confident ₹0 — indistinguishable from a genuinely flat P&L, and wrong for
+                  every tenant holding open positions. `/analytics` already renders '—' for
+                  absent values; this page now matches it.
+                */}
+                {pnlTiles(dailyPnlData, cumPnlData).map(m => (
                   <div key={m.label} style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--violet-dim)' }}>
                     <div style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{m.label}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.color }}>
-                      {m.value >= 0 ? '+' : ''}{m.value.toFixed(0)}
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: m.tone === 'unknown' ? 'var(--text-faint)' : m.tone === 'up' ? 'var(--text-green)' : 'var(--text-red)' }}>
+                      {formatPnlTile(m.value)}
                     </div>
+                    <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 1 }}>{m.hint}</div>
                   </div>
                 ))}
               </div>

@@ -1,3 +1,40 @@
+## Unreleased — two of the three P&L tiles on `/funds` were permanently zero
+
+> `/funds` declared one TypeScript interface spanning both response shapes of
+> `GET /analytics/pnl` and read all three of its numbers from a single `period=1d` call.
+> That endpoint's `1d` branch returns exactly one field. The two cumulative tiles were
+> therefore `undefined` on every request, and `?? 0` rendered them as `₹0` rather than a
+> dash — so a tenant with open positions and real unrealised profit was shown as flat.
+
+### Fixed
+1. **`/funds` P&L tiles** (`apps/web/app/funds/page.tsx`) — now fetches `period=1d` for
+   "Today (realized)" and `period=1w` for the cumulative figures, two requests because the
+   endpoint has two shapes, not because two numbers are wanted. `/analytics` was already
+   doing exactly this; `/funds` was trying to get both from one.
+2. **`?? 0` replaced with a dash** wherever the figure is unavailable. `0` means "available
+   and flat" and `—` means "this response does not carry that number"; collapsing them made
+   the absence look like data. `/analytics` already rendered `—`.
+3. **`lib/pnl.ts`** (new) — the two response shapes as separate types plus `pnlTiles()` and
+   `formatPnlTile()`, with 11 assertions in `lib/pnl.test.ts`. Inline JSX cannot be asserted
+   on, which is why the logic was never covered.
+
+The type split is the durable part. `DailyPnl` and `CumulativePnl` share no properties, so
+`pnlTiles(DAILY_ONLY, DAILY_ONLY)` — the original call — is now a **compile error**, not a
+silent zero. One test deliberately casts past that error to pin the runtime behaviour, and
+says so.
+
+Two mutations confirm the assertions bite:
+
+* absent value coerced to `0` instead of `null` (the original `?? 0`) → 4 failures
+* cumulative tiles read off the daily response (the original bug) → 2 failures
+
+Each tile also carries a hint — the period for today's figure, "all time" and "open
+positions" for the other two — so "Today (realized)" and "Realized" no longer read as two
+labels for one number.
+
+### Validation
+- Web `lib` tests **21 passed** (10 position, 11 P&L). `tsc --noEmit` clean, build compiles.
+  API suite **1198 passed, 1 xfailed** — unchanged, this commit is frontend only.
 ## Unreleased — the migrations could not stand up a working database
 
 > Applying the market-data-role migration locally surfaced something much larger. On a
