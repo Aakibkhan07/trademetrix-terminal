@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from collections.abc import AsyncGenerator, Generator
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,6 +15,56 @@ _risk_settings_db: dict[str, dict] = {}
 # Session auth token cache
 _SESSION_AUTH: dict | None = None
 _MOCKS_APPLIED = False
+
+#: Every patcher started by `_apply_test_mocks`, so they can be undone as a group.
+#:
+#: These mocks are applied **once for the whole session** and were never stopped. That is
+#: deliberate for the 1157 tests that want them — the kill switch reads as off, the
+#: database is in-memory, and re-applying per test would be pure overhead. The cost was
+#: that there was no way to get the real behaviour back, and it has now silently broken
+#: three tests:
+#:
+#: * `test_cache_counter_ttl.py` (c61b066) asserted against `_mock_cache_increment`, which
+#:   returns a constant `1`. The file could not have caught a regression in the counter TTL.
+#: * `test_otp_lockout.py` (2e8db2e) — same, for `increment`.
+#: * `test_broker_credential_roles.py` (94e80cf) passed in isolation and failed in the full
+#:   suite, because `risk.helpers.async_safe_execute` was stubbed out from under it.
+#:
+#: None of them failed *because* of a leak. Each failed at a real boundary, with the
+#: harness at fault, which is the expensive kind of wrong: it points the reader at the
+#: product code. `without_session_mocks()` below is the way out, and the two files that
+#: needed it should have used it rather than re-patching by hand.
+_PATCHERS: list = []
+
+
+def _track(patcher):
+    """Start a patcher and remember it so the group can be undone."""
+    _PATCHERS.append(patcher)
+    return patcher.start()
+
+
+@contextmanager
+def without_session_mocks():
+    """Temporarily restore the real implementations, then re-apply the mocks.
+
+    For a test that has to exercise something the session mocks stand in for. It is a
+    context manager rather than a flag because the alternative — re-patching by hand —
+    is what produced the three workarounds above, and each one had to rediscover which
+    module held the name being shadowed (`core.safe_query` versus `risk.helpers`, and so
+    on). Getting that wrong looks exactly like a product bug.
+
+    ```python
+    with without_session_mocks():
+        assert await cache.increment("k", ttl=60) == 1
+    ```
+    """
+    for patcher in reversed(_PATCHERS):
+        patcher.stop()
+    try:
+        yield
+    finally:
+        for patcher in _PATCHERS:
+            patcher.start()
 
 
 def _apply_test_mocks():
@@ -91,14 +142,14 @@ def _apply_test_mocks():
 
     # Patch core.deps.resolve_capabilities for route-level capability checks
     import core.deps as deps_module
-    patch.object(deps_module, "resolve_capabilities", _mock_resolve_capabilities).start()
+    _track(patch.object(deps_module, "resolve_capabilities", _mock_resolve_capabilities))
 
     # ── Patch riskguard DB functions ──
     import risk.riskguard as rg
     import application.services.admin_service as admin_svc
 
-    patch.object(rg, "resolve_capabilities_by_id", AsyncMock(return_value=TEST_CAPS)).start()
-    patch.object(admin_svc, "resolve_capabilities_by_id", AsyncMock(return_value=TEST_CAPS)).start()
+    _track(patch.object(rg, "resolve_capabilities_by_id", AsyncMock(return_value=TEST_CAPS)))
+    _track(patch.object(admin_svc, "resolve_capabilities_by_id", AsyncMock(return_value=TEST_CAPS)))
 
     async def mock_single(query_builder):
         entry = _risk_settings_db.get(test_user_id)
@@ -123,14 +174,14 @@ def _apply_test_mocks():
     async def mock_execute(query_builder):
         return []
 
-    patch.object(rg, "async_safe_single", mock_single).start()
-    patch.object(rg, "async_safe_insert", mock_insert).start()
-    patch.object(rg, "async_safe_update", mock_update).start()
+    _track(patch.object(rg, "async_safe_single", mock_single))
+    _track(patch.object(rg, "async_safe_insert", mock_insert))
+    _track(patch.object(rg, "async_safe_update", mock_update))
 
     import risk.rules as risk_rules
     import risk.helpers as risk_helpers
-    patch.object(risk_rules, "async_safe_execute", mock_execute).start()
-    patch.object(risk_helpers, "async_safe_execute", mock_execute).start()
+    _track(patch.object(risk_rules, "async_safe_execute", mock_execute))
+    _track(patch.object(risk_helpers, "async_safe_execute", mock_execute))
 
     # ── Mock global kill-switch cache (admin_service uses core.cache) ──
     import core.cache as cache_module
@@ -149,10 +200,10 @@ def _apply_test_mocks():
     async def _mock_cache_increment(key: str, ttl: int = 60, *args, **kwargs):
         return 1
 
-    patch.object(cache_module.cache, "get", _mock_cache_get).start()
-    patch.object(cache_module.cache, "set", _mock_cache_set).start()
-    patch.object(cache_module.cache, "delete", _mock_cache_delete).start()
-    patch.object(cache_module.cache, "increment", _mock_cache_increment).start()
+    _track(patch.object(cache_module.cache, "get", _mock_cache_get))
+    _track(patch.object(cache_module.cache, "set", _mock_cache_set))
+    _track(patch.object(cache_module.cache, "delete", _mock_cache_delete))
+    _track(patch.object(cache_module.cache, "increment", _mock_cache_increment))
 
     # ── Patch strategies Supabase ──
     import application.services.strategy_catalog_service as strat_svc
@@ -169,7 +220,7 @@ def _apply_test_mocks():
         {"id": "mock-strategy-id", "name": "Test Strategy", "user_id": test_user_id, "type": "builtin"}
     ]
     strat_mock_table.insert.return_value = strat_mock_select
-    patch.object(strat_svc, "get_supabase", return_value=strat_mock_sb).start()
+    _track(patch.object(strat_svc, "get_supabase", return_value=strat_mock_sb))
 
     # ── Patch auth HTTP client ──
     import routes.v1_auth as auth_routes
@@ -206,7 +257,7 @@ def _apply_test_mocks():
     async def _mock_get_http_client():
         return mock_client
 
-    patch.object(auth_routes, "get_http_client", _mock_get_http_client).start()
+    _track(patch.object(auth_routes, "get_http_client", _mock_get_http_client))
 
     _SESSION_AUTH = {
         "Authorization": f"Bearer {create_access_token(subject=test_user_id)}",
