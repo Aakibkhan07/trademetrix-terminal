@@ -45,11 +45,31 @@ export function useApi<T = unknown>(path: string | null): UseApiResult<T> {
     setLoading(true)
     setError(null)
 
+    // The shared request must NOT be tied to this hook's AbortController.
+    //
+    // It used to be, and the result was that `useApi` never worked on any page that gates its
+    // rendering on the result. React 18's App Router mounts through `createRoot`, which is
+    // StrictMode by default, so every effect runs twice in development: mount, cleanup, mount.
+    // The cleanup aborted the controller that had been handed to the *shared* request, and the
+    // second mount then found that same promise still sitting in `inflight` and reused it — so
+    // it never issued a request of its own, and inherited one already cancelled. Both runs
+    // rejected, the second with `controller.signal.aborted === false` (its own, unused
+    // controller), and the hook reported `Request timed out — please retry` against a request
+    // the server had answered in milliseconds.
+    //
+    // The tell was two log lines per path with opposite `aborted` values, across 16 files:
+    // `/funds` and `/analytics` showed "Failed to load ...", while `/paper` rendered fine —
+    // because `/paper` calls `api.*` directly and never touches this hook.
+    //
+    // Dedupe stays, and is still worth having for genuinely concurrent mounts. It simply no
+    // longer lets one consumer's unmount cancel a request others are waiting on: the request
+    // is owned by the module and bounded by its own timeout, and the hook's controller now
+    // only decides whether to apply a result to state.
     let req: Promise<unknown>
     if (inflight.has(path)) {
       req = inflight.get(path)!
     } else {
-      req = api.get<T>(path, controller.signal).then(r => {
+      req = api.get<T>(path).then(r => {
         cache.set(path, { data: r, ts: Date.now() })
         inflight.delete(path)
         return r
