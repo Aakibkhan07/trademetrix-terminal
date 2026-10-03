@@ -211,7 +211,29 @@ class StrategyCatalogService:
         )
 
     async def delete_strategy(self, strategy_id: str, user_id: str) -> None:
+        """Delete a strategy, and its run history with it.
+
+        The run rows are deleted explicitly rather than left to the foreign key. Production carries
+        `strategy_runs_strategy_id_fkey ... ON DELETE CASCADE`, so today the cascade would do this
+        for us — and that is exactly the trap. Migration 20261003_06000 has to change
+        `strategy_runs.strategy_id` from `uuid` to `TEXT`, because Builder strategies are keyed by
+        `uuid4().hex[:12]`, which is not a uuid and cannot be stored in a uuid column. It drops the
+        foreign key to make that possible, and with it goes the cascade.
+
+        Without this line, applying 06000 would silently trade one bug for another: every deleted
+        strategy would leave its run history behind, growing without bound, and `strategy_id` in
+        `strategy_runs` would point at rows that no longer exist. Measured on production: the FK is
+        present, all 4 `strategy_runs` rows carry real uuids, and nothing else in the tree deletes
+        from `strategy_runs` — so the cascade was the only cleanup, and it is the only thing 06000
+        takes away.
+
+        Runs are deleted first. Order matters: while the cascade still exists the order is
+        immaterial, and once the FK is gone deleting the strategy first would strand the runs.
+        """
         supabase = get_supabase()
+        await async_safe_execute(
+            supabase.table("strategy_runs").delete().eq("strategy_id", strategy_id)
+        )
         await async_safe_execute(
             supabase.table("strategies").delete().eq("id", strategy_id).eq("user_id", user_id)
         )

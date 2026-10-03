@@ -3,6 +3,25 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — Production measured (NOT deployed; VPS refuses every port; 2 migrations deliberately held)
+
+### What was done
+1. **Reached the production database.** Supabase Postgres answers over IPv6 from this workstation even though every VPS port is closed. The DNS name is **IPv6-only** — `socket.gethostbyname` and `dig +short` both fail on it, which is what made this look unreachable for the whole session.
+2. **Took a validated backup first: 67.5 MB, 46 `CREATE TABLE` + 46 `COPY`.** Local `pg_dump` is 16.14 against a 17.6 server and wrote **0 bytes**; the 17 client had to be run through a local IPv6 TCP proxy because Docker's VM has no IPv6 route.
+3. **Corrected the record: two migrations are pending in production, not six.** Production was never affected by the order-path P0 — it holds 82 orders. It was **not built from `supabase/migrations/`**; today's migrations made the *repo* reproduce production so CI and fresh deploys get a working schema.
+4. **Diffed repo against production and found my own bug.** `20261003_02000` declared `squareoff_config.days` as `TEXT`. `set_config` writes a `list[int]`, so on text the write *silently succeeds*, storing `'[0,1,2,3,4]'`; the scheduler's `current_dow not in days` then raises `TypeError` inside its own `try`, which abandons the whole config batch. **Auto square-off was silently dead for every user in every repo-built environment.** Fixed by `20261003_07000` (`integer[]`, default `{0,1,2,3,4}` — the old `'1,2,3,4,5'` fired a day late) plus `coerce_days` normalisation. 18 tests, mutation-validated.
+5. **Fixed `delete_strategy`**, which relied on the `ON DELETE CASCADE` that `06000` must drop. 3 tests, mutation-validated.
+6. **Added `apps/api/scripts/audit_production_schema.py`.** Only 7 columns across 3 API-queried tables are missing in production, and all 7 are already handled in code.
+7. **Held `03000` and `06000`.** `03000` is provably safe against this tree (AST: zero live `on_conflict="user_id,broker"` call sites), but safety depends on the *deployed* version, which cannot be determined — ports 22/80/443/8000/8080/3000 all refuse.
+
+### Reference
+- **"Cannot reach production" was too broad.** Only SSH was blocked. Check the database directly.
+- **Check the `pg_dump` client version first, and verify the byte count.** A silently empty backup is worse than none.
+- **A schema diff is only as good as its access method.** Every fabricated finding this session came from grepping or parsing source; every real one came from querying the database.
+- **Measure the failure before describing it.** "Rejected", "silently wrong", and "raises" are three different bugs. I asserted all three before running any.
+- **A comment that explains a finding must not become the finding** — the AST-vs-grep distinction keeps earning its keep.
+- API **1298 passed / 1 xpassed**; ruff clean. Production audit: 47 tables vs 44 baseline, 7 columns missing on queried tables, all 7 handled.
+
 ## Session: 2026-10-03 — Read coverage doubled (33 → 68 declarations); forward-test detail type, an unmasked type resolver, and a calendar-dependent test (PRODUCTION NOT VERIFIED — VPS unreachable)
 
 ### What was done

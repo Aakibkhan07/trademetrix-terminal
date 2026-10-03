@@ -14,6 +14,53 @@ logger = logging.getLogger(__name__)
 
 SQUAREOFF_TABLE = "squareoff_config"
 
+DEFAULT_DAYS = [0, 1, 2, 3, 4]
+
+
+def coerce_days(value: object, default: list[int] | None = None) -> list[int]:
+    """Normalise whatever the `days` column returned into a list of weekday integers.
+
+    `squareoff_config.days` is `integer[]`, and that is what `set_config` writes. But the column was
+    declared `TEXT` in migration `20261003_02000`, and on a text column the write does not fail —
+    PostgREST coerces the list to the string `'[0,1,2,3,4]'`. `20261003_07000` corrects the column,
+    including any rows already coerced, but a string can still arrive from a database that predates
+    the migration or from a direct edit, and the scheduler's only consumer is
+
+        if current_dow not in days:
+
+    which raises `TypeError: 'in <string>' requires string as left operand, not int`. That test sits
+    inside the loop's own `try`, whose handler logs one line and abandons the whole
+    `for row in configs` batch — so one malformed row silently stops square-off for *every* user,
+    every thirty seconds, forever.
+
+    Normalising here turns that total silent failure into correct behaviour, and turns genuinely
+    unparseable input into the default rather than an exception. The `squareoff` migration is still
+    the real fix; this is what stops the failure mode from being invisible in the meantime.
+    """
+    fallback = DEFAULT_DAYS if default is None else default
+    if value is None:
+        return list(fallback)
+    if isinstance(value, (list, tuple)):
+        out: list[int] = []
+        for item in value:
+            try:
+                out.append(int(item))
+            except (TypeError, ValueError):
+                continue
+        return out or list(fallback)
+    if isinstance(value, str):
+        text = value.strip().strip("[]{}").strip()
+        if not text:
+            return list(fallback)
+        out = []
+        for part in text.split(","):
+            try:
+                out.append(int(part.strip()))
+            except (TypeError, ValueError):
+                continue
+        return out or list(fallback)
+    return list(fallback)
+
 
 class SquareoffConfigModel:
     def __init__(self, enabled: bool = False, time: str = "15:40", days: list[int] | None = None, user_id: str = ""):
@@ -39,7 +86,7 @@ class SquareoffService:
         return {
             "enabled": data.get("enabled", False),
             "time": data.get("squareoff_time", "15:15"),
-            "days": data.get("days", [0, 1, 2, 3, 4]),
+            "days": coerce_days(data.get("days")),
         }
 
     async def set_config(
@@ -179,7 +226,7 @@ class SquareoffService:
                 )
                 for row in (configs or []):
                     sq_time = row.get("squareoff_time", "15:15")
-                    days = row.get("days", [0, 1, 2, 3, 4])
+                    days = coerce_days(row.get("days"))
                     if current_dow not in days:
                         continue
                     if sq_time == current_time:

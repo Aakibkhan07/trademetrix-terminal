@@ -227,4 +227,43 @@ class TestDeleteStrategy:
     async def test_deletes_successfully(self, svc, mock_supabase) -> None:
         await svc.delete_strategy("s1", "user-1")
 
-        mock_supabase["async_safe_execute"].assert_awaited_once()
+        # unittest.mock has `assert_awaited_once()` but no "twice" form, so count it directly.
+        assert mock_supabase["async_safe_execute"].await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_deletes_run_history_before_the_strategy_row(self, svc, mock_supabase) -> None:
+        """The cascade that used to do this is the thing migration 06000 removes.
+
+        `strategy_runs.strategy_id` has to stop being a uuid so Builder strategies can be recorded,
+        and that migration drops the foreign key. Once it is gone, nothing cleans up run rows but
+        this call. And it has to happen first: delete the strategy first and the runs are stranded
+        the moment the cascade is no longer there.
+        """
+        await svc.delete_strategy("s1", "user-1")
+
+        tables = [c.args[0] for c in mock_supabase["get_supabase"].return_value.table.call_args_list]
+        assert tables == ["strategy_runs", "strategies"], (
+            f"expected run history to be removed before the strategy row, got {tables}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_run_cleanup_is_scoped_to_the_one_strategy(self, svc, mock_supabase) -> None:
+        """Deleting one strategy must not take another user's runs with it.
+
+        The shared fixture hands back one `MagicMock` for every `.table(...)`, so both delete
+        chains land on the same object and `.eq()` records two calls with different arguments —
+        indistinguishable from a single unscoped query. Each table therefore gets its own mock
+        here, keyed by name.
+        """
+        per_table: dict[str, MagicMock] = {}
+
+        def table_for(name: str) -> MagicMock:
+            return per_table.setdefault(name, MagicMock())
+
+        mock_supabase["get_supabase"].return_value.table.side_effect = table_for
+
+        await svc.delete_strategy("s1", "user-1")
+
+        table_for("strategy_runs").delete.return_value.eq.assert_called_once_with(
+            "strategy_id", "s1"
+        )

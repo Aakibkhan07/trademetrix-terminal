@@ -1,3 +1,126 @@
+## Unreleased — production measured for the first time, which corrected the record and found a silent total failure in auto square-off
+
+> The production database was reachable over IPv6 the whole time; only SSH was blocked. Reading it
+> turned "production not verified" from an assumption into a measurement — and the measurement
+> contradicted three things I had been asserting.
+
+### Corrected
+
+1. **"Six migrations are pending in production" was wrong. Two are.**
+   Measured, not inferred:
+
+   | migration | production | verdict |
+   |---|---|---|
+   | `01000` profiles.phone | `text` | already present |
+   | `02000` 8 runtime tables | 8/8 | already present |
+   | `04000` orders option columns | 5/5 | already present |
+   | `05000` oms_* tables | 3/3 | already present |
+   | `03000` stale unique index | still there | **needed** |
+   | `06000` strategy_id uuid→TEXT | still `uuid` | **needed** |
+
+   The reason is structural, and it reframes today's migrations: **production was not built from
+   `supabase/migrations/`.** The schema was pushed directly. So the order-path P0 (`PGRST204`) was
+   never a production bug — which is why production holds 82 orders while a fresh environment could
+   not record one. What today's migrations actually did was make the *repository* reproduce
+   production, so that CI, a new developer, and a fresh deploy all get a working schema.
+
+2. **"The write fails on a text column" was wrong, twice.**
+   I wrote that `set_config` would be *rejected*. Measured, the write **succeeds** and PostgREST
+   coerces the list to the string `'[0,1,2,3,4]'`. I then asserted it was *substring matching*;
+   measured, `0 not in '[0,1,2,3,4]'` raises `TypeError`. Both were asserted without running it.
+   The real behaviour is the third option and the worst one — see below.
+
+### Fixed
+
+3. **`squareoff_config.days` was `TEXT`, and auto square-off was silently dead** (my own bug, from
+   `20261003_02000`). `squareoff_service.set_config` is typed `days: list[int]` and writes the list
+   straight through. On a text column the write succeeds and the value is stored as a string. The
+   scheduler's only consumer is then:
+
+       if current_dow not in days:        # squareoff_service.py:183
+
+   which raises `TypeError`. That test sits inside the loop's own `try`, whose handler logs
+   `Squareoff loop error: %s` and `asyncio.sleep(30)`s — abandoning the `for row in configs` loop it
+   was in. So **one coerced row stops square-off for every user, every thirty seconds, indefinitely,
+   with a single log line as the only evidence.**
+
+   Measured end to end: `days TEXT DEFAULT '1,2,3,4,5'` → write succeeds, stored as
+   `'[0,1,2,3,4]'` → membership check raises → whole batch abandoned.
+
+   `20261003_07000` corrects the column to `integer[]` with default `{0,1,2,3,4}`. Both halves of the
+   old definition were wrong: the type, and the default. A 1-based `'1,2,3,4,5'` does not merely
+   differ from `[0,1,2,3,4]` — index 5 is Sunday, and the intent is Saturday. The conversion handles
+   `1,2,3,4,5`, `{0,1,2,3,4}`, `6`, `''` and `{1, 2, 3}`; it is idempotent; and it is a verified
+   **no-op on production**, which already has `integer[]` and 0 rows.
+
+   `02000` also claimed this table was mirrored from `alembic/versions/003_create_strategy_and_user_tables.py`.
+   That file does not declare `squareoff_config` — it stops at `user_strategies` — so there was
+   nothing to mirror from, and production is the only authority that measured the column.
+
+   `coerce_days` normalises at the read boundary as well, so a string row degrades to correct
+   behaviour rather than to silence. 18 tests, mutation-validated: neutering `coerce_days` fails 16.
+
+4. **`delete_strategy` relied on a cascade that migration `06000` removes**
+   (`application/services/strategy_catalog_service.py`). Production carries
+   `strategy_runs_strategy_id_fkey ... ON DELETE CASCADE`, the method deleted only the `strategies`
+   row, and nothing else in the tree deletes from `strategy_runs`. `06000` has to drop that key to
+   make `strategy_id` TEXT, so applying it would have traded an unrecordable Builder run for
+   unbounded orphan run rows. Runs are now deleted explicitly, first. 3 tests, mutation-validated.
+
+### Added
+
+5. **`apps/api/scripts/audit_production_schema.py`** — a re-runnable diff of a live database against
+   the repo-migration baseline, narrowed to the tables the API actually queries. Table usage is read
+   from the **AST**, so a table named only in a comment or docstring does not count.
+
+   Why that shape: two earlier versions of this analysis produced confident nonsense and both
+   failures dictated the design. Grepping the tree for column *names* reported 165 "missing columns"
+   including `orders.FILLED`, `strategy_runs.GRAPH` and `profiles.encrypted_access_token` — enum
+   values and other tables' columns, leaked by a chain walker that ran 3000 characters past the end
+   of its own statement. Column-level inference from source is unsound and this script does not
+   attempt it. Grepping for `on_conflict="user_id,broker"` found one hit and nearly blocked a safe
+   migration; the hit was a comment explaining why the key had been widened. An AST cannot see
+   comments.
+
+   What it reports on production: 47 tables against a 44-table baseline, 61 columns live-only, 27
+   baseline-only, 22 type mismatches — of which exactly **7 columns across 3 queried tables** are
+   missing in production, and all 7 are already handled by the code:
+
+   - `subscriptions.plan` — `core/capabilities.py` reads `row.get("plan") or row.get("tier")`, and
+     production has `tier`.
+   - `user_strategies.{entry_time,overall_sl_type,overall_sl_value,overall_target_type,overall_target_value}`
+     — `strategy_service.py` deliberately excludes these from the payload and stores them in the
+     `config` jsonb, which production has. The docstring at `core/models.py:545` says so outright.
+   - `notification_prefs.updated_at` — only ever reached through `select("*")` or `select("channels")`.
+
+   Also fixed in the script itself: an earlier draft wrote 11 bogus `[None, None]` entries keyed by
+   table name, inflating the type count from 22 to 33 and burying the real findings.
+
+### Held, deliberately
+
+6. **`03000` and `06000` were not applied to production**, and that is the point of this section.
+   `03000` is provably safe against *this* tree — the AST confirms **zero** live
+   `on_conflict="user_id,broker"` call sites, and the five dynamic ones resolve to `['oms_order_id']`
+   on `oms_bracket_orders` / `oms_oco_orders`. But safety depends on which code is *deployed*, and
+   the VPS answers on no port at all: 22, 80, 443, 8000, 8080, 3000 are all closed or filtered, so the
+   deployed version cannot be determined. Applying a migration whose safety rests on an unverifiable
+   fact is a gamble, so both wait for the deploy window. A validated 67.5 MB backup is on disk.
+
+### Reference
+
+- **Production was reachable; only SSH was not.** An IPv6-only Postgres host answers `psql` fine from
+  the workstation while every TCP port on the VPS refuses. "Cannot reach production" was too broad a
+  statement for most of this session.
+- **Back up before touching production, and check the client version.** `pg_dump` 16.14 refused a
+  17.6 server and wrote **0 bytes** — a backup that is silently empty is not a backup. The 17 client
+  had to run through a local IPv6 TCP proxy, because Docker Desktop's VM has no IPv6 route and
+  `--network host` does not give it the host's loopback either.
+- **A schema comparison is only as good as its access method.** Every fabricated finding in this work
+  came from parsing or grepping source; every real one came from querying the database.
+- **Measure the failure before describing it.** "It fails", "it silently mismatches" and "it raises"
+  are three different bugs with three different fixes. I asserted all three before running any of
+  them.
+
 ## Unreleased — read coverage doubled (33 → 68 declarations), which found two real bugs, and a test that failed on the calendar rather than on code
 
 > Probing the read endpoints no page visit reaches took the contract audit from **33 declarations
