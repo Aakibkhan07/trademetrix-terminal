@@ -47,12 +47,27 @@ exactly the kind dev mode hides.
    failure. Recorded because a replay that reports failures and produces a correct schema is exactly
    the kind of thing that gets misread in the wrong direction.
 
-### Still not rehearsed
+4. **The API in `ENV=production` — now done, and one uncertainty resolved.**
+   The rehearsal gap is closed. Run with the compose file's own production environment
+   (`ENV=production`, `LOG_LEVEL=INFO`, and `CORS_ORIGINS` pointed at the local web origin),
+   everything that passed in development still passes:
 
-4. **The API was not run in `ENV=production`.** The web side is a real production build; the API
-   side is still the development process. That gap matters because production mode changes
-   `CORS_ORIGINS`, `COOKIE_DOMAIN` and cookie behaviour — the same class of setting that produced
-   the eleven timezone bugs. Not claimed as covered.
+       session 7/7   crawl 51/51   write flows 6/6   audit 0 verb / 0 field mismatches
+
+   The open question was the cookie. `middleware/csrf.py` sets `secure=True, samesite=none` when
+   `env == "production"`, and that pair is invalid over plain HTTP — a `Secure` cookie on `http://`
+   is dropped, and when this exact mismatch bit before, the symptom was *every* POST, PUT and
+   DELETE answering 403 with `document.cookie` empty, so all writes looked impossible and only
+   reads appeared to work.
+
+   Measured rather than assumed: browsers treat `127.0.0.1` as a secure context, so the cookie is
+   accepted, and all six write flows pass against it. The production cookie path is therefore
+   rehearsable locally with no HTTPS terminator. `COOKIE_DOMAIN` must be left empty for this — the
+   compose file sets it to `.trademetrix.tech`, which would stop the cookie being set at all on a
+   local host.
+
+   What is still *not* rehearsed: the reverse proxy. `Caddyfile` handles TLS and the
+   `ai.` → `api.` subdomain hop in production, and nothing local reproduces that.
 
 ### Reference
 
