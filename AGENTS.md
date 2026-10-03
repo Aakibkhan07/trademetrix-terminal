@@ -3,6 +3,21 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — change-password had no password policy; clicking an unclicked form found it
+
+### What was done
+1. **`POST /auth/change-password` validated nothing.** `ChangePasswordRequest` had no constraints and the value went straight to the Supabase admin API, which does not apply GoTrue's signup policy. Signup demands 8 chars + upper + lower + digit + symbol; this endpoint demanded nothing, so it was a **downgrade path**. Measured live: `sixchr6` accepted with 200 and then signed in successfully. Now applies the same `_validate_password` signup uses.
+2. **Rejected passwords came back as `500 "Failed to update password"`.** GoTrue said `422 weak_password "Password should be at least 6 characters."` and both the status and the reason were discarded. `_upstream_status` maps 4xx→400, 5xx→502; `_upstream_detail` keeps GoTrue's `msg` with a safe fallback.
+3. **Four frontend places said "Min. 6 characters"** (`settings`, `account`) while signup requires 8 + complexity. Now 8.
+4. **`routes/v1_otp.py`'s `register_with_otp`/`send_otp` are shadowed dead code** carrying a 6-char policy. Not exploitable today (`auth_router` is included first), dangerous on any refactor. Documented, not deleted.
+5. 24 tests, mutation-validated (5 and 2 respectively), plus live verification. API **1322 passed / 1 xpassed**; ruff clean; web tsc 0, lint 0, 53 lib tests.
+
+### Reference
+- **A form nobody submits is an endpoint nobody tests** — this had a green suite and a validation gap.
+- **An admin API does not inherit the user-facing policy.**
+- **Check the router, not just the function:** two OTP handlers read as live; only one is.
+- **I asserted twice without measuring and was wrong twice** — "the write is rejected" (it is accepted, then raises downstream) and "the OTP route accepts six characters" (it is dead code).
+
 ## Session: 2026-10-03 — Production measured (NOT deployed; VPS refuses every port; 2 migrations deliberately held)
 
 ### What was done

@@ -136,6 +136,38 @@ def _clear_session_cookie(response: Response):
     response.delete_cookie(key=COOKIE_NAME, path="/", domain=settings.cookie_domain or None)
 
 
+def _upstream_status(upstream: int) -> int:
+    """Map an upstream (Supabase/GoTrue) status onto one of ours.
+
+    A 4xx from upstream means the request we forwarded was rejected — that is our caller's problem
+    to fix, not an outage on ours. Only a 5xx (or an unrecognised code) becomes a gateway failure.
+    """
+    if 400 <= upstream < 500:
+        return status.HTTP_400_BAD_REQUEST
+    return status.HTTP_502_BAD_GATEWAY
+
+
+def _upstream_detail(resp, fallback: str) -> str:
+    """GoTrue's own error text, when it sent one.
+
+    GoTrue answers with `{"code": 422, "error_code": "weak_password", "msg": "..."}` and the `msg` is
+    the only part worth showing a person. Anything that is not that shape falls back, so a proxy
+    timeout or an HTML error page cannot leak into a response body.
+    """
+    try:
+        body = resp.json()
+    except Exception:
+        return fallback
+    if isinstance(body, dict):
+        msg = body.get("msg") or body.get("message") or body.get("error_description")
+        if isinstance(msg, str) and msg.strip():
+            return msg
+        err = body.get("error")
+        if isinstance(err, str) and err.strip():
+            return err
+    return fallback
+
+
 def _validate_password(password: str) -> str | None:
     if len(password) < 8:
         return "Password must be at least 8 characters long"
@@ -393,6 +425,16 @@ async def change_password(req: ChangePasswordRequest, current_user: UserProfile 
         if signin_resp.status_code != 200:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
 
+        # The same policy signup applies. Without this the endpoint was a way to *downgrade* an
+        # account: signup refuses anything under 8 characters or missing an upper case letter, a
+        # digit or a symbol, but `ChangePasswordRequest` validated nothing and handed the value
+        # straight to the Supabase admin API — which does not apply GoTrue's signup policy either.
+        # Measured: a six character password was accepted (200) and then signed in successfully, on
+        # an account that had been created under the eight character rule.
+        pw_error = _validate_password(req.new_password)
+        if pw_error:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=pw_error)
+
         admin_resp = await client.put(
             f"{settings.supabase_url}/auth/v1/admin/users/{current_user.id}",
             headers={
@@ -403,7 +445,17 @@ async def change_password(req: ChangePasswordRequest, current_user: UserProfile 
             json={"password": req.new_password, "email_confirm": True},
         )
         if admin_resp.status_code != 200:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update password")
+            # GoTrue's own error is discarded by a blanket 500. Measured on a rejected password:
+            #
+            #   GoTrue -> 422 {"error_code": "weak_password", "msg": "Password should be at least 6 characters."}
+            #   here   -> 500 "Failed to update password"
+            #
+            # A rejected value is a client error, and the reason GoTrue gave was the useful part.
+            # Throwing both away tells the user nothing and counts their typo as a server fault.
+            raise HTTPException(
+                status_code=_upstream_status(admin_resp.status_code),
+                detail=_upstream_detail(admin_resp, "Failed to update password"),
+            )
 
         record_audit(AuditLogEntry(
             user_id=current_user.id,

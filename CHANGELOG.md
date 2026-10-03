@@ -1,3 +1,68 @@
+## Unreleased — change-password validated nothing: an account could be downgraded below the policy signup enforces
+
+> Found by clicking a write path that had never been clicked. Every earlier fix this session came
+> from reading code or diffing schemas; this one came from filling in the form.
+
+### Fixed
+
+1. **`POST /api/v1/auth/change-password` applied no password policy at all**
+   (`apps/api/routes/v1_auth.py`). `ChangePasswordRequest` validated nothing, and the value went
+   straight to the Supabase admin API — which does not apply GoTrue's signup policy either. Signup
+   refuses anything under 8 characters or missing an uppercase letter, a digit or a symbol. So the
+   endpoint was a way to **downgrade**: an account created under the eight-character rule could be
+   moved to a six-character one. Measured, end to end:
+
+       change-password new_password="sixchr6"   -> 200 "Password changed successfully"
+       signin            password="sixchr6"     -> 200, token issued
+
+   It now applies `_validate_password`, the same function signup uses.
+
+2. **A rejected password was reported as a server fault with the reason thrown away.** The blanket
+   `if admin_resp.status_code != 200: raise 500` turned GoTrue's answer into something unrelated:
+
+       GoTrue -> 422 {"error_code":"weak_password","msg":"Password should be at least 6 characters."}
+       here   -> 500 "Failed to update password"
+
+   A caller error was logged as an outage and the user was told nothing useful. `_upstream_status`
+   now maps 4xx to 400 and only 5xx to 502, and `_upstream_detail` keeps GoTrue's `msg` while
+   falling back safely on anything that is not that shape — an HTML error page from a proxy cannot
+   leak into a response body.
+
+3. **The UI advertised a password the server rejects** (`apps/web/app/settings/page.tsx`,
+   `apps/web/app/account/page.tsx`). Four places said "Min. 6 characters" and enforced only length,
+   while signup demands 8 plus three character classes. The minimum now reads 8 in both pages. The
+   server stays the authority — a password that passes the length check but lacks a symbol is
+   answered with that specific reason, which is more useful than a client-side guess.
+
+   The current password is still verified **before** the new one is judged. That ordering is
+   deliberate and is now pinned by a test: reporting "your new password is too weak" to a caller who
+   has not proved they own the account would confirm the current password was accepted.
+
+24 new tests, mutation-validated: removing the policy check fails 5, reverting the error mapping
+fails 2. Verified live as well as in the suite — six characters now returns 422, the password is
+left untouched, and a compliant one still succeeds.
+
+### Verified, not fixed
+
+4. **`routes/v1_otp.py`'s `register_with_otp` and `send_otp` are unreachable.** Both it and
+   `routes/v1_auth.py` declare `prefix="/auth"`, both define the same paths, and `auth_router` is
+   included first, so FastAPI never reaches the OTP module's copies. Measured: registering with a
+   password that has no uppercase letter returns *"Password must contain at least one uppercase
+   letter"*, which is a message that exists only in `v1_auth.py`. The shadowed copy carries the
+   weaker policy — `password_min_length`, six characters and no complexity — so the live route is
+   sound, but a future change to router order would silently weaken it. Recorded rather than deleted,
+   per the no-deletions rule.
+
+### Reference
+
+- **A form nobody submits is an endpoint nobody tests.** This endpoint had a passing test suite and a
+  validation gap, because nothing drove it with a real password.
+- **An admin API does not inherit the user-facing policy.** GoTrue enforces its minimum on signup and
+  not on the admin update path, so "the identity provider will catch it" is not a control.
+- **One policy, one function.** There were three: `_validate_password`, `_validate_otp_signup_password`,
+  and a pydantic validator, with the frontend holding two more numbers.
+- **Check the router, not just the function.** Both OTP handlers read as live; only one is.
+
 ## Unreleased — production measured for the first time, which corrected the record and found a silent total failure in auto square-off
 
 > The production database was reachable over IPv6 the whole time; only SSH was blocked. Reading it

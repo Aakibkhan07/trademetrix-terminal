@@ -122,7 +122,10 @@ export default function SettingsPage() {
   const handleChangePassword = async () => {
     setPwMsg('')
     if (!currentPw) { setPwMsg('Current password is required'); setPwMsgType('error'); return }
-    if (newPw.length < 6) { setPwMsg('New password must be at least 6 characters'); setPwMsgType('error'); return }
+    // 8, not 6: this matches the signup policy the server enforces (length, upper, lower,
+// digit, symbol). At 6 this form advertised a password the API rejects, and worse, one that
+// let a compliant account be downgraded to something weaker than signup would ever allow.
+    if (newPw.length < 8) { setPwMsg('New password must be at least 8 characters'); setPwMsgType('error'); return }
     if (newPw !== confirmPw) { setPwMsg('Passwords do not match'); setPwMsgType('error'); return }
     setPwSaving(true)
     try {
@@ -377,7 +380,7 @@ export default function SettingsPage() {
             </div>
             <div style={{ marginBottom: 12 }}>
               <label className="t-label">New Password</label>
-              <input className="t-input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min. 6 characters" />
+              <input className="t-input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min. 8 characters" />
             </div>
             <div style={{ marginBottom: 16 }}>
               <label className="t-label">Confirm New Password</label>

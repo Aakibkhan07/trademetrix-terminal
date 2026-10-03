@@ -111,7 +111,8 @@ export default function AccountPage() {
   const handleChangePassword = async () => {
     setPwMsg('')
     if (!currentPw) { setPwMsg('Current password is required'); setPwMsgType('error'); return }
-    if (newPw.length < 6) { setPwMsg('New password must be at least 6 characters'); setPwMsgType('error'); return }
+    // 8, matching the signup policy the server enforces — see the same fix in app/settings.
+    if (newPw.length < 8) { setPwMsg('New password must be at least 8 characters'); setPwMsgType('error'); return }
     if (newPw !== confirmPw) { setPwMsg('Passwords do not match'); setPwMsgType('error'); return }
     setPwSaving(true)
     try {
@@ -539,7 +540,7 @@ export default function AccountPage() {
             </div>
             <div style={{ marginBottom: 12 }}>
               <label className="t-label">New Password</label>
-              <input className="t-input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min. 6 characters" />
+              <input className="t-input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min. 8 characters" />
             </div>
             <div style={{ marginBottom: 16 }}>
               <label className="t-label">Confirm New Password</label>
