@@ -393,6 +393,32 @@ export const api = {
   delete: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'DELETE', signal }),
 
   auth: {
+    /**
+     * The signed-in user's subscription tier and what it permits.
+     *
+     * `GET /auth/me/capabilities` returns these **flat**, not nested under a `capabilities` key —
+     * `tier` sits alongside `max_active_strategies`, `backtest_years` and the rest. That is the real
+     * shape and it is what `resolve_capabilities` produces; a nested shape here would type-check and
+     * return `undefined` for every field at runtime.
+     *
+     * This replaced `api.portal.me()`, which is gone: the backend has **no** `/portal/*` route at
+     * all, so it answered 404 and `/portal` silently rendered its Plan tab, strategy list and broker
+     * connections permanently empty behind a `if (portal)` guard.
+     */
+    myCapabilities: () =>
+      request<{
+        tier: string
+        max_active_strategies: number
+        live_trading_allowed: boolean
+        backtest_allowed: boolean
+        backtest_years: number
+        builder_allowed: boolean
+        custom_strategy_dev_allowed: boolean
+        daily_loss_floor: number
+        paper_crypto_forex_allowed: boolean
+        reentry_squareoff_allowed: boolean
+        trailing_sl_allowed: boolean
+      }>('/auth/me/capabilities'),
     signup: (data: { email: string; password: string; full_name?: string }) =>
       request<{ access_token: string; user?: { email: string; full_name?: string } }>('/auth/signup', { method: 'POST', body: data }),
     signin: (data: { email: string; password: string }) =>
@@ -476,7 +502,13 @@ export const api = {
 
   strategies: {
     list: () => request('/strategies/'),
-    listBuiltin: () => request('/strategies/list-builtin'),
+    // Typed against the real response: 19 built-in strategies, each carrying the four fields the
+    // portal's strategy cards render. Declared, because an untyped `request(...)` is `unknown` and
+    // every read of it is then an unchecked assumption.
+    listBuiltin: () =>
+      request<{ strategies: { key: string; name: string; description: string; required_tier: string }[] }>(
+        '/strategies/list-builtin',
+      ),
     assigned: () => request('/strategies/assigned'),
     create: (data: { name: string; type: string; config: Record<string, unknown> }) =>
       request('/strategies/', { method: 'POST', body: data }),
@@ -578,14 +610,6 @@ export const api = {
     ),
   },
 
-  portal: {
-    me: () => request<{
-      user: { id: string; email: string; full_name: string; phone: string; subscription_tier: string; is_admin: boolean; created_at: string };
-      plan: { tier: string; tier_label: string; capabilities: Record<string, unknown> };
-      strategies: { strategies: { strategy_key: string; name: string; description: string; required_tier: string }[] };
-      brokers: { connections: { id: string; broker: string; is_active: boolean; created_at: string }[]; count: number; active_count: number };
-    }>('/portal/me'),
-  },
   engine: {
     start: (data: { strategy_id: string; broker: string; mode?: string; symbols?: string[] }) =>
       request('/engine/start', { method: 'POST', body: data }),

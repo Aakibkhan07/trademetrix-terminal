@@ -1,3 +1,92 @@
+## Unreleased — the Client Portal's Plan tab had never rendered, and three browser harnesses could pass while signed out
+
+> The crawler reports `51/51 routes clean`, which sounds like the whole UI works. Two things it does
+> not mean: a route that renders the **sign-in form** instead of its content is not a failure by any
+> existing check, and neither harness nor crawler **verified that it was signed in at all**.
+
+### Fixed
+
+1. **`/portal`'s Plan tab, strategy list and broker connections had never rendered for anyone.**
+   `app/portal/page.tsx` loaded its data from `api.portal.me()` → `GET /portal/me`. **The backend has
+   no `/portal/*` route at all** — not one, across all 115 non-admin endpoints. So the call 404'd,
+   the page's `.catch()` returned `null`, and the `if (portal)` block that populates `plan`,
+   `strategies` and `brokers` was skipped on every load. The page then rendered its Overview tab from
+   `api.engine.*` calls that do work, which is why it looked healthy.
+
+   Rewired to three endpoints that exist and were measured before use:
+   `GET /auth/me/capabilities` for the plan, `GET /strategies/list-builtin` (19 rows, carrying the
+   four fields the strategy cards render) for the catalogue, and the credentials fetch the page was
+   **already making** for broker connections. `api.portal.me()` is deleted rather than left as a
+   404 someone might trust.
+
+   `/auth/me/capabilities` returns its fields **flat**, not nested under a `capabilities` key. The
+   nested object the page renders is assembled at the call site instead of being assumed to exist in
+   the response — assuming it is exactly the class of bug this file already contains three times.
+   `tier_label` is served by no endpoint, so it is the tier written out via a local map; inventing a
+   product name on screen would be worse than showing the raw tier. `api.strategies.listBuiltin()`
+   gained a type parameter, since an untyped `request(...)` is `unknown` and every read of it is an
+   unchecked assumption.
+
+2. **The crawler treated a signed-out crawl as a valid one.** After the local database was rebuilt
+   the default demo user no longer existed, and the crawl produced **49 failures out of 51** — every
+   route 401ing on unrelated endpoints, with the one real signal ("these credentials are wrong")
+   buried in the noise. The cause was that sign-in was inferred from a URL:
+
+       const signedIn = !page.url().includes('/auth')
+
+   The form redirects away from `/auth` even when the API rejects the credentials, so this reported
+   success for a user that does not exist. All three harnesses now confirm the session with
+   `GET /auth/me` using the cookie the browser just received, and exit non-zero with an actionable
+   message instead of producing 49 failures.
+
+3. **`verify_session_survives_reload.js` was pointed at `localhost`.** Cookies are host-scoped and the
+   API mints its session for the host it is called from, so a suite running against `localhost`
+   cannot read a session made for `127.0.0.1` — the documented gotcha, in the one file whose entire
+   job is to prove the session survives a reload.
+
+4. **New: a page that renders the sign-in form is now a crawl failure.** It is not an error in any
+   sense the crawler checked — no page error, no console error, no 4xx, no `NaN` — so a route whose
+   body was entirely replaced by the auth gate passed as green. Measured across the 47 crawled routes
+   before the check was added: **0 auth-gated**. So this is insurance against a future regression
+   hiding, not a fix for something currently broken, and it is written up that way.
+
+   `/portal` and `/portal/brokers` are in the crawler's `SKIP` set for a legitimate reason:
+   `PortalPage` restores from `sessionStorage['tm_portal_email']` rather than the API cookie, so the
+   Client Portal has its own OTP login and an app session does not carry over. That is a design, not a
+   bug — it was worth confirming rather than assuming, because a signed-in app user landing on the
+   portal's OTP screen looks exactly like a broken page.
+
+### Verification
+
+- Web: 53 lib tests, `tsc --noEmit` 0, lint 0. API **1271 passed, 1 xpassed**, ruff clean.
+- Contract audit: 46 endpoints, **32** declarations (was 31 — the new `myCapabilities` type), **0
+  mismatches**, 0 fields read but not served.
+- Crawl **51/51** with the auth-gate guard in place, sign-in verified. Interactions **4/4**, session
+  **7/7** (was 6 — the new `/auth/me` check), interactive audit 0 unlabelled inputs.
+- Each harness mutation-checked in the negative direction: with a nonexistent user, the crawler,
+  `interact.js` and `verify_session_survives_reload.js` now all abort with exit 2 and the 401 status,
+  instead of a crawl of failures.
+
+### Reference
+
+- **A harness that cannot fail on the most common setup is worse than no harness.** All three
+  browser scripts shared one assumption: the URL changed, therefore we are signed in. That held until
+  the account they hardcode stopped existing, and the failure mode was 49 plausible-looking route
+  failures rather than one obvious "not authenticated". Verify the precondition before the thing you
+  are measuring.
+- **A guard can be narrower than its first draft suggests.** The auth-gate check first fired on 49 of
+  51 routes, which looked like the guard over-matching. It was the credentials: the guard was right
+  and the crawl was anonymous. Diagnose the number before softening the check.
+- **"The page renders" is not "the page works."** `/portal` rendered cleanly for its entire life with
+  its primary data source returning 404 and its three sections permanently empty.
+- **A `SKIP` entry is a claim about a page, not an absence of one.** `/portal` was skipped for a good
+  reason, and reading the gate code first kept that from being "fixed" into a regression.
+- `verify_session_survives_reload.js` had `BASE` hard-coded to `localhost` while every other script
+  used `127.0.0.1`; it is now hard-coded to `127.0.0.1` on purpose, so the point cannot be configured
+  away by an env var.
+- **`api.strategies.listBuiltin()` was untyped**, so the new call site read `unknown`. A declared type
+  that cannot be checked is worse than `any` in this codebase — it reads as verified.
+
 ## Unreleased — a clean rebuild from the repo alone, and a strategy id that was being replaced with a random uuid
 
 > Two things this session. First a verification: **drop the whole `public` schema, replay all 33

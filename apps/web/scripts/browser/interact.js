@@ -335,7 +335,31 @@ scenario('alerts: create, toggle and delete through the UI', async (page) => {
     console.error('sign-in failed')
     process.exit(2)
   }
-  console.log(`signed in as ${EMAIL}`)
+// A URL change is not proof of authentication: the form redirects away from /auth even when the
+  // API rejects the credentials. Confirmed — signing in as a user that does not exist printed
+  // "signed in as ..." here and then failed two of four scenarios for reasons that had nothing to do
+  // with what they were testing. Ask the API instead.
+  const whoami = await page
+    .evaluate(async (origin) => {
+      try {
+        const r = await fetch(`${origin}/api/v1/auth/me`, { credentials: 'include' })
+        if (!r.ok) return { ok: false, status: r.status }
+        return { ok: true, email: (await r.json()).email || null }
+      } catch (e) {
+        return { ok: false, status: 0, error: String(e.message || e).slice(0, 80) }
+      }
+    }, API)
+    .catch((e) => ({ ok: false, status: 0, error: String(e.message || e).slice(0, 80) }))
+
+  if (!whoami.ok) {
+    console.error(
+      `ABORT: not authenticated as ${EMAIL} — GET /api/v1/auth/me returned ${whoami.status || whoami.error}.\n` +
+        '  Results would describe an unauthenticated page, not the product.\n' +
+        '  Set DEMO_EMAIL / DEMO_PASSWORD for an account that exists.\n',
+    )
+    process.exit(2)
+  }
+  console.log(`signed in as ${whoami.email || EMAIL} (verified via /auth/me)`)
   console.log(`target ${BASE} (local only)\n`)
 
   let pass = 0

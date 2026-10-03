@@ -270,8 +270,37 @@ const EXPECTED_REDIRECT = {
   await pwd.type(PASSWORD, { delay: 8 })
   await page.click('button[type="submit"]')
   await sleep(8000)
-  const signedIn = !page.url().includes('/auth')
-  console.log(signedIn ? `signed in as ${EMAIL}\n` : `NOT signed in (${page.url()}) — results will be unreliable\n`)
+  // A URL change is not proof of authentication.
+  //
+  // The sign-in form redirects away from /auth even when the API rejects the credentials, so
+  // `!page.url().includes('/auth')` reported success for a user that does not exist. The crawl then
+  // ran unauthenticated: 49 of 51 routes failed with 401s on unrelated endpoints, and the one real
+  // signal — "these credentials are wrong" — was buried under noise. That is exactly what happened
+  // after the local database was rebuilt and the default demo user no longer existed.
+  //
+  // So ask the API, using the cookie the browser just received.
+  const session = await page
+    .evaluate(async (origin) => {
+      try {
+        const r = await fetch(`${origin}/api/v1/auth/me`, { credentials: 'include' })
+        if (!r.ok) return { ok: false, status: r.status }
+        const j = await r.json()
+        return { ok: true, email: j.email || null }
+      } catch (e) {
+        return { ok: false, status: 0, error: String(e.message || e).slice(0, 80) }
+      }
+    }, API_ORIGIN)
+    .catch((e) => ({ ok: false, status: 0, error: String(e.message || e).slice(0, 80) }))
+
+  if (!session.ok) {
+    console.error(
+      `\nABORT: not authenticated as ${EMAIL} — GET /api/v1/auth/me returned ${session.status || session.error}.\n` +
+        '  Every route would fail with 401s and the result would say nothing about the pages.\n' +
+        '  Set DEMO_EMAIL / DEMO_PASSWORD for an account that exists, or create it first.\n',
+    )
+    process.exit(2)
+  }
+  console.log(`signed in as ${session.email || EMAIL} (verified via /auth/me)\n`)
 
   // ── crawl ─────────────────────────────────────────────────────────────────
   const report = []
@@ -312,6 +341,12 @@ const EXPECTED_REDIRECT = {
         matches: [...new Set(grab(failPatterns, 'i').map((x) => x.hit))],
         bad: grab(badPatterns, ''),
         h1: (document.querySelector('h1')?.innerText || '').trim().slice(0, 48),
+        // The auth gate is not an error state: no page error, no console error, no 4xx, no bad
+        // value. Detected here from the text so the check sees exactly what the user sees.
+        authGated:
+          /Sign in to view your trading dashboard/.test(text) ||
+          // The bare auth page: a heading and an email field, and essentially nothing else.
+          (text.trim().length < 400 && /EMAIL ADDRESS/i.test(text)),
       }
     }, FAILURE_TEXT.map((p) => ({ source: p.source })), BAD_VALUE_TEXT.map((p) => ({ source: p.re.source, why: p.why })))
 
@@ -338,6 +373,25 @@ const EXPECTED_REDIRECT = {
     }
     if (info.textLen < 120 && !adminRedirected) problems.push(`only ${info.textLen} chars rendered`)
     if (redirectedAway && !adminRedirected) problems.push(`redirected to ${info.url}`)
+
+    // A page that renders the sign-in form instead of its own content is a failure, and it is one
+    // this crawler would otherwise report as clean.
+    //
+    // It is easy to miss because the form is not an error: no page error, no console error, no bad
+    // HTTP status, no `NaN` in the text. A route whose whole body is replaced by the auth gate
+    // renders a valid-looking page, so every existing check passes.
+    //
+    // This is not hypothetical. `app/portal/page.tsx` restores its own session from
+    // `sessionStorage['tm_portal_email']` rather than the API cookie — a deliberate separate portal
+    // login — so a signed-in app user lands on its OTP screen. `/portal` and `/portal/brokers` are
+    // in SKIP for that reason. The check exists so that if some *other* route starts gating itself
+    // this way, the crawl says so instead of quietly reporting green.
+    //
+    // Measured across the 47 crawled routes before this check was added: 0 auth-gated. So it is
+    // insurance, not a fix for something currently broken.
+    if (info.authGated) {
+      problems.push('rendered the sign-in form instead of page content')
+    }
 
     if (SHOTS && (problems.length || info.textLen < 200)) {
       const name = route === '/' ? 'root' : route.replace(/\//g, '_').replace(/^_/, '')

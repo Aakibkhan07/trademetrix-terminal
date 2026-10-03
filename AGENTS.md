@@ -3,6 +3,23 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — The Client Portal's Plan tab had never rendered, and three harnesses could pass while signed out (PRODUCTION NOT VERIFIED — VPS unreachable)
+
+### What was done
+1. **`/portal`'s Plan tab, strategy list and broker connections never rendered for anyone** — `api.portal.me()` → `GET /portal/me`, and the backend has **no `/portal/*` route at all** (0 of 115 non-admin endpoints). The call 404'd, `.catch()` returned `null`, and the `if (portal)` block was skipped every load. The Overview tab worked (it uses `api.engine.*`), which is why it looked healthy. Rewired to `GET /auth/me/capabilities` (plan), `GET /strategies/list-builtin` (19 rows, the exact 4 fields the cards render), and the credentials fetch the page already made. `api.portal.me()` deleted rather than left as a 404 someone might trust.
+2. **`/auth/me/capabilities` returns its fields flat**, not nested under `capabilities` — the nested object is assembled at the call site rather than assumed. `tier_label` is served by nothing, so it is the tier written out via a local map; inventing a product name would be worse. `listBuiltin()` gained a type parameter (was `unknown`).
+3. **The crawler inferred sign-in from a URL** (`!page.url().includes('/auth')`). After the DB rebuild the default demo user no longer existed and the crawl produced **49 failures of 51**, every route 401ing, burying the one real signal. All three harnesses now confirm the session with `GET /auth/me` and exit 2 with an actionable message.
+4. **`verify_session_survives_reload.js` used `localhost`** — host-scoped cookies mean it could not read a session minted for `127.0.0.1`. The documented gotcha, in the one file whose job is proving the session survives a reload.
+5. **New crawl check: a page rendering the sign-in form is a failure.** It trips no existing check (no page error, no console error, no 4xx, no `NaN`). Measured before adding it: **0 of 47** crawled routes auth-gated — insurance, not a current bug, and written up that way.
+
+### Reference
+- **A harness that cannot fail on the most common setup is worse than none.** All three scripts shared "URL changed ⇒ signed in". It held until the hardcoded account stopped existing, and the symptom was 49 plausible route failures instead of one obvious "not authenticated".
+- **Diagnose the number before softening the check.** The auth-gate guard first fired on 49/51 and looked like an over-match; it was correct and the crawl was anonymous.
+- **"The page renders" ≠ "the page works."** `/portal` rendered cleanly all its life with a 404 as its primary data source.
+- **`/portal` is in the crawler's SKIP for a good reason** — `PortalPage` restores from `sessionStorage['tm_portal_email']`, not the API cookie, so the Client Portal has its own OTP login. A design, not a bug; confirmed rather than assumed, because a signed-in app user landing on the OTP screen looks exactly like breakage.
+- `verify_session_survives_reload.js` hard-codes `127.0.0.1` deliberately so the point cannot be configured away.
+- Web 53 lib tests, tsc 0, lint 0. API **1271 passed, 1 xpassed**; ruff clean. Contract audit 46 endpoints / **32** declarations (was 31 — the new type) / **0 mismatches**. Crawl **51/51** with the guard live, interactions 4/4, session **7/7** (was 6). Every harness mutation-checked: with a nonexistent user all three now abort with exit 2.
+
 ## Session: 2026-10-03 — Clean rebuild from the repo alone, and a Builder strategy id that was being replaced with a random uuid (PRODUCTION NOT VERIFIED — VPS unreachable)
 
 ### What was done

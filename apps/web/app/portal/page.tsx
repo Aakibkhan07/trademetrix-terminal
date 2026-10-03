@@ -26,6 +26,18 @@ interface Order {
 }
 interface Funds { total_margin: number; used_margin: number; available_margin: number; broker: string }
 interface Strategy { strategy_key: string; name: string; description: string; required_tier: string }
+
+/**
+ * Tier keys as words. `app/pricing/page.tsx` builds the same map locally for the same reason —
+ * no endpoint serves a label.
+ */
+const TIER_LABELS: Record<string, string> = {
+  free: 'Free',
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  halfyearly: 'Half-Yearly',
+  yearly: 'Yearly',
+}
 interface BrokerInfo { id: string; broker: string; is_active: boolean; created_at: string }
 interface UserInfo { id: string; email: string; full_name: string; phone: string; subscription_tier: string }
 
@@ -176,7 +188,16 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
 
   const loadData = useCallback(async () => {
     try {
-      const portal = await api.portal.me().catch((e: unknown) => { console.error('load portal', e); return null })
+      // Three sources, all real. `api.portal.me()` was a 404 — the backend has no `/portal/*`
+      // route — and the `if (portal)` block below skipped everything, so the Plan tab, the strategy
+      // list and the broker connections on this page had never rendered for anyone.
+      //
+      // `/auth/me/capabilities` returns its fields **flat**, so the nested `capabilities` object the
+      // page renders is assembled here rather than assumed to exist in the response.
+      const caps = await api.auth.myCapabilities()
+        .catch((e: unknown) => { console.error('load capabilities', e); return null })
+      const builtin = await api.strategies.listBuiltin()
+        .catch((e: unknown) => { console.error('load builtin strategies', e); return { strategies: [] as { key: string; name: string; description: string; required_tier: string }[] } })
       const p = await api.engine.positions().catch((e: unknown) => { console.error('load positions', e); return { positions: [] } })
       const o = await api.engine.orders().catch((e: unknown) => { console.error('load orders', e); return { orders: [] } })
       const f = await api.engine.funds().catch((e: unknown) => { console.error('load funds', e); return { funds: null } })
@@ -184,12 +205,20 @@ function ClientDashboard({ email, user, onSignOut }: { email: string; user: User
       const bl = await api.brokers.list().catch((e: unknown) => { console.error('load broker list', e); return { brokers: [] } })
       const bm = await api.brokers.metadata().catch((e: unknown) => { console.error('load broker metadata', e); return { brokers: [] } })
 
-      if (portal) {
-        setPlan(portal.plan)
-        setStrategies((portal.strategies.strategies || []).map(s => ({
-          strategy_key: s.strategy_key, name: s.name, description: s.description, required_tier: s.required_tier,
+      if (caps) {
+        const { tier, ...rest } = caps
+        // `tier_label` is not served by any endpoint; it is the tier written out. Inventing a plan
+        // name here would put a product name on screen that nothing in the system chose.
+        setPlan({
+          tier,
+          tier_label: TIER_LABELS[tier] ?? tier,
+          capabilities: rest as unknown as Record<string, unknown>,
+        })
+        setStrategies((builtin.strategies || []).map(s => ({
+          strategy_key: s.key, name: s.name, description: s.description, required_tier: s.required_tier,
         })))
-        setBrokers((portal.brokers.connections || []).map(c => ({
+        // `bc` is the credentials fetch above — the same rows, already in hand.
+        setBrokers((bc.credentials || []).map(c => ({
           id: c.id, broker: c.broker, is_active: c.is_active, created_at: c.created_at,
         })))
       }

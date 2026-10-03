@@ -24,7 +24,12 @@
  */
 const puppeteer = require(process.env.PUPPETEER_CORE || 'puppeteer-core')
 
-const BASE = 'http://localhost:3000'
+// 127.0.0.1, not localhost: cookies are host-scoped and the API sets its session cookie for the
+// host it is called from, so a suite running against `localhost` cannot read a session the API
+// minted for `127.0.0.1`. That mismatch fails the reload checks for a reason unrelated to what they
+// test. Hard-coded rather than env-driven so the point of it is not configurable away.
+const BASE = 'http://127.0.0.1:3000'
+const API = process.env.API_ORIGIN || 'http://127.0.0.1:8000'
 const EMAIL = process.env.DEMO_EMAIL || 'demo.trader@trademetrix.dev'
 const PASSWORD = process.env.DEMO_PASSWORD || 'Demo@2026!'
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -60,6 +65,25 @@ const check = (name, ok, detail) => {
   await sleep(8000)
 
   check('sign-in lands away from /auth', !page.url().includes('/auth'), `url ${page.url()}`)
+
+  // Landing away from /auth is not proof of authentication — the form redirects even when the API
+  // rejects the credentials. This suite exists to prove the session survives a reload, which is
+  // meaningless if there was never a session, so the check has to be a real one.
+  const whoami = await page
+    .evaluate(async (origin) => {
+      try {
+        const r = await fetch(`${origin}/api/v1/auth/me`, { credentials: 'include' })
+        return r.ok ? { ok: true } : { ok: false, status: r.status }
+      } catch (e) {
+        return { ok: false, status: 0 }
+      }
+    }, API)
+    .catch(() => ({ ok: false, status: 0 }))
+  check('session is actually valid (GET /auth/me 200)', whoami.ok, `status ${whoami.status || 'no response'}`)
+  if (!whoami.ok) {
+    console.error(`ABORT: not authenticated as ${EMAIL} — set DEMO_EMAIL / DEMO_PASSWORD.\n`)
+    process.exit(2)
+  }
 
   const token = await page.evaluate(() => window.localStorage.getItem('tm_auth_token') || '')
   check(
