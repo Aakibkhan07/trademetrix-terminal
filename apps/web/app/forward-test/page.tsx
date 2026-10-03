@@ -5,6 +5,14 @@ import { api, friendlyApiError, type ForwardTestItem, type ForwardTestStatus } f
 import { SkeletonCard } from '@/components/skeleton'
 import { ErrorMessage } from '@/components/error-message'
 
+/**
+ * How often a running forward test is re-read.
+ *
+ * A forward test's status only changes when its runner advances, so this is a display refresh
+ * rather than a liveness requirement — long enough to stay well inside any sane rate limit.
+ */
+const STATUS_POLL_MS = 5000
+
 export default function ForwardTestPage() {
   return <ForwardTests />
 }
@@ -92,7 +100,21 @@ function ForwardTestCard({ item }: { item: ForwardTestItem }) {
 
   useEffect(() => {
     fetchStatus()
-    const iv = setInterval(fetchStatus, item.status === 'running' ? 5000 : 0)
+
+    // Poll only while the test is actually running, and never at a zero interval.
+    //
+    // The previous expression was `setInterval(fetchStatus, item.status === 'running' ? 5000 : 0)`,
+    // so **every state other than `running` set a 0 ms interval** — `pending`, `completed`,
+    // `failed`, `stopped` all became an unbounded request loop firing as fast as the event loop
+    // allowed. It only appeared once a forward test existed, which is why no crawl caught it.
+    //
+    // The blast radius is wider than the page. It exhausted the caller's rate-limit budget, so
+    // unrelated pages' own polling started getting 429: a crawl after creating a forward test showed
+    // `/funds` and `/go-live` rendering 402 chars of layout with none of their data, and the API log
+    // carried 16 rate-limit events. One page's polling bug silently emptied others.
+    if (item.status !== 'running') return
+
+    const iv = setInterval(fetchStatus, STATUS_POLL_MS)
     return () => clearInterval(iv)
   }, [fetchStatus, item.status])
 
