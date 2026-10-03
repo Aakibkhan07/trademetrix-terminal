@@ -3,6 +3,21 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — local deploy rehearsal; deploy.sh runs no migrations; local prod build targets production
+
+### What was done
+1. **Rehearsed a local deploy end to end**: DB backup (16.7 MB, 66 tables + data) -> clean schema replay (35 migrations, 44 tables) -> `next build` (59/59) -> `next start` -> harnesses. Result: **session 7/7, crawl 51/51, write flows 6/6, audit 0 verb / 0 field mismatches.**
+2. **`infra/production/deploy.sh` applies no migrations** — no psql, no alembic, no schema step; the API image CMD is a bare uvicorn. Schema is applied out of band, by hand, separately from the deploy. That is the whole ordering hazard around `03000` and `06000`, and nothing enforces or records the ordering.
+3. **A local production build silently targets the production API.** `.env.production` (tracked in git) sets the production URL and overrides `.env` in a production build, and `NEXT_PUBLIC_*` is inlined at build time. Rehearsing surfaced it as `Failed to fetch` on sign-in — which reads like a code bug and is not. Added `npm run build:local`, verified it bakes the local API.
+4. **Migration replay reported 7 failures and was still correct** — every one a duplicate-object notice. Result verified directly (44 tables, `orders.expiry_date`, `squareoff_config.days` as array, `strategy_runs.strategy_id` text).
+5. **Not rehearsed, not claimed:** the API in `ENV=production`. Production mode changes `CORS_ORIGINS`, `COOKIE_DOMAIN` and cookie behaviour — the class of setting that produced the eleven timezone bugs.
+
+### Reference
+- **Rehearse the deploy; do not reason about it.** Two of three findings were invisible until something was built and run.
+- **`NEXT_PUBLIC_*` is baked at build time** — a local production build IS a production artifact.
+- **A deploy script that does not migrate is half a deploy.**
+- For the real deploy: apply `06000`, deploy code, then `03000`. In that order, for the reason in `handle_callback` and the single live `on_conflict="user_id,broker,role"` call site.
+
 ## Session: 2026-10-04 — live trading could be armed but not disarmed; audit tool fabricated twice
 
 ### What was done

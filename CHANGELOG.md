@@ -1,3 +1,68 @@
+## Unreleased — a local deploy rehearsal, which found that deploy.sh runs no migrations and that a local production build talks to production
+
+> Asked to rehearse the deploy locally before touching the VPS. The rehearsal passed, and the two
+> things it turned up are both things that would have been discovered the expensive way.
+
+### The rehearsal
+
+    pg_dump backup            -> 16.7 MB, 66 tables + 66 data blocks
+    DROP SCHEMA + replay      -> 35 migrations, 44 tables, schema correct
+    next build                -> compiled, 59/59 static pages
+    next start + harnesses    -> session 7/7, crawl 51/51, write flows 6/6,
+                                 contract audit 0 verb / 0 field mismatches
+
+Every check that passes against `next dev` also passes against the real production build. That is
+worth stating plainly, because the timezone and hydration bugs found earlier in this work were of
+exactly the kind dev mode hides.
+
+### Findings
+
+1. **`infra/production/deploy.sh` applies no migrations.** There is no `psql`, no `alembic`, no
+   schema step, and the API image's `CMD` is a bare `uvicorn main:app`. So deploying does not
+   migrate: the schema has to be applied out of band, by hand, separately from the deploy.
+
+   This is not a style complaint — it is the whole ordering hazard. `03000` drops a unique index
+   that the *deployed* code may still be using for `on_conflict`, and `06000` changes a column type
+   and drops a foreign key. Both are safe only at a specific moment relative to the code, and
+   nothing in the deploy script either enforces or records that moment.
+
+2. **A local production build silently targets the production API.** `apps/web/.env.production` is
+   tracked in git and sets `NEXT_PUBLIC_API_URL=https://api.ai.trademetrix.tech/api/v1`. Next.js
+   gives `.env.production` precedence over `.env` when building for production, and inlines
+   `NEXT_PUBLIC_*` at build time. So `npm run build` on a laptop produces a correct-for-production
+   artifact, with no warning.
+
+   Hit while rehearsing: sign-in failed with `Failed to fetch`, which looks exactly like a code bug.
+   It was the browser talking to an API that is currently unreachable. Verified the shell
+   environment overrides the file, and added `npm run build:local`, which bakes the local API.
+
+   The tracked file is right for production — `deploy.sh` requires an untracked `apps/web/.env`, but
+   `.env.production` comes from the repo, so the Docker build bakes the correct URLs. The risk is
+   two files declaring the same variable with different values and no build-time check.
+
+3. **The migration replay emitted 7 duplicate-object errors and was still correct.** Every one was
+   an `already exists` on an object that something else had already created after the schema was
+   dropped. The result is right — 44 tables, `orders.expiry_date` present,
+   `squareoff_config.days` an array, `strategy_runs.strategy_id` text — so these are noise, not
+   failure. Recorded because a replay that reports failures and produces a correct schema is exactly
+   the kind of thing that gets misread in the wrong direction.
+
+### Still not rehearsed
+
+4. **The API was not run in `ENV=production`.** The web side is a real production build; the API
+   side is still the development process. That gap matters because production mode changes
+   `CORS_ORIGINS`, `COOKIE_DOMAIN` and cookie behaviour — the same class of setting that produced
+   the eleven timezone bugs. Not claimed as covered.
+
+### Reference
+
+- **Rehearse the deploy, do not reason about it.** Two of the three findings here were invisible
+  until something was actually built and run.
+- **`NEXT_PUBLIC_*` is baked at build time.** A local production build is a production artifact.
+- **A deploy script that does not migrate is half a deploy.** The schema step has to be explicit,
+  and ordered against the code.
+- **A build with no errors is not a build wired to the right place.**
+
 ## Unreleased — a kill switch you can arm but never disarm, and three fabrications in the tool that was supposed to catch it
 
 > Found by asking a simple question of an unclicked page: what happens here if the button is
