@@ -156,7 +156,32 @@ def find_declarations(text: str) -> list[tuple[str, str, int]]:
         pm = QUOTED_PATH_RE.match(tail[open_paren + 1 :].lstrip())
         if not pm:
             continue
-        out.append((declared, pm.group("path"), m.start()))
+        # The method matters as much as the path: `GET /admin/admins` and `POST /admin/admins`
+        # share a path and share nothing else. Read it from the options object that follows, so a
+        # declaration can be compared against the response for the method it actually calls.
+        # `None` when absent — which is reported as "not auditable", never as a mismatch.
+        # Only this call's own arguments. A fixed-width window bleeds into the next statement:
+        # `telegramStatus` is a plain GET, but the following `telegramLink` carries
+        # `{ method: 'POST' }` within 200 characters, so a sliding window read the GET as a POST
+        # and then failed to match any observed signature. Walk out to the closing paren of the
+        # `request(...)` call instead of guessing a width.
+        after = open_paren + 1 + len(pm.group(0))
+        depth = 1
+        i = after
+        while i < len(tail) and depth > 0:
+            ch = tail[i]
+            if ch in "([{":
+                depth += 1
+            elif ch in ")]}":
+                depth -= 1
+            i += 1
+        opts = tail[after : i]
+        mm = re.search(r"method:\s*['\"]([A-Z]+)['\"]", opts)
+        # Absent means GET, because that is `request`'s own default (`const { method = 'GET' }`).
+        # Reading the default rather than leaving it unknown matters: an unknown method matches no
+        # observed signature, so the audit silently compared nothing — "0 declarations compared"
+        # reads like a pass.
+        out.append((declared, pm.group("path"), m.start(), mm.group(1) if mm else "GET"))
     return out
 
 
@@ -421,30 +446,51 @@ def main() -> int:
     observed: dict[str, dict] = {}
     for sigs in json.loads(sig_path.read_text()).values():
         for s in sigs:
-            key = normalise(s["path"])
+            # Method + path. Without the method, every verb on a path collapses into one entry and
+            # the union of their keys is compared against every declaration for it — which reported
+            # a correct `{message: string}` write response as a mismatch against a `{admins: [...]}`
+            # read envelope.
+            key = (s.get("method") or "?", normalise(s["path"]))
             entry = observed.setdefault(key, {"keys": set(), "itemKeys": set(), "itemAvailable": False})
             entry["keys"].update(s.get("keys") or [])
             if s.get("itemKeys"):
                 entry["itemKeys"].update(s["itemKeys"])
                 entry["itemAvailable"] = True
 
-    declarations: dict[str, list[tuple[Path, int, str]]] = {}
+    declarations: dict[tuple, list[tuple[Path, int, str, str | None]]] = {}
     for f in scan_files():
         text = f.read_text()
-        for declared, path, offset in find_declarations(text):
+        for declared, path, offset, method in find_declarations(text):
             line = text[:offset].count("\n") + 1
-            declarations.setdefault(normalise(path), []).append((f, line, declared))
+            declarations.setdefault((method or "?", normalise(path)), []).append((f, line, declared, method))
+
+    # A declaration whose method could not be read cannot be matched to a response: the same path
+    # answers differently per verb. Falling back to the union of every method's keys is how this
+    # tool fabricated a mismatch on `POST /admin/admins`. Reported as unresolvable instead — and
+    # `?` is never treated as a match for a real method, so a miss is a miss rather than a guess.
 
     audited = findings = 0
     missing_total = 0
+    unexercised: list[str] = []
     unresolved: list[str] = []
     no_data: list[str] = []
     report: list[str] = []
 
-    for path in sorted(observed):
-        real_top = observed[path]["keys"]
-        real_item = observed[path]["itemKeys"]
-        for f, line, raw in declarations.get(path, []):
+    # A declaration the crawl never exercised — almost always a write endpoint, since a page visit
+    # does not create an admin or cancel an order. Reported by name, because a coverage gap that
+    # only shows up as a lower "compared" count is indistinguishable from having nothing to check.
+    for key in sorted(declarations):
+        if key not in observed:
+            for f, line, _raw, method in declarations[key]:
+                unexercised.append(
+                    f"  {method or '?'} {key[1]}  ({f.relative_to(WEB_ROOT)}:{line}) — never exercised"
+                )
+
+    for key in sorted(observed):
+        method, path = key
+        real_top = observed[key]["keys"]
+        real_item = observed[key]["itemKeys"]
+        for f, line, raw, decl_method in declarations.get(key, []):
             kind, fields = declared_kind_and_fields(raw)
             if kind == "array":
                 # A bare-array declaration: the endpoint answers a single-key envelope, so the
@@ -481,7 +527,7 @@ def main() -> int:
             # describing the element of the single-key envelope.
             names_top = bool(fields & real_top)
             if not names_top and len(real_top) == 1:
-                if not observed[path]["itemAvailable"]:
+                if not observed[key]["itemAvailable"]:
                     no_data.append(
                         f"{path}  ({raw.strip()} at {f.relative_to(WEB_ROOT)}:{line})"
                         " — endpoint returned no rows, so the element shape is unverifiable"
@@ -512,21 +558,24 @@ def main() -> int:
     print(f"declarations compared     : {audited}")
     print(f"declarations unresolved   : {len(unresolved)}  (named type not resolvable, skipped)")
     print(f"not auditable, no rows    : {len(no_data)}  (endpoint returned an empty list)")
+    print(f"never exercised           : {len(unexercised)}  (no observed response for that method)")
     print(f"mismatching declarations  : {findings}")
     print(f"untyped `as` casts found  : {len(casts)}  (asserted shapes, not declarations)")
     cast_findings = 0
     cast_missing_total = 0
     cast_report: list[str] = []
     for method, path, fields, f, line in casts:
-        if path not in observed:
-            continue  # not exercised on any route
-        real_top = observed[path]["keys"]
-        real_item = observed[path]["itemKeys"]
+        # A cast names the method it asserts on, so it can be matched exactly like a declaration.
+        ckey = (method or "?", normalise(path))
+        if ckey not in observed:
+            continue  # not exercised on any route with that method
+        real_top = observed[ckey]["keys"]
+        real_item = observed[ckey]["itemKeys"]
         if not real_top:
             continue
         names_top = bool(fields & real_top)
         if not names_top and len(real_top) == 1:
-            if not observed[path]["itemAvailable"]:
+            if not observed[ckey]["itemAvailable"]:
                 continue
             target = real_item
         else:
@@ -549,8 +598,15 @@ def main() -> int:
 
     print(f"fields read but not served: {missing_total} declared + {cast_missing_total} cast\n")
 
+    # The declared-type findings were collected into `report` and then dropped on the floor by an
+    # `if report: pass`. That printed "mismatching declarations : 1" with no name attached, which is
+    # not actionable — you cannot go and look at a count. Found by running the audit as an admin,
+    # where a declared type on an admin endpoint first failed to match.
     if report:
-        pass
+        print("declared-type mismatches:")
+        for line in report:
+            print(f"  {line}")
+        print()
     if unresolved:
         print("could not resolve, so not audited:")
         for u in unresolved:
@@ -559,6 +615,10 @@ def main() -> int:
         print("returned no rows, so the element shape could not be compared:")
         for u in no_data:
             print(f"  {u}")
+    if unexercised:
+        print("never exercised, so the declaration was not checked at all:")
+        for u in unexercised:
+            print(u)
     print()
 
     total = findings + cast_findings

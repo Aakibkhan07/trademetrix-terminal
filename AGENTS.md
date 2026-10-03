@@ -3,6 +3,28 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — Auditing as an admin found a fabricated bug in my own audit tool (PRODUCTION NOT VERIFIED — VPS unreachable)
+
+### What was done
+1. **The contract audit had only ever run as a non-admin.** Coverage was 46 endpoints / 32 declarations; as admin it is **50 / 36**. The whole admin surface was invisible to the tool that reports on this codebase.
+2. **It compared verbs against each other** — `observed` was keyed by path only, so `GET /admin/admins` (`{admins:[…]}`) and `POST /admin/admins` (`{message}`) collapsed into one entry and the union was compared against every declaration for that path. Result: a confident, file-and-line-cited, **entirely fictional** `MISMATCH /admin/admins — NOT present: message`. Verified against the live API first — `POST` → `{"detail":"User not found"}`, `GET` → `{"admins":[…]}`. Both sides now keyed by (method, path).
+3. **`if report: pass` was dropping every declared-type finding.** The audit could print `mismatching declarations : 1` and never say which. Had the count been 0 the dead branch would have stayed dead.
+4. **The crawler never recorded the HTTP method** — every signature had `method: None`, so (2) was impossible even in principle.
+5. **My first fix for (2) was wrong**: a fixed 200-char window after the path bled into the next statement, so `telegramStatus` (a plain GET) was read as POST and 26 declarations matched instead of 33. Caught by noticing one surprising entry rather than trusting the total; fixed by walking to the closing paren of the `request(…)` call.
+6. **90 declarations are never exercised** (mostly writes) and that was invisible. All are now named with method + file + line. Honest position: **33 checked, 90 not**.
+7. **`/onboarding` failed the crawl for behaving correctly** — a completed user is redirected to `/dashboard` by design. Recognised explicitly, mirroring the existing `adminRedirected` allowance.
+8. **Verified, not fixed:** the `/portal` failure mode (a fetch swallowed to `null` behind a guard that skips a section) was searched for app-wide — **20** swallowed fetches, every underlying endpoint called. All return 200, admin ones included once promoted. `/portal` was an **isolated instance**.
+9. **The one route the crawler cannot reach works**: `/strategies/[key]` opened against a real builtin key renders with no errors. 56 page routes exist; 51 crawled, 4 deliberately skipped, 1 dynamic and now verified by hand.
+
+### Reference
+- **A tool that names a bug it invented costs more than no tool.** The `/admin/admins` finding was specific, cited `lib/api.ts:575`, and was fiction. Every finding from these harnesses is checked against the live API before acting — that check is what caught it.
+- **Key a comparison by everything that can change the answer.** Path alone is not an identity when one path answers four shapes.
+- **`if report: pass` looks like a placeholder and swallows a whole category of findings.**
+- **An absent method means GET** — `request` is `const { method = 'GET' }`. Leaving it unknown made the audit silently compare nothing, and `0 declarations compared` reads exactly like a pass.
+- **A regex will happily span statements.** The 200-char window was the same trap the file's own comments warn about.
+- **Role-dependent surfaces need auditing in that role.** Promoting the test user took coverage from 46→50 endpoints, 32→36 declarations.
+- Web 53 lib tests, tsc 0, lint 0. API **1271 passed, 1 xpassed**; ruff clean. Crawl **51/51** as admin, interactions 4/4, session 7/7. Contract audit **33 compared / 0 mismatches / 22 casts / 90 named unexercised**. Keying fix mutation-checked: reverting brings the fictional `/admin/admins` mismatch straight back.
+
 ## Session: 2026-10-03 — The Client Portal's Plan tab had never rendered, and three harnesses could pass while signed out (PRODUCTION NOT VERIFIED — VPS unreachable)
 
 ### What was done

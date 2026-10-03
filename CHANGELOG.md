@@ -1,3 +1,99 @@
+## Unreleased — auditing as an admin found a fabricated bug in my own audit tool
+
+> Every previous contract-audit run was done as a **non-admin**, so the entire admin surface was
+> invisible to it: 46 endpoints observed against 49 as admin, 32 declarations against 36. The run
+> that finally included admin data did not find a product bug. It found three defects in the tool
+> that has been reporting on this codebase — the last of which had been **silently discarding
+> findings** for some time.
+
+### Fixed — in the audit tool
+
+1. **It compared verbs against each other.** `observed` was keyed by **path only**, so `GET
+   /admin/admins` (`{admins: [...]}`), `POST /admin/admins` (`{message}`), `PATCH` and `DELETE` all
+   collapsed into one entry and the union of their keys was compared against **every** declaration
+   for that path. That produced a confident, named, entirely fictional finding:
+
+       MISMATCH  /admin/admins
+       declared at : lib/api.ts:575
+       as          : { message: string }
+       NOT present : message
+       present but undeclared: email, full_name, id, is_admin, role
+
+   Nothing was wrong. `api.admin.admins.list()` is declared `{admins: [...]}` and the page correctly
+   reads `res.admins`; the `{message: string}` declarations are on `create`/`updateRole`/`remove`,
+   which are different verbs. Verified against the live API before concluding anything: `POST
+   /admin/admins` → `{"detail": "User not found"}`, `GET /admin/admins` → `{"admins": [...]}`.
+
+   Both sides are now keyed by **(method, path)**.
+
+2. **It was dropping every declared-type finding.** The findings were collected into `report` and
+   then printed by `if report: pass`. So the audit could report `mismatching declarations : 1` and
+   never say which — a count you cannot act on. Found because the count appeared with no name
+   attached; had it been 0, the dead branch would have stayed dead indefinitely.
+
+3. **The crawler never recorded the HTTP method** — every signature had `method: None`, so fix 1 was
+   impossible even in principle. The crawler now records `r.request().method()`, and keys signatures
+   by method as well as path so two verbs on one path are not deduped into one entry.
+
+### Fixed — in the tooling, from what the above exposed
+
+4. **A coverage gap that was invisible.** With method-aware keys, 90 declarations have no observed
+   response for their method — mostly writes, because a page visit does not create an admin or
+   cancel an order. The audit reported only a lower "compared" count, which is indistinguishable from
+   having nothing to check. **Every unexercised declaration is now named**, with its method and file
+   and line. Current honest position: **33 declarations checked, 90 not.**
+
+5. **`/onboarding` failed the crawl for behaving correctly.** The page exists to be skipped once
+   onboarding is complete, so `redirected to /dashboard` was reported as a defect — the same shape
+   as the `adminRedirected` allowance the crawler already had. Recognised explicitly, with the
+   target path listed, so any *other* redirect on that route still fails.
+
+### Verified, not fixed
+
+6. **The `/portal` failure mode is an isolated instance.** The bug fixed in the previous entry was a
+   fetch swallowed to `null` behind a guard that skipped a whole render section. That pattern was
+   searched for across the app: **20** swallowed fetches (`catch(() => null)`, `catch(() => [])`,
+   `catch(() => {})`), and every underlying endpoint was called. All user-reachable ones return
+   200 — `/alerts/notification-prefs`, `/alerts/`, `/notifications/telegram/status` — and the three
+   admin ones (`/admin/stats`, `/brokers/metadata`, `/admin/users/with-brokers`) return 200 with
+   real data once the test user is promoted. So `/portal` was the only place it bit. Recording that
+   as a negative result, because "we looked and it is one place" is worth as much as a fix.
+
+7. **The one route the crawler cannot reach works.** 56 page routes exist, 51 are crawled, 4 are
+   deliberately skipped; the only remainder is `/strategies/[key]`, a dynamic route the crawler has
+   no id for. Opened it against a real builtin key (`trend_rider`): renders, `h1` "Trend Rider", no
+   bad values, no page or console errors. So the last uncovered route is covered.
+
+### Reference
+
+- **A tool that names a bug it invented costs more than no tool.** The `/admin/admins` mismatch was
+  specific, cited a file and line, and was entirely fictional. Every finding from these harnesses gets
+  checked against the live API before it is acted on — that check is what caught this one.
+- **Key a comparison by everything that can change the answer.** Path alone is not an identity when
+  the same path answers four different shapes.
+- **`if report: pass` is worse than a missing feature.** It looks like a placeholder someone meant to
+  finish, and it was swallowing every finding in that category.
+- **My first fix for (1) was itself wrong.** Reading the method from a fixed 200-character window
+  after the path bled into the *next* statement, so `telegramStatus` — a plain GET — was classified
+  POST by the following line's `{ method: 'POST' }`, and 26 declarations matched instead of 33. Caught
+  by noticing one surprising entry in the output rather than trusting the total. Fixed by walking to
+  the closing paren of the `request(...)` call, which is the same "a regex will happily span
+  statements" trap the file's own comments warn about.
+- **An absent method means GET**, because `request` is declared `const { method = 'GET' }`. Reading
+  that default rather than leaving the method unknown is not a guess — and leaving it unknown made
+  the audit silently compare nothing, where "0 declarations compared" reads exactly like a pass.
+- **The audit had only ever run as a non-admin.** Promoting the test user took coverage from 46 to 50
+  endpoints and 32 to 36 declarations. Role-dependent surfaces need auditing in that role.
+
+### Verification
+
+- Web: 53 lib tests, `tsc --noEmit` 0, lint 0. API **1271 passed, 1 xpassed**, ruff clean.
+- Crawl **51/51** as admin (the `/onboarding` false positive gone). Interactions 4/4, session 7/7.
+- Contract audit as admin: 50 endpoints, **33 declarations compared, 0 mismatches**, 22 casts audited,
+  **90 named as never exercised**.
+- The keying fix is mutation-checked: reverting to path-only brings the fictional
+  `MISMATCH /admin/admins — NOT present: message` straight back.
+
 ## Unreleased — the Client Portal's Plan tab had never rendered, and three browser harnesses could pass while signed out
 
 > The crawler reports `51/51 routes clean`, which sounds like the whole UI works. Two things it does

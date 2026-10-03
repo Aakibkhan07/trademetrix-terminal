@@ -233,10 +233,16 @@ const EXPECTED_REDIRECT = {
         // Capture what the endpoint *actually* returns, not what the page claims it returns.
         // This is the evidence a contract audit needs, and it is only obtainable at runtime:
         // the same route answers differently for a user with trades and one without.
-        if (r.status() < 400 && !bucket.signatures.some((s) => s.path === path.split('?')[0])) {
+        const sigPath = path.split('?')[0]
+        // Keyed by method *and* path. The same path answers differently per method — `GET
+        // /admin/admins` returns `{admins: [...]}`, `POST /admin/admins` returns `{message}` — so
+        // collapsing them unions two unrelated payloads. That produced a fabricated mismatch on a
+        // perfectly correct declaration, which is worse than missing the check: the tool named a
+        // bug that did not exist.
+        if (r.status() < 400 && !bucket.signatures.some((s) => s.path === sigPath && s.method === r.request().method())) {
           r.json()
             .then((body) => {
-              const sig = { path: path.split('?')[0], keys: [], itemKeys: null }
+              const sig = { path: sigPath, method: r.request().method(), keys: [], itemKeys: null }
               if (body && typeof body === 'object') {
                 sig.keys = Object.keys(body).sort()
                 // Several endpoints answer with a single-key envelope — `{ orders: [...] }` — and
@@ -356,10 +362,20 @@ const EXPECTED_REDIRECT = {
     )
     // A non-admin being bounced off /admin is the RBAC working.
     const adminRedirected = /^\/admin/.test(route) && !info.url.startsWith('/admin')
+
+    // A completed user being redirected off `/onboarding` is the feature working, not a fault.
+    //
+    // The page exists to be skipped once `onboarding_completed` is set, so the crawl reported
+    // `FAIL /onboarding — redirected to /dashboard` for a correctly-behaving test user. That is the
+    // same shape as `adminRedirected` above: a redirect that is the expected behaviour for a state
+    // the crawler cannot see. Listed explicitly rather than widened, so any *other* redirect on this
+    // route still fails.
+    const onboardingDone = route === '/onboarding' && /^\/(dashboard|live)/.test(info.url)
     const expected = EXPECTED_REDIRECT[route]
     const landedAsExpected = expected ? info.url.startsWith(expected) : null
     const redirectedAway =
       !adminRedirected &&
+      !onboardingDone &&
       !info.url.startsWith(route.split('/').slice(0, 2).join('/')) &&
       landedAsExpected !== true
 
@@ -372,7 +388,7 @@ const EXPECTED_REDIRECT = {
       for (const b of info.bad) problems.push(`bad value rendered: "${b.hit}" — ${b.why}`)
     }
     if (info.textLen < 120 && !adminRedirected) problems.push(`only ${info.textLen} chars rendered`)
-    if (redirectedAway && !adminRedirected) problems.push(`redirected to ${info.url}`)
+    if (redirectedAway && !adminRedirected && !onboardingDone) problems.push(`redirected to ${info.url}`)
 
     // A page that renders the sign-in form instead of its own content is a failure, and it is one
     // this crawler would otherwise report as clean.
@@ -404,6 +420,7 @@ const EXPECTED_REDIRECT = {
       textLen: info.textLen,
       h1: info.h1,
       adminRedirected,
+      onboardingDone,
       problems,
       signatures: bucket.signatures,
     })
@@ -430,6 +447,7 @@ const EXPECTED_REDIRECT = {
     } else {
       let note = ''
       if (r.adminRedirected) note = '  [admin route, non-admin bounced — RBAC working]'
+      else if (r.onboardingDone) note = '  [onboarding complete, redirected home by design]'
       else if (EXPECTED_REDIRECT[r.route]) note = `  [forwards to ${EXPECTED_REDIRECT[r.route]} by design]`
       console.log(`ok    ${r.route.padEnd(26)} ${String(r.textLen).padStart(5)} chars${note}`)
     }
