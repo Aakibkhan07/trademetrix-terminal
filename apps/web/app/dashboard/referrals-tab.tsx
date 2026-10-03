@@ -17,24 +17,51 @@ interface Referral {
   referred_name: string
 }
 
+/**
+ * What `GET /referrals/stats` actually returns.
+ *
+ * The declared type used to name five fields the endpoint has never computed —
+ * `pending_referrals`, `users_with_referral_codes`, `conversion_rate` — which is the exact shape of
+ * bug this codebase has shipped three times: a type that type-checks, lints, and returns 200 while
+ * describing a payload nothing produces. Two of them were then rendered with `?? 0`, so the tab
+ * showed a confident **0% conversion** for a metric that does not exist.
+ *
+ * `conversion_rate` is derivable from the two that are served, and is computed below from served
+ * numbers only. `users_with_referral_codes` is not derivable from a user's own referral rows, so it
+ * is left off and its tile says so.
+ */
 interface ReferralStats {
+  referral_code: string
   total_referrals: number
   completed_referrals: number
-  pending_referrals: number
-  users_with_referral_codes: number
-  conversion_rate: number
+  rewards_earned: number
 }
 
 export function ReferralsTab() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [statusFilter, setStatusFilter] = useState('')
 
+  // Repointed from `/admin/referrals` and `/admin/referrals/stats`, neither of which has ever
+  // existed — the admin router has no such routes, so both were 404 and this tab rendered empty.
+  // The real endpoints are `/referrals/list` and `/referrals/stats`, measured before repointing:
+  // `/referrals/list` answers `{ referrals: [...] }`, an exact match for the declared shape.
   const { data, loading } = useApi<{ referrals: Referral[] }>(
-    `/admin/referrals?${statusFilter ? `status=${statusFilter}` : ''}&_=${refreshKey}`
+    `/referrals/list?_=${refreshKey}`
   )
-  const { data: statsData } = useApi<ReferralStats>(`/admin/referrals/stats?_=${refreshKey}`)
+  const { data: statsData } = useApi<ReferralStats>(`/referrals/stats?_=${refreshKey}`)
   const stats = statsData as ReferralStats | undefined
-  const referrals = data?.referrals || []
+
+  // `/referrals/list` takes no query parameters, so the status filter cannot be pushed to the
+  // server. It returns every row regardless, so filtering here costs nothing and is the only place
+  // it can happen.
+  const all = data?.referrals || []
+  const referrals = statusFilter ? all.filter((r) => r.status === statusFilter) : all
+
+  // Derived from served values only. `total_referrals === 0` yields `null`, not `0%` — "nobody has
+  // been referred" is not a conversion rate of zero.
+  const total = stats?.total_referrals ?? 0
+  const completed = stats?.completed_referrals ?? 0
+  const conversionRate = stats && total > 0 ? (completed / total) * 100 : null
 
   return (
     <div>
@@ -49,11 +76,12 @@ export function ReferralsTab() {
         </div>
         <div className="t-panel" style={{ flex: '1 1 140px', padding: '10px 14px', minWidth: 120 }}>
           <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Conversion</p>
-          <p style={{ margin: '4px 0 0', fontSize: 22, fontWeight: 700, color: 'var(--violet)' }}>{stats?.conversion_rate ?? 0}%</p>
+          <p style={{ margin: '4px 0 0', fontSize: 22, fontWeight: 700, color: 'var(--violet)' }}>{conversionRate === null ? '—' : `${conversionRate.toFixed(1)}%`}</p>
         </div>
         <div className="t-panel" style={{ flex: '1 1 140px', padding: '10px 14px', minWidth: 120 }}>
           <p style={{ margin: 0, fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Users w/ Codes</p>
-          <p style={{ margin: '4px 0 0', fontSize: 22, fontWeight: 700 }}>{stats?.users_with_referral_codes ?? '—'}</p>
+          {/* No endpoint computes this, and it cannot be derived from a user's own referral rows. */}
+          <p style={{ margin: '4px 0 0', fontSize: 22, fontWeight: 700 }}>—</p>
         </div>
       </div>
 

@@ -52,7 +52,21 @@ async def generate_referral_code(user: UserProfile = Depends(get_current_user)):
 async def referral_stats(user: UserProfile = Depends(get_current_user)):
     supabase = get_supabase()
     profile = await async_supabase(lambda: supabase.table("profiles").select("referral_code").eq("id", user.id).execute())
-    code = profile.data[0].get("referral_code", "") if profile.data else ""
+    # `.get(key, default)` supplies the default only when the key is **absent** from the dict. A SQL
+    # NULL arrives as the key present with the value `None`, so the default never applied and
+    # `referral_code=None` was handed to a `str` field, which pydantic rejects:
+    #
+    #     ValidationError: 1 validation error for ReferralStatsResponse
+    #     referral_code  Input should be a valid string [type=string_type, input_value=None]
+    #
+    # Every user without a generated code has `referral_code IS NULL` — measured at 1 of 1 rows on a
+    # clean database — so this was a 500 for essentially every caller, on the endpoint the Referral
+    # System tab reads. `/referrals/code` next door gets this right with a truthiness check, because
+    # there a missing code is meant to trigger generation.
+    #
+    # An empty string is the honest value here: this endpoint reports, it does not mint. Generating a
+    # code as a side effect of reading stats would be the wrong verb for the wrong reason.
+    code = (profile.data[0].get("referral_code") or "") if profile.data else ""
 
     refs = await async_supabase(lambda: supabase.table("referrals").select("status").eq("referrer_id", user.id).execute())
     all_refs = refs.data or []

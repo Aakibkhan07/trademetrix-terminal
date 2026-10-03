@@ -3,6 +3,22 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — Referral stats 500 for every user; three admin tabs have no backend (PRODUCTION NOT VERIFIED — VPS unreachable)
+
+### What was done
+1. **`GET /referrals/stats` returned 500 for every caller.** `profile.data[0].get("referral_code", "")` — `dict.get(key, default)` supplies the default only when the key is **absent**, and a SQL NULL arrives with the key present and the value `None`. `profiles.referral_code` is NULL until `/referrals/code` is called and nothing else populates it (measured **1 of 1** rows on a clean DB), so this was universal. `/referrals/code` next door is correct, because there a missing code *should* trigger generation. Fixed to `(… .get("referral_code") or "")`, with a test asserting the read does not write.
+2. **The Referral System tab called `/admin/referrals` and `/admin/referrals/stats`, neither of which has ever existed** — the admin router has no such routes and the OpenAPI spec has no such paths. Both 404, the tab rendered empty. Repointed to `/referrals/list` and `/referrals/stats` (measured first; `/referrals/list` is an exact shape match). Status filter moved client-side because `/referrals/list` takes no query params.
+3. **The tab rendered `0%` conversion for a metric nothing computes** — `?? 0` on a field the endpoint never served. Now derived from two served values, and `—` rather than `0%` when there are no referrals. `users_with_referral_codes` is not derivable and its tile says so. The declared type now names only what is served.
+4. **Two tabs NOT repointed**: `?tab=pnl` and `?tab=strategy-perf` have no backend and no equivalent. `/analytics/pnl` is not a substitute (different shape from the declared `PnLData`). Unimplemented features, not wiring bugs — recorded, not invented, not deleted.
+5. **Added `scripts/browser/probe_gets.js`** — drives the audit's own "never exercised" GET list and merges signatures back. Refuses to run unauthenticated (a 401 body would be recorded as a verified shape) and reports unreachable endpoints separately. 16 newly observed; the 4 that 404'd were the finding.
+6. **7 new tests**, mutation-validated: restoring `.get(key, "")` fails 3.
+
+### Reference
+- **`dict.get(key, default)` does not cover `None`** — the default fires on a missing key, not a null value, which is exactly what a nullable column produces. 14 such sites exist here; the ones feeding a typed response are the dangerous ones.
+- **A 404 behind `useApi` looks exactly like an empty result.**
+- **Probe reads, never writes** — the unaudited list is only safe to drive for GETs.
+- API **1278 passed, 1 xpassed**; ruff clean. Web 53 lib tests, tsc 0, lint 0. Crawl 51/51, interactions 6/6, session 7/7. Live: the Referral System tab now calls both real endpoints, **both 200**, tiles rendering real values.
+
 ## Session: 2026-10-03 — Write flows exercised through the UI (PRODUCTION NOT VERIFIED — VPS unreachable)
 
 ### What was done

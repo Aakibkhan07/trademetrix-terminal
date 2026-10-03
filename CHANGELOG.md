@@ -1,3 +1,93 @@
+## Unreleased — the referral endpoint 500'd for every user, and three admin tabs had no backend at all
+
+> Found by probing the **read** endpoints no page visit reaches. The writes stay excluded — a probe
+> body is not a safe input for an endpoint that places an order — but reads are free to drive, and
+> they are where the audit had the least to say: 45 of the 90 declarations it could not check were
+> plain GETs.
+
+### Fixed
+
+1. **`GET /referrals/stats` returned 500 for every caller** (`apps/api/routes/v1_referrals.py`).
+
+       ValidationError: 1 validation error for ReferralStatsResponse
+       referral_code
+         Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]
+
+   The line was `profile.data[0].get("referral_code", "")`. **`dict.get(key, default)` supplies the
+   default only when the key is absent.** A SQL `NULL` arrives with the key *present* and the value
+   `None`, so the default never applied and `None` reached a `str` field.
+
+   `profiles.referral_code` is NULL until `/referrals/code` is called and nothing else populates it —
+   measured at **1 of 1** rows on a clean database. So this was a 500 for effectively every user, and
+   a 500 rather than an empty string, so nothing degraded. `/referrals/code` next door gets this
+   right with a truthiness check, because there a missing code is *meant* to trigger generation.
+
+   An empty string is the honest value: this endpoint reports, it does not mint, and generating a
+   code as a side effect of reading stats would be the wrong verb. A test asserts no write happens.
+
+2. **The Referral System tab called two endpoints that have never existed** (`app/dashboard/referrals-tab.tsx`).
+   It requested `/admin/referrals` and `/admin/referrals/stats`. **The admin router has no such
+   routes** — not in the code, not in the OpenAPI spec. Both 404'd, `useApi` returned nothing, and
+   the tab rendered empty. Repointed to `/referrals/list` and `/referrals/stats`, both measured
+   before use; `/referrals/list` answers `{ referrals: [...] }`, an exact match for the declared
+   shape.
+
+   The status filter moved client-side, because `/referrals/list` takes no query parameters and
+   returns every row regardless — so filtering there costs nothing and is the only place it can
+   happen.
+
+3. **The tab rendered a confident `0%` for a metric nothing computes.** Its declared type named five
+   fields; the endpoint serves four, two of which are not among them. `conversion_rate` was rendered
+   with `?? 0`, so the tab showed **0% conversion** for a metric that does not exist — a fabricated
+   number, the same class as the order-fill and P&L% bugs fixed earlier this session.
+
+   `conversion_rate` is genuinely derivable from two served values, and is now computed from them —
+   and yields `—` rather than `0%` when `total_referrals` is 0, because "nobody has been referred" is
+   not a conversion rate of zero. `users_with_referral_codes` is not derivable from a user's own
+   referral rows; its tile says so. The declared type now names only what is served.
+
+### Verified, not fixed
+
+4. **Two more admin tabs have no backend and are not repointed.**
+   `?tab=pnl` calls `/admin/pnl` and `?tab=strategy-perf` calls `/admin/strategy-performance`. Both
+   404. `/analytics/pnl` is **not** a substitute — it answers `{pnl: {daily}, period, broker}` against
+   a declared `PnLData` of `{summary, daily_pnl[], users[]}`, so repointing would produce a page
+   reading `undefined` throughout, which is the bug rather than the fix. **No equivalent endpoint
+   exists for either.** These are unimplemented features, not wiring mistakes, and the feature freeze
+   says fix defects rather than add capability — so they are recorded rather than invented or
+   deleted. Both tabs render empty and have done since they were written.
+
+### Added
+
+- `apps/web/scripts/browser/probe_gets.js` — drives the read endpoints no crawl reaches, from the
+  audit's own "never exercised" list, and merges the signatures back so the contract audit can check
+  them. It refuses to run unauthenticated, because an unauthenticated probe would record 401 bodies
+  as verified shapes, and it reports every endpoint it could **not** reach separately, so a probe that
+  failed to connect never reads as a pass. **16** read endpoints newly observed; the 4 that 404'd are
+  the finding above.
+- `apps/api/tests/test_referral_stats_null_code.py` — 7 tests, mutation-validated: restoring
+  `.get(key, "")` fails 3.
+
+### Verification
+
+- API **1278 passed, 1 xpassed**; ruff clean. Web 53 lib tests, `tsc` 0, lint 0.
+- Crawl **51/51**, interactions **6/6**, session **7/7**.
+- Live: the Referral System tab now calls `/referrals/list` and `/referrals/stats`, **both 200**, and
+  renders its tiles from real values with no bad values on the page.
+
+### Reference
+
+- **`dict.get(key, default)` does not cover `None`.** It is the single most misleading convenience in
+  Python: the default fires on a missing key, not on a null value, and a nullable database column is
+  the exact case it misses. There are 14 such call sites in this codebase; the ones that flow into a
+  typed response are the dangerous ones, and this was the only one demonstrably 500ing.
+- **A 404 behind a `useApi` reads exactly like an empty result.** Three admin tabs, one referral tab,
+  and `/portal` all looked healthy while loading nothing.
+- **A declared type naming fields nothing serves will render as zeroes.** `?? 0` on an absent metric
+  is a fabricated number with a percentage sign on it.
+- **Probe reads, never writes.** Driving the audit's own unaudited list is only safe for GETs; the
+  writes stay excluded rather than sampled.
+
 ## Unreleased — write flows are now exercised through the UI, and three ways the harness could pass for the wrong reason were removed
 
 > The four existing interaction scenarios all checked a **guard** — a control that must stay
