@@ -1,3 +1,108 @@
+## Unreleased — a clean rebuild from the repo alone, and a strategy id that was being replaced with a random uuid
+
+> Two things this session. First a verification: **drop the whole `public` schema, replay all 33
+> migrations, and re-run the order path.** Then a bug that verification walked into, which had been
+> sitting in the code as a documented "P3 schema debt" since August.
+
+### Verified
+
+1. **The repo builds a working database on its own.** `DROP SCHEMA public CASCADE` then all 33
+   migrations in filename order: **33 clean, 0 failed.** The result is **44 tables and 1 view** —
+   exactly what the hand-built local database had, with nothing missing. The pre-existing uuid row in
+   `strategy_runs` survived the rebuild as text.
+
+   Against that from-scratch database: signup 201, signin 200, and three paper orders through
+   `POST /engine/trade` all `FILLED` at real prices (22424.19 / 2075.21 / 1035.10) with `validity=DAY`
+   recorded, three auto-brackets persisted, zero `Failed to persist paper order`, and the trade-ledger
+   dedupe guard firing three times on the real path. **The order path no longer depends on anything
+   that was applied by hand.**
+
+   The exercise also surfaced a genuine gap: **50 of 115 non-admin write endpoints** were probed with
+   bodies derived from the OpenAPI schema, and 6 returned 5xx. Four turned out to be correct behaviour
+   under deliberately invalid input (a Razorpay plan id missing from local config is genuinely a 500),
+   and two exposed real defects, both fixed below. 14 endpoints were excluded on purpose — anything
+   that could move money, stop trading or destroy data — and the exclusion list is recorded rather
+   than assumed.
+
+### Fixed
+
+2. **A Builder strategy could never have a run, and the failure was disguised as success**
+   (`supabase/migrations/20261003_06000_strategy_runs_strategy_id_text.sql`,
+   `apps/api/strategy_runtime/manager.py`, `apps/api/application/services/engine_service.py`).
+
+   Three tables use two id vocabularies, and `strategy_runs` was wired to only one:
+
+       strategies.id           uuid    legacy catalogue
+       builder_strategies.id   text    Strategy Builder — uuid.uuid4().hex[:12]
+       strategy_runs.strategy_id uuid  NOT NULL, FK → strategies(id) ON DELETE CASCADE
+
+   `uuid.UUID('3838c1dcdc97')` raises `ValueError`, so **no Builder run could ever be recorded** and
+   `POST /engine/start` answered `INTERNAL_ERROR` for a perfectly valid id.
+
+   The quiet part is worse than the crash. `strategy_runtime/manager.py` worked around it:
+
+       try:
+           sid_str = str(uuid.UUID(record.spec.strategy_id))
+       except (ValueError, TypeError):
+           sid_str = str(uuid.uuid4())
+
+   That coercion fails for *every* Builder run — the normal path, not the edge case — so a **random
+   uuid was substituted** and the run row was written against a strategy that never existed. The
+   status update then filtered on `.eq("strategy_id", sid_str)`, matched the row it had just written,
+   and behaved as though all were well. Nothing was logged. The run was unattributable: there is no
+   way afterwards to tell which strategy produced it. A fabricated identifier that satisfies its own
+   lookup is the most expensive kind of wrong record, because no check can catch it.
+
+   `strategy_id` is now TEXT and the foreign key is dropped. Both vocabularies fit; no reader needs a
+   cast (nothing compares this column to `strategies.id`, and there is no PostgREST embed joining
+   them); `user_id` stays uuid with its working FK. The runtime now passes the id through verbatim.
+
+   **The FK is gone, so `create_run` verifies the strategy exists** — against `strategies` *and*
+   `builder_strategies` — before recording. Dropping the key also dropped the only thing rejecting a
+   run for a strategy that does not exist, and without this check `POST /engine/start` answers
+   `{"status": "running"}` for any string at all, which is a phantom strategy in the runtime
+   dashboard. A lookup that cannot complete is treated as not-found, so a database blip refuses the
+   run instead of admitting an unverified id.
+
+   `create_run` also no longer ends in `result.data[0]["id"]`: an insert that returned no row raised
+   `IndexError`, surfacing as an `INTERNAL_ERROR` that never mentioned the run was not recorded.
+
+3. **The `ON DELETE CASCADE` that went with the FK is a behaviour change, and it is the right one.**
+   `strategy_catalog_service.delete_strategy` deletes from `strategies`, which until now also removed
+   that strategy's run rows. Runs now survive. A run is a record of trading that actually happened and
+   a catalogue tidy-up should not erase it — but this is a change, not a no-op, so it is stated here
+   rather than left to be found. Restoring cascade properly means an explicit user-scoped delete in
+   `delete_strategy`, not a foreign key that cannot represent a two-table relationship.
+
+### Added
+
+- `apps/api/tests/test_strategy_run_id_vocabulary.py` — 13 tests, three mutation groups validated:
+  restoring the random-uuid substitution fails 1, restoring `result.data[0]` fails 3, removing the
+  existence check fails 3.
+- The substitution test asserts against the **source text**, and says why: a random uuid still
+  produces a working run row, so a behavioural test passes against the bug. Only reading the code
+  catches a substitution that succeeds.
+
+### Reference
+
+- **A workaround for a schema bug is worse than the bug.** Here the uuid column was the fault, and
+  the "fix" substituted a fabricated id that satisfied every downstream check. When a workaround is
+  found in this codebase, ask what it is hiding rather than what it is protecting.
+- **Two id vocabularies in one schema is the root cause, not the column type.** Making it TEXT fixed
+  the symptom; the reason it was uuid at all is that it was FK'd to one of two places strategies live.
+- **Dropping a constraint transfers its job to code.** The FK enforced existence; the FK removal
+  silently stopped it, and the phantom run only appeared because I looked. A migration that removes a
+  constraint must ask what was relying on it.
+- **An empty response hides; a rebuilt one exposes.** Dropping the schema and replaying found a bug
+  that a hand-built database had been concealing for weeks.
+- `tests/test_engine.py::test_engine_start_invalid_broker` is marked `xfail(reason="requires real
+  Supabase")` and now **XPASSes locally** because local Supabase is up. CI does not start a Supabase
+  service (`SUPABASE_URL` falls back to `localhost:54321` with nothing listening), so the marker must
+  stay — removing it turns CI red. `xfail_strict` is not set, so an XPASS does not fail the suite.
+- **When writing a test for a substituted value, find out what the mock is actually handed.** Patching
+  `async_safe_single` means the argument is the built query *chain*, not the table object, and a
+  `MagicMock` chain does not know which table it came from.
+
 ## Unreleased — the order audit trail exists, and with it two frontend bugs that were unreachable until now
 
 > Fixing the order path (previous entry) made `GET /engine/orders` return rows for the first time and

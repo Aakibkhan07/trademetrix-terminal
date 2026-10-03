@@ -1,9 +1,12 @@
 import asyncio
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any, cast
 
 from application.interfaces.broker_oauth import EXECUTION
+
+logger = logging.getLogger(__name__)
 from core.db import async_supabase, get_supabase
 from core.exceptions import BrokerTokenExpiredError
 from core.models import NormalizedOrder
@@ -23,6 +26,29 @@ class EngineService:
         raise NotImplementedError("Use create_run instead")
 
     async def create_run(self, user_id: str, strategy_id: str, broker: str, mode: str, symbols: list[str] | None = None) -> dict:
+        # The strategy has to exist before a run is recorded for it.
+        #
+        # This check used to be a foreign key: `strategy_runs.strategy_id` was uuid NOT NULL with
+        # `REFERENCES strategies(id)`, so an unknown strategy was rejected by the database. Making the
+        # column TEXT (to accept builder hex ids — see 20261003_06000) required dropping that key,
+        # and with it went the only thing stopping a run being recorded for a strategy that does not
+        # exist. Without this, `POST /engine/start` answers `{"status": "running"}` for any string at
+        # all, and the runtime dashboard shows an active strategy with nothing behind it.
+        #
+        # Both vocabularies are checked: the legacy `strategies` catalogue (uuid ids) and the Strategy
+        # Builder's `builder_strategies` (12 hex chars). `builder_strategies` has no `user_id`
+        # column — it is keyed by id alone — so only the legacy table is user-scoped.
+        if not await self._strategy_exists(user_id, strategy_id):
+            logger.warning(
+                "create_run refused: strategy %s does not exist for user %s — no run recorded",
+                strategy_id, user_id,
+            )
+            return {
+                "status": "error",
+                "message": f"Strategy not found: {strategy_id}",
+                "run_id": None,
+            }
+
         payload = {
             "user_id": user_id,
             "strategy_id": strategy_id,
@@ -33,7 +59,44 @@ class EngineService:
             "started_at": datetime.now(UTC).isoformat(),
         }
         result = await async_supabase(lambda: get_supabase().table("strategy_runs").insert(payload).execute())
-        return {"run_id": cast(dict[str, Any], result.data[0])["id"], "status": "running"}
+        # Do not index into the result blindly. An insert that succeeded but returned no row would
+        # raise `IndexError: list index out of range`, and the caller sees an opaque
+        # `INTERNAL_ERROR` with no indication that a run was never recorded. Answering with the
+        # identifier it cannot produce is the honest outcome.
+        rows = getattr(result, "data", None) or []
+        if not rows:
+            logger.error(
+                "strategy_runs insert returned no row for user=%s strategy_id=%s — "
+                "no run was recorded", user_id, strategy_id,
+            )
+            return {"status": "error", "message": "Run could not be recorded", "run_id": None}
+        return {"run_id": cast(dict[str, Any], rows[0])["id"], "status": "running"}
+
+    @staticmethod
+    async def _strategy_exists(user_id: str, strategy_id: str) -> bool:
+        """Whether `strategy_id` names a strategy this user can run — in either catalogue.
+
+        A lookup that cannot complete is treated as "not found", so a database problem refuses the
+        run rather than admitting a strategy id nobody verified. Refusing is the recoverable
+        direction here: the caller sees an error and can retry, whereas a phantom `running` row is
+        discovered later by someone wondering why a strategy is live that does not exist.
+        """
+        if not strategy_id:
+            return False
+        try:
+            legacy = await async_safe_single(
+                get_supabase().table("strategies").select("id")
+                .eq("id", strategy_id).eq("user_id", user_id)
+            )
+            if legacy:
+                return True
+            built = await async_safe_single(
+                get_supabase().table("builder_strategies").select("id").eq("id", strategy_id)
+            )
+            return bool(built)
+        except Exception as e:
+            logger.warning("Strategy existence check failed for %s: %s", strategy_id, e)
+            return False
 
     async def stop_run(self, user_id: str, run_id: str) -> dict:
         await async_supabase(lambda: get_supabase().table("strategy_runs").update(

@@ -3,6 +3,25 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — Clean rebuild from the repo alone, and a Builder strategy id that was being replaced with a random uuid (PRODUCTION NOT VERIFIED — VPS unreachable)
+
+### What was done
+1. **Rebuilt the local database from nothing** — `DROP SCHEMA public CASCADE`, then all 33 migrations in filename order: **33 clean, 0 failed**, yielding 44 tables + 1 view, exactly what the hand-built database had, nothing missing. Against it: signup 201, signin 200, three paper orders `FILLED` at real prices with `validity=DAY` recorded, 3 auto-brackets persisted, 0 persistence errors. The order path no longer depends on anything applied by hand. Snapshot at `/tmp/tm_public_before_rebuild.sql` (18 MB) in case the hand-built schema is ever wanted back.
+2. **`strategy_runs.strategy_id` could never hold a Builder strategy id** (`20261003_06000`) — `strategies.id` is uuid, `builder_strategies.id` is `uuid4().hex[:12]`, and `strategy_runs.strategy_id` was uuid + FK to the former. `uuid.UUID('3838c1dcdc97')` raises, so every Builder run insert failed and `POST /engine/start` returned `INTERNAL_ERROR`.
+3. **The workaround was worse than the crash** — `strategy_runtime/manager.py` coerced the id to a uuid and substituted `str(uuid.uuid4())` on failure, which is the *normal* path for a Builder run. The run row was written against a strategy that never existed, and the follow-up `.eq("strategy_id", …)` update matched the row it had just written, so nothing looked wrong and nothing was logged. Unattributable afterwards.
+4. **Fixed the column (TEXT, FK dropped) and moved the FK's job into code** — `create_run` now checks `strategies` *and* `builder_strategies` before recording, and treats a failed lookup as not-found. Without this the FK removal would have let `POST /engine/start` answer `running` for any string, i.e. a phantom strategy. `create_run` also no longer indexes blindly into `result.data[0]`.
+5. **Probed 50 non-admin write endpoints** with OpenAPI-derived bodies. 6 returned 5xx; 4 were correct behaviour under invalid input (missing Razorpay plan in local config is genuinely 500), 2 were the defects above. 14 endpoints excluded on purpose — anything that could move money, stop trading or destroy data.
+
+### Reference
+- **A workaround for a schema bug can be worse than the bug** — the uuid column was the fault, and the "fix" fabricated an id that satisfied every downstream check. When you find a workaround here, ask what it hides.
+- **Dropping a constraint transfers its job to code.** The FK enforced strategy existence; removing it silently stopped that, and the phantom run surfaced only because I looked after removing it.
+- **An empty response hides; a rebuilt one exposes.** The rebuild found a bug a hand-built database had been concealing for weeks.
+- `ON DELETE CASCADE` is gone with the FK, so runs now survive `delete_strategy` — a run is a record of trading that happened and a catalogue tidy-up should not erase it. A real change, stated rather than left to be discovered.
+- `test_engine_start_invalid_broker` XPASSes locally (it needs real Supabase). CI starts no Supabase service, so the `xfail` marker must stay; `xfail_strict` is unset so the XPASS is harmless.
+- **A test for a substituted value may have to read the source** — a random uuid still yields a working row, so no behavioural assertion catches it. Only `test_the_runtime_no_longer_substitutes_a_random_uuid` failed on that mutation.
+- When mocking `async_safe_single`, the argument is the built query **chain**, not the table object; a `MagicMock` chain cannot say which table it came from.
+- Suite **1271 passed, 1 xpassed** (was 1258/1 xfailed); ruff clean; web 53 tests, tsc 0, lint 0. 13 new tests, three mutation groups validated (1 / 3 / 3 failures).
+
 ## Session: 2026-10-03 — With the order audit trail alive, two frontend bugs that were previously unreachable (PRODUCTION NOT VERIFIED — VPS unreachable)
 
 ### What was done

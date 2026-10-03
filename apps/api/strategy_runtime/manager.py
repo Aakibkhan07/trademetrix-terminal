@@ -539,18 +539,33 @@ class StrategyRuntimeManager:
             import uuid
 
             supabase = get_supabase()
-            # strategy_runs expects UUIDs for both user_id and strategy_id.
-            # Tests may pass fake string IDs — convert to real UUIDs so the row lands.
+            # `user_id` is a uuid column with a working foreign key to `profiles`, so it has to be
+            # canonicalised. The fallback below cannot actually help — a random uuid satisfies no
+            # profiles row, so the insert fails and the warning fires — but it is not what this
+            # change is about and it is left as found rather than quietly rewritten.
             try:
                 uid_uuid = uuid.UUID(record.spec.user_id)
                 uid_str = str(uid_uuid)
             except (ValueError, TypeError):
                 uid_str = str(uuid.uuid4())
-            try:
-                sid_uuid = uuid.UUID(record.spec.strategy_id)
-                sid_str = str(sid_uuid)
-            except (ValueError, TypeError):
-                sid_str = str(uuid.uuid4())
+
+            # `strategy_id` is stored **verbatim**. It used to be coerced to a uuid here, with a
+            # random uuid substituted when the coercion failed — and the failure is the normal case
+            # for a Strategy Builder run, because `builder/models.py` mints ids as
+            # `uuid4().hex[:12]`, which is not a uuid at all.
+            #
+            # So every builder run was recorded against an invented strategy id, and the status
+            # update below then filtered on that same invented id, so it matched the row it had just
+            # written and everything looked consistent. The run was unattributable and nothing was
+            # logged: a fabricated identifier that satisfies its own lookup, which is the most
+            # expensive kind of wrong record because no check can catch it.
+            #
+            # `supabase/migrations/20261003_06000_strategy_runs_strategy_id_text.sql` makes the
+            # column TEXT and drops the foreign key, so both vocabularies fit and the substitution is
+            # no longer needed. Canonicalising a uuid here would still be wrong — it would rewrite a
+            # builder id into a different string and break the later `.eq("strategy_id", …)` match —
+            # so the value is passed through as-is.
+            sid_str = record.spec.strategy_id
 
             if status == "running":
                 await async_supabase(lambda: supabase.table("strategy_runs").insert({
