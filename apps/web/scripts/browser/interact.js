@@ -364,6 +364,184 @@ scenario('alerts: create, toggle and delete through the UI', async (page) => {
 
   let pass = 0
   let fail = 0
+// ── write flows ───────────────────────────────────────────────────────────────
+// Every existing scenario above checks a *guard* — a control that must stay disabled. These do the
+// opposite: they perform a real write through the UI and then confirm it survived a reload.
+//
+// The reason to drive them through the browser rather than by calling the API is that the API
+// working proves nothing about the page. `/portal` loaded a 404 for its whole life and still
+// rendered cleanly; the only way to see a write flow that is broken in the UI is to click it.
+
+/** Types into the first input whose placeholder contains `frag`. Returns false if there is none. */
+async function typeByPlaceholder(page, frag, value) {
+  const handle = await page.evaluateHandle(
+    (f) => [...document.querySelectorAll('input, textarea')].find((el) => (el.placeholder || '').toLowerCase().includes(f)) || null,
+    frag.toLowerCase(),
+  )
+  const el = handle.asElement()
+  if (!el) return false
+  await el.click({ clickCount: 3 })
+  await el.type(value, { delay: 8 })
+  return true
+}
+
+/** Clicks the first button whose visible text matches `re`. */
+async function clickButton(page, re, { optional = false } = {}) {
+  const handle = await page.evaluateHandle((src) => {
+    const rx = new RegExp(src, 'i')
+    return [...document.querySelectorAll('button, [role=button]')].find((b) => rx.test((b.innerText || b.textContent || '').trim())) || null
+  }, re.source)
+  const el = handle.asElement()
+  if (!el) {
+    if (optional) return false
+    throw new Error(`no button matching ${re}`)
+  }
+  await el.click()
+  return true
+}
+
+scenario('strategies: create through the dialog, survive a reload, then delete', async (page) => {
+  const NAME = 'Interact Probe Strategy'
+
+  // `handleDelete` puts a native `window.confirm` in front of the delete. Headless Chrome
+  // auto-dismisses dialogs unless a handler is registered, so the confirm always returned false and
+  // the delete never ran — which read as "delete is broken" when the API returns 204 for it.
+  // Accepted only for this scenario; the alerts scenario has its own delete path.
+  const onDialog = async (d) => { await d.accept() }
+  page.on('dialog', onDialog)
+  const SYMBOL = 'NIFTY'
+
+  await page.goto(`${BASE}/strategies`, { waitUntil: 'domcontentloaded' })
+  await sleep(3500)
+
+  // The control is labelled "+ New Strategy". A secondary "Create Strategy" button also exists in
+  // the source but is conditional and was not rendered, so matching on that string found nothing —
+  // the scenario was reading the wrong label, not reporting a product fault.
+  await clickButton(page, /new strategy/i)
+  await sleep(1200)
+
+  const named = await typeByPlaceholder(page, 'my strategy', NAME)
+  const symboled = await typeByPlaceholder(page, 'NIFTY', SYMBOL)
+  if (!named || !symboled) throw new Error(`create form not reachable (name=${named} symbol=${symboled})`)
+
+  await clickButton(page, /create strategy/i, { optional: true })
+  await sleep(4000)
+
+  // A reload is the real test: the row has to come from the API, not from optimistic state.
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await sleep(4000)
+  const afterCreate = await page.evaluate((n) => document.body.innerText.includes(n), NAME)
+
+  // Clean up, so repeated runs do not pile up.
+  // Scoped: find the smallest element whose text contains the name AND has a delete button, rather
+  // than walking every div/tr/li in the document — that version blew the evaluate timeout.
+  await page.evaluate((n) => {
+    // Plain substring matching, not a RegExp. A regex here needed its metacharacters escaped, and
+    // the escaping was wrong — `\b` became a literal backslash, the pattern matched nothing, and the
+    // delete click silently never fired. The name is a plain string the page printed, so `includes`
+    // is both sufficient and impossible to get wrong here.
+    const candidates = [...document.querySelectorAll('tr, li, .t-panel, div')]
+      .filter((el) => (el.innerText || '').includes(n))
+      .filter((el) => [...el.querySelectorAll('button')].some((b) => /delete/i.test(b.innerText || '')))
+    // Innermost, not outermost: ancestors also contain the name and a Delete button, and picking
+    // the outermost would click the first card's Delete rather than the probe's. Depth is the
+    // reliable ordering — a containing element is always deeper in the tree.
+    const depth = (el) => { let d = 0; for (let n = el; n; n = n.parentElement) d++; return d }
+    const row = candidates.sort((a, b) => depth(b) - depth(a))[0]
+    const del = row ? [...row.querySelectorAll('button')].find((b) => /delete/i.test(b.innerText || '')) : null
+    if (del) del.click()
+  }, NAME)
+  await sleep(3500)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await sleep(3500)
+  const afterDelete = await page.evaluate((n) => document.body.innerText.includes(n), NAME)
+
+  page.off('dialog', onDialog)
+
+  return {
+    pass: named && symboled && afterCreate && !afterDelete,
+    note:
+      `form reachable ${named && symboled}; present after reload ${afterCreate}; ` +
+      `gone after delete ${!afterDelete}`,
+  }
+})
+
+scenario('marketdata: a watchlist symbol can be added and removed', async (page) => {
+  await page.goto(`${BASE}/marketdata`, { waitUntil: 'domcontentloaded' })
+  await sleep(4500)
+
+  const added = await page.evaluate(() => {
+    // The real label is "+ Add Symbol".
+    const add = [...document.querySelectorAll('button')].find((b) => /add symbol/i.test(b.innerText || ''))
+    if (!add) {
+      const seen = [...document.querySelectorAll('button')].map((b) => (b.innerText || '').trim()).filter(Boolean).slice(0, 12)
+      return { ok: false, why: `no "+ Add Symbol" button; saw ${JSON.stringify(seen)}` }
+    }
+    add.click()
+    return { ok: true, why: '' }
+  })
+  if (!added.ok) throw new Error(added.why)
+  await sleep(1500)
+
+  const picked = await page.evaluate(() => {
+    // The modal row is `{ name }`, `{ symbol }`, `{ type badge }` — three lines. An earlier version
+    // took the *last* line, which is the badge ("index" / "stock"), and then asserted the page
+    // contains that word. "stock" appears all over a market-data page, so the assertion passed for a
+    // reason that had nothing to do with the symbol being added. The symbol is the second line.
+    const rows = [...document.querySelectorAll('div.t-hover-bg')]
+    const row = rows[0]
+    if (!row) return null
+    const lines = (row.innerText || '').split('\n').map((s) => s.trim()).filter(Boolean)
+    const symbol = lines.length >= 2 ? lines[1] : lines[0]
+    row.click()
+    return symbol || null
+  })
+  if (!picked) throw new Error('the add-symbol modal listed no candidates')
+  if (!/[:_-]/.test(String(picked))) {
+    throw new Error(`did not read a symbol off the modal row — got ${JSON.stringify(picked)}, which would make the assertion vacuous`)
+  }
+  await sleep(2500)
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await sleep(4500)
+  // Assert the symbol appears as a watchlist row, not merely as a word somewhere on the page.
+  const present = await page.evaluate((sym) => {
+    const exact = [...document.querySelectorAll('*')].some(
+      (el) => el.children.length === 0 && (el.innerText || '').trim() === sym,
+    )
+    return exact
+  }, String(picked).trim())
+
+  // The control is `<button title="Remove from watchlist">x</button>` — its accessible label is the
+  // `title`, not its text. An earlier selector read only innerText/aria-label, so it never matched
+  // and every run left the symbol behind, quietly accumulating watchlist entries.
+  const removed = await page.evaluate((sym) => {
+    const cell = [...document.querySelectorAll('*')].find(
+      (el) => el.children.length === 0 && (el.innerText || '').trim() === sym,
+    )
+    if (!cell) return false
+    // Walk out to the row that owns the buttons.
+    let holder = cell
+    for (let i = 0; i < 6 && holder; i++) {
+      const btn = [...holder.querySelectorAll('button, [role=button]')].find((b) => {
+        const label = (b.getAttribute('title') || '') + ' ' + (b.getAttribute('aria-label') || '') + ' ' + (b.innerText || '')
+        return /remove from watchlist/i.test(label)
+      })
+      if (btn) { btn.click(); return true }
+      holder = holder.parentElement
+    }
+    return false
+  }, String(picked).trim())
+  if (removed) await sleep(2500)
+
+  return {
+    pass: present,
+    note:
+      `picked ${String(picked).trim()}; listed after a reload ${present}; ` +
+      `removal control ${removed ? 'found' : 'not found (cleanup skipped)'}`,
+  }
+})
+
   for (const s of scenarios) {
     if (ONLY && !s.name.includes(ONLY)) continue
     const before = consoleErrors.length

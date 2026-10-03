@@ -3,6 +3,22 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — Write flows exercised through the UI (PRODUCTION NOT VERIFIED — VPS unreachable)
+
+### What was done
+1. **The four existing interaction scenarios only checked guards** (a control that must stay disabled). None performed a write, which is how `/portal` could load a 404 for its whole life while every scenario passed. Added two that do: create a strategy through the dialog and confirm it survives a reload then delete it; add a watchlist symbol, confirm the exact symbol survives a reload, then remove it. **6/6**, and both clean up — verified across three consecutive runs with zero leftover rows and zero leftover alerts.
+2. **Four defects in the new tests, all found by checking surprising results rather than green runs**: the watchlist assertion read the type badge (`"stock"`) instead of the symbol, so it passed for a reason unrelated to what it tested; `window.confirm` auto-dismissed in headless Chrome so delete never ran and read as "delete is broken" (`DELETE /strategies/{id}` returns 204 and does delete — verified against the API); a hand-escaped `` regex compiled to a literal backslash and never matched, so the click silently did nothing; and the row comparator sorted outermost-first, which would have deleted the wrong card. Replaced the regex with `includes`.
+3. **Two labels were wrong**: create is **"+ New Strategy"** (the conditional "Create Strategy" was not rendered) and the watchlist remove control carries its label in `title`, not text.
+
+### Reference
+- **A passing assertion is worth nothing until you check what it asserted.** `body.innerText.includes("stock")` is simply true of a market-data page.
+- **Headless Chrome auto-dismisses dialogs.** Any flow behind `window.confirm` needs an explicit `page.on('dialog', …)` handler or it looks broken forever.
+- **Reload between steps is the test.** A row in local state proves nothing; a row that survives `page.reload()` came from the database.
+- **Assert on an exact element, not a substring of the document.**
+- **Clean up after every scenario and check that cleanup works** — four runs had silently left a row behind.
+- Never hand-escape a regex in generated test code.
+- Web 53 lib tests, tsc 0, lint 0. API **1271 passed, 1 xpassed**; ruff clean. Interactions **6/6**.
+
 ## Session: 2026-10-03 — Auditing as an admin found a fabricated bug in my own audit tool (PRODUCTION NOT VERIFIED — VPS unreachable)
 
 ### What was done

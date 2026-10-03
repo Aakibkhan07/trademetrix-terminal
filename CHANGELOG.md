@@ -1,3 +1,70 @@
+## Unreleased — write flows are now exercised through the UI, and three ways the harness could pass for the wrong reason were removed
+
+> The four existing interaction scenarios all checked a **guard** — a control that must stay
+> disabled. None of them performed a real write. That is why `/portal` could load a 404 for its
+> entire life and every scenario still passed: clicking is the only thing that distinguishes a
+> working control from a plausible-looking one.
+
+### Added
+
+1. **Two write-flow scenarios**, both performed through the browser and confirmed after a reload:
+   - `strategies` — create through the dialog, confirm the row survives a full reload (so it came
+     from the API, not optimistic state), then delete it and confirm it is gone.
+   - `marketdata` — add a watchlist symbol, confirm the exact symbol is still listed after a reload,
+     then remove it.
+
+   Reload-between-steps is the point. A row that appears in local state proves nothing; a row that
+   survives `page.reload()` came back from the database.
+
+   Interactions now **6/6**, and both new scenarios clean up after themselves — verified by running
+   three times and confirming zero leftover rows and zero leftover alerts.
+
+### Fixed — in the new scenarios, before they could report anything false
+
+Four defects, all in the tests, all found by checking a surprising result rather than by trusting a
+green run:
+
+- **The watchlist assertion passed for the wrong reason.** The modal row is `{name}`, `{symbol}`,
+  `{type badge}` on three lines; the scenario took the *last* line, which is the badge — so it
+  asserted the page contained the word `"stock"`. A market-data page contains "stock" everywhere, so
+  the check passed regardless of whether anything was added. Now it reads the symbol line, rejects
+  anything without a `:`/`_`/`-` in it as too vague to assert on, and requires an element whose text
+  is *exactly* that symbol.
+- **The delete never ran, which read as "delete is broken".** `handleDelete` puts a native
+  `window.confirm` in front of every delete; headless Chrome auto-dismisses dialogs unless a handler
+  is registered, so the confirm always returned false. `DELETE /strategies/{id}` returns **204** and
+  does delete the row — checked directly against the API before touching the test.
+- **The row selector never matched.** A ``-anchored RegExp was built with hand-escaped
+  metacharacters; the escaping came out as a literal backslash, the pattern matched nothing, and the
+  click silently did not fire. Replaced with `String.includes`, which is sufficient for a name the
+  page just printed and cannot be mis-escaped.
+- **The wrong card would have been deleted.** Ancestors also contain the strategy name *and* a Delete
+  button, and the comparator sorted outermost-first, so it would have clicked the first card's
+  Delete rather than the probe's. Now ordered by DOM depth. Four identical probe strategies had
+  already accumulated from earlier failed runs, which is how the problem was visible.
+
+Two labels were also wrong before any of this mattered: the create control is **"+ New Strategy"**,
+not "Create Strategy" (the latter is conditional and was not rendered), and the watchlist remove
+control is `<button title="Remove from watchlist">x</button>` — its accessible label is the `title`,
+not its text.
+
+### Reference
+
+- **A passing assertion is worth nothing until you check what it asserted.** `document.body.innerText
+  includes "stock"` is a true statement about a market-data page. Three of the four defects above
+  produced a *pass* or a plausible failure rather than an error.
+- **Drive real writes through the UI, not the API.** An API 204 says the endpoint works. It says
+  nothing about whether the button that calls it is reachable, or whether a `confirm` in front of it
+  swallows the click.
+- **Headless Chrome auto-dismisses dialogs.** Any flow behind a `window.confirm` needs an explicit
+  `page.on('dialog', …)` handler or it will look broken forever.
+- **Assert on an exact element, not a substring of the document.** One call caught a symbol add, one
+  would have caught nothing.
+- **Clean up after every scenario, and check that cleanup works.** The delete cleanup silently did
+  nothing for four runs and left a row behind each time; "removal control found" is now part of the
+  note so a broken cleanup is visible.
+- Never hand-escape a regex in generated test code. Use `includes` for literal strings.
+
 ## Unreleased — auditing as an admin found a fabricated bug in my own audit tool
 
 > Every previous contract-audit run was done as a **non-admin**, so the entire admin surface was
