@@ -310,7 +310,13 @@ def resolve_named_type(name: str) -> tuple[str, set[str] | None]:
     """
     hits: list[tuple[str, set[str] | None]] = []
     for f in scan_files():
-        text = f.read_text()
+        # Masked, for the same reason the declaration scanner masks. Reading the raw file here meant
+        # any prose inside a named type's body was harvested as fields — `ForwardTestStatus` gained
+        # `LIST`, `DETAIL`, `Started`, `Stopped` and `measured` purely from a comment explaining the
+        # mismatch it was reporting, which then turned into "5 fields read but not served".
+        #
+        # A comment that describes a finding must not be able to *become* the finding.
+        text = mask_comments(f.read_text())
         for kind, tmpl in TYPE_DECL_RES.items():
             for m in re.compile(tmpl.format(name=re.escape(name))).finditer(text):
                 open_at = text.find("{", m.end())

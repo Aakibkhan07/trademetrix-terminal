@@ -3,6 +3,22 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-03 — Read coverage doubled (33 → 68 declarations); forward-test detail type, an unmasked type resolver, and a calendar-dependent test (PRODUCTION NOT VERIFIED — VPS unreachable)
+
+### What was done
+1. **Probed the remaining unexercised GETs** with real ids where the path needed one. Contract audit went from **33 declarations checked to 68**, **0 mismatches** on all 68; never-exercised 90 → 54 (38 of the remainder are writes, deliberately not probed).
+2. **`ForwardTestStatus` declared two fields the detail endpoint never returns.** `GET /forward-tests/` (list, 19 keys) carries `started_at`/`stopped_at`; `GET /forward-tests/{id}` (detail, 11 keys) does not. The card read them off the detail, so "Started:" and "Stopped:" rendered permanently nothing — no `undefined`, no crash, nothing to notice. It now reads them from the list row it already holds. This was the last "not auditable" surface, and it paid for itself the moment it became auditable.
+3. **`resolve_named_type` read the raw file**, so prose inside a type body became fields. My comment explaining (2) produced five fabricated "missing fields" — `DETAIL, LIST, Started, Stopped, measured` — from its own words. Now masked, mutation-validated.
+4. **`test_a_non_empty_result_is_still_cached` was failing on the calendar.** It mocked a fetch returning `datetime(2026, 10, 1)` while asking `days=1`; `load()` builds a ~2-day window from the real clock (intraday widening) and discards results that do not cover it. It started failing on Oct 3 with no code change. The session is now derived from `end_dt`, and proven date-independent by shifting the **window** 400 days (19/19 still green).
+5. **Not fixed:** `?tab=pnl` and `?tab=strategy-perf` have no backend and no equivalent.
+
+### Reference
+- **Audit the reads.** Free to drive, cannot change state, and 45 of the 90 unaudited declarations were GETs. Coverage 33 → 68.
+- **A comment inside a type body must not become a field** — the declaration scanner masked, the named-type resolver did not.
+- **`_covers_range` makes a mocked fetch date-sensitive.** Pinning "now" with a literal and asking for `days=1` asserts against the wall clock.
+- **Prove date-independence by moving the window, not the data.**
+- API **1278 passed, 1 xpassed**; ruff clean. Web 53 lib tests, tsc 0, lint 0. Crawl 51/51, interactions 6/6, session 7/7. Contract audit **68 endpoints / 68 declarations / 0 mismatches**.
+
 ## Session: 2026-10-03 — Referral stats 500 for every user; three admin tabs have no backend (PRODUCTION NOT VERIFIED — VPS unreachable)
 
 ### What was done

@@ -237,12 +237,32 @@ async def test_a_non_empty_result_is_still_cached(monkeypatch):
 
     async def fetch_once(symbol, exchange, interval, start_dt, end_dt, user_id=None):
         fetches["n"] += 1
-        day = datetime(2026, 10, 1, tzinfo=UTC)
+        # Inside the requested window, derived from what the loader actually asked for.
+        #
+        # This was `datetime(2026, 10, 1)` — a literal. `load()` with `days=1` computes its window
+        # from the real clock, then rejects a result that does not cover it:
+        #
+        #     if len(candles) < 2 or not self._covers_range(candles, fetch_start, end_dt):
+        #
+        # So the test was correct only while "today" sat near 1 October. It began failing on the
+        # third, with no code change at all — a test that fails on the calendar rather than on a
+        # regression is worse than a red suite, because every later run has to be re-checked against
+        # it to be sure it is not something new. Two days of cushion keeps it inside `days=1`
+        # whatever the hour.
+        # Derived from `end_dt`, not a literal and not `start_dt`. With `days=1` the intraday
+        # widening makes the window about two days wide (measured: 2026-10-01 13:10 → 2026-10-03
+        # 13:10), and `_covers_range` wants the slice to reach `end_dt - 1 day`. A session placed at
+        # the *start* of that window therefore fails coverage and the loader returns nothing — which
+        # is what this test reported.
+        day = end_dt.replace(hour=3, minute=30, second=0, microsecond=0)
         return _session(day) if fetches["n"] == 1 else []
 
     monkeypatch.setattr(hist.backtest_historical, "_load_from_db", no_rows)
     monkeypatch.setattr(hist.backtest_historical, "_fetch_and_store", fetch_once)
 
+    # `days=1` and not more: `_covers_range` requires the returned slice to span the requested
+    # window (within a one-day tolerance each side), so a single session can only satisfy a window
+    # about a day wide. Widening it does not make the test stricter, it makes it unsatisfiable.
     args = dict(symbol="NSE:NIFTY50-INDEX", exchange="NSE", interval="5m", days=1)
     first = await hist.backtest_historical.load(**args)
     second = await hist.backtest_historical.load(**args)

@@ -53,8 +53,16 @@ export interface ForwardTestStatus {
   estimated_trend: string
   last_signal_at: string | null
   runtime_stats: Record<string, unknown> | null
-  started_at: string | null
-  stopped_at: string | null
+  // `started_at` and `stopped_at` were declared here and **are not returned by this endpoint**.
+  // `GET /forward-tests/` (the list) does return both; the single-item detail does not — measured:
+  //
+  //   LIST   : 19 keys, including started_at, stopped_at
+  //   DETAIL : 11 keys — no started_at, no stopped_at, but last_signal_at and runtime_stats
+  //
+  // So the two fields were declared against the wrong response. Reading them off the detail is what
+  // the page did, and because both were used behind a `&&` guard, the "Started:" and "Stopped:"
+  // lines silently never rendered for anyone. The values are not missing — they are on the list row
+  // the card already holds, so the page reads them from there.
 }
 
 export interface MarginEstimateResponse {

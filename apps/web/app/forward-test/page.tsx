@@ -248,8 +248,10 @@ function ForwardTestCard({ item }: { item: ForwardTestItem }) {
       {status && (
         <div style={{ fontSize: 13, color: 'var(--text-faint)', marginTop: 8, display: 'flex', gap: 16 }}>
           <span>Status: <b style={{ color: 'var(--text-sub)' }}>{status.status}</b></span>
-          {status.started_at && <span>Started: {new Date(status.started_at).toLocaleString('en-IN')}</span>}
-          {status.stopped_at && <span>Stopped: {new Date(status.stopped_at).toLocaleString('en-IN')}</span>}
+          {/* From the list row, not the detail response — the detail endpoint never returned
+              these two fields, so reading them from `status` left both lines permanently hidden. */}
+          {item.started_at && <span>Started: {new Date(item.started_at).toLocaleString('en-IN')}</span>}
+          {item.stopped_at && <span>Stopped: {new Date(item.stopped_at).toLocaleString('en-IN')}</span>}
         </div>
       )}
     </div>

@@ -1,3 +1,73 @@
+## Unreleased — read coverage doubled (33 → 68 declarations), which found two real bugs, and a test that failed on the calendar rather than on code
+
+> Probing the read endpoints no page visit reaches took the contract audit from **33 declarations
+> checked to 68**, with **0 mismatches** among the 33 newly covered. It also found two real defects
+> and one test that had been failing for a reason that had nothing to do with the code.
+
+### Fixed
+
+1. **The forward-test detail endpoint was declared with fields it never returns**
+   (`apps/web/lib/api.ts`, `apps/web/app/forward-test/page.tsx`). `ForwardTestStatus` named
+   `started_at` and `stopped_at`. Measured, the two endpoints disagree:
+
+       GET /forward-tests/      (list)   19 keys, including started_at, stopped_at
+       GET /forward-tests/{id}  (detail) 11 keys — no started_at, no stopped_at
+
+   The card read both off the **detail** response, so the "Started:" and "Stopped:" lines rendered
+   **permanently nothing** — both were behind a `&&` guard, so there was no `undefined` and no crash
+   to notice. The values were never missing: they are on the list row the card already holds, and
+   the card now reads them from there. The declared type names only what is served.
+
+   This is the last surface that had been "not auditable" since this work began. It became auditable
+   the moment a real forward test existed, and immediately paid for itself.
+
+2. **`resolve_named_type` read the raw, unmasked file** (`apps/web/scripts/audit_api_contracts.py`).
+   Any prose inside a named type's body was harvested as **fields**. Adding a comment explaining (1)
+   produced a fresh, wholly fabricated finding:
+
+       NOT present : DETAIL, LIST, Started, Stopped, measured
+
+   Five "missing fields" that are words from my own comment — a comment describing a finding turning
+   itself into the finding. Now masked like the declaration scanner already was. Mutation-validated:
+   removing the mask brings the fabricated five straight back.
+
+3. **A test that failed on the calendar, not on a regression**
+   (`apps/api/tests/test_intraday_window_widening.py`). `test_a_non_empty_result_is_still_cached`
+   mocked a fetch returning candles for a literal `datetime(2026, 10, 1)` while asking for `days=1`.
+   `load()` computes its window from the real clock — and with intraday widening that window is about
+   **two days** wide — then discards any result that does not cover it:
+
+       if len(candles) < 2 or not self._covers_range(candles, fetch_start, end_dt):
+
+   So the test was correct only while "today" sat near 1 October. It began failing on the 3rd, with
+   **no code change at all**, and `first` came back `[]`.
+
+   The session is now derived from `end_dt` — the end of the window the loader actually asked for.
+   Proven date-independent rather than asserted: shifting the **window** 400 days into the future
+   leaves all 19 tests in the file green. (Shifting the *session* 400 days makes it fail, which is
+   correct and is not the same claim.)
+
+   A permanently-red test is worse than a red suite, because every later run then has to be
+   re-checked against it to be sure it is not something new.
+
+### Verified, not fixed
+
+4. **`?tab=pnl` and `?tab=strategy-perf` still have no backend.** `/admin/pnl` and
+   `/admin/strategy-performance` 404; no equivalent exists, and `/analytics/pnl` is a different shape
+   from the declared `PnLData`. Unimplemented features, not wiring mistakes. Recorded, not invented,
+   not deleted.
+
+### Reference
+
+- **Audit the reads.** They are free to drive, they cannot change state, and 45 of the 90 declarations
+  the audit could not check were GETs. Coverage went 33 → 68 and the writes remain excluded.
+- **A comment inside a type body must not become a field.** The declaration scanner masked comments;
+  the named-type resolver did not. Same class, two code paths, one fixed.
+- **`_covers_range` makes a mocked fetch date-sensitive.** A test that pins "now" with a literal and
+  asks for `days=1` is asserting against the wall clock.
+- **Prove date-independence by moving the window, not the data.** Both were tried; only the first
+  is the claim worth making.
+
 ## Unreleased — the referral endpoint 500'd for every user, and three admin tabs had no backend at all
 
 > Found by probing the **read** endpoints no page visit reaches. The writes stay excluded — a probe
