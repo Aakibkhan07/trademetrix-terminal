@@ -3,6 +3,22 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — live trading could be armed but not disarmed; audit tool fabricated twice
+
+### What was done
+1. **`api.risk.disableLive()` sent GET to a POST-only endpoint** (405 on first use), and **no page calls it** — `enableLive` has a control in `/trade`, disabling has none anywhere. Fixed to POST; mutation-validated.
+2. **The audit tool was structurally blind to it**: `find_declarations` matches `request<`, so 58 untyped declarations were invisible. Added a verb cross-check (`--spec`) that needs no crawl history.
+3. **The tool fabricated twice while being extended**, both caught by checking rather than trusting: a 400-char lookahead borrowed neighbouring `method:` values and invented 12 WRONG-METHOD findings; string path keys made the spec's `/brokers/{broker}/exchange-code` fail to match the client's literal `/brokers/fyers/exchange-code`, and a live route was listed as unknown. Both fixed (balanced args; shape matching). Net: 1 verb mismatch, and it is real.
+4. **My tests missed a wiring regression** — helpers passed while `check_methods` still used exact-string lookup. Pinned.
+5. **Held for you:** no UI to disable live trading exists. That is new surface, not a bug fix, so it is your call.
+6. 28 tool tests, all three mutations validated (2 / 2 / 1 failures). API **1350 passed / 1 xpassed**; ruff clean; web tsc 0, lint 0, 53 lib tests.
+
+### Reference
+- **A control with no counterpart hid a 405.** `enableLive` had a button; `disableLive` did not.
+- **Test the wiring, not just the helpers.**
+- **A lookahead is not a scope** — both fabrications came from reading past the end of the subject.
+- **Match paths by shape:** a client literal and a spec parameter are the same route.
+
 ## Session: 2026-10-03 — change-password had no password policy; clicking an unclicked form found it
 
 ### What was done

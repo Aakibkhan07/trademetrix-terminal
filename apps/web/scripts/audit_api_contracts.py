@@ -78,6 +78,10 @@ def scan_files() -> list[Path]:
 
 
 CALL_RE = re.compile(r"(?:useApi|request)\s*<")
+# `request(` with no type parameter. Kept separate from CALL_RE because the verb check
+# needs both: an untyped call is just as capable of carrying the wrong verb as a typed
+# one, and for `disableLive` it was the only kind it had.
+UNTYPED_CALL_RE = re.compile(r"(?:useApi|request)\s*\(")
 QUOTED_PATH_RE = re.compile(r"""[\'\"`](?P<path>/[^\'\"`]*)[\'\"`]""")
 
 # Only ever used for the *last* segment of a name, so it cannot swallow a prefix.
@@ -91,6 +95,150 @@ IDENT_END_RE = re.compile(r"([A-Za-z_]\w*)\s*\??\s*$")
 
 
 TEMPLATE_SEG_RE = re.compile(r"\$\{[^}]*\}")
+
+# OpenAPI path parameters (`/backtests/{run_id}/export`) have to become the same `*` the client
+# side produces from a template literal, or the two halves of the comparison never meet.
+SPEC_PARAM_RE = re.compile(r"\{[^}]*\}")
+HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options", "trace"}
+
+
+def load_spec_routes(spec: str) -> dict[str, set[str]]:
+    """`{normalised path: {methods}}` from an OpenAPI document.
+
+    Read from a file path or fetched from a URL. Path parameters become `*` on this side too, via
+    the same `normalise()` the client side uses, so `/backtests/{run_id}/export` in the spec lines
+    up with `/backtests/${runId}/export` in `lib/api.ts` instead of looking like two different
+    endpoints.
+    """
+    text = spec if spec.lstrip().startswith("{") else fetch(spec)
+    doc = json.loads(text)
+    routes: dict[str, set[str]] = {}
+    for raw, ops in (doc.get("paths") or {}).items():
+        key = normalise(SPEC_PARAM_RE.sub("*", raw))
+        methods = {m.upper() for m in ops if m.lower() in HTTP_METHODS}
+        routes.setdefault(key, set()).update(methods)
+    return routes
+
+
+def fetch(url: str) -> str:
+    """Fetch a URL, or read a local path. Kept separate so `load_spec_routes` stays readable."""
+    if url.startswith(("http://", "https://")):
+        import urllib.request
+        with urllib.request.urlopen(url, timeout=20) as r:      # noqa: S310 - operator-supplied
+            return r.read().decode("utf-8", "replace")
+    return Path(url).read_text()
+
+
+def find_untyped_declarations(text: str) -> list[tuple[str | None, str, int, str | None]]:
+    """`[(None, path, offset, method)]` for `request(...)` calls with no type parameter.
+
+    The verb cross-check cannot use `find_declarations`, which matches `request<` and therefore sees
+    only the 139 typed calls. That is why it reported zero mismatches on a tree containing
+    `disableLive: () => request('/risk/live/disable')` — an untyped call that would 405 on first
+    use. Whether a declaration names a response type and which HTTP verb it uses are unrelated
+    questions, and only the first one is optional.
+
+    A path has to be a literal or template here; anything built at runtime is skipped rather than
+    guessed, since guessing is how this tool fabricated a report once already.
+    """
+    out: list[tuple[str | None, str, int, str | None]] = []
+    for m in UNTYPED_CALL_RE.finditer(text):
+        rest = text[m.end():]
+        lit = re.match(r"\s*([`'\"])((?:\\.|(?!\1).)*)\1", rest)
+        if not lit:
+            continue
+        path = lit.group(2)
+        if "${" in path:
+            continue                                    # interpolated path: not statically knowable
+        # Look for `method:` only inside this call's own argument list. An earlier version scanned
+        # the next 400 characters of text and picked up the *following* declaration's method, which
+        # turned twelve plain `request('/path')` reads into "WRONG-METHOD  client would send POST".
+        # Every one of them was false: they declare no method and correctly default to GET.
+        args = balanced_call_args(text, m.end() - 1)
+        meth = re.search(r"method:\s*['\"](\w+)['\"]", args) if args is not None else None
+        out.append((None, path, m.start(), meth.group(1).upper() if meth else None))
+    return out
+
+
+def balanced_call_args(text: str, open_at: int) -> str | None:
+    """The text inside the parentheses whose `(` is at `open_at`, or None if unbalanced."""
+    depth, j, n = 0, open_at, len(text)
+    while j < n:
+        c = text[j]
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+            if depth == 0:
+                return text[open_at + 1:j]
+        elif c in "\"'`":
+            q = c
+            j += 1
+            while j < n and text[j] != q:
+                j += 2 if text[j] == "\\" else 1
+        j += 1
+    return None
+
+
+def path_shape(path: str) -> tuple:
+    """Segment shape of a path, with `*` marking a position that may be anything.
+
+    Exact keys do not work on either side. The spec writes `/brokers/{broker}/exchange-code`, which
+    normalises to `/brokers/*/exchange-code`; the client writes the literal
+    `/brokers/fyers/exchange-code`. Comparing those strings finds no match and reports a live,
+    working route as "not in spec" — which is exactly what happened to the Fyers exchange endpoint,
+    whose handler answers `400 No Fyers credentials found` and is therefore present and correct.
+
+    So both sides are reduced to a shape: same segment count, and every position that is not `*` on
+    the spec side must match exactly. A spec path that fixes a literal segment still has to agree on
+    it, so this cannot turn two different endpoints into one.
+    """
+    segs = [s for s in normalise(path).split("/") if s]
+    return tuple(segs)
+
+
+def spec_index(routes: dict[str, set[str]]) -> list[tuple[tuple, set[str]]]:
+    return [(path_shape(p), m) for p, m in routes.items()]
+
+
+def methods_for(path: str, index: list[tuple[tuple, set[str]]]) -> set[str] | None:
+    """Methods for a client path, matched against the spec by shape rather than by string."""
+    want = path_shape(path)
+    found: set[str] = set()
+    seen = False
+    for shape, methods in index:
+        if len(shape) != len(want):
+            continue
+        if all(s == "*" or s == w for s, w in zip(shape, want)):
+            seen = True
+            found |= methods
+    return found if seen else None
+
+
+def check_methods(declarations: dict, routes: dict[str, set[str]]) -> list[tuple]:
+    """Every declaration whose HTTP verb the spec does not offer.
+
+    This is the check the field comparison cannot make. Comparing response *fields* needs a live
+    response, which means the request has to have been sent — so a declaration with the wrong verb
+    simply never gets a signature and lands in "never exercised", where it reads as "untested"
+    rather than "broken". That is exactly how `api.risk.disableLive` survived: it declared no
+    method, so it defaulted to GET, while the spec offers POST only, and the request would have
+    failed with 405 on first use. `?` is never treated as a match, so a verb this tool cannot read
+    is reported as unverifiable rather than quietly accepted.
+    """
+    findings: list[tuple] = []
+    index = spec_index(routes)
+    for (method, path), sites in sorted(declarations.items()):
+        allowed = methods_for(path, index)
+        if allowed is None:
+            continue                                   # reported separately as unknown-path
+        if method == "?":
+            if "GET" not in allowed:
+                findings.append(("NO-METHOD", path, "GET (default)", ",".join(sorted(allowed)), sites))
+            continue
+        if method.upper() not in allowed:
+            findings.append(("WRONG-METHOD", path, method.upper(), ",".join(sorted(allowed)), sites))
+    return findings
 
 
 def normalise(path: str) -> str:
@@ -436,6 +584,10 @@ def find_casts() -> list[tuple[str, str, set[str], Path, int]]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--signatures", default="/tmp/contract_audit/response_signatures.json")
+    ap.add_argument("--spec", default="",
+                    help="OpenAPI document (path or URL). Enables the verb cross-check, which "
+                         "does not need a live response and therefore catches declarations the "
+                         "field comparison can only report as untested.")
     args = ap.parse_args()
 
     sig_path = Path(args.signatures)
@@ -469,6 +621,38 @@ def main() -> int:
         for declared, path, offset, method in find_declarations(text):
             line = text[:offset].count("\n") + 1
             declarations.setdefault((method or "?", normalise(path)), []).append((f, line, declared, method))
+
+    # The verb cross-check runs before anything else and needs no signatures, so it works on a
+    # fresh checkout with no crawl history at all. It is also the only part of this audit that can
+    # see a declaration which has never successfully run.
+    if args.spec:
+        verb_input = dict(declarations)
+        untyped = 0
+        for f in scan_files():
+            text = f.read_text()
+            for _decl, upath, uoff, umethod in find_untyped_declarations(text):
+                untyped += 1
+                line = text[:uoff].count("\n") + 1
+                verb_input.setdefault((umethod or "?", normalise(upath)), []).append(
+                    (f, line, None, umethod))
+        routes = load_spec_routes(args.spec)
+        index = spec_index(routes)
+        verb_problems = check_methods(verb_input, routes)
+        print(f"spec routes                    : {len(routes)}")
+        print(f"declarations checked           : {len(verb_input)}  ({untyped} untyped)")
+        print(f"VERB MISMATCHES                : {len(verb_problems)}")
+        for kind, path, got, want, sites in verb_problems:
+            f, line, _, _ = sites[0]
+            print(f"  {kind:<13} {path}")
+            print(f"      client would send {got:<18} spec offers: {want}")
+            print(f"      at {f}:{line}")
+        unknown = sorted({p for (_, p) in verb_input if methods_for(p, index) is None})
+        print(f"paths not in spec              : {len(unknown)}")
+        for p in unknown[:12]:
+            print(f"      {p}")
+        if verb_problems:
+            print("a verb the spec does not offer fails at request time, not at read time")
+        print()
 
     # A declaration whose method could not be read cannot be matched to a response: the same path
     # answers differently per verb. Falling back to the union of every method's keys is how this

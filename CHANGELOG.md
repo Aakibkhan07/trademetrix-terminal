@@ -1,3 +1,70 @@
+## Unreleased — a kill switch you can arm but never disarm, and three fabrications in the tool that was supposed to catch it
+
+> Found by asking a simple question of an unclicked page: what happens here if the button is
+> pressed? Then by asking the audit tool a question it had never been asked.
+
+### Fixed
+
+1. **Live trading could be turned on and not turned off through the product**
+   (`apps/web/lib/api.ts:507`). `disableLive` declared no HTTP method, so it defaulted to GET, while
+   the API offers POST only:
+
+       GET  /api/v1/risk/live/disable  ->  405 Method Not Allowed
+       POST /api/v1/risk/live/disable  ->  200 "LIVE trading disabled"
+
+   And no page calls it — `enableLive` has a control in `/trade`, `disableLive` has none anywhere.
+   So this was a dead declaration *and* a broken one: enabling worked, disabling did not exist.
+
+   The declaration now sends POST. Verified live, and mutation-validated: removing the method brings
+   the finding straight back.
+
+2. **The contract audit could not see an untyped declaration.** `find_declarations` matches
+   `request<` and so sees only the 139 typed calls; 58 untyped ones were invisible, which is exactly
+   where `disableLive` was. Whether a declaration names a response type and which verb it uses are
+   unrelated questions and only the first is optional.
+
+3. **Added a verb cross-check to the audit** (`--spec`). Comparing response *fields* needs a live
+   response, so a declaration with the wrong verb never gets a signature and lands in "never
+   exercised", where it reads as untested rather than broken. The verb check needs no crawl history
+   at all and runs before anything else.
+
+### The tool fabricated twice while being extended, and both attempts were caught by checking
+
+   - A 400-character lookahead for `method:` reported **twelve plain `request('/path')` reads** as
+     "client would send POST". Each one was borrowing the *next* declaration's method. A lookahead
+     is not a call boundary; the argument list is.
+   - Paths were compared as strings. The spec's `/brokers/{broker}/exchange-code` normalises to
+     `/brokers/*/exchange-code` while the client writes the literal `/brokers/fyers/exchange-code`,
+     so a route that answers `400 No Fyers credentials found` — present, reachable, correct — was
+     listed as "not in spec".
+
+   After both fixes: **1 verb mismatch** (the real one) and 5 unknown paths, of which three are the
+   known `/admin/pnl`-style tabs and two are dead simulator declarations no page calls.
+
+   One test-harness finding too: the shape tests passed while `check_methods` still used
+   `routes.get(path)`, because the helpers were tested directly and the wiring was not. Pinned now.
+
+### Not fixed — your call
+
+4. **There is still no UI to disable live trading.** The declaration was a bug and is fixed, but
+   adding a control is new surface, and the feature freeze says bugs only. It is also the more
+   serious half of the finding: a user who enables live trading currently has no way to turn it off
+   from the product. Say the word and it is a small change.
+
+5. **`/marketdata/simulator/start` and `/stop` are declared but do not exist**, and no page calls
+   them. Dead declarations, recorded rather than deleted per the no-deletions rule.
+
+### Reference
+
+- **A control with no counterpart is a design smell and here it was a bug.** `enableLive` had a
+  button, `disableLive` did not, and the mismatch hid a 405.
+- **Test the wiring, not just the helpers.** Every helper passed while the caller bypassed it.
+- **A lookahead is not a scope.** Both fabrications in this file came from reading text past the end
+  of the thing being read.
+- **Match paths by shape.** A literal in the client and a parameter in the spec are the same route.
+- 28 tests for the tool. API **1350 passed / 1 xpassed**; ruff clean; web tsc 0, lint 0, 53 lib
+  tests; audit 0 verb mismatches, 0 field mismatches.
+
 ## Unreleased — change-password validated nothing: an account could be downgraded below the policy signup enforces
 
 > Found by clicking a write path that had never been clicked. Every earlier fix this session came
