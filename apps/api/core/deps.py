@@ -36,19 +36,39 @@ async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> UserProfile:
-    token = None
+    # A bearer header and a session cookie are two independent credentials for the same
+    # session, and they do not expire together: the cookie is set with COOKIE_MAX_AGE (7
+    # days) while the token inside it is minted for 24 hours.
+    #
+    # Preferring the bearer and rejecting the request when it fails meant that 24 hours after
+    # signing in, every authenticated call was refused even though the browser was still
+    # holding a valid session cookie with six days left on it — a dead credential was
+    # allowed to overrule a live one. The frontend attaches the stored bearer on every
+    # request and nothing refreshes it, so once the window passed there was no way back in
+    # short of signing in again. Measured on production: a valid cookie plus an expired
+    # bearer answered 401, while the same cookie on its own answered 200.
+    #
+    # Each credential is tried in turn, and the request is refused only when none decodes.
+    tokens: list[str] = []
     if credentials:
-        token = credentials.credentials
-    else:
-        token = request.cookies.get("tm_session") or request.cookies.get("access_token")
+        tokens.append(credentials.credentials)
+    for cookie_name in ("tm_session", "access_token"):
+        cookie_token = request.cookies.get(cookie_name)
+        if cookie_token:
+            tokens.append(cookie_token)
 
-    if not token:
+    if not tokens:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
 
-    payload = decode_access_token(token)
+    payload = None
+    for candidate in tokens:
+        payload = decode_access_token(candidate)
+        if payload is not None:
+            break
+
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
