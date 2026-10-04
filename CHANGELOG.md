@@ -1,3 +1,81 @@
+## Unreleased — 21 of 27 brokers could not be connected through the UI, including all four OAuth brokers
+
+> Found by filling in the broker connect form and pressing Connect. The button did nothing, and it
+> did nothing *quietly*, which is why an existing green test suite had not caught it.
+
+### Fixed
+
+1. **`handleSave` validated a field most brokers do not have** (`apps/web/app/brokers/page.tsx`).
+   The check was
+
+       if (!form.broker || !form.api_key.trim() || !form.secret_key.trim()) { ...reject... }
+
+   but the field renderer binds the identifier to `form.client_id` or `form.client_code` depending
+   on what the broker's metadata declares:
+
+       value={field.key === 'client_id' ? form.client_id : form.api_key}
+
+   So for every broker that does not declare `api_key`, `form.api_key` stayed empty, the check
+   tripped, and Connect reported "API key + secret are required" **without ever issuing a request**.
+   From the browser that is indistinguishable from a dead button.
+
+   Counted against `apps/api/brokers/registry.py`: **19 of 27 brokers declare no `api_key`**, and
+   `fivepaisa` and `oanda` declare no `secret_key`. So **21 of 27 could not be connected at all**,
+   and the set included **every OAuth broker — fyers, zerodha, dhan, upstox**. The only brokers
+   that worked were angelone, binance, bybit, okx, delta and alpaca.
+
+   The backend was never the obstacle: `routes/v1_brokers.py:96` already reads
+   `req.api_key or req.client_id or req.client_code or ""`.
+
+   The check now takes whichever identifier field the broker declares, and requires a secret only
+   when the broker declares one. Verified live: `POST /brokers/credentials` is issued for dhan,
+   zerodha and fyers, where before none of them sent anything.
+
+2. **The dialog made a promise that was not true.** It read *"We encrypt and store only the access
+   token — never your password or PIN"*, while the fields actually collect a **client secret** for
+   Dhan, Fyers and Zerodha. Now: the credentials are encrypted before storage, and the trading PIN
+   or password is never asked for or stored. The original wording would have been read as "this is
+   only a read-only token" by someone deciding whether to paste a secret.
+
+3. **Added a seventh interaction scenario** (`apps/web/scripts/browser/interact.js`) that connects a
+   `client_id` broker and asserts the POST is issued with the identifier under a key the backend
+   understands. Mutation-validated: restoring the single-field gate makes it fail with *"no POST
+   issued — the form rejected the value"*.
+
+   Writing it surfaced two ways the test itself could lie, both recorded in the scenario. Clicking
+   in the same tick as filling a controlled input reads pre-render state and does nothing — the
+   exact failure under test, so the two must not be confused. And matching the inputs by
+   placeholder text reported a Fyers failure that was the probe's: the labels are per-broker
+   ("Client ID", "API Key", "App ID"), so the selector now falls back to position.
+
+### Recorded, not fixed
+
+4. **`groww`, `kotakneo` and `mt5` render no credential inputs at all.** The field renderer returns
+   `null` for any key outside `{client_code, client_id, api_key, secret_key}`, and those three
+   declare `phone`/`otp`, `consumer_key`/`mobile_number`/`ucc`/`totp`/`mpin` and
+   `mt5_broker`/`mt5_server`/`login`/`password` respectively. Their dialogs open empty.
+
+   Not fixed here because the fix is a data-model decision rather than a correction: those values
+   have to go somewhere, and the form state and the save payload are both fixed-shape. Worth saying
+   plainly that this is a real gap and not an oversight in the measurement — they are broken today,
+   for a different reason than the 21 above.
+
+5. **`additional_params_fields` binds every field to `form.totp_secret`.** A broker declaring two
+   additional params would have both inputs writing the same state. No broker currently does, so
+   nothing is broken today; the loop is one line away from being wrong.
+
+### Reference
+
+- **A quiet failure looks like a dead button.** No request, no error in the console, one validation
+  message. Only clicking it found this.
+- **Validate against what the form can produce.** The backend already accepted three identifier
+  keys; the frontend demanded a fourth.
+- **Two files disagreeing about a field name is a bug in whichever one is stricter.**
+- **A test can lie about which side is broken.** The Fyers failure was the probe's placeholder
+  matching, and the "nothing happened" was the same-tick click. Both had to be ruled out before the
+  finding could be trusted.
+- 7/7 interaction scenarios, mutation-validated. tsc 0, lint 0, 53 lib tests.
+
 ## Unreleased — a local deploy rehearsal, which found that deploy.sh runs no migrations and that a local production build talks to production
 
 > Asked to rehearse the deploy locally before touching the VPS. The rehearsal passed, and the two

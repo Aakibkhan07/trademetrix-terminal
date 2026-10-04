@@ -542,6 +542,106 @@ scenario('marketdata: a watchlist symbol can be added and removed', async (page)
   }
 })
 
+scenario('brokers: a credential can be submitted for a broker that declares client_id', async (page) => {
+  // Found by clicking this form rather than reading it. `handleSave` gated on `form.api_key`, while
+  // the field renderer binds the identifier to `form.client_id` or `form.client_code` depending on
+  // what the broker's metadata declares. Every broker that does not declare `api_key` therefore left
+  // `form.api_key` empty, the check tripped, and Connect reported "API key + secret are required"
+  // **without issuing a request** — indistinguishable from a dead button.
+  //
+  // Counted against `apps/api/brokers/registry.py`: 19 brokers declare no `api_key`, and `fivepaisa`
+  // and `oanda` declare no `secret_key`. That is 21 of 27, and it included all four OAuth brokers —
+  // fyers, zerodha, dhan, upstox. The backend already accepts any of the three
+  // (`req.api_key or req.client_id or req.client_code or ""`), so this validation was the only
+  // obstacle in the way.
+  //
+  // Dhan is the subject because it is the broker declaring `client_id` + `secret_key`. The assertion
+  // is that the POST is issued and the identifier travels under a key the backend understands — a
+  // fake client id cannot complete OAuth, so asserting on that would be asserting on the network.
+  const posts = []
+  const onReq = (req) => {
+    if (req.method() === 'POST' && req.url().includes('/api/v1/brokers/credentials')) {
+      posts.push(req.postData() || '')
+    }
+  }
+  page.on('request', onReq)
+
+  try {
+    await page.goto(`${BASE}/brokers`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await sleep(4000)
+
+    const opened = await page.evaluate(() => {
+      const hits = [...document.querySelectorAll('div,button,section')].filter((n) => {
+        const t = (n.innerText || '').toLowerCase()
+        return t.includes('dhan') && n.onclick !== undefined
+      })
+      if (!hits.length) return false
+      // innermost wins: a broad match finds an outer wrapper first, and clicking that does nothing
+      hits.sort((a, b) => (a.innerText || '').length - (b.innerText || '').length)
+      hits[0].click()
+      return true
+    })
+    if (!opened) return { pass: false, note: 'Dhan card not clickable' }
+    await sleep(1800)
+
+    const n = await page.evaluate(() => {
+      const set = (el, v) => {
+        const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+        s.call(el, v)
+        el.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+      const visible = [...document.querySelectorAll('input')].filter((i) => i.offsetParent !== null)
+      if (visible.length < 2) return visible.length
+      set(visible[0], 'regression_probe_id')
+      set(visible[1], 'regression_probe_secret')
+      return visible.length
+    })
+    if (n < 2) return { pass: false, note: `expected 2 credential inputs, found ${n}` }
+
+    // Click in a separate tick deliberately. Setting a controlled input and clicking in the same tick
+    // means the handler reads pre-render state and the submit does nothing — which mimics the very
+    // bug under test, so the two must not be confused.
+    await sleep(1200)
+    const clicked = await page.evaluate(() => {
+      const btn = [...document.querySelectorAll('button')]
+        .find((b) => (b.innerText || '').trim() === 'Connect' && b.offsetParent !== null)
+      if (!btn) return false
+      btn.click()
+      return true
+    })
+    if (!clicked) return { pass: false, note: 'Connect button not found' }
+    await sleep(4000)
+
+    if (!posts.length) {
+      const msg = await page.evaluate(() => document.body.innerText.split('\n')
+        .map((s) => s.trim()).find((l) => /required/i.test(l)) || '')
+      return {
+        pass: false,
+        note: `no POST issued — the form rejected the value${msg ? ` ("${msg}")` : ''}`,
+      }
+    }
+
+    let payload = {}
+    try { payload = JSON.parse(posts[0]) } catch { /* body may be unparseable */ }
+    const sentAs = ['api_key', 'client_id', 'client_code'].filter((k) => payload[k])
+    const note = `POST issued; identifier sent as ${sentAs.join(', ') || 'NOTHING'}`
+    return { pass: sentAs.length > 0, note }
+  } finally {
+    page.off('request', onReq)
+    // the POST above creates a credential; do not leave it pointing at a fake client id
+    await page.evaluate(async () => {
+      const tok = (document.cookie.match(/(^|; )csrf_token=([^;]*)/) || [])[2] || ''
+      for (const role of ['execution', 'market_data']) {
+        try {
+          await fetch(`http://127.0.0.1:8000/api/v1/brokers/credentials/dhan?role=${role}`, {
+            method: 'DELETE', credentials: 'include', headers: { 'X-CSRF-Token': tok },
+          })
+        } catch { /* nothing to clean up */ }
+      }
+    }).catch(() => {})
+  }
+})
+
   for (const s of scenarios) {
     if (ONLY && !s.name.includes(ONLY)) continue
     const before = consoleErrors.length

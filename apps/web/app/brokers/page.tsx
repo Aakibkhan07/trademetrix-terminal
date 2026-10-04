@@ -131,8 +131,24 @@ export default function BrokersPage() {
 
   const handleSave = async () => {
     if (saving) return
-    if (!form.broker || !form.api_key.trim() || !form.secret_key.trim()) {
-      showMsg('API key + secret are required', 'error')
+    // The form writes the primary identifier into whichever of `api_key`, `client_id` or
+    // `client_code` the broker's metadata declares — see the field renderer below, which binds on
+    // `field.key`. Validating `api_key` alone therefore rejected every broker that does not declare
+    // one: measured against `brokers/registry.py`, that is 19 of 27, and it included all four OAuth
+    // brokers (fyers, zerodha, dhan, upstox) plus every `client_code` broker. The dialog opened,
+    // the fields filled, and pressing Connect silently returned "API key + secret are required"
+    // without ever issuing a request. Only angelone, binance, bybit, okx, delta and alpaca worked.
+    //
+    // The backend already accepts any of the three (`req.api_key or req.client_id or
+    // req.client_code or ""` in routes/v1_brokers.py), so this check was the only thing in the way.
+    const primary = (form.api_key || form.client_id || form.client_code).trim()
+    const declaresSecret = (metadataMap[form.broker]?.fields ?? [])
+      .some((f: BrokerFieldMeta) => f.key === 'secret_key')
+    if (!form.broker || !primary || (declaresSecret && !form.secret_key.trim())) {
+      showMsg(
+        declaresSecret ? 'API key + secret are required' : 'API key is required',
+        'error',
+      )
       return
     }
     setSaving(true)
@@ -145,7 +161,11 @@ export default function BrokersPage() {
         // Which of the two jobs this credential does. Without it a market-data connect
         // would land on the execution row and quietly replace it.
         role: form.role,
-        api_key: form.api_key,
+        // `undefined` rather than "": the backend picks the first non-empty of
+        // api_key / client_id / client_code, and an empty string is falsy there, so this works
+        // either way — but an explicit undefined states the intent and keeps the three cases
+        // distinguishable.
+        api_key: form.api_key.trim() || undefined,
         secret_key: form.secret_key,
         client_id: form.client_id || undefined,
         client_code: form.client_code || undefined,
@@ -481,7 +501,8 @@ export default function BrokersPage() {
         <Dialog onClose={closeForm} title={`Connect ${displayName(form.broker)}`}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 4 }}>
             <p style={{ margin: 0, fontSize: 16, opacity: 0.85, lineHeight: 1.5 }}>
-              Enter your <b>{displayName(form.broker)}</b> API credentials. We encrypt and store only the access token — never your password or PIN.
+              Enter your <b>{displayName(form.broker)}</b> API credentials. They are encrypted before they are stored.
+              We never ask for — and never store — your trading PIN or password.
             </p>
 
             {/* Which job this credential does. Stated in plain terms because the wrong

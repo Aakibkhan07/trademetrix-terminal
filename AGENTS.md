@@ -3,6 +3,21 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — 21 of 27 brokers unconnectable through the UI; all four OAuth brokers included
+
+### What was done
+1. **`handleSave` gated on `form.api_key`, which most brokers never populate.** The renderer binds the identifier to `form.client_id` or `form.client_code` per the broker's metadata, so `form.api_key` stayed empty, the check tripped and Connect returned "API key + secret are required" **without issuing a request**. Measured against `registry.py`: **19 of 27 declare no `api_key`**, `fivepaisa` and `oanda` declare no `secret_key` — **21 of 27 unconnectable**, including **all four OAuth brokers (fyers, zerodha, dhan, upstox)**. Only angelone, binance, bybit, okx, delta, alpaca worked. The backend already accepted any of the three keys, so the validation was the only obstacle. Fixed and verified live on dhan, zerodha and fyers.
+2. **The dialog claimed it stores "only the access token"** while collecting a client *secret*. Reworded to say credentials are encrypted and that a trading PIN/password is never asked for or stored.
+3. **Seventh interaction scenario added** and mutation-validated — restoring the old gate makes it fail with "no POST issued".
+4. **Two ways the new test could lie, both caught:** clicking in the same tick as filling a controlled input reads pre-render state (the very failure under test), and matching inputs by placeholder reported a Fyers failure that belonged to the probe — labels are per-broker ("Client ID"/"API Key"/"App ID"), so it now falls back to position.
+5. **Recorded, not fixed:** `groww`, `kotakneo`, `mt5` render **no inputs at all** (renderer returns `null` for keys outside `client_code`/`client_id`/`api_key`/`secret_key`). A real gap, but the fix is a data-model decision. Also: `additional_params_fields` binds every field to `form.totp_secret` — harmless today, one line from wrong.
+
+### Reference
+- **A quiet failure looks like a dead button** — no request, no console error, one validation message. Only clicking it found this.
+- **Validate against what the form can produce.** The backend took three identifier keys; the frontend demanded a fourth.
+- **Rule out the test before trusting the finding.** Two probe bugs masqueraded as app bugs here.
+- API 1350 passed / 1 xpassed (unchanged); web tsc 0, lint 0, 53 lib tests, 7/7 interaction scenarios.
+
 ## Session: 2026-10-04 — local deploy rehearsal; deploy.sh runs no migrations; local prod build targets production
 
 ### What was done
