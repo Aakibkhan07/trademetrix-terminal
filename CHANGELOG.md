@@ -1,3 +1,70 @@
+## Unreleased — the envelope bug was one instance, not eleven, and proving that took three wrong tools
+
+> Third page lost its data to the same mistake today (`/risk`, after `/engine/orders` and
+> `/forward-test`). One at a time is luck. So: list every endpoint that answers `{ key: [...] }`, find
+> what consumes it, and close the class. The class turned out to be one bug. Getting there honestly
+> cost three pieces of confident nonsense from tools I wrote.
+
+### Measured
+
+**Eleven endpoints answer a single-key envelope**, identified from real crawled responses:
+
+    /admin/admins {admins}          /engine/orders     {orders}     /strategies/            {strategies}
+    /alerts/      {alerts}          /engine/positions  {positions}  /strategies/list-builtin {strategies}
+    /brokers/metadata {brokers}     /engine/runs       {runs}       /strategies/marketplace {strategies}
+    /risk/settings {settings}       /subscriptions/plans/ {plans}
+
+**Ten of eleven are consumed correctly.** Each was confirmed by loading its page and looking for
+content that can only be there if the array rendered, with the endpoint's item count fetched
+alongside: 27 brokers, 23 alerts, 19 builtin strategies, 18 marketplace strategies, 4 plans,
+3 orders, 3 positions, 2 runs, 1 admin, 1 strategy. The eleventh is the `/risk` defect found and
+fixed earlier today.
+
+So the pattern cost three pages' worth of bugs across the project's life, but exactly one endpoint
+is broken now.
+
+### Added
+
+`apps/web/scripts/browser/verify_envelope_pages.js`, wired as `npm run verify:envelopes`. It fetches
+each endpoint to confirm the shape, loads the page, and checks the content arrived. Mutation-tested
+both ways: with the `/risk` unwrap in place it reports *"limit 2000 matches stored 2000"*, and with
+it removed it fails with *"form shows 0, stored 2000"*.
+
+### Three tools that were wrong, and why
+
+1. **Keyed by the outer object.** The signatures are keyed by *page*, and each page's list holds every
+   API call made while on it — so `/account` came back with a wrapper of `orders`, because the first
+   signature on every page is the PWA manifest. The API path lives in each entry's own `path` field,
+   which I had read as `url` and found `null`.
+
+2. **Found consumers by grepping the wrapper name.** `.orders`, `.strategies` and `.brokers` are
+   common local variable names. 246 "suspects", none real.
+
+3. **Demanded a subscript.** The correct and more common form is extraction — `data.plans || []` —
+   so six correct call sites were flagged, including one I had already fixed.
+
+All three were deleted rather than patched. The generalisation worth keeping: **this is a data-flow
+question and a text window cannot answer it.** The check that replaced them asserts on rendered
+output, which is the only thing that was ever trustworthy.
+
+### A weak assertion caught by mutation
+
+The first version of the check marked `/risk` with `/daily|loss|limit|risk/i`. All four words appear
+in the page's own labels, so it passed with the bug present — caught by reverting the fix and
+watching it stay green. `/risk` is now asserted on the exact stored value, and the remaining ten are
+documented in the file as what they are: a smoke test that the endpoint answered and the page
+rendered, not a per-row proof.
+
+### Reference
+
+- **Measure the class before fixing the nth instance.** The answer was "one bug", which is worth more
+  than the three fixes would have been individually.
+- **A check that cannot fail is worse than no check.** It passed with the defect in place.
+- **Delete a tool that lies; do not keep patching it.** Each of the three would have been
+  "fixable", and each fix would have produced a fourth wrong answer.
+- 11/11 envelope endpoints, 8/8 interaction scenarios, crawl 51/51, session 7/7, tsc 0, lint 0,
+  53 lib tests. API 1350 passed / 1 xpassed, ruff clean.
+
 ## Unreleased — a test I fixed for the calendar was still fixed for the clock, and CI caught it
 
 > My own earlier fix removed a date dependence and left a time-of-day one. Local passed; CI failed.

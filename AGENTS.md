@@ -3,6 +3,22 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — the envelope class closed: one bug in eleven, found by measurement after three wrong tools
+
+### What was done
+1. **Inventoried every envelope-shaped endpoint** from real crawled responses: **11** of them answer `{ key: [...] }` — `/admin/admins`, `/alerts/`, `/brokers/metadata`, `/engine/orders`, `/engine/positions`, `/engine/runs`, `/risk/settings`, `/strategies/`, `/strategies/list-builtin`, `/strategies/marketplace`, `/subscriptions/plans/`.
+2. **Ten of eleven are consumed correctly**, verified by loading each page and comparing rendered content against the endpoint's live item count (27 brokers, 23 alerts, 19 builtin strategies, 18 marketplace strategies, 4 plans, 3 orders, 3 positions, 2 runs, 1 admin). The eleventh is the `/risk` defect already fixed. **So the class is one bug, not eleven.**
+3. **Added `verify_envelope_pages.js`** (`npm run verify:envelopes`), mutation-tested both directions.
+4. **Three self-built analyses were wrong and were deleted, not patched:** keying by the outer object read the *page* path as an endpoint and hit the PWA manifest on every page; grepping wrapper names matched local variables (246 "suspects", none real); demanding a subscript missed the correct `data.plans || []` extraction form and flagged six correct call sites. **This is a data-flow question; a text window cannot answer it.**
+5. **A weak assertion caught by mutation:** the first `/risk` check matched `/daily|loss|limit|risk/i`, all of which appear in the page's own labels — so it passed with the defect present. Now asserted on the exact stored value.
+6. **11/11 envelopes, 8/8 interaction scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 53 lib tests.** API 1350 passed / 1 xpassed, ruff clean.
+
+### Reference
+- **Measure the class before fixing the nth instance.**
+- **A check that cannot fail is worse than no check** — caught by reverting the fix and watching it stay green.
+- **Delete a tool that lies.** Each of the three would have been "fixable", and each fix would have produced a fourth wrong answer.
+- **Envelope consumers now have a standing check**; three pages lost data to this and a fourth should not be possible without the check failing.
+
 ## Session: 2026-10-04 — a test fixed for the calendar was still fixed for the clock
 
 ### What was done
