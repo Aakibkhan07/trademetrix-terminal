@@ -31,4 +31,15 @@ smartapi-python>=1.5
 pyotp>=2.9
 asyncpg>=0.29
 psycopg2-binary>=2.9
-sqlalchemy>=2.0
+sqlalchemy[asyncio]>=2.0
+# `sqlalchemy[asyncio]` is not optional decoration: `infrastructure/database.py` imports
+# `sqlalchemy.ext.asyncio`, which imports `greenlet` at module load. The base package does not
+# depend on greenlet, so a clean image build resolves a SQLAlchemy that ships without it and the
+# API dies in its own lifespan with
+#
+#     ImportError: The SQLAlchemy asyncio module requires that the Python 'greenlet' library is
+#     installed
+#
+# This stayed hidden because the development venv happened to have greenlet installed, while the
+# image resolved a newer SQLAlchemy minor that no longer pulls it transitively. The extra is what
+# makes the dependency explicit rather than incidental to whatever version happens to resolve.
