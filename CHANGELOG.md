@@ -1,3 +1,43 @@
+## Unreleased — a test I fixed for the calendar was still fixed for the clock, and CI caught it
+
+> My own earlier fix removed a date dependence and left a time-of-day one. Local passed; CI failed.
+> This is the second round on the same test, and the reason it took two is that the first round
+> proved a weaker claim than the one that mattered.
+
+### Fixed
+
+1. **`test_a_non_empty_result_is_still_cached` passed locally and failed in CI**
+   (`apps/api/tests/test_intraday_window_widening.py`). It was fixed earlier today by deriving the
+   mocked session from `end_dt`, which removed the dependence on *what day* it ran and left the
+   dependence on *what time*. Measured: a session spans 03:45–09:55 UTC, and with intraday widening
+   `_covers_range` requires the slice to reach `end_dt - 1 day`. Against a window built from a clock
+   reading ~21:00 UTC that held. Against one reading 02:17 UTC — which is when CI ran — it did not,
+   the loader returned `[]`, and the test failed having changed nothing.
+
+   The window and the session are now both pinned, exactly as the two sibling tests in the same file
+   pin `_resolve_range`. Nothing in the test reads the clock at all.
+
+### Proved, not asserted
+
+2. **13 of 13 simulated hours pass**, across `00:00`–`23:00` UTC frozen
+   (`apps/api/scripts/prove_clock_independence.py`), and the test passes under four timezones
+   (UTC, Asia/Kolkata, America/New_York, Pacific/Auckland).
+
+   **The proof was validated against the bug first**: reverting the fix makes the same script report
+   a failure at `02:00`, which is precisely what CI saw. A "13/13 pass" that had never reproduced
+   the failure would have been worthless, so the reproduction is the part that was checked.
+
+### Reference
+
+- **Prove date-independence, then prove clock-independence.** The first round moved the session but
+  left it anchored to a moving window, which is a date fix wearing a clock fix's clothes.
+- **A green local suite is not evidence about a foreign clock.** Local and CI differ by four hours
+  here and by an entire environment for anything that touches time.
+- **Validate the validator.** The reproduction was confirmed to fail before the fix was believed to
+  pass.
+- API **1350 passed / 1 xpassed**; ruff clean. Web 8/8 interaction scenarios, crawl 51/51,
+  session 7/7, tsc 0, lint 0, 53 lib tests.
+
 ## Unreleased — the risk page showed a daily-loss cap of 0 for an account whose cap was 2000, and could not save at all
 
 > Found by pressing Save and reading what the form sent, rather than what it displayed. The kill

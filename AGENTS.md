@@ -3,6 +3,19 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — a test fixed for the calendar was still fixed for the clock
+
+### What was done
+1. **CI caught what my earlier fix missed.** `test_a_non_empty_result_is_still_cached` was fixed earlier today by deriving the session from `end_dt`, which removed the *date* dependence and left the *time* one. Measured session span is 03:45–09:55 UTC; with intraday widening `_covers_range` needs the slice to reach `end_dt - 1 day`. That held against a ~21:00 UTC clock and failed against CI's 02:17 UTC, so the loader returned `[]` and the test failed with no code change. Window and session are now both pinned, as the two sibling tests in that file already do.
+2. **Proved rather than asserted**: 13/13 simulated clock hours pass (00:00–23:00 UTC) and 4 timezones pass, via `apps/api/scripts/prove_clock_independence.py`.
+3. **Validated the proof against the bug first** — reverting the fix makes the same script fail at 02:00, exactly what CI saw. A "13/13 pass" that never reproduced the failure proves nothing, so the reproduction was the part checked.
+4. API **1350 passed / 1 xpassed**; ruff clean. Web 8/8 scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 53 lib tests.
+
+### Reference
+- **Prove date-independence, then clock-independence.** The first round was a date fix wearing a clock fix's clothes.
+- **A green local suite says nothing about a foreign clock** — local and CI differ by four hours here.
+- **Validate the validator.** Reproduce the failure before believing the fix.
+
 ## Session: 2026-10-04 — the risk page showed a 0 daily-loss cap for an account capped at 2000, and could not save
 
 ### What was done
