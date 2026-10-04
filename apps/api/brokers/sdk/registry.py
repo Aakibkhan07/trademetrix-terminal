@@ -50,6 +50,11 @@ class BrokerSpec:
             "has_additional_params": self.has_additional_params,
             "instructions": self.instructions,
             "oauth_available": self.oauth_available,
+            # Whether an execution adapter is registered for this broker, read off the spec rather
+            # than declared anywhere else. The UI needs this to tell a broker that cannot be
+            # connected from one that simply has not been connected yet — and it has to come from
+            # here, because the registry is the only thing that knows.
+            "execution_adapter_available": self.adapter_class is not None,
             **({"additional_params_fields": self.additional_params_fields} if self.has_additional_params else {}),
         }
 

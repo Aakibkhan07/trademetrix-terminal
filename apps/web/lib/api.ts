@@ -85,6 +85,10 @@ export interface BrokerMeta {
   additional_params_fields?: BrokerFieldMeta[]
   instructions: string
   oauth_available: boolean
+  /** Whether the backend has an execution adapter registered for this broker. Absent on an older
+   *  API, in which case the UI treats the broker as connectable — the credentials endpoint accepts
+   *  any broker, so assuming otherwise would reproduce the bug this replaced. */
+  execution_adapter_available?: boolean
 }
 
 export interface BrokerCred {

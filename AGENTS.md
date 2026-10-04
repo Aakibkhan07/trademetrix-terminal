@@ -3,6 +3,23 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — eighteen brokers hidden by a false claim; a cron command that could not run; one false alarm of my own
+
+### What was done
+1. **Fixed 18 working brokers being hidden.** `app/brokers/page.tsx` hardcoded 18 broker keys under "not yet available for live trading". All 18 resolve through `brokers.get_broker()` to real adapters, verified by calling the resolver. The list was added in a `design:` commit on Sep 22; the adapters landed Sep 17 — wrong when written, not stale since. `BrokerSpec.to_metadata()` now publishes `execution_adapter_available` derived from `adapter_class`; the page reads it. The "Coming Soon" section was **not deleted** — it now renders only when the backend reports an adapter-less broker. 9 → 27 connectable.
+2. **Fixed a cron command that could not have worked.** Missing `-X POST`, a host production never publishes, two copies disagreeing about quoting — and the real blocker: `/api/v1/reports/daily/send` sat behind the CSRF middleware, which needs a cookie a cron cannot set, so every call was 403 before the route ran. Exempted with the justification recorded next to it, and both copies now derive the URL. Verified by running the rendered command: HTTP 200.
+3. **Corrected a false alarm.** I concluded the production image would bake in `localhost:8000` from `.dockerignore` + `COPY . .` + build-time inlining. Wrong: `.env.production` is tracked, is not ignored, and wins under `NODE_ENV=production` — a plain build emitted 13 production URLs and one localhost, that one being this very page's copy. Checked because the static chain looked airtight.
+4. **Added** `verify_broker_availability.js`, `test_broker_availability_flag.py` (23), `verify_cron_hint.js`, `test_daily_report_cron_hint.py` (5) — all mutation-tested.
+5. **Two of my own guards were weak and are now fixed.** A page-source grep that a comment could satisfy, and a browser check that asserted "not localhost" when localhost was locally correct — a derived hint and a hardcoded one render identically.
+6. All green: 27/27 brokers, 4/4 cron, 2/2 running, 11/11 envelopes, 8/8 scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 53 lib. API 1378 passed / 1 xpassed, ruff clean.
+
+### Reference
+- **A hardcoded list in the frontend is a snapshot of the backend taken at some past moment.**
+- **Derive the flag; never declare it.**
+- **Read the failure the user would get, not the one easiest to see** — 405 was in the string, 403 was behind a cookie a cron cannot set.
+- **Check a static chain anyway**; the deployment-blocking claim I was about to commit was false.
+- **A guard a comment can satisfy is not a guard.**
+
 ## Session: 2026-10-04 — paper trading permanently locked out at five strategies; four wrong turns on the way
 
 ### What was done

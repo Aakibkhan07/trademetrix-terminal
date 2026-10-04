@@ -1,3 +1,141 @@
+## Unreleased — eighteen working brokers were hidden behind a "coming soon" that was false when written
+
+> `app/brokers/page.tsx` carried a hardcoded set of eighteen broker keys and rendered them under
+> "Coming Soon — registered but not yet available for live trading". All eighteen resolve to real
+> execution adapters. The list was added in a `design:` commit on Sep 22; the adapters and their
+> `register_broker()` calls landed on Sep 17. **The claim was wrong the day it was written**, and it
+> left nine brokers connectable out of twenty-seven.
+
+### Measured
+
+Calling the resolver directly, rather than reading the files:
+
+    execution adapters registered: 27
+    the 18 the page hides:
+      hdfc -> HDFCSecuritiesAdapter     binance -> BinanceAdapter      bybit -> BybitAdapter
+      okx  -> OkxAdapter                oanda   -> OandaAdapter       alpaca -> AlpacaAdapter
+      groww-> GrowwAdapter              aliceblue -> AliceBlueAdapter  fivepaisa -> FivePaisaAdapter
+      ... 18/18 RESOLVE
+
+And the page's own metadata contradicted it in the same payload it read: all 27 brokers publish
+credential fields and step-by-step instructions, while the page told users half of them could not be
+used. `POST /brokers/credentials` applies no allowlist either.
+
+### Fixed by moving the answer to where it lives
+
+`BrokerSpec.to_metadata()` now publishes `execution_adapter_available`, derived from the
+`adapter_class` the spec already holds. The page reads that instead of carrying a list.
+
+The flag defaults to *available* when absent, because the credentials endpoint accepts any broker —
+defaulting the other way would reproduce this bug against an older API.
+
+**The "Coming Soon" section was not deleted.** A broker with no adapter genuinely belongs there, and
+the feature freeze says no deletions. It now renders only when the backend reports a broker without
+an adapter, which today means never — verified by mutating the server to mark `groww` as having no
+adapter, which made the section reappear and name Groww correctly.
+
+### Measured after
+
+    page stat : "0 connected · 27 available"   (was 9)
+    dialog    : 27/27 brokers listed, 0 missing
+    dialog inputs for the broker on offer: "Alice Blue User ID", "Trading Password", …
+
+### Added
+
+`apps/web/scripts/browser/verify_broker_availability.js` (`npm run verify:brokers`) and
+`apps/api/tests/test_broker_availability_flag.py` (23 tests). Both mutation-tested: hardcoding the
+registry flag fails the derivation test, and reintroducing a broker list on the page fails the other.
+
+That page test needed two corrections to be worth anything. Its first version grepped for
+`execution_adapter_available` anywhere in the file and passed with a seventeen-entry `includes()`
+back in place, because the field name also appears in the explanatory comment above the function —
+**a guard a comment can satisfy is not a guard**. It now strips comments first. A second weak
+assertion counted broker names present in the dialog text, which passes for a broker that is merely
+mentioned; it now requires every connectable broker to be named and separately reports any
+adapter-less broker that shows up.
+
+### Reference
+
+- **A hardcoded list in the frontend is a snapshot of the backend taken at some past moment.** This
+  one was a snapshot of something untrue.
+- **Derive the flag; never declare it.** `adapter_class is not None` cannot drift.
+- **Read the neighbouring call sites.** `app/strategies` already used the right pattern ninety
+  characters from a wrong use of the same array.
+- 27/27 brokers, 6/6 availability checks, 23 API tests, 11/11 envelope endpoints, 8/8 interaction
+  scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 53 lib tests. API 1378 passed / 1 xpassed, ruff
+  clean.
+
+## Unreleased — the documented cron command could not have worked, and the reason was not the verb
+
+> `/reports/daily` tells the operator to schedule a curl command. Following it would have produced
+> nothing, and the first defect found was not the one that mattered.
+
+### Three defects, and a fourth found while fixing the first
+
+    curl -s http://127.0.0.1:8000/api/v1/reports/daily/send -H X-Cron-Secret:$CRON_SECRET
+
+1. **No `-X POST`.** The endpoint is `@router.post`; `curl` defaults to GET. 405.
+2. **Wrong host.** The instruction says to set this up on the VPS, but production compose never
+   publishes port 8000. Inside the `trademetrix` network the API is `api:8000`; from outside it is
+   `https://api.ai.trademetrix.tech`. `127.0.0.1:8000` answers on neither.
+3. **Two copies that disagreed about quoting** — the API's own `message` and the page — so they
+   could drift, and had.
+4. **The endpoint was behind the CSRF middleware.** `middleware/csrf.py` rejects mutating requests
+   unless the path is in `SAFE_PATHS`, and it wants a `csrf_token` **cookie** plus a matching header.
+   `/api/v1/reports/daily/send` was not in that set. The endpoint exists to be called by a cron — a
+   server-side curl with a secret header and no cookies — and a cron cannot produce a cookie. **Every
+   attempt answered 403 before the route ran**, so no amount of fixing the verb would have helped.
+
+### Fixed
+
+The path is now exempt. That is not a hole: CSRF exists to stop a browser being induced into sending
+a request carrying the user's cookies, and this endpoint authenticates on a shared secret and reads no
+cookie at all. Every other entry in `SAFE_PATHS` is there for the same reason — the TradingView and
+Razorpay webhooks, the broker OAuth callbacks, the market-data endpoints a desktop app polls.
+
+Both copies now derive the URL rather than writing it out. The API joins `request.base_url` with
+`request.url.path`, which already carries the `/api/v1` prefix the router is mounted at —
+`base_url` alone is the origin and yields a path the router does not serve. The page builds the same
+string from `API_BASE`, the value it already uses for every other request.
+
+Verified by running the documented command exactly as rendered, with no cookies:
+
+    curl -s -X POST http://127.0.0.1:8000/api/v1/reports/daily/send -H "X-Cron-Secret: $CRON_SECRET"
+    HTTP 200   ok: True
+
+### Added
+
+`apps/web/scripts/browser/verify_cron_hint.js` (`npm run verify:cron`) reads the hint off the rendered
+page, and `apps/api/tests/test_daily_report_cron_hint.py` posts to whatever URL the hint names. Both
+mutation-tested: removing `-X POST` fails two checks, removing the path from `SAFE_PATHS` fails four,
+and hardcoding a divergent host in the page fails the base comparison.
+
+The first version of the browser check asserted "the hint must not say localhost" and **failed a
+correct page**, because locally `API_BASE` genuinely is `127.0.0.1:8000` — a derived hint and a
+hardcoded one render identically. It now captures the API origin from the page's own traffic and
+requires the hint to name the same one, which is the question that actually matters.
+
+### A false alarm, recorded because it nearly was not
+
+Chasing the localhost URL, I concluded the production image would bake in `localhost:8000`, since
+`.dockerignore` does not exclude `.env`, `Dockerfile` runs `COPY . .`, and `NEXT_PUBLIC_*` is inlined
+at build time. **That was wrong.** `apps/web/.env.production` is tracked in git, is not ignored, and
+wins under `NODE_ENV=production`; a plain `npm run build` — exactly what `Dockerfile:6` runs — emitted
+**13 occurrences of `https://api.ai.trademetrix.tech/api/v1` and one `127.0.0.1`**, that one being a
+curl example in the reports page's own copy. The static chain looked airtight and was checked anyway,
+which is the only reason it did not go in as a deployment-blocking claim.
+
+### Reference
+
+- **Read the failure the user would get, not the one that is easiest to see.** 405 was visible in the
+  string; 403 was behind a cookie a cron cannot set.
+- **An exemption needs a reason, and the reason belongs next to it.** The `SAFE_PATHS` comment
+  explains why the cron endpoint needs no CSRF defence.
+- **A hardcoded host and a derived one can render identically.** Compare against the page's real
+  traffic, not against a string you expect to see.
+- 4/4 cron checks, 27/27 brokers, 2/2 running counts, 11/11 envelope endpoints, 8/8 scenarios, crawl
+  51/51, session 7/7, tsc 0, lint 0, 53 lib tests. API 1378 passed / 1 xpassed, ruff clean.
+
 ## Unreleased — paper trading locked itself out permanently the fifth time anyone used it
 
 > `/builder/dashboard` answers `{"running": [...], "total_running": N}`. Two pages stored the list

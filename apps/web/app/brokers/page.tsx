@@ -5,14 +5,26 @@ import { Dialog } from '@/components/ui/dialog'
 import { api, credRole, friendlyApiError, type BrokerMeta, type BrokerCred, type BrokerFieldMeta, type CredentialRole } from "@/lib/api";
 import { BrokerLogo } from '@/components/broker-logos'
 
-const PLACEHOLDER_BROKERS = new Set([
-  'hdfc', 'iifl', 'motilal', 'geojit', 'reliance', 'axis',
-  'binance', 'bybit', 'okx', 'oanda', 'interactive_brokers', 'alpaca',
-  'icici', 'aliceblue', 'fivepaisa', 'finvasia', 'flattrade', 'groww',
-])
-
-function isPlaceholder(broker: string): boolean {
-  return PLACEHOLDER_BROKERS.has(broker)
+/**
+ * Whether the backend has an execution adapter registered for this broker.
+ *
+ * This used to be a hardcoded list of eighteen broker keys, under the heading "Coming Soon —
+ * registered but not yet available for live trading". All eighteen resolve to real adapters through
+ * `brokers.get_broker()` — `binance -> BinanceAdapter`, `groww -> GrowwAdapter`, `hdfc ->
+ * HDFCSecuritiesAdapter` and so on — and `POST /brokers/credentials` applies no allowlist. The list
+ * was added in a "design: redesign full frontend" commit on Sep 22; the adapters and their
+ * `register_broker()` calls had landed on Sep 17. The claim was wrong the day it was written.
+ *
+ * The answer now comes from `execution_adapter_available` on the broker's own metadata, which the
+ * SDK registry derives from the adapter class it holds. A hardcoded list in the frontend can only
+ * ever be a snapshot of the backend taken at some past moment, and this one was already a snapshot
+ * of something untrue.
+ *
+ * Absent means available: the credentials endpoint accepts any broker, so an older API that omits
+ * the field must not be read as a reason to hide working brokers.
+ */
+function hasExecutionAdapter(meta: BrokerMeta | undefined): boolean {
+  return meta?.execution_adapter_available !== false
 }
 
 export default function BrokersPage() {
@@ -224,10 +236,10 @@ export default function BrokersPage() {
 
   const connectedBrokers = credentials.filter(c => c.is_active)
   const availableBrokers = Object.keys(metadataMap).filter(
-    b => !connectedBrokers.some(c => c.broker === b) && !isPlaceholder(b)
+    b => !connectedBrokers.some(c => c.broker === b) && hasExecutionAdapter(metadataMap[b])
   )
   const placeholderBrokers = Object.keys(metadataMap).filter(
-    b => !connectedBrokers.some(c => c.broker === b) && isPlaceholder(b)
+    b => !connectedBrokers.some(c => c.broker === b) && !hasExecutionAdapter(metadataMap[b])
   )
 
   const stats = {
