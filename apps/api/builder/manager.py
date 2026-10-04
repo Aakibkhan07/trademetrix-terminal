@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -45,12 +46,47 @@ async def _ensure_db() -> None:
         logger.warning("BuilderManager DB load skipped: %s", e)
 
 
+_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+
+def _owner_of(data: dict) -> str | None:
+    """The profile id that owns a stored strategy, or None when it recorded no owner.
+
+    `author` is not an owner column. On production it holds three different kinds of value:
+    a real uuid for the 23 rows created through an authenticated request, the literal string
+    'user' for the 1144 created without one, and an empty string for some. Reading it as an
+    owner and comparing it to a user id is what made every strategy match every tenant.
+    `user_id` is the real column; `author` is consulted only where it is uuid-shaped, which
+    is the ownership that was recorded before the column existed.
+    """
+    owner = data.get("user_id")
+    if owner:
+        return str(owner)
+    author = data.get("author") or ""
+    return author if _UUID_RE.match(author) else None
+
+
+def _visible_to(data: dict, user_id: str | None) -> bool:
+    """Whether `user_id` may see this strategy.
+
+    `user_id=None` means an internal caller with no tenant context — templates, the builder
+    compiling a DSL that was never saved — and those keep the previous behaviour of seeing
+    everything. Every authenticated route passes the caller's id, and a strategy with no
+    recoverable owner is then visible to nobody, which is the direction that fails closed.
+    """
+    if user_id is None:
+        return True
+    owner = _owner_of(data)
+    return owner is not None and owner == str(user_id)
+
+
 async def _persist(data: dict) -> None:
     try:
         supabase = get_supabase()
         row = {k: data.get(k) for k in ("id", "version", "name", "description", "author", "status",
                                         "tags", "settings", "nodes", "edges", "created_at",
-                                        "updated_at", "parent_id", "version_number", "deployment")}
+                                        "updated_at", "parent_id", "version_number", "deployment",
+                                        "user_id")}
         await async_supabase(lambda r=row: supabase.table("builder_strategies").upsert(r, on_conflict="id").execute())
     except Exception as e:
         logger.warning("BuilderManager persist skipped for %s: %s", data.get("id", ""), e)
@@ -96,7 +132,22 @@ class BuilderManager:
 
     # ─── CRUD ───
 
-    async def create(self, name: str = "", description: str = "", author: str = "user", template: str = "") -> StrategyDSL:
+    async def create(
+        self,
+        name: str = "",
+        description: str = "",
+        author: str = "user",
+        template: str = "",
+        owner_id: str | None = None,
+    ) -> StrategyDSL:
+        """Create a strategy.
+
+        `owner_id` is the authenticated profile that will own it and is what `_visible_to`
+        filters on. `author` stays a free-text display value and keeps its historical default
+        of the literal 'user', because 1144 production rows carry exactly that and it is read
+        as a display field by the strategy list — writing a uuid there would change what the
+        list shows without making ownership queryable.
+        """
         await _ensure_db()
         if template and template in STRATEGY_TEMPLATES:
             dsl = STRATEGY_TEMPLATES[template].model_copy(deep=True)
@@ -119,22 +170,23 @@ class BuilderManager:
 
         key = dsl.id
         _strategies[key] = dsl.model_dump(mode="json")
+        _strategies[key]["user_id"] = owner_id
         _versions[key] = [{"version": 1, "data": dsl.model_dump(mode="json"), "saved_at": dsl.created_at}]
         await _persist(_strategies[key])
         await _persist_version(key, _versions[key][0])
         return dsl
 
-    async def get(self, strategy_id: str) -> StrategyDSL | None:
+    async def get(self, strategy_id: str, user_id: str | None = None) -> StrategyDSL | None:
         await _ensure_db()
         data = _strategies.get(strategy_id)
-        if data:
+        if data and _visible_to(data, user_id):
             return StrategyDSL(**data)
         return None
 
-    async def update(self, strategy_id: str, updates: dict) -> StrategyDSL | None:
+    async def update(self, strategy_id: str, updates: dict, user_id: str | None = None) -> StrategyDSL | None:
         await _ensure_db()
         existing = _strategies.get(strategy_id)
-        if not existing:
+        if not existing or not _visible_to(existing, user_id):
             return None
 
         for key, val in updates.items():
@@ -177,19 +229,21 @@ class BuilderManager:
             await _persist_version(strategy_id, _versions[strategy_id][-1])
         return StrategyDSL(**existing)
 
-    async def delete(self, strategy_id: str) -> bool:
+    async def delete(self, strategy_id: str, user_id: str | None = None) -> bool:
         await _ensure_db()
-        if strategy_id in _strategies:
+        if strategy_id in _strategies and _visible_to(_strategies[strategy_id], user_id):
             del _strategies[strategy_id]
             _versions.pop(strategy_id, None)
             await _delete_persist(strategy_id)
             return True
         return False
 
-    async def list(self, status: str | None = None) -> list:
+    async def list(self, status: str | None = None, user_id: str | None = None) -> list:
         await _ensure_db()
         results = []
         for sid, data in _strategies.items():
+            if not _visible_to(data, user_id):
+                continue
             if status and data.get("status") != status:
                 continue
             results.append({
@@ -209,9 +263,19 @@ class BuilderManager:
 
     # ─── Versioning ───
 
-    async def publish(self, strategy_id: str) -> StrategyDSL | None:
+    async def owns(self, strategy_id: str, user_id: str | None) -> bool:
+        """Whether `user_id` may act on this strategy.
+
+        The version-history methods read `_versions` directly rather than going through
+        `get()`, so they need this to answer the same question.
+        """
         await _ensure_db()
-        dsl = await self.get(strategy_id)
+        data = _strategies.get(strategy_id)
+        return data is not None and _visible_to(data, user_id)
+
+    async def publish(self, strategy_id: str, user_id: str | None = None) -> StrategyDSL | None:
+        await _ensure_db()
+        dsl = await self.get(strategy_id, user_id)
         if not dsl:
             return None
         dsl.status = StrategyStatus.PUBLISHED
@@ -220,9 +284,9 @@ class BuilderManager:
         await _persist(_strategies[strategy_id])
         return dsl
 
-    async def archive(self, strategy_id: str) -> StrategyDSL | None:
+    async def archive(self, strategy_id: str, user_id: str | None = None) -> StrategyDSL | None:
         await _ensure_db()
-        dsl = await self.get(strategy_id)
+        dsl = await self.get(strategy_id, user_id)
         if not dsl:
             return None
         dsl.status = StrategyStatus.ARCHIVED
@@ -231,9 +295,9 @@ class BuilderManager:
         await _persist(_strategies[strategy_id])
         return dsl
 
-    async def clone(self, strategy_id: str) -> StrategyDSL | None:
+    async def clone(self, strategy_id: str, user_id: str | None = None) -> StrategyDSL | None:
         await _ensure_db()
-        original = await self.get(strategy_id)
+        original = await self.get(strategy_id, user_id)
         if not original:
             return None
 
@@ -253,8 +317,10 @@ class BuilderManager:
         await _persist_version(key, _versions[key][0])
         return clone
 
-    async def rollback(self, strategy_id: str, version: int) -> StrategyDSL | None:
+    async def rollback(self, strategy_id: str, version: int, user_id: str | None = None) -> StrategyDSL | None:
         await _ensure_db()
+        if not await self.owns(strategy_id, user_id):
+            return None
         versions = _versions.get(strategy_id, [])
         target = next((v for v in versions if v["version"] == version), None)
         if not target:
@@ -270,21 +336,27 @@ class BuilderManager:
         await _persist_version(strategy_id, _versions[strategy_id][-1])
         return dsl
 
-    async def get_versions(self, strategy_id: str) -> list:
+    async def get_versions(self, strategy_id: str, user_id: str | None = None) -> list:
         await _ensure_db()
+        if not await self.owns(strategy_id, user_id):
+            return []
         return [{"version": v["version"], "saved_at": v["saved_at"], "data": v["data"]} for v in _versions.get(strategy_id, [])]
 
-    async def get_version(self, strategy_id: str, version: int) -> StrategyDSL | None:
+    async def get_version(self, strategy_id: str, version: int, user_id: str | None = None) -> StrategyDSL | None:
         await _ensure_db()
+        if not await self.owns(strategy_id, user_id):
+            return None
         target = next((v for v in _versions.get(strategy_id, []) if v["version"] == version), None)
         if not target:
             return None
         return StrategyDSL(**target["data"])
 
-    async def compare(self, strategy_id: str, from_version: int, to_version: int) -> dict | None:
+    async def compare(self, strategy_id: str, from_version: int, to_version: int, user_id: str | None = None) -> dict | None:
         await _ensure_db()
-        a = await self.get_version(strategy_id, from_version)
-        b = await self.get_version(strategy_id, to_version)
+        if not await self.owns(strategy_id, user_id):
+            return None
+        a = await self.get_version(strategy_id, from_version, user_id)
+        b = await self.get_version(strategy_id, to_version, user_id)
         if not a or not b:
             return None
 
@@ -333,9 +405,9 @@ class BuilderManager:
             "changes": changes,
         }
 
-    async def set_status(self, strategy_id: str, status: StrategyStatus | str) -> StrategyDSL | None:
+    async def set_status(self, strategy_id: str, status: StrategyStatus | str, user_id: str | None = None) -> StrategyDSL | None:
         await _ensure_db()
-        dsl = await self.get(strategy_id)
+        dsl = await self.get(strategy_id, user_id)
         if not dsl:
             return None
         dsl.status = status if isinstance(status, StrategyStatus) else StrategyStatus(str(status))
@@ -359,8 +431,8 @@ class BuilderManager:
 
     # ─── Preview ───
 
-    async def preview(self, strategy_id: str) -> dict:
-        dsl = await self.get(strategy_id)
+    async def preview(self, strategy_id: str, user_id: str | None = None) -> dict:
+        dsl = await self.get(strategy_id, user_id)
         if not dsl:
             return {"error": "Strategy not found"}
         return generate_preview(dsl)

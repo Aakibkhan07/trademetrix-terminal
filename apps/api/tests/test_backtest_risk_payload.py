@@ -169,7 +169,7 @@ async def test_get_run_budgets_risk_analytics(client, auth_headers, monkeypatch)
     ra = _big_analytics(n_points=5000, n_rejections=500)
     result = _fake_result(ra)
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         return result
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get)
@@ -194,7 +194,7 @@ async def test_get_run_risk_off_passthrough(client, auth_headers, monkeypatch):
 
     result = _fake_result(RiskAnalytics())
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         return result
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get)

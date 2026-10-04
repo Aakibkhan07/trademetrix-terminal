@@ -199,8 +199,16 @@ class BacktestManager:
             self._current_run.completed_at = datetime.now(UTC).isoformat()
         return True
 
-    def list_runs(self, strategy_id: str | None = None) -> list[dict]:
+    def list_runs(self, strategy_id: str | None = None, user_id: str | None = None) -> list[dict]:
+        """List runs, optionally scoped to one owner.
+
+        `user_id` is what keeps this a per-tenant list. `self._history` is process-wide, so
+        without it every signed-in user was handed every run this worker had executed,
+        including their P&L. A run with no recorded owner is excluded rather than included.
+        """
         runs = self._history[:]
+        if user_id is not None:
+            runs = [r for r in runs if getattr(r, "user_id", None) == user_id]
         if strategy_id:
             runs = [r for r in runs if r.config and r.config.strategy_type == strategy_id]
         return [
@@ -221,18 +229,32 @@ class BacktestManager:
             for r in reversed(runs)
         ]
 
-    async def get_run(self, run_id: str) -> BacktestResult | None:
+    async def get_run(self, run_id: str, user_id: str | None = None) -> BacktestResult | None:
+        """Load one run by id.
+
+        `user_id` scopes the read to its owner. Without it the lookup was by id alone, so
+        any authenticated user could read another tenant's backtest: measured on production,
+        a user created that morning with zero runs of their own received HTTP 200 and another
+        account's `net_pnl`, trades and 301-point equity curve.
+
+        A row whose `user_id` is NULL is one written before ownership was recorded; it is
+        visible to nobody rather than to everyone, so this fails closed.
+        """
         for r in self._history:
-            if r.run_id == run_id:
+            if r.run_id == run_id and (user_id is None or getattr(r, "user_id", None) == user_id):
                 return r
         try:
             from core.db import async_supabase, get_supabase
 
             supabase = get_supabase()
-            result = await async_supabase(
-                lambda: supabase.table("backtest_runs")
-                .select("*").eq("id", run_id).limit(1).execute(),
-            )
+
+            def _select():
+                query = supabase.table("backtest_runs").select("*").eq("id", run_id)
+                if user_id is not None:
+                    query = query.eq("user_id", user_id)
+                return query.limit(1).execute()
+
+            result = await async_supabase(_select)
             rows = result.data or []
             if not rows:
                 return None

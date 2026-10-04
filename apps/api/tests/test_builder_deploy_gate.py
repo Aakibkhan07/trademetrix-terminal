@@ -21,19 +21,19 @@ _DEPLOY_PAYLOAD = {
 }
 
 
-async def _make_paper_strategy() -> str:
-    dsl = await builder_manager.create(name="Redeploy Test", template="ema_crossover")
+async def _make_paper_strategy(test_user_id):
+    dsl = await builder_manager.create(name="Redeploy Test", template="ema_crossover", owner_id=test_user_id)
     await builder_manager.set_status(dsl.id, StrategyStatus.PAPER)
     return dsl.id
 
 
 @pytest.mark.asyncio
-async def test_redeploy_paper_strategy_succeeds(client, auth_headers, monkeypatch):
+async def test_redeploy_paper_strategy_succeeds(client, auth_headers, monkeypatch, test_user_id):
     """A strategy already deployed (status PAPER) must be deployable again."""
     import routes.v1_builder as v1_builder
 
     monkeypatch.setattr(v1_builder, "_runtime_start", _fake_runtime_start)
-    sid = await _make_paper_strategy()
+    sid = await _make_paper_strategy(test_user_id)
 
     resp = await client.post(
         f"/api/v1/builder/strategies/{sid}/deploy",
@@ -46,12 +46,12 @@ async def test_redeploy_paper_strategy_succeeds(client, auth_headers, monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_redeploy_stopped_strategy_succeeds(client, auth_headers, monkeypatch):
+async def test_redeploy_stopped_strategy_succeeds(client, auth_headers, monkeypatch, test_user_id):
     """A stopped strategy (status STOPPED) must be deployable again."""
     import routes.v1_builder as v1_builder
 
     monkeypatch.setattr(v1_builder, "_runtime_start", _fake_runtime_start)
-    sid = await _make_paper_strategy()
+    sid = await _make_paper_strategy(test_user_id)
     await builder_manager.set_status(sid, StrategyStatus.STOPPED)
 
     resp = await client.post(
@@ -64,12 +64,12 @@ async def test_redeploy_stopped_strategy_succeeds(client, auth_headers, monkeypa
 
 
 @pytest.mark.asyncio
-async def test_deploy_archived_strategy_still_rejected(client, auth_headers, monkeypatch):
+async def test_deploy_archived_strategy_still_rejected(client, auth_headers, monkeypatch, test_user_id):
     """ARCHIVED must stay non-deployable."""
     import routes.v1_builder as v1_builder
 
     monkeypatch.setattr(v1_builder, "_runtime_start", _fake_runtime_start)
-    dsl = await builder_manager.create(name="Archived Test", template="ema_crossover")
+    dsl = await builder_manager.create(name="Archived Test", template="ema_crossover", owner_id=test_user_id)
     await builder_manager.archive(dsl.id)
 
     resp = await client.post(

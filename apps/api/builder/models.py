@@ -183,6 +183,19 @@ class StrategyDSL(BaseModel):
     version_number: int = 1
     deployment: DeploymentConfig = Field(default_factory=DeploymentConfig)
 
+    # The owning profile.
+    #
+    # This lives on the DSL rather than only in the persisted row on purpose. Every mutating
+    # manager method ends with `_strategies[id] = dsl.model_dump(...)`, and `model_dump`
+    # emits only declared fields — so ownership held beside the model was dropped the first
+    # time a user validated, published, archived, rolled back or changed the status of their
+    # own strategy, after which the row matched no tenant and became invisible to the person
+    # who created it. Carrying it on the model makes that unrepresentable.
+    #
+    # `author` remains a separate free-text display field and is not used for ownership: it
+    # holds the literal 'user' on the 1144 production rows that recorded no owner.
+    user_id: str = ""
+
 
 class ExecutionNode(BaseModel):
     id: str

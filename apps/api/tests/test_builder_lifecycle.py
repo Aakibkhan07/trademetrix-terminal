@@ -11,16 +11,16 @@ from builder.models import StrategyStatus
 from builder.score import score_strategy
 
 
-async def _make(template: str = "ema_crossover") -> tuple[str, dict]:
-    dsl = await builder_manager.create(name="Lifecycle Test", template=template)
+async def _make(template: str = "ema_crossover", *, test_user_id):
+    dsl = await builder_manager.create(name="Lifecycle Test", template=template, owner_id=test_user_id)
     return dsl.id, dsl.model_dump(mode="json")
 
 
 # ─── Version control ───
 
 @pytest.mark.asyncio
-async def test_every_save_creates_version():
-    sid, _ = await _make()
+async def test_every_save_creates_version(test_user_id):
+    sid, _ = await _make(test_user_id=test_user_id)
     for i in range(3):
         await builder_manager.update(sid, {"name": f"v{i+1}"})
     versions = await builder_manager.get_versions(sid)
@@ -32,8 +32,8 @@ async def test_every_save_creates_version():
 
 
 @pytest.mark.asyncio
-async def test_compare_versions_detects_changes():
-    sid, _ = await _make()
+async def test_compare_versions_detects_changes(test_user_id):
+    sid, _ = await _make(test_user_id=test_user_id)
     await builder_manager.update(sid, {"name": "Renamed"})
     diff = await builder_manager.compare(sid, 1, 2)
     assert diff is not None
@@ -44,8 +44,8 @@ async def test_compare_versions_detects_changes():
 
 
 @pytest.mark.asyncio
-async def test_rollback_restores_and_bumps_version():
-    sid, _ = await _make()
+async def test_rollback_restores_and_bumps_version(test_user_id):
+    sid, _ = await _make(test_user_id=test_user_id)
     await builder_manager.update(sid, {"name": "Changed Name"})
     restored = await builder_manager.rollback(sid, 1)
     assert restored is not None
@@ -57,8 +57,8 @@ async def test_rollback_restores_and_bumps_version():
 
 
 @pytest.mark.asyncio
-async def test_rename_via_update():
-    sid, _ = await _make()
+async def test_rename_via_update(test_user_id):
+    sid, _ = await _make(test_user_id=test_user_id)
     dsl = await builder_manager.update(sid, {"name": "My Renamed Strategy"})
     assert dsl.name == "My Renamed Strategy"
 
@@ -66,8 +66,8 @@ async def test_rename_via_update():
 # ─── Status transitions ───
 
 @pytest.mark.asyncio
-async def test_status_transition_flow():
-    sid, _ = await _make()
+async def test_status_transition_flow(test_user_id):
+    sid, _ = await _make(test_user_id=test_user_id)
     dsl = await builder_manager.get(sid)
     assert dsl.status == StrategyStatus.DRAFT
 
@@ -92,8 +92,8 @@ async def test_status_transition_flow():
 # ─── Deployment config ───
 
 @pytest.mark.asyncio
-async def test_deployment_config_roundtrip():
-    sid, _ = await _make()
+async def test_deployment_config_roundtrip(test_user_id):
+    sid, _ = await _make(test_user_id=test_user_id)
     deploy = {
         "mode": "paper",
         "broker": "paper",
@@ -111,8 +111,8 @@ async def test_deployment_config_roundtrip():
 # ─── Validation score ───
 
 @pytest.mark.asyncio
-async def test_score_structure_and_fields():
-    sid, _ = await _make()
+async def test_score_structure_and_fields(test_user_id):
+    sid, _ = await _make(test_user_id=test_user_id)
     dsl = await builder_manager.get(sid)
     score = score_strategy(dsl)
     assert 0 <= score.overall <= 100
@@ -129,8 +129,8 @@ async def test_score_structure_and_fields():
 # ─── Logs ───
 
 @pytest.mark.asyncio
-async def test_logs_record_and_retrieve():
-    sid, _ = await _make()
+async def test_logs_record_and_retrieve(test_user_id):
+    sid, _ = await _make(test_user_id=test_user_id)
     await record(sid, "lifecycle", "started", user_id="test")
     await record(sid, "signal", "buy signal", level="info")
     await record(sid, "error", "boom", level="error")

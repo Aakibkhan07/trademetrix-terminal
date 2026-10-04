@@ -67,8 +67,23 @@ def without_session_mocks():
             patcher.start()
 
 
+# The id `get_current_user` resolves to for every test, and the subject every `auth_headers`
+# token is minted for. Exposed because builder strategies are now owned rows: a test that
+# plants one has to plant it for this user, or the route correctly reports it as not found.
+_TEST_USER_ID = ""
+
+
+@pytest.fixture(scope="session")
+def test_user_id() -> str:
+    """The profile id the test client authenticates as."""
+    global _TEST_USER_ID
+    if not _TEST_USER_ID:
+        _apply_test_mocks()
+    return _TEST_USER_ID
+
+
 def _apply_test_mocks():
-    global _MOCKS_APPLIED, _SESSION_AUTH
+    global _MOCKS_APPLIED, _SESSION_AUTH, _TEST_USER_ID
     if _MOCKS_APPLIED:
         return _SESSION_AUTH
     _MOCKS_APPLIED = True
@@ -79,6 +94,7 @@ def _apply_test_mocks():
     from core.security import create_access_token
 
     test_user_id = str(uuid.uuid4())
+    _TEST_USER_ID = test_user_id
     test_email = f"ses_{test_user_id[:8]}@test.example.com"
 
     _risk_settings_db[test_user_id] = {

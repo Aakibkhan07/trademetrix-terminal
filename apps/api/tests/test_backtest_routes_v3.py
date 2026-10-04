@@ -57,7 +57,7 @@ async def test_run_v3_with_builder_strategy(monkeypatch, client, auth_headers):
 
     dsl = StrategyDSL(name="v3-test", description="", settings={})
 
-    async def fake_get(sid):
+    async def fake_get(sid, user_id=None):
         assert sid == "abc123def456"
         return dsl
 
@@ -96,7 +96,7 @@ async def test_run_v3_with_builder_strategy(monkeypatch, client, auth_headers):
 async def test_run_v3_missing_strategy_404(monkeypatch, client, auth_headers):
     from builder.manager import builder_manager
 
-    async def fake_get(sid):
+    async def fake_get(sid, user_id=None):
         return None
 
     monkeypatch.setattr(builder_manager, "get", fake_get)
@@ -114,7 +114,7 @@ async def test_run_v3_invalid_dsl_400(monkeypatch, client, auth_headers):
     from builder.manager import builder_manager
     from builder.models import StrategyDSL, ValidationIssue, ValidationResult
 
-    async def fake_get(sid):
+    async def fake_get(sid, user_id=None):
         return StrategyDSL(name="bad", description="", settings={})
 
     def fake_compile(d):
@@ -138,7 +138,7 @@ async def test_run_v3_invalid_dsl_400(monkeypatch, client, auth_headers):
 async def test_compare_runs(monkeypatch, client, auth_headers):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         if run_id == "bt-ghost":
             return None
         return _fake_result(run_id=run_id)
@@ -171,7 +171,7 @@ async def test_compare_requires_run_ids(client, auth_headers):
 async def test_export_json_and_csv(monkeypatch, client, auth_headers):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         return _fake_result()
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get)
@@ -192,7 +192,7 @@ async def test_export_json_and_csv(monkeypatch, client, auth_headers):
 async def test_export_pdf(monkeypatch, client, auth_headers):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         return _fake_result()
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get)
@@ -209,7 +209,7 @@ async def test_export_pdf(monkeypatch, client, auth_headers):
 async def test_export_bad_format(monkeypatch, client, auth_headers):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         return _fake_result()
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get)
@@ -230,10 +230,10 @@ async def test_deploy_to_paper(monkeypatch, client, auth_headers):
     from builder.models import StrategyDSL, StrategyStatus
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get_run(run_id):
+    async def fake_get_run(run_id, user_id=None):
         return _fake_result()
 
-    async def fake_get_strategy(sid):
+    async def fake_get_strategy(sid, user_id=None):
         dsl = StrategyDSL(name="d", description="", settings={})
         dsl.status = StrategyStatus.READY
         return dsl
@@ -242,7 +242,7 @@ async def test_deploy_to_paper(monkeypatch, client, auth_headers):
         assert is_paper is True
         return "started"
 
-    async def fake_set_status(sid, status):
+    async def fake_set_status(sid, status, user_id=None):
         assert status == StrategyStatus.PAPER
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get_run)
@@ -262,7 +262,7 @@ async def test_deploy_to_paper(monkeypatch, client, auth_headers):
 async def test_deploy_to_paper_builtin_rejected(monkeypatch, client, auth_headers):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get_run(run_id):
+    async def fake_get_run(run_id, user_id=None):
         result = _fake_result()
         result.config.strategy_id = ""
         return result
@@ -367,7 +367,7 @@ async def test_static_routes_precede_run_id(monkeypatch, client, auth_headers):
 async def test_trades_pagination(monkeypatch, client, auth_headers):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         if run_id == "bt-ghost":
             return None
         return _fake_result(run_id=run_id)

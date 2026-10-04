@@ -26,25 +26,25 @@ async def _deploy(client, auth_headers, sid, mode="paper", broker="", confirm=Fa
 
 
 @pytest.mark.asyncio
-async def test_paper_deploy_needs_no_confirmation(client, auth_headers, monkeypatch):
+async def test_paper_deploy_needs_no_confirmation(client, auth_headers, monkeypatch, test_user_id):
     await _patch_runtime(monkeypatch)
-    sid = await _make_strategy()
+    sid = await _make_strategy(test_user_id)
     r = await _deploy(client, auth_headers, sid, mode="paper")
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "started"
 
 
 @pytest.mark.asyncio
-async def test_live_deploy_without_confirm_409(client, auth_headers, monkeypatch):
+async def test_live_deploy_without_confirm_409(client, auth_headers, monkeypatch, test_user_id):
     await _patch_runtime(monkeypatch)
-    sid = await _make_strategy()
+    sid = await _make_strategy(test_user_id)
     r = await _deploy(client, auth_headers, sid, mode="live", broker="fyers", confirm=False)
     assert r.status_code == 409, r.text
     assert "confirmation" in r.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
-async def test_live_deploy_with_confirm_requires_account(client, auth_headers, monkeypatch):
+async def test_live_deploy_with_confirm_requires_account(client, auth_headers, monkeypatch, test_user_id):
     await _patch_runtime(monkeypatch)
     from strategy_runtime import mode as mode_mod
 
@@ -52,14 +52,14 @@ async def test_live_deploy_with_confirm_requires_account(client, auth_headers, m
         return False
 
     monkeypatch.setattr(mode_mod, "_user_has_broker_account", _no_account)
-    sid = await _make_strategy()
+    sid = await _make_strategy(test_user_id)
     r = await _deploy(client, auth_headers, sid, mode="live", broker="fyers", confirm=True)
     assert r.status_code == 400, r.text
     assert "credentials" in r.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
-async def test_live_deploy_confirm_starts(client, auth_headers, monkeypatch):
+async def test_live_deploy_confirm_starts(client, auth_headers, monkeypatch, test_user_id):
     await _patch_runtime(monkeypatch)
     from strategy_runtime import mode as mode_mod
 
@@ -67,7 +67,7 @@ async def test_live_deploy_confirm_starts(client, auth_headers, monkeypatch):
         return True
 
     monkeypatch.setattr(mode_mod, "_user_has_broker_account", _has_account)
-    sid = await _make_strategy()
+    sid = await _make_strategy(test_user_id)
     r = await _deploy(client, auth_headers, sid, mode="live", broker="fyers", confirm=True)
     assert r.status_code == 200, r.text
     status = await client.get(f"/api/v1/runtime/{sid}/status", headers=auth_headers)
@@ -77,9 +77,9 @@ async def test_live_deploy_confirm_starts(client, auth_headers, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_emergency_stop_via_http(client, auth_headers, monkeypatch):
+async def test_emergency_stop_via_http(client, auth_headers, monkeypatch, test_user_id):
     await _patch_runtime(monkeypatch)
-    sid = await _make_strategy()
+    sid = await _make_strategy(test_user_id)
     await _deploy(client, auth_headers, sid)
     r = await client.post("/api/v1/runtime/emergency", json={"reason": "http-test"},
                           headers=auth_headers)
@@ -90,7 +90,7 @@ async def test_emergency_stop_via_http(client, auth_headers, monkeypatch):
     status = await client.get(f"/api/v1/runtime/{sid}/status", headers=auth_headers)
     assert status.json()["state"] == "PAUSED"
     # new deploy is blocked while the emergency stop is active (423)
-    sid2 = await _make_strategy()
+    sid2 = await _make_strategy(test_user_id)
     r2 = await _deploy(client, auth_headers, sid2, mode="paper")
     assert r2.status_code == 423, r2.text
     # release → deploy works again
@@ -101,9 +101,9 @@ async def test_emergency_stop_via_http(client, auth_headers, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_strategy_emergency_stop_and_pause_all(client, auth_headers, monkeypatch):
+async def test_strategy_emergency_stop_and_pause_all(client, auth_headers, monkeypatch, test_user_id):
     await _patch_runtime(monkeypatch)
-    sid = await _make_strategy()
+    sid = await _make_strategy(test_user_id)
     await _deploy(client, auth_headers, sid)
     r = await client.post(f"/api/v1/runtime/{sid}/emergency-stop", json={"reason": "per-strategy"},
                           headers=auth_headers)
@@ -117,9 +117,9 @@ async def test_strategy_emergency_stop_and_pause_all(client, auth_headers, monke
 
 
 @pytest.mark.asyncio
-async def test_reconcile_via_http(client, auth_headers, monkeypatch):
+async def test_reconcile_via_http(client, auth_headers, monkeypatch, test_user_id):
     await _patch_runtime(monkeypatch)
-    sid = await _make_strategy()
+    sid = await _make_strategy(test_user_id)
     await _deploy(client, auth_headers, sid)
     r = await client.post(f"/api/v1/runtime/{sid}/reconcile", headers=auth_headers)
     assert r.status_code == 200, r.text

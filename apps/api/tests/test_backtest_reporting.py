@@ -179,7 +179,7 @@ async def test_share_token_route_requires_auth(client):
 async def test_share_token_route_mints_token_and_url(client, auth_headers, monkeypatch):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         return _result()
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get)
@@ -194,7 +194,7 @@ async def test_share_token_route_mints_token_and_url(client, auth_headers, monke
 async def test_report_route_403_without_or_bad_token(client, monkeypatch):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         return _result()
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get)
@@ -206,7 +206,7 @@ async def test_report_route_403_without_or_bad_token(client, monkeypatch):
 async def test_report_route_200_with_valid_token(client, monkeypatch):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         return _result()
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get)
@@ -223,7 +223,7 @@ async def test_report_route_200_with_valid_token(client, monkeypatch):
 async def test_report_route_404_with_valid_token_missing_run(client, monkeypatch):
     from routes.v1_backtest import backtest_manager
 
-    async def fake_get(run_id):
+    async def fake_get(run_id, user_id=None):
         return None
 
     monkeypatch.setattr(backtest_manager, "get_run", fake_get)

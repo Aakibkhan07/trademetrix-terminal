@@ -87,6 +87,7 @@ async def create_strategy(
         description=req.description,
         author=current_user.id,
         template=req.template,
+        owner_id=current_user.id,
     )
     try:
         from application.services.analytics_service import AnalyticsService
@@ -104,7 +105,7 @@ async def list_strategies(
     status: str | None = None,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    strategies = await builder_manager.list(status=status)
+    strategies = await builder_manager.list(status=status, user_id=current_user.id)
     return {"strategies": strategies, "total": len(strategies)}
 
 
@@ -113,7 +114,7 @@ async def get_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.get(strategy_id)
+    dsl = await builder_manager.get(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     return dsl.model_dump(mode="json", exclude_none=True)
@@ -139,7 +140,7 @@ async def update_strategy(
     if req.tags is not None:
         updates["tags"] = req.tags
 
-    dsl = await builder_manager.update(strategy_id, updates)
+    dsl = await builder_manager.update(strategy_id, updates, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     return dsl.model_dump(mode="json", exclude_none=True)
@@ -150,7 +151,7 @@ async def delete_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    success = await builder_manager.delete(strategy_id)
+    success = await builder_manager.delete(strategy_id, user_id=current_user.id)
     if not success:
         raise HTTPException(status_code=404, detail="Strategy not found")
     return {"status": "deleted"}
@@ -163,7 +164,7 @@ async def compile_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.get(strategy_id)
+    dsl = await builder_manager.get(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
 
@@ -198,7 +199,7 @@ async def validate_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.get(strategy_id)
+    dsl = await builder_manager.get(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
 
@@ -209,7 +210,7 @@ async def validate_strategy(
                  user_id=current_user.id,
                  detail={"valid": validation.valid, "issues": [i.model_dump() for i in validation.issues]})
     if validation.valid and dsl.status in (StrategyStatus.DRAFT, StrategyStatus.PUBLISHED):
-        await builder_manager.set_status(strategy_id, StrategyStatus.VALIDATED)
+        await builder_manager.set_status(strategy_id, StrategyStatus.VALIDATED, user_id=current_user.id)
     return {
         "strategy_id": strategy_id,
         "valid": validation.valid,
@@ -223,7 +224,7 @@ async def mark_strategy_ready(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.get(strategy_id)
+    dsl = await builder_manager.get(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     if dsl.status not in (StrategyStatus.VALIDATED, StrategyStatus.DRAFT, StrategyStatus.PUBLISHED):
@@ -233,7 +234,7 @@ async def mark_strategy_ready(
     if not validation.valid:
         raise HTTPException(status_code=400, detail="Strategy must pass validation before it can be marked ready")
 
-    dsl = await builder_manager.set_status(strategy_id, StrategyStatus.READY)
+    dsl = await builder_manager.set_status(strategy_id, StrategyStatus.READY, user_id=current_user.id)
     await record(strategy_id, "lifecycle", "Strategy marked READY", level="info", user_id=current_user.id)
     return {"status": "ready", "strategy_id": strategy_id}
 
@@ -245,7 +246,7 @@ async def preview_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    preview = await builder_manager.preview(strategy_id)
+    preview = await builder_manager.preview(strategy_id, user_id=current_user.id)
     if "error" in preview:
         raise HTTPException(status_code=404, detail=preview["error"])
     return preview
@@ -258,7 +259,7 @@ async def publish_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.publish(strategy_id)
+    dsl = await builder_manager.publish(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     await record(strategy_id, "lifecycle", "Strategy published (legacy flow)", level="info", user_id=current_user.id)
@@ -351,7 +352,7 @@ async def deploy_builder_strategy(
     req: DeployStrategyRequest,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.get(strategy_id)
+    dsl = await builder_manager.get(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     if dsl.status not in (StrategyStatus.READY, StrategyStatus.PUBLISHED, StrategyStatus.VALIDATED, StrategyStatus.DRAFT, StrategyStatus.PAPER, StrategyStatus.STOPPED):
@@ -373,8 +374,8 @@ async def deploy_builder_strategy(
         risk=req.risk.model_dump(),
         schedule=req.schedule.model_dump(exclude_none=True),
     )
-    await builder_manager.update(strategy_id, {"deployment": deployment.model_dump()})
-    await builder_manager.set_status(strategy_id, StrategyStatus.LIVE if req.mode == "live" else StrategyStatus.PAPER)
+    await builder_manager.update(strategy_id, {"deployment": deployment.model_dump()}, user_id=current_user.id)
+    await builder_manager.set_status(strategy_id, StrategyStatus.LIVE if req.mode == "live" else StrategyStatus.PAPER, user_id=current_user.id)
     await record(strategy_id, "lifecycle",
                  f"Deployed to {'LIVE' if req.mode == 'live' else 'PAPER'} (broker={req.broker or 'paper'}, capital={req.capital})",
                  level="warning" if req.mode == "live" else "info", user_id=current_user.id)
@@ -450,7 +451,7 @@ async def start_builder_strategy(
     req: StartGraphStrategyRequest,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.get(strategy_id)
+    dsl = await builder_manager.get(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     if dsl.status not in (StrategyStatus.PUBLISHED, StrategyStatus.READY, StrategyStatus.PAPER, StrategyStatus.LIVE, StrategyStatus.STOPPED, StrategyStatus.VALIDATED):
@@ -478,7 +479,7 @@ async def start_builder_strategy(
     result = await _runtime_start(spec)
     if result.get("status") == "refused":
         raise HTTPException(status_code=409, detail=result.get("reason", "Live deployment requires explicit confirmation"))
-    await builder_manager.set_status(strategy_id, StrategyStatus.LIVE if effective_mode == "live" else StrategyStatus.PAPER)
+    await builder_manager.set_status(strategy_id, StrategyStatus.LIVE if effective_mode == "live" else StrategyStatus.PAPER, user_id=current_user.id)
     return {"status": result["status"], "strategy_id": strategy_id}
 
 
@@ -487,7 +488,7 @@ async def stop_builder_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    await builder_manager.set_status(strategy_id, StrategyStatus.STOPPED)
+    await builder_manager.set_status(strategy_id, StrategyStatus.STOPPED, user_id=current_user.id)
     outcome = await _runtime_stop(strategy_id, current_user.id)
     return {"status": outcome, "strategy_id": strategy_id}
 
@@ -497,7 +498,7 @@ async def archive_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.archive(strategy_id)
+    dsl = await builder_manager.archive(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     await record(strategy_id, "lifecycle", "Strategy archived", level="info", user_id=current_user.id)
@@ -509,7 +510,7 @@ async def clone_strategy(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.clone(strategy_id)
+    dsl = await builder_manager.clone(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     await record(dsl.id, "lifecycle", f"Cloned from {strategy_id}", level="info", user_id=current_user.id)
@@ -522,7 +523,7 @@ async def rollback_strategy(
     version: int,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.rollback(strategy_id, version)
+    dsl = await builder_manager.rollback(strategy_id, version, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Version not found")
     await record(strategy_id, "lifecycle", f"Restored to version v{version}", level="info", user_id=current_user.id)
@@ -534,7 +535,7 @@ async def get_strategy_score(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.get(strategy_id)
+    dsl = await builder_manager.get(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     return {"strategy_id": strategy_id, "score": score_strategy(dsl).model_dump()}
@@ -557,7 +558,7 @@ async def compare_strategy_versions(
     to_version: int = Query(2),
     current_user: UserProfile = Depends(get_current_user),
 ):
-    result = await builder_manager.compare(strategy_id, from_version, to_version)
+    result = await builder_manager.compare(strategy_id, from_version, to_version, user_id=current_user.id)
     if not result:
         raise HTTPException(status_code=404, detail="Version not found")
     return result
@@ -576,7 +577,7 @@ async def get_strategy_versions(
     strategy_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    versions = await builder_manager.get_versions(strategy_id)
+    versions = await builder_manager.get_versions(strategy_id, user_id=current_user.id)
     return {"versions": versions}
 
 
@@ -608,13 +609,13 @@ async def import_strategy(
         raise HTTPException(status_code=400, detail={"error": "Invalid import data", "details": errors})
     try:
         dsl = from_json(data)
-        existing = await builder_manager.get(dsl.id)
+        existing = await builder_manager.get(dsl.id, user_id=current_user.id)
         if existing:
             dsl.id = __import__("uuid").uuid4().hex[:12]
         else:
-            base = await builder_manager.create(name=dsl.name, author=current_user.email)
+            base = await builder_manager.create(name=dsl.name, owner_id=current_user.id)
             dsl.id = base.id
-        await builder_manager.update(dsl.id, dsl.model_dump())
+        await builder_manager.update(dsl.id, dsl.model_dump(), user_id=current_user.id)
         return dsl.model_dump(mode="json", exclude_none=True)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}")
@@ -626,7 +627,7 @@ async def export_strategy(
     format: str = "json",
     current_user: UserProfile = Depends(get_current_user),
 ):
-    dsl = await builder_manager.get(strategy_id)
+    dsl = await builder_manager.get(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
 

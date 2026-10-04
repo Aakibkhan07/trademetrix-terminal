@@ -57,18 +57,18 @@ def _clean(monkeypatch):
     _runtime.clear()
 
 
-async def _make_strategy() -> str:
+async def _make_strategy(test_user_id=None):
     from builder.manager import builder_manager
 
-    dsl = await builder_manager.create(name="http-runtime-test", author="user", template="ema_crossover")
-    await builder_manager.set_status(dsl.id, "ready")
+    dsl = await builder_manager.create(name="http-runtime-test", author="user", template="ema_crossover", owner_id=test_user_id)
+    await builder_manager.set_status(dsl.id, "ready", user_id=test_user_id)
     return dsl.id
 
 
 @pytest.mark.asyncio
-async def test_runtime_http_lifecycle(client, auth_headers, monkeypatch):
+async def test_runtime_http_lifecycle(client, auth_headers, monkeypatch, test_user_id):
     await _patch_runtime(monkeypatch)
-    sid = await _make_strategy()
+    sid = await _make_strategy(test_user_id)
 
     deploy = await client.post("/api/v1/runtime/deploy", json={
         "strategy_id": sid,

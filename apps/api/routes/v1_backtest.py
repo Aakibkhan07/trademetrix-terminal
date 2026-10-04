@@ -263,7 +263,7 @@ async def list_backtests(
     strategy_id: str | None = None,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    return {"backtests": backtest_manager.list_runs(strategy_id=strategy_id)}
+    return {"backtests": backtest_manager.list_runs(strategy_id=strategy_id, user_id=current_user.id)}
 
 
 @router.post("/", status_code=201)
@@ -362,7 +362,7 @@ async def get_backtest(
     run_id: str,
     current_user: UserProfile = Depends(get_current_user),
 ):
-    run = await backtest_manager.get_run(run_id)
+    run = await backtest_manager.get_run(run_id, user_id=current_user.id)
     if not run:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Backtest run not found")
     payload = run.model_dump(mode="json")
@@ -513,7 +513,7 @@ async def run_backtest_v3(
         pass
 
     try:
-        dsl = await builder_manager.get(req.strategy_id)
+        dsl = await builder_manager.get(req.strategy_id, user_id=current_user.id)
         if not dsl:
             raise HTTPException(status_code=404, detail="Strategy not found")
 
@@ -571,7 +571,7 @@ async def compare_backtests(
 
     comparison = {}
     for run_id in run_ids:
-        run = await backtest_manager.get_run(str(run_id))
+        run = await backtest_manager.get_run(str(run_id), user_id=current_user.id)
         if not run:
             continue
         comparison[str(run_id)] = {
@@ -602,7 +602,7 @@ async def export_backtest(
 ):
     from backtest.exports import export_csv, export_json, export_pdf
 
-    run = await backtest_manager.get_run(run_id)
+    run = await backtest_manager.get_run(run_id, user_id=current_user.id)
     if not run:
         raise HTTPException(status_code=404, detail="Backtest run not found")
 
@@ -637,7 +637,7 @@ async def share_backtest_report(
     """Mint an HMAC token that unlocks the read-only interactive report page."""
     from backtest.reporting import share_token
 
-    run = await backtest_manager.get_run(run_id)
+    run = await backtest_manager.get_run(run_id, user_id=current_user.id)
     if not run:
         raise HTTPException(status_code=404, detail="Backtest run not found")
     token = share_token(run_id)
@@ -657,6 +657,10 @@ async def get_shared_report(run_id: str, t: str = ""):
 
     if not verify_share(run_id, t):
         raise HTTPException(status_code=403, detail="Invalid or missing share token")
+    # No `user_id`: this route is reached by an HMAC share token, not by a signed-in
+    # caller, so there is no tenant to scope to. Scoping it to the session would be wrong
+    # in the other direction — a shared link is meant to be readable by the person it was
+    # sent to, who is not the run's owner. The share token is the authorisation.
     run = await backtest_manager.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Backtest run not found")
@@ -677,7 +681,7 @@ async def list_backtest_trades(
     current_user: UserProfile = Depends(get_current_user),
 ):
     """Cursor-paginated trade list for large runs (A2: keep run payload light)."""
-    run = await backtest_manager.get_run(run_id)
+    run = await backtest_manager.get_run(run_id, user_id=current_user.id)
     if not run:
         raise HTTPException(status_code=404, detail="Backtest run not found")
 
@@ -706,7 +710,7 @@ async def deploy_backtest_to_paper(
     from builder.models import StrategyStatus
     from engine.graph_strategy_runner import start_graph_strategy
 
-    run = await backtest_manager.get_run(run_id)
+    run = await backtest_manager.get_run(run_id, user_id=current_user.id)
     if not run:
         raise HTTPException(status_code=404, detail="Backtest run not found")
     strategy_id = run.config.strategy_id if run.config else ""
@@ -716,7 +720,7 @@ async def deploy_backtest_to_paper(
             detail="Only builder (DSL) strategy backtests can be deployed to paper",
         )
 
-    dsl = await builder_manager.get(strategy_id)
+    dsl = await builder_manager.get(strategy_id, user_id=current_user.id)
     if not dsl:
         raise HTTPException(status_code=404, detail="Strategy not found")
     if dsl.status not in (StrategyStatus.READY, StrategyStatus.PUBLISHED, StrategyStatus.VALIDATED, StrategyStatus.DRAFT, StrategyStatus.PAPER):
@@ -729,7 +733,7 @@ async def deploy_backtest_to_paper(
         interval=run.config.interval if run.config else "15m",
         is_paper=True,
     )
-    await builder_manager.set_status(strategy_id, StrategyStatus.PAPER)
+    await builder_manager.set_status(strategy_id, StrategyStatus.PAPER, user_id=current_user.id)
     return {"status": result, "mode": "paper", "strategy_id": strategy_id}
 
 
