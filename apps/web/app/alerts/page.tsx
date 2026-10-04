@@ -13,7 +13,7 @@ export default function AlertsPage() {
   const [target, setTarget] = useState('')
   const [note, setNote] = useState('')
   const [creating, setCreating] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null)
 
   const [notifChannels, setNotifChannels] = useState<string[]>(['email'])
   const [notifOpen, setNotifOpen] = useState(false)
@@ -24,13 +24,13 @@ export default function AlertsPage() {
   }, [])
 
   const handleCreate = async () => {
-    if (!symbol || !target) { setMsg('Fill symbol and target price'); return }
-    setCreating(true); setMsg('')
+    if (!symbol || !target) { setMsg({ text: 'Fill symbol and target price', tone: 'error' }); return }
+    setCreating(true); setMsg(null)
     try {
       const a = await api.alerts.create({ symbol: symbol.toUpperCase(), condition, target_price: parseFloat(target), note })
       setAlerts(prev => [a, ...prev])
       setSymbol(''); setTarget(''); setNote('')
-    } catch (err: unknown) { setMsg(err instanceof Error ? err.message : 'Failed') }
+    } catch (err: unknown) { setMsg({ text: err instanceof Error ? err.message : 'Failed', tone: 'error' }) }
     finally { setCreating(false) }
   }
 
@@ -75,7 +75,11 @@ export default function AlertsPage() {
           </div>
           <input className="t-input" value={note} onChange={e => setNote(e.target.value)}
             placeholder="Note (optional)" style={{ fontSize: 12, width: '100%' }} />
-          {msg && <p style={{ fontSize: 12, margin: '4px 0 0', color: msg.includes('symbol') ? 'var(--red)' : 'var(--green)' }}>{msg}</p>}
+          {msg && (
+            <p style={{ fontSize: 12, margin: '4px 0 0', color: msg.tone === 'error' ? 'var(--red)' : 'var(--green)' }}>
+              {msg.text}
+            </p>
+          )}
         </div>
 
         <div className="t-panel" style={{ padding: 16, width: 260 }}>

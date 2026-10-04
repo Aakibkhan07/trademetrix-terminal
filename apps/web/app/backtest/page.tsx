@@ -776,7 +776,7 @@ function BacktestContent() {
 
   const [exporting, setExporting] = useState<string | null>(null)
   const [deploying, setDeploying] = useState(false)
-  const [deployMsg, setDeployMsg] = useState('')
+  const [deployMsg, setDeployMsg] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null)
 
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
   const [candles, setCandles] = useState<BTCandle[] | null>(null)
@@ -955,12 +955,12 @@ function BacktestContent() {
 
   const handleDeployToPaper = useCallback(async () => {
     if (!result) return
-    setDeploying(true); setDeployMsg('')
+    setDeploying(true); setDeployMsg(null)
     try {
       const data = await api.backtest.deployToPaper(result.run_id)
-      setDeployMsg(`Deployed to paper — ${data.status} (${data.strategy_id})`)
+      setDeployMsg({ text: `Deployed to paper — ${data.status} (${data.strategy_id})`, tone: 'ok' })
     } catch (err: unknown) {
-      setDeployMsg(err instanceof Error ? err.message : 'Deploy failed')
+      setDeployMsg({ text: err instanceof Error ? err.message : 'Deploy failed', tone: 'error' })
     } finally { setDeploying(false) }
   }, [result])
 
@@ -1336,8 +1336,8 @@ function BacktestContent() {
                     <button className="t-btn t-btn-sm t-btn-primary" onClick={handleDeployToPaper} disabled={deploying}>
                       {deploying ? 'Deploying…' : 'Deploy to Paper'}
                     </button>
-                    <span style={{ fontSize: 12, color: deployMsg && !deployMsg.includes('Error') ? 'var(--text-green)' : 'var(--text-red)' }}>
-                      {deployMsg}
+                    <span style={{ fontSize: 12, color: deployMsg?.tone === 'error' ? 'var(--text-red)' : 'var(--text-green)' }}>
+                      {deployMsg?.text}
                     </span>
                   </>
                 ) : (

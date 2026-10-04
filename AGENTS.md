@@ -3,6 +3,22 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — the severity-from-wording class was eight sites in three files; a file-scoped guard found six
+
+### What was done
+1. **Ran the shape match app-wide** instead of re-reading the file the previous six came from, and found two more. `app/alerts/page.tsx:78` tested `msg.includes('symbol')` — "the message mentions the word symbol, so it is an error". Its catch block does `setMsg(e.message)`, so "Alert already exists", "Unauthorized" and any 400 body rendered **green**. That panel has **no success message at all**, so its green branch was unreachable by any correct behaviour.
+2. **`app/backtest/page.tsx:1339`** tested `!deployMsg.includes('Error')`. "Could not reach broker", "Strategy not found" and "INSUFFICIENT_MARGIN" all rendered green next to the Deploy button. Also optional-chained the span, which took the red branch on an empty message.
+3. **Both fixed** with explicit tones. App-wide shape match now reports **zero** sites, including the `className`/badge variant of the same defect.
+4. **Rebuilt the guard** (`lib/message-tone.test.ts`): walks all of `app/` and `components/`, matches on shape rather than a variable name. Mutation-tested three ways including `msg.text.includes(...)`, which the previous guard missed.
+5. **Deleted an assertion rather than fixing it.** Forbidding bare-string message state is wrong in principle — `settings` and `account` keep severity in a sibling `setPwMsgType('error')`, the correct pattern — and the heuristic produced 27 false positives across four files because an unrelated `useState('')` made every message setter look bare.
+6. 3/3 admin-msg, 27/27 brokers, 4/4 cron, 2/2 running, 11/11 envelopes, 8/8 scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 56 lib. API 1378 passed / 1 xpassed, ruff clean.
+
+### Reference
+- **Scope a guard to the codebase, not the file you were editing** — six of eight; two were missed for exactly this reason.
+- **A server does not have to write "Error" to report one.** Wording is not a status code.
+- **A green branch no correct path can reach is a bug report about itself.**
+- **Delete an assertion that produces false positives**, even a plausible one, and record why.
+
 ## Session: 2026-10-04 — six places inferred severity from message text; two deployment risks I flagged were not live bugs
 
 ### What was done

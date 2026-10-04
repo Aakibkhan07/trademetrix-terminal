@@ -1,3 +1,85 @@
+## Unreleased — the severity-from-wording class was eight sites in three files, not six in one
+
+> Running the same shape match across `app/` and `components/`, rather than reading the file the
+> previous six came from, found two more. The guard that found the first six was scoped to one file,
+> which is a guard scoped to luck.
+
+### The two that were elsewhere
+
+**`app/alerts/page.tsx:78`**
+
+    color: msg.includes('symbol') ? 'var(--red)' : 'var(--green)'
+
+Meaning "if the message mentions the word *symbol*, it is an error". Exactly two things ever put a
+string there:
+
+    if (!symbol || !target) { setMsg('Fill symbol and target price'); return }
+    catch (err) { setMsg(err instanceof Error ? err.message : 'Failed') }
+
+The first contains "symbol", so it rendered red by coincidence. The second is an arbitrary API error —
+"Alert already exists", "Unauthorized", a 400 body — and none of those mention symbol, so **every
+server-side failure on that panel rendered green**.
+
+Worse than any of the other eight: this panel has **no success message at all** (a successful create
+clears the inputs silently), so its green branch was unreachable by any correct behaviour. It only
+ever painted a failure.
+
+**`app/backtest/page.tsx:1339`**
+
+    color: deployMsg && !deployMsg.includes('Error') ? 'var(--text-green)' : 'var(--text-red)'
+
+`setDeployMsg(err instanceof Error ? err.message : 'Deploy failed')` puts the server's wording in
+there, and a server does not have to write "Error" to report one. "Could not reach broker",
+"Strategy not found" and "INSUFFICIENT_MARGIN" all rendered green next to the Deploy to Paper button.
+
+The span also rendered unconditionally, so an empty `deployMsg` took the red branch — invisible, since
+there was no text to colour, but it meant the colour was a function of emptiness as well as wording.
+Now optional-chained, so the expression only exists when there is a message to describe.
+
+### Fixed
+
+Both take an explicit `tone`, like the six. Nothing removed: the validation notice still renders, the
+deploy result still renders.
+
+The app-wide shape match now reports **zero** sites, including a check for the `className` variant of
+the same defect (badge/variant chosen by substring) — which also came back clean.
+
+### The guard, rebuilt
+
+`apps/web/lib/message-tone.test.ts` replaces the file-scoped version:
+
+- **walks all of `app/` and `components/`** — six of the eight were in one file and only two showed up
+  when the match was run app-wide
+- **matches on shape**, not on a variable name — the earlier version looked for `msg.includes(` and a
+  mutation writing `msg.text.includes('expired') ? red : green` passed it
+
+Mutation-tested three ways, all caught: the alerts test restored, the backtest test restored, and the
+renamed-receiver version the previous guard missed.
+
+### An assertion I deleted rather than fixed
+
+The new test's first draft also forbade bare-string message state, reasoning that a string cannot carry
+a tone. **That is wrong in principle.** `app/settings/page.tsx` and `app/account/page.tsx` keep
+severity in a **sibling** state (`setPwMsgType('error')`), which is the correct pattern; and the
+heuristic flagged 27 call sites across four files because a file containing `useState('')` for
+something unrelated — a search box — made all of its message setters look bare.
+
+27 false positives is worse than no assertion, so it was removed and the reason recorded in the file,
+so the next person does not reinstate it having the same idea.
+
+### Reference
+
+- **Scope a guard to the codebase, not to the file you were editing.** Six of eight; two were missed
+  for exactly this reason.
+- **A server does not have to write "Error" to report one.** Wording is not a status code.
+- **A green branch no correct path can reach is a bug report about itself.**
+- **Match on shape, not on name.** `msg.includes(` → `msg.text.includes(` changed nothing about the
+  defect and everything about whether the guard noticed.
+- **Delete an assertion that produces false positives**, even a plausible one.
+- 3/3 admin-msg, 27/27 brokers, 4/4 cron, 2/2 running counts, 11/11 envelope endpoints, 8/8 interaction
+  scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 56 lib tests. API 1378 passed / 1 xpassed, ruff
+  clean.
+
 ## Unreleased — six places inferred severity from the words in a message; three of them coloured failures green
 
 > `app/dashboard/admin-content.tsx` held `msg` as a bare string and picked its colour by substring.
