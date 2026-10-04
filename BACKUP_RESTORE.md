@@ -8,7 +8,6 @@
 | Redis (cache/queue) | `backup.sh` | `redis-cli SAVE` (atomic RDB) |
 | Prometheus (metrics, 30d) | `backup.sh` | TSDB snapshot via admin API (`--web.enable-admin-api`), no downtime |
 | Grafana (dashboards/config) | `backup.sh` | brief `docker stop` + volume tar |
-| n8n (workflows) | `backup.sh` | brief `docker stop` + volume tar |
 | Caddy (TLS certs + config) | `backup.sh` | brief `docker stop` + volume tar |
 | Env files (all `.env*`) | `backup.sh` | plain copy |
 | Application code | git | `git push origin main` (single source of truth) |
@@ -31,7 +30,6 @@ Expected output:
 [OK] redis                (SAVE to RDB)
 [OK] prometheus-data      (28M)
 [OK] grafana-data         (21M)
-[OK] n8n-data             (444K)
 [OK] caddy-data           (12K)
 [OK] caddy-config         (4.0K)
 [OK] env files
@@ -81,7 +79,7 @@ docker run --rm -v production_prometheus-data:/v -v /root/trademetrix-backups/<t
 docker restart trademetrix_prometheus
 ```
 
-### Grafana / n8n / Caddy
+### Grafana / Caddy
 
 ```bash
 # example: grafana-data
@@ -91,7 +89,7 @@ docker run --rm -v production_grafana-data:/v -v /root/trademetrix-backups/<ts>:
 docker start trademetrix_grafana
 ```
 
-Same pattern for `n8n-data` (container `trademetrix-n8n`), `caddy-data` + `caddy-config` (container `trademetrix_caddy`).
+Same pattern for `caddy-data` + `caddy-config` (container `trademetrix_caddy`).
 
 ### Database (Supabase)
 

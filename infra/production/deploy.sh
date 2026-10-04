@@ -14,7 +14,7 @@ set -euo pipefail
 #   - starts the full stack, waits for health
 #
 # Requirements before first run:
-#   - DNS for ai./api./monitor. + n8n. trademetrix.tech → this host
+#   - DNS for ai./api./monitor. trademetrix.tech → this host
 #   - apps/api/.env and apps/web/.env present (see infra/.env.production.example)
 #   - .env files are gitignored and survive redeploys
 #

@@ -225,7 +225,6 @@ docker exec trademetrix_prometheus kill -HUP 1
 | grafana | 256m | 0.5 |
 | node-exporter | 128m | 0.2 |
 | market-agent | 256m | 0.5 |
-| n8n | 1g | 1.0 |
 | autoheal | 32m | 0.1 |
 
 Total allocated: ~2.9GB / 7.8GB available

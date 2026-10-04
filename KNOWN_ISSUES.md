@@ -44,8 +44,8 @@ Status verified 2026-08-01. Each item notes impact and mitigation. None block GA
 8. **Backups live only on the VPS disk**
    - `backup.sh` writes to `/root/trademetrix-backups/` (14-day retention). Off-host copy (rsync/rclone) is recommended; Supabase data is platform-managed and not affected.
 
-9. **n8n + analyzer stack on the same host**
-   - `trademetrix-n8n`, `analyzer-frontend-1`, `analyzer-backend-1` share the VPS. A host failure takes them down together (trade-side app is unaffected beyond shared resources).
+9. **Analyzer stack on the same host**
+   - `analyzer-frontend-1`, `analyzer-backend-1` share the VPS. A host failure takes them down together (trade-side app is unaffected beyond shared resources).
 
 10. **Public GitHub repo**
     - `Aakibkhan07/trademetrix-terminal` is public. No secrets are tracked (verified; `.env*` gitignored). Discipline required: never commit env files or keys.

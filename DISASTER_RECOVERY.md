@@ -12,7 +12,7 @@
 The platform has **two independent durability domains**:
 
 1. **Supabase (PaaS)** — Postgres, auth, storage; managed HA + backups. Recovering it is always done in the Supabase dashboard, never from the VPS.
-2. **VPS state** — Redis, Prometheus, Grafana, n8n, Caddy certs, env files. Recovered from `/root/trademetrix-backups/` (14-day retention; copy off-host if the host is the failure domain).
+2. **VPS state** — Redis, Prometheus, Grafana, Caddy certs, env files. Recovered from `/root/trademetrix-backups/` (14-day retention; copy off-host if the host is the failure domain).
 
 ## Scenario 1 — Container crash / unhealthy
 
@@ -69,7 +69,7 @@ If the whole project is lost, recreate: create new Supabase project → apply al
    # restore apps/api/.env, apps/web/.env, apps/web/.env.production, infra/production/.env.production
    ```
 4. `bash infra/production/deploy.sh` — installs Docker, builds, deploys, health-gates
-5. Restore state from backup (see `BACKUP_RESTORE.md`): redis, prometheus, grafana, n8n, caddy
+5. Restore state from backup (see `BACKUP_RESTORE.md`): redis, prometheus, grafana, caddy
 6. Verify: API health, web 200, login, a paper order round-trip, `/backtest` loads a persisted run
 
 ## Scenario 6 — Security breach / compromised credentials

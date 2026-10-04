@@ -20,7 +20,7 @@
    Observability: trademetrix_prometheus (127.0.0.1:9090, 30d retention),
    trademetrix_grafana (https://monitor.ai.trademetrix.tech),
    node-exporter, redis-exporter, trademetrix_autoheal
-   Side stack on same host: trademetrix-n8n, analyzer-frontend-1, analyzer-backend-1
+   Side stack on same host: analyzer-frontend-1, analyzer-backend-1
 ```
 
 - **Host**: single VPS `187.127.185.56` (Ubuntu, Docker 24+, 8 GB RAM class)

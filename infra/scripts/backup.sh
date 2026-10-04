@@ -9,7 +9,7 @@ set -euo pipefail
 # Backs up everything NOT managed by Supabase:
 #   - Redis data (consistent RDB snapshot via SAVE)
 #   - Prometheus (consistent TSDB snapshot via admin API)
-#   - Grafana + n8n (sqlite — stopped briefly for a consistent copy)
+#   - Grafana (sqlite — stopped briefly for a consistent copy)
 #   - Caddy TLS certs + config (stopped briefly)
 #   - .env files (api/web) — secrets live here, do NOT lose them
 #
@@ -85,21 +85,17 @@ fi
 G=$(vol grafana-data)
 [ -n "$G" ] && tar_stopped trademetrix_grafana "$G" grafana-data
 
-# 4. n8n (sqlite — brief stop)
-N=$(vol n8n-data)
-[ -n "$N" ] && tar_stopped trademetrix-n8n "$N" n8n-data
-
-# 5. Caddy TLS + config (brief stop)
+# 4. Caddy TLS + config (brief stop)
 C1=$(vol caddy-data); [ -n "$C1" ] && tar_stopped trademetrix_caddy "$C1" caddy-data
 C2=$(vol caddy-config); [ -n "$C2" ] && tar_stopped trademetrix_caddy "$C2" caddy-config
 
-# 6. Env files (secrets)
+# 5. Env files (secrets)
 mkdir -p "$OUT/env"
 cp /root/trademetrix-terminal/apps/api/.env "$OUT/env/api.env" 2>/dev/null || true
 cp /root/trademetrix-terminal/apps/web/.env "$OUT/env/web.env" 2>/dev/null || true
 ok "env files"
 
-# 7. Retention
+# 6. Retention
 find "$DEST" -maxdepth 1 -type d -mtime +"$RETENTION_DAYS" -exec rm -rf {} + 2>/dev/null || true
 ok "retention (last $RETENTION_DAYS days)"
 
