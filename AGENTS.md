@@ -3,6 +3,25 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — six places inferred severity from message text; two deployment risks I flagged were not live bugs
+
+### What was done
+1. **Found and fixed six substring-inferred severity sites** in `app/dashboard/admin-content.tsx` (`msg` ×3, `batchMsg`, `assignMsg`, audit `e.action`). Two paint every error green because every `catch` does `setMsg(e.message)` and an error message rarely contains "fail".
+2. **Measured the concrete failure:** `POST /admin/brokers/fyers/validate` answers `{"results": []}` with zero Fyers credentials, and `expired.length === 0` fell through to **"All tokens valid" in green** — above the page's own "No Fyers credentials found." On the panel that tells an admin whether users' tokens work.
+3. **Found `login_locked` rendering green** in the audit log: it contains neither "error" nor "fail". Replaced four substring tests with an exact-match map over the 28 real action names, neutral default so new actions start neutral rather than green.
+4. **All six now carry an explicit `tone`** (`'ok' | 'error' | 'info'`) set where the message is set. Nothing removed; every branch and colour still reachable.
+5. **Added** `verify_admin_msg_tone.js` (reads the **rendered colour** — a string-only test would have passed on the original code) and `lib/admin-msg-tone.test.ts` (5 source assertions, because the browser check drives the happy path and no `catch` runs).
+6. **Three versions of my own guard were wrong before the third worked:** it matched on a comment, then on the variable name (finding 3 of 6), then missed `msg.text.includes(...)`. Shape-based matching found all six and catches the mutation.
+7. **Corrected my own previous claims:** the `capacitor://localhost` and `.env.example` CORS items I flagged are **not live bugs** — no mobile app exists in this repo, and Compose's `environment:` block overrides `env_file`.
+8. 3/3 admin-msg, 27/27 brokers, 4/4 cron, 2/2 running, 11/11 envelopes, 8/8 scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 58 lib. API 1378 passed / 1 xpassed, ruff clean.
+
+### Reference
+- **A substring match is not a severity signal**, and the `catch` block chooses the wording.
+- **Match a guard on the shape, not the name** — the name-based version found three of six.
+- **A panel reporting "all valid" after validating nothing is worse than no panel.**
+- **The first version of a check is evidence about the check** — it reported "no message rendered" on a page that was rendering correctly.
+- **Re-check a claim before building on it**; two things I flagged as deployment risks were dormant.
+
 ## Session: 2026-10-04 — eighteen brokers hidden by a false claim; a cron command that could not run; one false alarm of my own
 
 ### What was done

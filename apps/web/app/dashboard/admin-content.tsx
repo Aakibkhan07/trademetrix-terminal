@@ -24,6 +24,59 @@ const ScheduledTasksTab = dynamic(() => import('./scheduled-tasks-tab').then(m =
 
 
 
+/**
+ * Colour for an audit-log action, by exact name.
+ *
+ * This used to be four substring tests: `.includes('error') || .includes('fail')` for red,
+ * `.includes('assign') || .includes('create')` for green, and so on. The action names are a fixed set
+ * the backend writes, and two of them matched none of those words — `login_locked` rendered **green**,
+ * so a locked-out login appeared in the colour of a success, and `admin_remove` and `whitelist_remove`
+ * did too.
+ *
+ * Exact matching fixes those without inventing a palette: anything not named here renders
+ * `--text-sub`, which is what the substring version already did for whatever it could not classify.
+ * New actions therefore start neutral rather than silently green.
+ */
+const AUDIT_ACTION_COLOURS: Record<string, string> = {
+  // failures and denials
+  auth_failed: 'var(--red)',
+  login_locked: 'var(--red)',
+  // removals — worth noticing without being a failure
+  admin_remove: 'var(--amber)',
+  whitelist_remove: 'var(--amber)',
+  unassign_strategy: 'var(--amber)',
+  delete_strategy: 'var(--amber)',
+  // privilege and membership changes
+  admin_update_role: 'var(--amber)',
+  whitelist_add: 'var(--amber)',
+  reassign_strategy: 'var(--amber)',
+  // successful changes
+  assign_strategy: 'var(--green)',
+  batch_assign: 'var(--green)',
+  create_strategy: 'var(--green)',
+  update_strategy: 'var(--green)',
+  create_alert: 'var(--green)',
+  broadcast_notify: 'var(--green)',
+  change_password: 'var(--green)',
+  admin_place_trade: 'var(--green)',
+  fyers_re_auth: 'var(--green)',
+  admin_create: 'var(--green)',
+  otp_verify: 'var(--green)',
+  signup: 'var(--green)',
+  update_user_tier: 'var(--green)',
+  // routine events stay neutral
+  signin: 'var(--text-sub)',
+  signout: 'var(--text-sub)',
+  forgot_password: 'var(--text-sub)',
+  register_with_otp: 'var(--text-sub)',
+  send_otp: 'var(--text-sub)',
+  signup_otp_sent: 'var(--text-sub)',
+  typing: 'var(--text-sub)',
+}
+
+const auditActionColour = (action?: string | null): string =>
+  (action && AUDIT_ACTION_COLOURS[action]) || 'var(--text-sub)'
+
 interface StrategyInfo {
   key: string
   name: string
@@ -525,7 +578,7 @@ function BrokersTab() {
   const [fields, setFields] = useState<Record<string, string>>({})
   const [additionalParams, setAdditionalParams] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null)
   const [authUrl, setAuthUrl] = useState('')
 
   const brokers = data?.brokers || []
@@ -538,9 +591,9 @@ function BrokersTab() {
     const meta = getMeta(selectedBroker)
     if (!meta) return
     for (const f of meta.fields) {
-      if (f.required && !fields[f.key]) { setMsg(`Fill ${f.label}`); return }
+      if (f.required && !fields[f.key]) { setMsg({ text: `Fill ${f.label}`, tone: 'error' }); return }
     }
-    setSaving(true); setMsg('')
+    setSaving(true); setMsg(null)
     try {
       const payload: Record<string, unknown> = { broker: selectedBroker }
       if (fields.api_key) payload.api_key = fields.api_key
@@ -550,7 +603,7 @@ function BrokersTab() {
       if (fields.access_token) payload.access_token = fields.access_token
       if (Object.keys(additionalParams).length > 0) payload.additional_params = additionalParams
       await api.brokers.saveCredentials(payload as Parameters<typeof api.brokers.saveCredentials>[0])
-      setMsg(`${meta.display_name} credentials saved!`)
+      setMsg({ text: `${meta.display_name} credentials saved!`, tone: 'ok' })
       setFields({}); setAdditionalParams({}); setRefreshKey(k => k + 1)
 
       if (meta.oauth_available && selectedBroker === 'fyers') {
@@ -558,7 +611,7 @@ function BrokersTab() {
         setAuthUrl(res.auth_url)
       }
     } catch (err: unknown) {
-      setMsg(err instanceof Error ? err.message : 'Save failed')
+      setMsg({ text: err instanceof Error ? err.message : 'Save failed', tone: 'error' })
     } finally { setSaving(false) }
   }
 
@@ -573,7 +626,7 @@ function BrokersTab() {
           <label className="t-label" style={{ fontSize: 12, marginBottom: 4 }}>Select Broker</label>
           <select className="t-input" style={{ fontSize: 13, width: '100%' }}
             value={selectedBroker}
-            onChange={e => { setSelectedBroker(e.target.value); setFields({}); setAdditionalParams({}); setMsg(''); setAuthUrl('') }}>
+            onChange={e => { setSelectedBroker(e.target.value); setFields({}); setAdditionalParams({}); setMsg(null); setAuthUrl('') }}>
             <option value="">-- Choose a broker --</option>
             {brokerMeta.map(m => (
               <option key={m.broker} value={m.broker}>{m.display_name} ({m.auth_type})</option>
@@ -622,7 +675,7 @@ function BrokersTab() {
                           window.open(res.auth_url, '_blank', 'width=600,height=700')
                         }
                       } catch (err: unknown) {
-                        setMsg(err instanceof Error ? err.message : 'Auth failed')
+                        setMsg({ text: err instanceof Error ? err.message : 'Auth failed', tone: 'error' })
                       }
                     }}>
                     {authUrl ? 'Re-authorize' : `Authorize with ${meta.display_name}`}
@@ -635,7 +688,16 @@ function BrokersTab() {
                   Open {getMeta(selectedBroker)?.display_name || selectedBroker} login page
                 </a>
               )}
-              {msg && <p style={{ fontSize: 12, margin: '4px 0 0', color: msg.includes('saved') || msg.includes('success') ? 'var(--green)' : 'var(--red)' }}>{msg}</p>}
+              {msg && (
+                <p
+                  style={{
+                    fontSize: 12, margin: '4px 0 0',
+                    color: msg.tone === 'error' ? 'var(--red)' : msg.tone === 'info' ? 'var(--text-faint)' : 'var(--green)',
+                  }}
+                >
+                  {msg.text}
+                </p>
+              )}
             </>
           )
         })()}
@@ -722,28 +784,37 @@ function BrokersTab() {
 function FyersTokenSection() {
   const [healthResults, setHealthResults] = useState<FyersHealthResult[] | null>(null)
   const [loading, setLoading] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null)
 
   const runValidate = async () => {
-    setLoading(true); setMsg(''); setHealthResults(null)
+    setLoading(true); setMsg(null); setHealthResults(null)
     try {
       const res = await api.admin.fyersValidate()
-      setHealthResults(res.results)
-      const expired = res.results.filter((r: FyersHealthResult) => r.has_token && !r.valid)
-      if (expired.length) setMsg(`${expired.length} token(s) expired`)
-      else setMsg('All tokens valid')
+      const results = res.results ?? []
+      setHealthResults(results)
+      // Zero credentials is not a pass. `[]` fell through to "All tokens valid" because a filter over
+      // an empty array is empty, and the panel below was simultaneously rendering "No Fyers
+      // credentials found." — measured on an account with no credentials at all: HTTP 200,
+      // `results: []`, green "All tokens valid".
+      if (results.length === 0) {
+        setMsg({ text: 'No Fyers credentials to validate', tone: 'info' })
+      } else {
+        const expired = results.filter((r: FyersHealthResult) => r.has_token && !r.valid)
+        if (expired.length) setMsg({ text: `${expired.length} token(s) expired`, tone: 'error' })
+        else setMsg({ text: `All ${results.length} token(s) valid`, tone: 'ok' })
+      }
     } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Validation failed')
+      setMsg({ text: e instanceof Error ? e.message : 'Validation failed', tone: 'error' })
     } finally { setLoading(false) }
   }
 
   const reAuth = async (credId: string) => {
     try {
       const res = await api.admin.fyersReAuth(credId)
-      setMsg('Opening Fyers authorization page...')
+      setMsg({ text: 'Opening Fyers authorization page...', tone: 'ok' })
       window.open(res.auth_url, '_blank', 'width=600,height=700')
     } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Re-auth failed')
+      setMsg({ text: e instanceof Error ? e.message : 'Re-auth failed', tone: 'error' })
     }
   }
 
@@ -755,7 +826,16 @@ function FyersTokenSection() {
           {loading ? 'Checking...' : 'Validate All Tokens'}
         </button>
       </div>
-      {msg && <p style={{ fontSize: 12, margin: '0 0 10px', color: msg.includes('expired') ? 'var(--red)' : 'var(--green)' }}>{msg}</p>}
+      {msg && (
+        <p
+          style={{
+            fontSize: 12, margin: '0 0 10px',
+            color: msg.tone === 'error' ? 'var(--red)' : msg.tone === 'info' ? 'var(--text-faint)' : 'var(--green)',
+          }}
+        >
+          {msg.text}
+        </p>
+      )}
       {healthResults && healthResults.length === 0 && (
         <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>No Fyers credentials found.</p>
       )}
@@ -902,7 +982,7 @@ function StrategiesTab() {
   const { data: assignData, loading: assignLoading } = useApi<{ assignments: Assignment[] }>(`/admin/assignments?_=${refreshKey}`)
   const { data: usersData } = useApi<{ users: AdminUser[] }>('/admin/users')
   const [assigning, setAssigning] = useState(false)
-  const [assignMsg, setAssignMsg] = useState('')
+  const [assignMsg, setAssignMsg] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null)
   const [selUser, setSelUser] = useState('')
   const [selStrategy, setSelStrategy] = useState('')
   const [showChart, setShowChart] = useState(true)
@@ -923,7 +1003,7 @@ function StrategiesTab() {
   const [showBatchAssign, setShowBatchAssign] = useState(false)
   const [batchStrategy, setBatchStrategy] = useState('')
   const [batchUsers, setBatchUsers] = useState<Set<string>>(new Set())
-  const [batchMsg, setBatchMsg] = useState('')
+  const [batchMsg, setBatchMsg] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null)
   const [importing, setImporting] = useState(false)
 
   const catalog = catalogData?.strategies || []
@@ -934,13 +1014,13 @@ function StrategiesTab() {
 
   const handleAssign = async () => {
     if (!selUser || !selStrategy) return
-    setAssigning(true); setAssignMsg('')
+    setAssigning(true); setAssignMsg(null)
     try {
       await api.admin.assignments.create({ user_id: selUser, strategy_key: selStrategy })
-      setAssignMsg('Assigned successfully')
+      setAssignMsg({ text: 'Assigned successfully', tone: 'ok' })
       triggerRefresh()
     } catch (e: any) {
-      setAssignMsg(e?.message || 'Failed to assign')
+      setAssignMsg({ text: e?.message || 'Failed to assign', tone: 'error' })
     } finally {
       setAssigning(false)
     }
@@ -955,14 +1035,14 @@ function StrategiesTab() {
 
   const handleAdd = async () => {
     if (!addKey || !addName) return
-    setAdding(true); setAssignMsg('')
+    setAdding(true); setAssignMsg(null)
     try {
       await api.admin.strategies.create({ key: addKey, name: addName, description: addDesc, required_tier: addTier, category: addCat })
-      setAssignMsg(`Strategy '${addName}' created`)
+      setAssignMsg({ text: `Strategy '${addName}' created`, tone: 'ok' })
       setShowAddForm(false); setAddKey(''); setAddName(''); setAddDesc(''); setAddTier('free'); setAddCat('trend')
       triggerRefresh()
     } catch (e: any) {
-      setAssignMsg(e?.message || 'Failed to create')
+      setAssignMsg({ text: e?.message || 'Failed to create', tone: 'error' })
     } finally { setAdding(false) }
   }
 
@@ -973,7 +1053,7 @@ function StrategiesTab() {
       setEditingKey(null)
       triggerRefresh()
     } catch (e: any) {
-      setAssignMsg(e?.message || 'Failed to update')
+      setAssignMsg({ text: e?.message || 'Failed to update', tone: 'error' })
     } finally { setSaving(false) }
   }
 
@@ -984,20 +1064,20 @@ function StrategiesTab() {
       setDeleting(null)
       triggerRefresh()
     } catch (e: any) {
-      setAssignMsg(e?.message || 'Failed to delete')
+      setAssignMsg({ text: e?.message || 'Failed to delete', tone: 'error' })
     } finally { setSaving(false) }
   }
 
   const handleBatchAssign = async () => {
     if (!batchStrategy || batchUsers.size === 0) return
-    setAssignMsg(''); setBatchMsg('')
+    setAssignMsg(null); setBatchMsg(null)
     try {
       const res = await api.admin.assignments.batch({ user_ids: Array.from(batchUsers), strategy_key: batchStrategy })
-      setBatchMsg(`Created ${res.created}, skipped ${res.skipped}`)
+      setBatchMsg({ text: `Created ${res.created}, skipped ${res.skipped}`, tone: 'ok' })
       setShowBatchAssign(false); setBatchUsers(new Set())
       triggerRefresh()
     } catch (e: any) {
-      setBatchMsg(e?.message || 'Batch assign failed')
+      setBatchMsg({ text: e?.message || 'Batch assign failed', tone: 'error' })
     }
   }
 
@@ -1009,7 +1089,7 @@ function StrategiesTab() {
       const a = document.createElement('a'); a.href = url; a.download = 'assignments-export.json'; a.click()
       URL.revokeObjectURL(url)
     } catch (e: any) {
-      setAssignMsg(e?.message || 'Export failed')
+      setAssignMsg({ text: e?.message || 'Export failed', tone: 'error' })
     }
   }
 
@@ -1043,9 +1123,9 @@ function StrategiesTab() {
               try {
                 const text = await file.text(); const entries = JSON.parse(text)
                 const res = await api.admin.assignments.import(Array.isArray(entries) ? entries : entries.assignments || [])
-                setAssignMsg(`Import: ${res.created} created, ${res.skipped} skipped`)
+                setAssignMsg({ text: `Import: ${res.created} created, ${res.skipped} skipped`, tone: 'ok' })
                 triggerRefresh()
-              } catch (err: any) { setAssignMsg(err?.message || 'Import failed') }
+              } catch (err: any) { setAssignMsg({ text: err?.message || 'Import failed', tone: 'error' }) }
               finally { setImporting(false); e.target.value = '' }
             }} />
           </label>
@@ -1088,7 +1168,16 @@ function StrategiesTab() {
             style={{ fontSize: 11 }}>
             Assign to {batchUsers.size} user(s)
           </button>
-          {batchMsg && <span style={{ marginLeft: 8, fontSize: 12, color: batchMsg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>{batchMsg}</span>}
+          {batchMsg && (
+                  <span
+                    style={{
+                      marginLeft: 8, fontSize: 12,
+                      color: batchMsg.tone === 'error' ? 'var(--red)' : batchMsg.tone === 'info' ? 'var(--text-faint)' : 'var(--green)',
+                    }}
+                  >
+                    {batchMsg.text}
+                  </span>
+                )}
         </div>
       )}
 
@@ -1236,8 +1325,11 @@ function StrategiesTab() {
       )}
 
       {assignMsg && (
-        <div style={{ marginTop: 8, fontSize: 13, color: assignMsg.includes('Failed') || assignMsg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>
-          {assignMsg}
+        <div style={{
+              marginTop: 8, fontSize: 13,
+              color: assignMsg.tone === 'error' ? 'var(--red)' : assignMsg.tone === 'info' ? 'var(--text-faint)' : 'var(--green)',
+            }}>
+          {assignMsg.text}
         </div>
       )}
     </div>
@@ -1254,7 +1346,7 @@ function BuyerStrategiesTab() {
   const [refreshKey, setRefreshKey] = useState(0)
   const { data, loading } = useApi<{ strategies: BuyerStrategyStatus[] }>(`/buyer-strategies/status?_=${refreshKey}`)
   const [activating, setActivating] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null)
   const [strategyKey, setStrategyKey] = useState('momentum_breakout_buyer')
   const [index, setIndex] = useState('NIFTY')
   const [capital, setCapital] = useState('100000')
@@ -1263,7 +1355,7 @@ function BuyerStrategiesTab() {
   const strategies = data?.strategies || []
 
   const handleActivate = async () => {
-    setActivating(true); setMsg('')
+    setActivating(true); setMsg(null)
     try {
       const cfg: Record<string, unknown> = { capital: Number(capital), risk_per_trade_pct: 1.0, max_outlay_pct: 10.0 }
       if (targetDelta) cfg.target_delta = Number(targetDelta)
@@ -1273,10 +1365,10 @@ function BuyerStrategiesTab() {
         index,
         config: cfg,
       })
-      setMsg(`Activated: ${res.strategy_id}`)
+      setMsg({ text: `Activated: ${res.strategy_id}`, tone: 'ok' })
       setRefreshKey(k => k + 1)
     } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Activation failed')
+      setMsg({ text: e instanceof Error ? e.message : 'Activation failed', tone: 'error' })
     } finally { setActivating(false) }
   }
 
@@ -1285,7 +1377,7 @@ function BuyerStrategiesTab() {
       await api.admin.buyerStrategies.deactivate(id)
       setRefreshKey(k => k + 1)
     } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Deactivate failed')
+      setMsg({ text: e instanceof Error ? e.message : 'Deactivate failed', tone: 'error' })
     }
   }
 
@@ -1316,7 +1408,16 @@ function BuyerStrategiesTab() {
         {BUYER_STRATEGY_OPTIONS.filter(s => s.key === strategyKey).map(s => (
           <p key={s.key} style={{ fontSize: 12, color: 'var(--text-sub)', margin: 0 }}>{s.desc}</p>
         ))}
-        {msg && <p style={{ fontSize: 12, marginTop: 6, color: msg.includes('fail') ? 'var(--red)' : 'var(--green)' }}>{msg}</p>}
+        {msg && (
+          <p
+            style={{
+              fontSize: 12, marginTop: 6,
+              color: msg.tone === 'error' ? 'var(--red)' : msg.tone === 'info' ? 'var(--text-faint)' : 'var(--green)',
+            }}
+          >
+            {msg.text}
+          </p>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -1893,12 +1994,7 @@ function AuditTab() {
                     {e.user_id?.slice(0, 12)}...
                   </td>
                   <td style={{ padding: '6px 8px', fontWeight: 500 }}>
-                    <span style={{
-                      color: e.action?.includes('error') || e.action?.includes('fail') ? 'var(--red)'
-                        : e.action?.includes('assign') || e.action?.includes('create') ? 'var(--green)'
-                        : e.action?.includes('delete') || e.action?.includes('remove') || e.action?.includes('unassign') ? 'var(--amber)'
-                        : 'var(--text-sub)',
-                    }}>
+                    <span style={{ color: auditActionColour(e.action) }}>
                       {e.action}
                     </span>
                   </td>

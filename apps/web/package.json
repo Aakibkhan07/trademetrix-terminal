@@ -16,6 +16,7 @@
     "verify:running": "node scripts/browser/verify_running_count.js",
     "verify:brokers": "node scripts/browser/verify_broker_availability.js",
     "verify:cron": "node scripts/browser/verify_cron_hint.js",
+    "verify:admin-msg": "node scripts/browser/verify_admin_msg_tone.js",
     "verify:interact": "node scripts/browser/interact.js",
     "verify:session": "node scripts/browser/verify_session_survives_reload.js"
   },

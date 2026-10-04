@@ -1,3 +1,92 @@
+## Unreleased — six places inferred severity from the words in a message; three of them coloured failures green
+
+> `app/dashboard/admin-content.tsx` held `msg` as a bare string and picked its colour by substring.
+> Two of the six painted anything not containing the word "fail" in green, and **every `catch` block
+> does `setMsg(e.message)`** — so a failed request whose wording was "Could not reach broker" or a 401
+> body was rendered in the colour of a success.
+
+### The six
+
+| line | receiver | test | consequence |
+|---|---|---|---|
+| 638 | `msg` | `includes('saved') \|\| includes('success')` | a success in unfamiliar wording renders **red** |
+| 758 | `msg` | `includes('expired')` | every error renders **green** |
+| 1319 | `msg` | `includes('fail')` | every error renders **green** |
+| 1118 | `batchMsg` | `includes('fail')` | every error renders **green** |
+| 1266 | `assignMsg` | `includes('Failed') \|\| includes('fail')` | every error renders **green** |
+| 1933 | `e.action` | four substring tests | `login_locked` renders **green** |
+
+No set of strings makes a substring match a severity signal.
+
+### Measured
+
+`POST /admin/brokers/fyers/validate` on an account with no broker credentials answers HTTP 200 and
+`{"results": []}`. A filter over an empty array is empty, so `expired.length === 0` fell through to
+**"All tokens valid"**, in green — on the panel an admin reads to decide whether users' Fyers tokens
+still work. The page rendered "No Fyers credentials found." directly beneath it, contradicting itself
+on one screen.
+
+The audit-log colourer matched none of the words in `login_locked`, so a **locked-out login rendered
+green**; `admin_remove` and `whitelist_remove` likewise. The action names are a fixed set of 28 the
+backend writes, read off the source rather than guessed.
+
+### Fixed
+
+Every one of the six now takes its severity from an explicit `tone` set where the message is set, and
+the audit-log colourer is an exact-match map with a **neutral default** — so a new action starts
+neutral rather than silently green, which is what the substring version did for anything it could not
+classify. `tone` is `'ok' | 'error' | 'info'` so a neutral notice does not have to borrow the colour of
+a success to avoid looking like a failure.
+
+Nothing was removed. Every branch that rendered before still renders, and every colour the old
+expressions could produce is still reachable.
+
+### Added
+
+- `apps/web/scripts/browser/verify_admin_msg_tone.js` (`npm run verify:admin-msg`) — reads the
+  **rendered colour**, not the source. The source was never wrong about what it wrote; it was wrong
+  about which colour that text implied, so a test on the string alone would have passed on the
+  original code. Mutation-tested: reverting the empty-result branch gives
+  *"All tokens valid" · rgb(52, 211, 153)* and 3/3 failures.
+- `apps/web/lib/admin-msg-tone.test.ts` — 5 source-level assertions for the direction with no cheap
+  measurement. The browser check drives the happy path, so no `catch` runs and a mutation that set
+  `tone: 'ok'` inside one passed it; that is the honest limit of the browser check and the reason the
+  invariant exists.
+
+### Three ways my own guard was wrong first
+
+1. **It matched on the variable name.** `msg.includes(` passed with a seventeen-entry `includes()`
+   back in place, because the field name also appears in the comment above the function — a guard a
+   comment can satisfy is not a guard. It strips comments now.
+2. **Then it matched on the name and still missed three instances.** Rewritten to match the *shape*
+   (any `.includes(...)` choosing a colour), it immediately found `batchMsg`, `assignMsg` and
+   `e.action`. The class was six, not three.
+3. **And the rewrite passed a mutation.** `msg.text.includes('expired') ? red : green` sailed through,
+   because the pattern named `msg`. The shape-based version catches it; verified.
+
+Also: the first browser check reported *"no message rendered"* against a page that was rendering it
+correctly, because `closest('div')` lands one level too shallow. The same mistake as calling a working
+dashboard stale — the first version of a check is evidence about the check.
+
+### Corrected, not fixed
+
+I flagged two deployment risks at the end of the previous round and **neither is a live bug**:
+`capacitor://localhost` missing from the compose `CORS_ORIGINS` (there is no mobile app in this repo —
+`apps/` holds `api`, `docs`, `market-agent`, `web`), and `apps/api/.env.example` naming
+`https://trademetrix.com` where the frontend is `https://ai.trademetrix.tech`. Docker Compose's
+`environment:` block overrides `env_file`, so the container gets the correct value regardless of what
+`apps/api/.env` contains. Recorded so nobody re-investigates them.
+
+### Reference
+
+- **A substring match is not a severity signal**, and the `catch` block decides the wording.
+- **Match a guard on the shape, not the name.** The name-based version found three of six.
+- **A panel that reports "all valid" after validating nothing is worse than no panel.**
+- **The browser check reads colour; the source assertion covers the branch the browser cannot reach.**
+- 3/3 admin-msg, 27/27 brokers, 4/4 cron, 2/2 running counts, 11/11 envelope endpoints, 8/8
+  interaction scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 58 lib tests. API 1378 passed /
+  1 xpassed, ruff clean.
+
 ## Unreleased — eighteen working brokers were hidden behind a "coming soon" that was false when written
 
 > `app/brokers/page.tsx` carried a hardcoded set of eighteen broker keys and rendered them under
