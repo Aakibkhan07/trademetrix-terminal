@@ -11,7 +11,7 @@ export default function RiskPage() {
   const [killSwitch, setKillSwitch] = useState(false)
   const [loading, setLoading] = useState(true)
   const [limits, setLimits] = useState({
-    max_daily_loss: 0, max_drawdown: 0, max_open_positions: 10,
+    max_daily_loss: 0, max_drawdown_pct: 0, max_open_positions: 10,
   })
   const [usage, setUsage] = useState<{ openPositions: number; filledToday: number } | null>(null)
   const [editing, setEditing] = useState(false)
@@ -23,9 +23,21 @@ export default function RiskPage() {
       const ks = await api.risk.killSwitchStatus() as { kill_switch_enabled: boolean }
       setKillSwitch(ks.kill_switch_enabled)
       const s = await api.risk.settings() as any
-      if (s?.max_daily_loss != null) setLimits(prev => ({ ...prev, max_daily_loss: s.max_daily_loss }))
-      if (s?.max_drawdown != null) setLimits(prev => ({ ...prev, max_drawdown: s.max_drawdown }))
-      if (s?.max_open_positions != null) setLimits(prev => ({ ...prev, max_open_positions: s.max_open_positions }))
+      // `GET /risk/settings` answers `{ settings: [ {...} ] }` — a list under a key, not a flat
+      // object. Reading `s.max_daily_loss` off that envelope is always undefined, so none of the
+      // three guards below fired, `limits` kept its zero defaults, and the page showed a daily-loss
+      // limit of 0 for an account whose stored limit was 2000.
+      //
+      // This is the same class as `/engine/orders` returning `{ orders: [...] }` and `/forward-test`
+      // returning `{ items: [...] }`, and it is the third time it has cost a page its data.
+      const row = Array.isArray(s?.settings) ? (s.settings[0] ?? {}) : (s ?? {})
+      if (row?.max_daily_loss != null) setLimits(prev => ({ ...prev, max_daily_loss: row.max_daily_loss }))
+      // The API field is `max_drawdown_pct`, not `max_drawdown`. Sending the short name did not
+      // error — pydantic ignores unknown fields — it fell back to its own default of 0.0, so every
+      // save silently reset the drawdown limit to "no limit" (`risk/rules.py:463` treats <= 0 as
+      // unlimited).
+      if (row?.max_drawdown_pct != null) setLimits(prev => ({ ...prev, max_drawdown_pct: row.max_drawdown_pct }))
+      if (row?.max_open_positions != null) setLimits(prev => ({ ...prev, max_open_positions: row.max_open_positions }))
       setLoadError(null)
     } catch (e) { setLoadError(friendlyApiError(e)) }
     finally { setLoading(false) }
@@ -70,8 +82,12 @@ export default function RiskPage() {
       setLimits(editValues)
       setEditing(false)
       toast('success', 'Risk limits updated')
-    } catch {
-      toast('error', 'Failed to update limits')
+    } catch (e: any) {
+      // The backend's reason here is the useful part — it rejects a zero daily-loss cap with
+      // "Daily loss cap cannot be disabled. Minimum is your tier default of ₹100000." Throwing
+      // that away and showing "Failed to update limits" left the user with a form that could not be
+      // saved and no indication of why.
+      toast('error', friendlyApiError(e) || 'Failed to update limits')
     }
   }
 
@@ -227,7 +243,7 @@ export default function RiskPage() {
               </div>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Max Drawdown (%)</label>
-                <input className="t-input" type="number" value={editValues.max_drawdown} onChange={e => setEditValues(p => ({ ...p, max_drawdown: Number(e.target.value) }))} step={0.1} min={0} max={100} />
+                <input className="t-input" type="number" value={editValues.max_drawdown_pct} onChange={e => setEditValues(p => ({ ...p, max_drawdown_pct: Number(e.target.value) }))} step={0.1} min={0} max={100} />
               </div>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', display: 'block', marginBottom: 3 }}>Max Open Positions</label>
@@ -252,7 +268,7 @@ export default function RiskPage() {
               }}>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Max Drawdown</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>
-                  {limits.max_drawdown ? `${limits.max_drawdown}%` : '∞'}
+                  {limits.max_drawdown_pct ? `${limits.max_drawdown_pct}%` : '∞'}
                 </div>
               </div>
               <div style={{

@@ -3,6 +3,22 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — the risk page showed a 0 daily-loss cap for an account capped at 2000, and could not save
+
+### What was done
+1. **`/risk` never unwrapped the response envelope.** `GET /risk/settings` answers `{ settings: [...] }` and the page read `s.max_daily_loss` off it — always `undefined`, so all three guards missed and `limits` kept its zero defaults. The page displayed a daily-loss cap of **0** against a stored **2000**. **Third instance of this class** after `/engine/orders` and `/forward-test`.
+2. **`max_drawdown` was sent where the API declares `max_drawdown_pct`.** Pydantic ignores unknown fields, so no error — it fell back to the model's default `0.0`, and `risk/rules.py:463` treats `<= 0` as unlimited. **Every save silently reset the drawdown cap to "no limit".**
+3. **The save error was discarded**, replacing the backend's *"Daily loss cap cannot be disabled. Minimum is ₹100000"* with "Failed to update limits" — on a form that could never be saved because it always posted the zero it displayed.
+4. **Data loss was prevented by the server, not the client.** `risk_service.update_settings` rejects a zero cap, so the stored 2000 was never overwritten. Stated explicitly because the frontend was one keystroke from erasing a risk limit.
+5. **Kill switch verified correct** — POST issued, state persisted (`{"kill_switch_enabled": true}`), disable returned 200, restored to off. The new scenario arms nothing, since that control is global.
+6. Verified live before/after (`0` → `2000`, and `max_drawdown` → `max_drawdown_pct`). Eighth interaction scenario added and mutation-validated. **8/8 scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 53 lib tests.**
+
+### Reference
+- **Press the button and read what it sends** — the display looked plausible while both the read and the write were broken.
+- **A silently-ignored field name is worse than a rejected one.**
+- **Keep the server's reason.** It was the most informative string in the exchange.
+- **The envelope bug is now three-for-three** (`/engine/orders`, `/forward-test`, `/risk/settings`). A shared unwrap helper or a lint rule is now worth more than a fourth fix.
+
 ## Session: 2026-10-04 — 21 of 27 brokers unconnectable through the UI; all four OAuth brokers included
 
 ### What was done

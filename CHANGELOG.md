@@ -1,3 +1,73 @@
+## Unreleased — the risk page showed a daily-loss cap of 0 for an account whose cap was 2000, and could not save at all
+
+> Found by pressing Save and reading what the form sent, rather than what it displayed. The kill
+> switch on the same page is correct, which is the useful part of this: the control that matters
+> most held up.
+
+### Fixed
+
+Three defects on one form, compounding.
+
+1. **The response envelope was never unwrapped** (`apps/web/app/risk/page.tsx`).
+   `GET /risk/settings` answers `{ settings: [ {...} ] }` — a list under a key — and the page read
+   `s.max_daily_loss` off that envelope, which is always `undefined`. None of the three population
+   guards fired, `limits` kept its zero defaults, and the page displayed **a daily-loss cap of 0**
+   for an account whose stored cap was **2000**.
+
+   Third instance of this exact class, after `/engine/orders` returning `{ orders: [...] }` and
+   `/forward-test` returning `{ items: [...] }`. Two of those are now covered by tests; this is the
+   third.
+
+2. **The drawdown field was sent under a name the API does not have.** The page posted
+   `max_drawdown`; the request model declares `max_drawdown_pct`. Pydantic ignores unknown fields,
+   so this did not error — it fell through to the model's own default of `0.0`, and
+   `risk/rules.py:463` treats `<= 0` as unlimited. **Every save silently reset the drawdown limit to
+   "no limit"**, with no error and no visible change.
+
+3. **The backend's reason was thrown away.** A rejected save answered
+   *"Daily loss cap cannot be disabled. Minimum is your tier default of ₹100000."* and the page
+   replaced it with "Failed to update limits". Since the form could not be saved at all — it always
+   posted the zero it had been showing — the user got a dead form and no indication why.
+
+Together: the form **displayed the wrong value for a safety limit**, **could not be saved**, and
+would have **silently removed the drawdown cap** if a save had ever succeeded.
+
+Verified live before and after:
+
+    before: inputs ["0","0","10"]      body {"max_daily_loss":0,"max_drawdown":0}
+    after:  inputs ["2000","0","10"]    body {"max_daily_loss":2000,"max_drawdown_pct":0}
+
+### The backend is why this was a display bug and not data loss
+
+`risk_service.update_settings` rejects a zero daily-loss cap outright, so pressing Save never
+overwrote the stored 2000. Worth stating plainly, because the frontend was one keystroke away from
+erasing a risk limit and the only thing standing in the way was a server-side check.
+
+### Verified, not broken
+
+4. **The kill switch is correct.** `POST /risk/kill-switch/enable` issued, the state persisted —
+   `GET /risk/kill-switch` returned `{"kill_switch_enabled": true}` — and disabling returned 200.
+   It is admin-gated and the page hides it for non-admins, which is also correct. Restored to
+   disabled afterwards; a scenario arms nothing.
+
+### Added
+
+5. **An eighth interaction scenario** asserting the limit shown equals the limit stored. It reads
+   only, and deliberately does not touch the kill switch — that control is global, and a scenario
+   that armed it and failed midway would halt trading for everyone. Mutation-validated: reverting
+   the unwrap makes it report *"form shows 0, stored value is 2000"*.
+
+### Reference
+
+- **Press the button and read what it sends.** The display was wrong and the write was broken; the
+  page looked plausible throughout.
+- **A silently-ignored field name is worse than a rejected one.** `max_drawdown` did not error — it
+  reset a safety limit to unlimited.
+- **Keep the server's reason.** It was the most informative string in the whole exchange.
+- **The envelope bug has now appeared three times.** Worth a lint rule or a shared unwrap helper
+  before a fourth does.
+- 8/8 interaction scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 53 lib tests.
+
 ## Unreleased — 21 of 27 brokers could not be connected through the UI, including all four OAuth brokers
 
 > Found by filling in the broker connect form and pressing Connect. The button did nothing, and it

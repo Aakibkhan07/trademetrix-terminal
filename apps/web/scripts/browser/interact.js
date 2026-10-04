@@ -642,6 +642,60 @@ scenario('brokers: a credential can be submitted for a broker that declares clie
   }
 })
 
+scenario('risk: the daily-loss limit shown is the one stored, not a default', async (page) => {
+  // Found by reading what the form sent rather than what it displayed. `GET /risk/settings` answers
+  // `{ settings: [ {...} ] }` — a list under a key — and the page read `s.max_daily_loss` off that
+  // envelope, which is always undefined. None of the three population guards fired, `limits` kept
+  // its zero defaults, and the page showed a daily-loss cap of 0 for an account whose stored cap was
+  // 2000. Pressing Save then posted 0, which the backend rejects, so the form could not be saved at
+  // all — and the reason was discarded in favour of "Failed to update limits".
+  //
+  // Third instance of this class, after `/engine/orders` returning `{ orders: [...] }` and
+  // `/forward-test` returning `{ items: [...] }`.
+  //
+  // Reads only. The kill switch is deliberately not toggled here: it is global, and a scenario that
+  // arms it and fails midway would halt trading for everyone.
+  await page.goto(`${BASE}/risk`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await sleep(5000)
+
+  const stored = await page.evaluate(async () => {
+    const tok = (document.cookie.match(/(^|; )csrf_token=([^;]*)/) || [])[2] || ''
+    const r = await fetch('http://127.0.0.1:8000/api/v1/risk/settings', {
+      credentials: 'include', headers: { 'X-CSRF-Token': tok },
+    })
+    const j = await r.json()
+    const row = Array.isArray(j?.settings) ? j.settings[0] : j
+    return { max_daily_loss: row?.max_daily_loss, max_drawdown_pct: row?.max_drawdown_pct }
+  })
+  if (stored?.max_daily_loss == null) {
+    return { pass: false, note: 'could not read stored risk settings' }
+  }
+
+  const enteredEdit = await page.evaluate(() => {
+    const b = [...document.querySelectorAll('button')]
+      .filter((x) => x.offsetParent !== null)
+      .find((x) => /^(edit|modify|change)$/i.test((x.innerText || '').trim()))
+    if (!b) return false
+    b.click()
+    return true
+  })
+  if (!enteredEdit) return { pass: false, note: 'Edit control not found' }
+  await sleep(1500)
+
+  const shown = await page.evaluate(() => [...document.querySelectorAll('input')]
+    .filter((i) => i.offsetParent !== null)
+    .map((i) => Number(i.value)))
+  if (shown.length < 3) return { pass: false, note: `expected 3 limit inputs, found ${shown.length}` }
+
+  const dailyLoss = shown[0]
+  const ok = dailyLoss === Number(stored.max_daily_loss)
+  return {
+    pass: ok,
+    note: `form shows ${dailyLoss}, stored value is ${stored.max_daily_loss}` +
+      (ok ? '' : ' — the envelope is not being unwrapped'),
+  }
+})
+
   for (const s of scenarios) {
     if (ONLY && !s.name.includes(ONLY)) continue
     const before = consoleErrors.length
