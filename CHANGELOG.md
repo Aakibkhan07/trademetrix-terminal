@@ -1,3 +1,67 @@
+## Unreleased — paper trading locked itself out permanently the fifth time anyone used it
+
+> `/builder/dashboard` answers `{"running": [...], "total_running": N}`. Two pages stored the list
+> and used its **length** as the running count. The list keeps stopped strategies; `total_running`
+> does not count them. After five distinct strategies had been started and stopped, Start Paper
+> Trading was disabled with nothing running — and there was no way back through that page.
+
+### Measured, before the fix
+
+    server: total_running = 0, list holds 5 entries
+    FAIL  /paper       badge=5  server=0  startDisabled=true
+    FAIL  /strategies  badge=5  server=0
+
+`startDisabled=true` with `server=0` is the whole bug. The cap at `app/paper/page.tsx:241` is
+`running.length >= 5`, so it counts **distinct strategies ever started** — the list is keyed per
+strategy, not per run, verified by six start/stop cycles of one strategy leaving the count at 1.
+The fifth distinct strategy therefore disables the feature permanently, with nothing running, and
+the badge meanwhile claims five strategies are running.
+
+### Fixed
+
+Both pages now filter on `status === 'running'` at the point of storage, which also fixes the rows:
+they render a health badge, fill counts, P&L and Restart/Stop, none of which mean anything for a
+stopped strategy — and a stopped entry showed **"● Degraded"** purely because `health !== 'ok'` on
+something nobody asked to run.
+
+### The knowledge was already in the file
+
+`app/strategies/page.tsx` used `r.status === 'running'` at lines 194 and 337 to decide per row
+whether a strategy was live. It got it right there and wrong at line 282, twenty lines away, using
+the length of the same array. A correct pattern three call sites from the wrong one is the argument
+for reading neighbouring call sites rather than the single line you are fixing.
+
+### Added
+
+`apps/web/scripts/browser/verify_running_count.js` as `npm run verify:running`. It brings the
+account up to the cap, stops everything, then asserts the badge never contradicts the server and
+that Start is not disabled while under the cap. Mutation-tested: removing the filter gives
+`badge=5, startDisabled=true` and 2/2 failures.
+
+### Four wrong turns, all mine
+
+1. **"The dashboard is stale."** I read the whole `running` list, saw the stopped entry still in it,
+   and said the stop had not registered. `total_running` was 0 and the entry carried
+   `status: "stopped"` — I had simply not looked at the field the question was about.
+2. **A probe that read `strategies`/`items` from a `{running: [...]}` response**, so a working start
+   looked like a no-op. It also left a paper strategy running, which is why the start/stop path got
+   exercised properly afterwards rather than being declared correct from the code.
+3. **A 422 I blamed on the strategies.** The cause was my probe omitting the request body that
+   `POST /builder/strategies/{id}/start` requires.
+4. **A check that failed a correct page.** It demanded `badge === 0` when nothing was running, but
+   `/strategies` hides the entire Execution Dashboard panel in that case, so no badge exists. The
+   rule that covers both pages is "the badge never contradicts the server", not "the badge equals N".
+
+### Reference
+
+- **Two numbers in one response can disagree.** `running` and `total_running` are not the same
+  quantity, and the shorter name is the one that was wrong.
+- **Read neighbouring call sites.** The right pattern was ninety characters away.
+- **A disabled control with nothing running is a lockout, not a bad number.** The badge was the
+  symptom; the cap was the consequence, and only measuring the consequence showed which mattered.
+- 2/2 running counts, 11/11 envelope endpoints, 8/8 interaction scenarios, crawl 51/51, session 7/7,
+  tsc 0, lint 0, 53 lib tests. API 1350 passed / 1 xpassed, ruff clean.
+
 ## Unreleased — every registration form promised a password the API would reject
 
 > Found by reading what the forms said against what the server enforces, after the `/risk` page

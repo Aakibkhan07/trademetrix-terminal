@@ -121,7 +121,14 @@ export default function PaperTradingPage() {
       setTrades(tr.trades)
       setPortfolio(port)
       setStatus(st)
-      setRunning((dash as { running: RuntimeEntry[] }).running || [])
+      // `/builder/dashboard` answers `{ running: [...], total_running: N }`, and the two are not
+      // the same number: the list holds every strategy this account has started, a stopped one
+      // stays in it with `status: "stopped"`, and only `total_running` counts the live ones.
+      // Reading the list length as the running count made the badge claim "5 running" against
+      // a server total of 0, and fed `running.length >= 5` — which disabled Start Paper Trading
+      // permanently after five strategies had ever been started, with nothing running.
+      const entries = (dash as { running: RuntimeEntry[] }).running || []
+      setRunning(entries.filter((r) => r.status === 'running'))
       setError('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load paper trading data')

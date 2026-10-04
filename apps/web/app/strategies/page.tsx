@@ -75,7 +75,10 @@ export default function StrategiesPage() {
   const loadDashboard = useCallback(async () => {
     try {
       const d = await api.builder.dashboard()
-      setRunning((d as { running: RuntimeEntry[] }).running || [])
+      // Same distinction as app/paper: the dashboard list keeps stopped strategies, so its
+      // length is not the running count. See the note there.
+      const entries = (d as { running: RuntimeEntry[] }).running || []
+      setRunning(entries.filter((r) => r.status === 'running'))
     } catch {
       setRunning([])
     }

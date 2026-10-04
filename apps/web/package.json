@@ -13,6 +13,7 @@
     "verify:browser": "node scripts/browser/verify_local_demo.js",
     "verify:contracts": "node scripts/browser/crawl_all_routes.js --out /tmp/contract_audit && python3 scripts/audit_api_contracts.py --signatures /tmp/contract_audit/response_signatures.json",
     "verify:envelopes": "node scripts/browser/verify_envelope_pages.js",
+    "verify:running": "node scripts/browser/verify_running_count.js",
     "verify:interact": "node scripts/browser/interact.js",
     "verify:session": "node scripts/browser/verify_session_survives_reload.js"
   },

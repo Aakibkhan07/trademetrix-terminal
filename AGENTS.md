@@ -3,6 +3,22 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — paper trading permanently locked out at five strategies; four wrong turns on the way
+
+### What was done
+1. **Found and fixed a hard lockout.** `/builder/dashboard` returns `{running: [...], total_running: N}`; both `app/paper` and `app/strategies` used the list **length** as the running count. The list retains stopped strategies, so after five distinct strategies were ever started, `running.length >= 5` disabled Start Paper Trading permanently with nothing running. Measured: `badge=5, server=0, startDisabled=true`. Fixed by filtering on `status === 'running'` at storage in both pages.
+2. **Filtering also fixed the rows**, which show health, fill counts, P&L and Restart/Stop — and rendered "● Degraded" for stopped entries because `health !== 'ok'`.
+3. **`app/strategies` already filtered correctly** at lines 194 and 337 for per-row decisions, ninety characters from the wrong use at line 282.
+4. **Added `verify_running_count.js`** (`npm run verify:running`), mutation-tested both directions.
+5. **Four wrong turns of my own:** called a working dashboard "stale" without reading `total_running`; a probe read the wrong key and left a strategy running; a 422 blamed on the strategies when my probe had omitted the required body; and a check that failed a correct page by demanding `badge === 0` when `/strategies` hides the whole panel at zero.
+6. 2/2 running counts, 11/11 envelopes, 8/8 scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 53 lib tests.
+
+### Reference
+- **Two numbers in one response can disagree**, and the shorter name was the wrong one.
+- **Read neighbouring call sites** — the correct pattern was ninety characters away.
+- **A disabled control with nothing running is a lockout**, not a bad number.
+- **zsh does not word-split unquoted expansions**, unlike bash; a `for` loop over `key|command` pairs ran the whole string as one filename.
+
 ## Session: 2026-10-04 — four registration forms promised a password the API rejects; the portal ignores the session
 
 ### What was done
