@@ -17,6 +17,12 @@ SAFE_PATHS = {
     "/api/v1/auth/send-otp",
     "/api/v1/auth/register-with-otp",
     "/api/v1/auth/verify-otp",
+        # Called by a cron with `X-Cron-Secret` and no cookies. CSRF defends against a browser
+        # being induced into sending a request that carries the user's cookies; this endpoint
+        # authenticates on a shared secret and reads no cookie, so there is nothing to ride on — and
+        # a cron cannot produce a `csrf_token` cookie to satisfy the check anyway, which is why the
+        # documented command answered 403 no matter how it was spelled.
+        "/api/v1/reports/daily/send",
     "/api/v1/tradingview/webhook",
     "/api/v1/subscriptions/webhook",
     "/api/v1/subscriptions/webhook/",

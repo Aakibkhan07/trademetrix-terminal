@@ -27,7 +27,18 @@ async def send_daily_reports(request: Request):
         "ok": True,
         "resend_configured": resend_ok,
         "telegram_configured": telegram_ok,
-        "message": "Daily report scaffold — add cron 0 18 * * 1-5 curl -s http://127.0.0.1:8000/api/v1/reports/daily/send -H \"X-Cron-Secret: $CRON_SECRET\"",
+        # Built from the request's own base URL. This message used to hardcode
+        # `http://127.0.0.1:8000` and omit `-X POST`, so a cron set up from it hit a GET on a POST
+        # endpoint — 405 — and pointed at a port production compose never publishes. Deriving it here
+        # means it is right for whatever host is actually serving, and it can no longer drift from
+        # the copy rendered on the frontend, which builds the same string from API_BASE.
+        "message": (
+            "Daily report scaffold — add cron 0 18 * * 1-5 "
+            # `base_url` is the origin alone; `url.path` already carries the `/api/v1` prefix the
+            # router is mounted at, so joining them derives a URL this router actually serves.
+            f"curl -s -X POST {str(request.base_url).rstrip('/')}{request.url.path} "
+            "-H \"X-Cron-Secret: $CRON_SECRET\""
+        ),
         "hint": "Set RESEND_API_KEY and TELEGRAM_BOT_TOKEN in VPS .env to enable real pushes; journal data is at /ai/journal?lookback_days=1",
     }
 

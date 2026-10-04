@@ -2,6 +2,7 @@
 import { useApi } from '@/lib/use-api'
 import { fmtMoney, fmtNum, NO_VALUE } from '@/lib/format'
 import { journalNarrative, type JournalResponse } from '@/lib/journal'
+import { API_BASE } from '@/lib/api'
 
 /**
  * What `GET /ai/journal?lookback_days=1` actually answers — `ai/journal.py::analyze_trades`.
@@ -28,6 +29,12 @@ export default function DailyReportPage() {
   const { data, loading } = useApi<JournalResponse>(`/ai/journal?lookback_days=1`)
   const stats = data?.stats ?? {}
   const analysisText = journalNarrative(data?.analysis)
+
+  // Built from API_BASE rather than written out. The previous version hardcoded
+  // `http://127.0.0.1:8000`, which answers on the VPS host only if port 8000 is published —
+  // production compose does not publish it — and omitted `-X POST` on a POST endpoint, so the
+  // documented cron returned 405 and the daily report never arrived.
+  const cronUrl = `${API_BASE}/reports/daily/send`
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 900, margin: '0 auto' }}>
@@ -102,7 +109,7 @@ export default function DailyReportPage() {
         </div>
       </div>
 
-      <div style={{ fontSize: 12, color: 'var(--text-faint)', textAlign: 'center' }}>Tip: Set <code>RESEND_API_KEY</code> + <code>TELEGRAM_BOT_TOKEN</code> in VPS <code>apps/api/.env</code> and add a cron <code>0 18 * * 1-5 curl -s http://127.0.0.1:8000/api/v1/reports/daily/send -H X-Cron-Secret:$CRON_SECRET</code> — scaffold ready, keys already in .env.</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', textAlign: 'center' }}>Tip: Set <code>RESEND_API_KEY</code> + <code>TELEGRAM_BOT_TOKEN</code> in VPS <code>apps/api/.env</code> and add a cron <code>0 18 * * 1-5 curl -s -X POST {cronUrl} -H &quot;X-Cron-Secret: $CRON_SECRET&quot;</code> — scaffold ready, keys already in .env.</div>
     </div>
   )
 }
