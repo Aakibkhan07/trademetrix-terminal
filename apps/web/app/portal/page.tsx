@@ -1176,7 +1176,15 @@ function OTPScreen({ onVerify }: { onVerify: (email: string) => void }) {
   }
 
   const handleRegister = async () => {
-    if (!email || !password || password.length < 6) { setError('Email and password (min 6 chars) required'); return }
+    if (!email) { setError('Email is required'); return }
+    // Registration. The copy here said 6 while /auth/register-with-otp enforces 8 plus
+    // upper, lower, digit and symbol, so the form accepted values the API rejected with a
+    // reason the user had never been shown.
+    if (password.length < 8) { setError('Password must be at least 8 characters long'); return }
+    if (!/[A-Z]/.test(password)) { setError('Password must contain at least one uppercase letter'); return }
+    if (!/[a-z]/.test(password)) { setError('Password must contain at least one lowercase letter'); return }
+    if (!/[0-9]/.test(password)) { setError('Password must contain at least one digit'); return }
+    if (!/[^A-Za-z0-9]/.test(password)) { setError('Password must contain at least one special character'); return }
     setError(''); setSending(true)
     try {
       const res = await api.auth.registerWithOTP({ email, password, full_name: fullName || undefined, phone: phone || undefined })

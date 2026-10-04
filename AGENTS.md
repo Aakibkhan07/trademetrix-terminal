@@ -3,6 +3,21 @@
 ## Project
 Automated trading terminal. FastAPI backend + Next.js frontend. Multi-broker support. Supabase DB, Redis cache/rate-limiter, Prometheus metrics, Telegram alerts.
 
+## Session: 2026-10-04 — four registration forms promised a password the API rejects; the portal ignores the session
+
+### What was done
+1. **Found four forms still on a 6-character rule** while the server enforces 8 + upper + lower + digit + symbol. `auth:155` (handleOtpRegister), `portal:1179`, and the placeholders at `auth:564` and `auth:396`. A user could satisfy the form and be rejected by the API for a missing uppercase letter they were never asked for. Verified live: blocked cases issue **no request**, and the message shown is the server's own wording.
+2. **The login floor of 6 is kept deliberately.** `isValidPassword` gates login too, and raising it would lock out accounts created before the policy tightened. The signup policy is a separate function applied only in signup mode, and the shared login/signup/forgot input's placeholder is now mode-aware.
+3. **Recorded, not changed:** `/portal` initialises its own OTP gate to `'email'` unconditionally and never checks the caller's session, though it loads `/auth/me/capabilities` and assumes one. A signed-in user is asked to sign in again. Possibly intentional as a separate read-only surface — but it is a product decision, not a bug fix.
+4. **`addOrderNote` remains unexercised** — the probe could not reach the form because it sits behind that gate. Noted rather than forced.
+5. 11/11 envelopes, 8/8 scenarios, crawl 51/51, session 7/7, tsc 0, lint 0, 53 lib tests. API 1350 passed / 1 xpassed, ruff clean.
+
+### Reference
+- **Compare what the form promises with what the API enforces** — four sites disagreed with one server function.
+- **Do not tighten authentication.** A minimum on the login path is a lockout.
+- **One input serving three modes cannot have one placeholder.**
+- My grep for password-length checks was **case-sensitive** and missed `otpPassword.length` on the first pass; the sweep was only trustworthy after re-running case-insensitively.
+
 ## Session: 2026-10-04 — the envelope class closed: one bug in eleven, found by measurement after three wrong tools
 
 ### What was done

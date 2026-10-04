@@ -1,3 +1,64 @@
+## Unreleased — every registration form promised a password the API would reject
+
+> Found by reading what the forms said against what the server enforces, after the `/risk` page
+> turned out to be showing a stored limit of 2000 as 0. Both came from the same habit: stop asking
+> whether a value looks right and start asking what the other side will do with it.
+
+### Fixed
+
+**The server has one password policy** — `_validate_password` and `_validate_otp_signup_password`,
+both requiring 8 characters, an uppercase letter, a lowercase letter, a digit and a symbol. Two
+forms had already been corrected earlier today. Four had not:
+
+| site | said | enforced | endpoint it feeds |
+|---|---|---|---|
+| `app/auth/page.tsx:155` | "min 6 chars" | `>= 6` | `/auth/register-with-otp` |
+| `app/portal/page.tsx:1179` | "min 6 chars" | `>= 6` | `/auth/register-with-otp` |
+| `app/auth/page.tsx:564` | "Min. 6 characters" | — (placeholder) | OTP registration field |
+| `app/auth/page.tsx:396` | "Min. 6 characters" | — (placeholder) | shared login/signup/forgot field |
+
+So a user could satisfy the form and be rejected by the API *for lacking an uppercase letter they
+had never been asked for*. Verified live against the running app — the blocked cases never issue a
+request, and the message shown is the server's own wording:
+
+    6 chars    -> Password must be at least 8 characters long
+    no symbol  -> Password must contain at least one special character
+    compliant  -> proceeds, POST /auth/signup
+
+### The login form keeps its length floor of 6, deliberately
+
+`isValidPassword` gates the **login** path as well as signup, and raising it there would be a
+lockout rather than a fix: accounts created before the policy tightened must still be able to sign
+in. The signup policy is therefore a separate function, applied only when `mode === 'signup'`.
+
+The shared password field serves login, signup and forgot-password from one input, so its placeholder
+is now mode-aware rather than advertising a minimum that applies to one of the three.
+
+### Verified, not fixed
+
+1. **`/portal` ignores an existing session.** Its gate is `step === 'email'` — an OTP flow of its
+   own, initialised unconditionally, with no check of the caller's session even though the page
+   loads `/auth/me/capabilities` and assumes one exists. A signed-in user is asked to sign in again
+   by email OTP. That may well be deliberate — "Client Portal" as a separate read-only surface is a
+   reasonable design — but nothing in the code says so, and the practical effect is that the portal's
+   ~1400 lines are unreachable to anyone without email OTP. Not changed: making it skip the gate on
+   an existing session is a product decision about what the portal is, not a bug fix.
+
+2. **`addOrderNote` is unexercised.** The note form reads its inputs through `document.getElementById`
+   rather than React state, clears them on success with no confirmation, and reports failure through a
+   bare `alert()`. Nothing in that combination is wrong on inspection and nothing is obviously right
+   either, which is where bugs live — but the probe could not run, because reaching the form means
+   passing the gate above. Left for whenever the portal gate is resolved.
+
+### Reference
+
+- **Compare what the form promises with what the API enforces.** Four sites disagreed with one
+  server-side function, and the disagreement was invisible until the two were read side by side.
+- **Do not tighten authentication.** A minimum on the login path is a lockout.
+- **One input serving three modes cannot have one placeholder.**
+- 11/11 envelope endpoints, 8/8 interaction scenarios, crawl 51/51, session 7/7, tsc 0, lint 0,
+  53 lib tests.
+
 ## Unreleased — the envelope bug was one instance, not eleven, and proving that took three wrong tools
 
 > Third page lost its data to the same mistake today (`/risk`, after `/engine/orders` and

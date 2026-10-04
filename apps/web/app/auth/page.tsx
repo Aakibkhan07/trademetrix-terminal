@@ -40,7 +40,26 @@ export default function AuthPage() {
 
 
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+  // Two different questions that shared one function.
+  //
+  // `isValidPassword` gates the **login** form, and a length floor belongs nowhere near it:
+  // accounts created before the policy tightened must still be able to sign in, so raising it here
+  // is a lockout rather than a fix.
+  //
+  // `passwordPolicyError` is the **signup** policy, mirroring the server's `_validate_password` and
+  // `_validate_otp_signup_password` exactly. The form previously said "min 6 chars" and enforced 6,
+  // so a user could satisfy it and still be rejected by the API for lacking an uppercase letter they
+  // had never been asked for.
   const isValidPassword = (v: string) => v.length >= 6
+
+  const passwordPolicyError = (v: string): string | null => {
+    if (v.length < 8) return 'Password must be at least 8 characters long'
+    if (!/[A-Z]/.test(v)) return 'Password must contain at least one uppercase letter'
+    if (!/[a-z]/.test(v)) return 'Password must contain at least one lowercase letter'
+    if (!/[0-9]/.test(v)) return 'Password must contain at least one digit'
+    if (!/[^A-Za-z0-9]/.test(v)) return 'Password must contain at least one special character'
+    return null
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -70,7 +89,11 @@ export default function AuthPage() {
     }
 
     if (!isValidEmail(email)) { setValidEmail(false); return }
-    if (!isValidPassword(password)) { setValidPassword(false); return }
+    if (mode === 'signup') {
+      // The server owns this policy; saying so before the round trip beats after it.
+      const pwErr = passwordPolicyError(password)
+      if (pwErr) { setError(pwErr); return }
+    } else if (!isValidPassword(password)) { setValidPassword(false); return }
 
     setLoading(true)
     try {
@@ -152,7 +175,11 @@ export default function AuthPage() {
   }
 
   const handleOtpRegister = async () => {
-    if (!otpEmail || !otpPassword || otpPassword.length < 6) { setError('Email and password (min 6 chars) required'); return }
+    if (!otpEmail) { setError('Email is required'); return }
+    // Registration, so the full policy applies. This posts to /auth/register-with-otp,
+    // which has enforced 8 characters plus four character classes all along.
+    const otpPwErr = passwordPolicyError(otpPassword)
+    if (otpPwErr) { setError(otpPwErr); return }
     setError(''); setLoading(true)
     try {
       await api.auth.registerWithOTP({ email: otpEmail, password: otpPassword, full_name: otpName || undefined, phone: otpPhone || undefined })
@@ -393,7 +420,9 @@ export default function AuthPage() {
                     marginBottom: 6, display: 'block', transition: 'color 150ms ease',
                   }}>Password</label>
                   <div style={{ position: 'relative' }}>
-                    <input type={showPassword ? 'text' : 'password'} placeholder="Min. 6 characters" value={password}
+                    <input type={showPassword ? 'text' : 'password'} placeholder={mode === 'signup'
+                      ? 'Min. 8 characters, with upper, lower, digit and symbol'
+                      : 'Your password'} value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       onFocus={() => setFocusedField('password')}
                       onBlur={() => setFocusedField(null)}
@@ -561,7 +590,7 @@ export default function AuthPage() {
                       fontSize: 13, fontWeight: 600, color: focusedField === 'otp-pw' ? 'var(--violet)' : 'var(--text-sub)',
                       marginBottom: 6, display: 'block', transition: 'color 150ms ease',
                     }}>Password</label>
-                    <input type="password" placeholder="Min. 6 characters" value={otpPassword}
+                    <input type="password" placeholder="Min. 8 characters, with upper, lower, digit and symbol" value={otpPassword}
                       onChange={(e) => setOtpPassword(e.target.value)}
                       onFocus={() => setFocusedField('otp-pw')}
                       onBlur={() => setFocusedField(null)}
