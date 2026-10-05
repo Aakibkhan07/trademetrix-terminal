@@ -107,7 +107,10 @@ class BuyerBase(BaseStrategy):
         self.vols: list[float] = []
         self.trades_today = 0
         self.traded_dirs: set[str] = set()
-        self.lot_size = 0
+        # Resolved from the authoritative instrument master in on_start(). None means
+        # "not resolved" -- it was 0, which is falsy in the same places but reads like
+        # a real contract size and silently flowed into sizing arithmetic.
+        self.lot_size: int | None = None
         self.step = 0
         self.pos: Optional[dict] = None
         self._riskguard: Optional[RiskGuard] = None
@@ -138,6 +141,19 @@ class BuyerBase(BaseStrategy):
     async def on_start(self) -> None:
         self.lot_size = instrument_service.lot_size(self.bc.index)
         self.step = instrument_service.strike_step(self.bc.index)
+        if not self.lot_size:
+            # No authoritative lot size for this underlying, so every quantity this
+            # strategy could produce would be a guess at a contract size. Stay out of
+            # the market rather than size on an assumption; the gate would block the
+            # order anyway, and reaching that point means building an OR all day for
+            # nothing.
+            logger.error(
+                "Buyer strategy %s cannot start: no authoritative lot size for %r. "
+                "Refusing to size positions without contract metadata.",
+                self.bc.strategy_id or self.name, self.bc.index,
+            )
+            self.phase = Phase.DONE
+            return
         self._today_str = datetime.now().strftime("%Y%m%d")
         cached = await cache.get(f"buyer:{self.bc.strategy_id}:{self._today_str}")
         if cached:
@@ -245,8 +261,14 @@ class BuyerBase(BaseStrategy):
         return instrument_service.option_symbol(self.bc.index, expiry, strike, cepe)
 
     def _premium_size(
-        self, entry_premium: float, sl_premium: float, lot_size: int,
+        self, entry_premium: float, sl_premium: float, lot_size: int | None,
     ) -> tuple[int, int, float]:
+        # Lots come from the risk budget and the outlay cap, never from the contract
+        # size directly -- this method was already correct in that respect and is the
+        # shape every other sizing path should follow. It only needs the authoritative
+        # lot size, so an unresolved contract has no correct answer here.
+        if not lot_size or lot_size <= 0:
+            return 0, 0, 0.0
         risk_per_lot = (entry_premium - sl_premium) * lot_size
         if risk_per_lot <= 0:
             return 0, 0, 0.0
@@ -473,7 +495,17 @@ class BuyerBase(BaseStrategy):
         self.vols = s.get("vols", [])
         self.trades_today = s.get("trades_today", 0)
         self.traded_dirs = set(s.get("traded_dirs", []))
-        self.lot_size = s.get("lot_size", 0)
+        # A cached lot size is re-resolved rather than trusted. Contract lot sizes are
+        # revised on expiry cycles, so yesterday's value can be wrong today, and a
+        # restored one would silently size today's position against it. An absent or
+        # invalid cached value leaves it unresolved, which is the honest state.
+        cached_lot = s.get("lot_size")
+        cached_lot = int(cached_lot) if isinstance(cached_lot, (int, float)) and cached_lot > 0 else None
+        # Prefer a fresh resolution over the cached value. Contract lot sizes are revised
+        # on expiry cycles, so yesterday's number can be wrong today and a restored one
+        # would silently size today's position against it. The cache is only a fallback
+        # for when the master cannot be reached.
+        self.lot_size = instrument_service.lot_size(self.bc.index) or cached_lot
         self.step = s.get("step", 0)
         self.pos = s.get("pos")
         if self.pos and self.pos.get("entry_ts"):

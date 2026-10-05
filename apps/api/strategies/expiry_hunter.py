@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 
-from core.constants import LOT_SIZES, STRIKE_INTERVALS, format_fyers_option_symbol, get_weekly_expiry
+from core.constants import STRIKE_INTERVALS, format_fyers_option_symbol, get_weekly_expiry
 from core.models import (
     Candle,
     Exchange,
@@ -22,7 +22,6 @@ class ExpiryHunter(BaseStrategy):
     def __init__(self, config: dict | None = None):
         super().__init__(config)
         self.symbol = config.get("symbol", "NIFTY")
-        self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 50))
         self.iv_threshold = config.get("iv_threshold", 25.0)
         self.strike_distance = config.get("strike_distance", 2)
         self._iv_estimate: float = 0.0

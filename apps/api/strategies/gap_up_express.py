@@ -1,4 +1,4 @@
-from core.constants import LOT_SIZES
+
 from core.models import (
     Candle, Exchange, NormalizedOrder, OrderSide, OrderType, ProductType, Tick,
 )
@@ -13,7 +13,6 @@ class GapUpExpress(BaseStrategy):
     def __init__(self, config: dict | None = None):
         super().__init__(config)
         self.symbol = config.get("symbol", "BANKNIFTY")
-        self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 40))
         self.gap_pct = config.get("gap_pct", 0.3)
         self.volume_threshold = config.get("volume_threshold", 1.5)
         self.prev_close: float | None = None

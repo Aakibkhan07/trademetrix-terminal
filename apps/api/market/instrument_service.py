@@ -7,7 +7,6 @@ import logging
 from datetime import UTC, datetime
 from typing import Optional
 
-from core.constants import LOT_SIZES, MONTH_CODES, STRIKE_INTERVALS, get_weekly_expiry
 from market.option_chain import option_chain_engine
 
 logger = logging.getLogger(__name__)
@@ -27,8 +26,19 @@ class InstrumentService:
             return
         self._initialized = True
 
-    def lot_size(self, index: str) -> int:
-        return LOT_SIZES.get(index.upper(), 65)
+    def lot_size(self, index: str) -> int | None:
+        """Authoritative lot size for an index/underlying, or None.
+
+        Previously ``LOT_SIZES.get(index.upper(), 65)`` -- a hardcoded dict keyed
+        by bare index names, with a silent 65 when the key missed. It now reads the
+        canonical resolver and returns None when the contract cannot be resolved.
+
+        None is load-bearing: callers must fail closed rather than substitute a
+        literal, because every consumer of this method sizes a real position.
+        """
+        from market.instruments import resolve_lot_size
+
+        return resolve_lot_size((index or "").split(":")[-1], instrument_type="")
 
     def strike_step(self, index: str) -> int:
         return STRIKE_INTERVALS.get(index.upper(), 50)

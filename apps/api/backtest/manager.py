@@ -26,6 +26,28 @@ logger = logging.getLogger(__name__)
 BACKTEST_BROKER = "paper"
 
 
+#: Position size used by a backtest whose symbol has no tradable contract.
+#:
+#: A backtest on an index such as `NSE:NIFTY50-INDEX` is a proxy simulation: the index
+#: itself cannot be traded, so there is no contract and therefore no contract lot size.
+#: The quantity in such a run is an abstract position size, not an order that could be
+#: placed.
+#:
+#: This constant exists so that number lives in ONE named place with a stated meaning,
+#: rather than as a bare literal inside each of the 14 strategies that used to carry it.
+#: It is one unit because that is the value that assumes least: it does not claim to
+#: know any contract size. A run that wants realistic sizing supplies `lot_size`
+#: explicitly in `strategy_params`, or the lot size is resolved from the instrument
+#: master when a real contract is behind the symbol.
+#:
+#: It never reaches live execution: backtest orders go to `BacktestBroker`, and the
+#: execution gate refuses any lot-bearing order whose metadata does not resolve.
+BACKTEST_PROXY_UNITS_PER_LOT = 1
+
+#: Logged once per run whose lot size came from the proxy rather than the master.
+_PROXY_LOT_SIZE_LOGGED: set[str] = set()
+
+
 class BacktestManager:
     _instance = None
 
@@ -404,6 +426,25 @@ class BacktestManager:
             )
         params = dict(config.strategy_params)
         params["symbol"] = config.symbol
+
+        # Position sizing needs a lot size. Resolve it from the authoritative instrument
+        # master when the symbol is a real contract, and only fall back to the documented
+        # proxy for a non-tradable index simulation.
+        from market.instruments import resolve_lot_size
+
+        lot_size = resolve_lot_size(config.symbol) or params.get("lot_size")
+        if lot_size:
+            params["lot_size"] = int(lot_size)
+        else:
+            params["lot_size"] = BACKTEST_PROXY_UNITS_PER_LOT
+            if config.symbol not in _PROXY_LOT_SIZE_LOGGED:
+                _PROXY_LOT_SIZE_LOGGED.add(config.symbol)
+                logger.info(
+                    "Backtest on %s: no authoritative lot size (it is not a tradable "
+                    "contract). Simulating %s units per lot as an abstract position "
+                    "size. Results are a proxy, not a placeable order.",
+                    config.symbol, BACKTEST_PROXY_UNITS_PER_LOT,
+                )
         return strategy_cls(params)
 
     async def _collect_snapshot(

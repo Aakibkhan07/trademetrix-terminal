@@ -104,10 +104,26 @@ class Instrument:
         return lots * self.lot_size
 
 
-# A provider returns an Instrument, or None when it has no row for the request.
-# It must raise rather than guess: a provider that cannot answer says None, and the
-# registry reports the whole resolution as failed.
+# A provider is either a plain callable resolving a symbol, or an object exposing
+# ``resolve`` plus optionally ``resolve_option`` / ``resolve_future``. Supporting both
+# keeps the common case (a single contract lookup) a one-line lambda while leaving room
+# for a master-backed provider that can answer exact-contract questions.
 InstrumentProvider = Callable[..., "Instrument | None"]
+
+
+def _provider_lookup(provider: InstrumentProvider, method: str, *args, **kwargs):
+    """Call ``method`` on a provider if it exposes it, else the provider itself.
+
+    A bare callable is treated as the ``resolve`` entry point. Anything exposing the
+    named method is preferred, so a master-backed provider can answer a narrower
+    question (an exact option contract) without every caller knowing its shape.
+    """
+    target = getattr(provider, method, None)
+    if callable(target):
+        return target(*args, **kwargs)
+    if method == "resolve" and callable(provider):
+        return provider(*args, **kwargs)
+    return None
 
 
 @dataclass
@@ -171,7 +187,10 @@ class InstrumentResolver:
         for provider in self.authoritative_providers():
             provider.calls += 1
             try:
-                found = provider.fn(symbol, broker=broker, instrument_type=instrument_type)
+                found = _provider_lookup(
+                    provider.fn, "resolve", symbol, broker=broker,
+                    instrument_type=instrument_type,
+                )
             except Exception as exc:
                 logger.warning(
                     "Instrument provider %r raised for %s (%s): %s",
@@ -222,7 +241,10 @@ class InstrumentResolver:
                 "note": provider.note,
             }
             try:
-                found = provider.fn(symbol, broker=broker, instrument_type=instrument_type)
+                found = _provider_lookup(
+                    provider.fn, "resolve", symbol, broker=broker,
+                    instrument_type=instrument_type,
+                )
                 entry["claims"] = (
                     None if found is None else {
                         "security_id": found.security_id,
@@ -274,3 +296,104 @@ def blocked_message(symbol: str, broker: str, instrument_type: str) -> str:
         f"Symbol: {symbol}. Broker: {broker}. Instrument type: {instrument_type}. "
         "Required metadata: Security ID, Exchange Segment, Instrument Type, Lot Size."
     )
+
+
+#: The broker whose instrument master is the system of record for contract
+#: metadata. Lot sizes are a property of the contract rather than of the broker,
+#: so a lot size resolved here is usable even when the order will be routed
+#: elsewhere — but the security id and exchange segment are broker-specific and
+#: must never be taken from a different broker's master.
+REFERENCE_BROKER = "dhan"
+
+
+def resolve_lot_size(
+    symbol: str,
+    *,
+    broker: str = REFERENCE_BROKER,
+    instrument_type: str = "",
+) -> int | None:
+    """The authoritative lot size for ``symbol``, or None when unresolved.
+
+    Returns None rather than a default. A caller that receives None must fail
+    closed; it must not substitute a literal. Every such caller previously
+    substituted one of 1, 25, 40, 50, 65 or 75.
+    """
+    instrument = instrument_resolver.resolve(
+        symbol, broker=broker, instrument_type=instrument_type
+    )
+    return instrument.lot_size if instrument is not None else None
+
+
+def resolve_option_contract(
+    underlying: str,
+    *,
+    expiry: str,
+    strike: float,
+    option_type: str,
+    broker: str = REFERENCE_BROKER,
+) -> Instrument | None:
+    """Resolve one exact option contract, or None.
+
+    Lot size varies per underlying *and* per contract, so a lookup keyed on the
+    underlying alone is not sufficient for a stock option. The exact contract is
+    identified by underlying, expiry, strike and CE/PE, and the security id comes
+    from the master alongside the lot size.
+
+    Providers implement this by narrowing their master rows. It is a separate
+    entry point from :func:`resolve` precisely because "NIFTY" and "a NIFTY call
+    struck 24000 expiring 2026-08-28" are different questions, and answering the
+    second with the first is how an option gets sized on an index lot size.
+    """
+    opt = str(option_type or "").upper()
+    if opt not in ("CE", "PE"):
+        return None
+    underlying_key = (underlying or "").split(":")[-1].upper()
+
+    for provider in instrument_resolver.authoritative_providers():
+        provider.calls += 1
+        try:
+            found = _provider_lookup(
+                provider.fn, "resolve_option",
+                underlying_key,
+                expiry=str(expiry),
+                strike=float(strike),
+                option_type=opt,
+                broker=broker,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Option-contract lookup via %r failed for %s %s %s %s: %s",
+                provider.name, underlying_key, expiry, strike, opt, exc,
+            )
+            continue
+        if found is not None:
+            provider.hits += 1
+            return found
+    return None
+
+
+def resolve_future_contract(
+    underlying: str,
+    *,
+    expiry: str,
+    broker: str = REFERENCE_BROKER,
+) -> Instrument | None:
+    """Resolve one exact futures contract, or None."""
+    underlying_key = (underlying or "").split(":")[-1].upper()
+    for provider in instrument_resolver.authoritative_providers():
+        provider.calls += 1
+        try:
+            found = _provider_lookup(
+                provider.fn, "resolve_future",
+                underlying_key, expiry=str(expiry), broker=broker,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Future-contract lookup via %r failed for %s %s: %s",
+                provider.name, underlying_key, expiry, exc,
+            )
+            continue
+        if found is not None:
+            provider.hits += 1
+            return found
+    return None

@@ -1,4 +1,4 @@
-from core.constants import LOT_SIZES
+
 from core.models import (
     Candle, Exchange, NormalizedOrder, OrderSide, OrderType, ProductType, Tick,
 )
@@ -13,7 +13,6 @@ class IntradayMomentum(BaseStrategy):
     def __init__(self, config: dict | None = None):
         super().__init__(config)
         self.symbol = config.get("symbol", "NIFTY")
-        self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 75))
         self.rsi_period = config.get("rsi_period", 7)
         self._prices: list[float] = []
         self._volume_price: list[tuple[float, float]] = []

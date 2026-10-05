@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
 
-from core.constants import LOT_SIZES
 from core.models import (
     Candle,
     Exchange,
@@ -22,7 +21,6 @@ class ORBPro(BaseStrategy):
     def __init__(self, config: dict | None = None):
         super().__init__(config)
         self.symbol = config.get("symbol", "BANKNIFTY")
-        self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 25))
         self.range_minutes = config.get("range_minutes", 15)
         self.breakout_buffer = config.get("breakout_buffer", 0.001)
         self._range_high: float = 0.0

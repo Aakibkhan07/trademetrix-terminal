@@ -4,7 +4,7 @@ SL 40% on premium, 15m trend + 5m execution, 10 lots, 09:30-15:40."""
 import logging
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional
-from core.constants import LOT_SIZES, STRIKE_INTERVALS, get_weekly_expiry
+from core.constants import STRIKE_INTERVALS, get_weekly_expiry
 from core.models import Candle, Exchange, NormalizedOrder, OrderSide, OrderType, ProductType
 from market.instrument_service import instrument_service
 from strategies.base import SignalResult
@@ -94,7 +94,11 @@ class HeroZero(BuyerBase):
         lots, qty, r = self._premium_size(p0, sl_prem, self.lot_size)
         if lots < 1:
             return
-        qty = 10 * self.lot_size
+        # qty comes from _premium_size, which derives it from the risk budget and
+        # the outlay cap. This line used to overwrite it with `10 * self.lot_size`,
+        # discarding the sized quantity for a magic ten-lot multiplier -- the same
+        # class of defect as the execution gate's, except that here it also threw
+        # away the only part of the calculation that reflected the account.
         rr = self._get_rr()
         logger.info("HERO ZERO %s spot=%.2f strike=%.0f prem=%.2f qty=%d RR=%.1f", cepe, spot, strike, p0, qty, rr)
         symbol = self._build_symbol(expiry, strike, cepe)

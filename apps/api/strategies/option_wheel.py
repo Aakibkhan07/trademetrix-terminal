@@ -1,4 +1,4 @@
-from core.constants import LOT_SIZES, STRIKE_INTERVALS
+from core.constants import STRIKE_INTERVALS
 from core.models import (
     Candle, Exchange, NormalizedOrder, OrderSide, OrderType, ProductType, Tick,
 )
@@ -13,7 +13,6 @@ class OptionWheel(BaseStrategy):
     def __init__(self, config: dict | None = None):
         super().__init__(config)
         self.symbol = config.get("symbol", "NIFTY")
-        self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 75))
         self.strike_pct = config.get("strike_pct", 0.03)
         self._prices: list[float] = []
         self.phase: str = config.get("phase", "put_sell")

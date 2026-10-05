@@ -142,11 +142,11 @@ async def _get_open_legs(strategy_id: str) -> list[dict]:
     if isinstance(legs_data, list) and legs_data and hasattr(legs_data[0], "model_dump"):
         legs_data = [l.model_dump() for l in legs_data]
 
-    from engine.strategy_compiler import LOT_SIZES
-    lot_size = LOT_SIZES.get(strategy.index_symbol, 65)
+    lot_size = resolve_lot_size(strategy.index_symbol)
     symbol = strategy.index_symbol
     expiry_str = ""
 
+    from market.instruments import resolve_lot_size
     from engine.strategy_compiler import resolve_expiry
     if legs_data and isinstance(legs_data, list) and legs_data:
         if isinstance(legs_data[0], dict):

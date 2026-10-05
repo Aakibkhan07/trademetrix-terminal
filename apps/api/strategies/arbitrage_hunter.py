@@ -1,4 +1,4 @@
-from core.constants import LOT_SIZES
+
 from core.models import (
     Candle, Exchange, NormalizedOrder, OrderSide, OrderType, ProductType, Tick,
 )
@@ -13,7 +13,6 @@ class ArbitrageHunter(BaseStrategy):
     def __init__(self, config: dict | None = None):
         super().__init__(config)
         self.symbol = config.get("symbol", "NIFTY")
-        self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 75))
         self.lookback = config.get("lookback", 30)
         self.entry_std = config.get("entry_std", 2.0)
         self._near_prices: list[float] = []

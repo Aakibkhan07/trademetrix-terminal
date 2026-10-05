@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backtest.execution import BacktestBroker, BacktestExecutionConfig  # noqa: E402
 from backtest.risk import BacktestRiskSimulator  # noqa: E402
-from core.constants import LOT_SIZES  # noqa: E402
+from market.instruments import resolve_lot_size  # noqa: E402
 from core.models import Candle  # noqa: E402
 from strategies import get_strategy  # noqa: E402
 
@@ -174,8 +174,9 @@ async def trace(key: str, candles: list[dict]) -> dict:
 async def main() -> None:
     print(f"  capital                 : {CAPITAL:,.0f}")
     print(f"  symbol                  : {SYMBOL}")
-    print(f"  LOT_SIZES['{SYMBOL}']    : {LOT_SIZES.get(SYMBOL, 'ABSENT -> falls back to 75')}")
-    print(f"  LOT_SIZES['{BARE}']      : {LOT_SIZES.get(BARE, 'ABSENT')}")
+    resolved = resolve_lot_size(SYMBOL)
+    print(f"  resolved lot for {SYMBOL} : {resolved if resolved else 'UNRESOLVED (orders will be blocked)'}")
+    print("  (before the repair this read LOT_SIZES.get(symbol, 75) -> 75)")
     candles = synth()
     closes = [c["close"] for c in candles]
     print(f"  synthetic candles       : {len(candles)}  range {min(closes):,.0f} .. {max(closes):,.0f}")

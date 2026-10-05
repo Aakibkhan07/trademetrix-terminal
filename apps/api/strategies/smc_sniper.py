@@ -1,5 +1,5 @@
 
-from core.constants import LOT_SIZES
+
 from core.models import (
     Candle,
     Exchange,
@@ -19,7 +19,6 @@ class SMCSniper(BaseStrategy):
     def __init__(self, config: dict | None = None):
         super().__init__(config)
         self.symbol = config.get("symbol", "NIFTY")
-        self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 75))
         self.lookback = config.get("lookback", 10)
         self._candles: list[Candle] = []
 

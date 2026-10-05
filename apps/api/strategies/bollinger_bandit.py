@@ -1,6 +1,5 @@
 import math
 
-from core.constants import LOT_SIZES
 from core.models import (
     Candle, Exchange, NormalizedOrder, OrderSide, OrderType, ProductType, Tick,
 )
@@ -14,7 +13,6 @@ class BollingerBandit(BaseStrategy):
     def __init__(self, config: dict | None = None):
         super().__init__(config)
         self.symbol = config.get("symbol", "NIFTY")
-        self.quantity = config.get("quantity", LOT_SIZES.get(self.symbol, 75))
         self.period = config.get("period", 20)
         self.std_dev = config.get("std_dev", 2.0)
         self._prices: list[float] = []

@@ -12,10 +12,10 @@ from core.models import (
 
 logger = logging.getLogger(__name__)
 
-from core.constants import LOT_SIZES as CORE_LOT_SIZES, STRIKE_INTERVALS as CORE_STRIKE_INTERVALS, WEEKLY_EXPIRY_MAP as CORE_WEEKLY_EXPIRY
+from core.constants import STRIKE_INTERVALS as CORE_STRIKE_INTERVALS, WEEKLY_EXPIRY_MAP as CORE_WEEKLY_EXPIRY
+from market.instruments import resolve_lot_size
 
 STRIKE_INTERVALS: dict[str, int] = dict(CORE_STRIKE_INTERVALS)
-LOT_SIZES: dict[str, int] = dict(CORE_LOT_SIZES)
 WEEKDAY_EXPIRY: dict[str, int] = dict(CORE_WEEKLY_EXPIRY)
 
 MAX_LOTS: int = 10
@@ -117,7 +117,7 @@ def resolve_strikes(legs: list[UserStrategyLeg], symbol: str, spot_price: float,
     If option_chain is None or empty, simulated values are returned with a warning.
     """
     interval = STRIKE_INTERVALS.get(symbol, 50)
-    lot_size = LOT_SIZES.get(symbol, 65)
+    lot_size = resolve_lot_size(symbol)
     result: dict[int, float] = {}
 
     ce_premia = {}
@@ -238,7 +238,18 @@ def compile_user_strategy(
 
     symbol = strategy.index_symbol
     interval = STRIKE_INTERVALS.get(symbol, 50)
-    lot_size = LOT_SIZES.get(symbol, 65)
+    lot_size = resolve_lot_size(symbol)
+
+    if not lot_size:
+        # Compiling without an authoritative lot size would either crash on
+        # `lots * None` or, worse, size every leg from a hardcoded guess. Refusing
+        # to compile is the honest outcome: the plan cannot be built without knowing
+        # how big a lot is.
+        raise ValueError(
+            f"Cannot compile a strategy for {symbol}: no authoritative lot size could be "
+            "resolved for this underlying. Instrument metadata must be available before a "
+            "strategy can be sized."
+        )
 
     if not option_chain:
         raise ValueError(f"Cannot compile strategy: option chain required for {symbol}")

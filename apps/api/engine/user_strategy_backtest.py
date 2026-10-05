@@ -13,8 +13,9 @@ from datetime import datetime, timedelta
 from core.models import (
     OptionType, UserStrategy,
 )
+from market.instruments import resolve_lot_size
 from engine.strategy_compiler import (
-    LOT_SIZES, compile_user_strategy,
+    compile_user_strategy,
 )
 from market.historical import historical_engine
 
@@ -177,7 +178,10 @@ async def run_user_strategy_backtest(
                 logger.info("Fetched %d real option candles for %s", len(opt_candles), order.symbol)
 
     tr = TradeRecord()
-    lot_size = LOT_SIZES.get(strategy.index_symbol, 65)
+    # Authoritative lot size, or None. A literal 65 would size a recorded backtest
+    # trade on a guess and make its P&L and margin figures wrong in a way that
+    # looks like a strategy result.
+    lot_size = resolve_lot_size(strategy.index_symbol)
 
     from_date_dt = datetime.strptime(from_date, "%Y-%m-%d")
     to_date_dt = datetime.strptime(to_date, "%Y-%m-%d")

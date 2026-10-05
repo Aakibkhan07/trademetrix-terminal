@@ -30,8 +30,22 @@ def _patch_all_deps():
 
 @pytest.fixture(autouse=True)
 def _patch_instrument_service():
-    """Make instrument_service methods controllable."""
+    """Make instrument_service methods controllable.
+
+    `instrument_service` is a module-level singleton, so assigning over its methods
+    replaces them for the whole process. This fixture used to do exactly that with no
+    teardown, so `lot_size` stayed a MagicMock returning 65 for every later test in the
+    run -- which silently made any assertion about lot-size resolution meaningless
+    outside this file. Restoring the originals keeps the patch scoped.
+    """
     from market.instrument_service import instrument_service
+    original = {
+        name: getattr(instrument_service, name)
+        for name in (
+            "iv_percentile", "nearest_weekly_expiry", "option_ltp", "option_symbol",
+            "lot_size", "strike_step",
+        )
+    }
     instrument_service.iv_percentile = MagicMock(return_value=None)
     instrument_service.nearest_weekly_expiry = AsyncMock(return_value="07JUL2026")
     instrument_service.option_ltp = AsyncMock(return_value=105.0)
@@ -41,6 +55,8 @@ def _patch_instrument_service():
     instrument_service.lot_size = MagicMock(return_value=65)
     instrument_service.strike_step = MagicMock(return_value=50)
     yield
+    for name, value in original.items():
+        setattr(instrument_service, name, value)
 
 
 class TestBuyerConfig:

@@ -1,13 +1,6 @@
 from datetime import date, timedelta
 
 
-LOT_SIZES: dict[str, int] = {
-    "NIFTY": 65,
-    "SENSEX": 20,
-    "BANKNIFTY": 30,
-    "FINNIFTY": 60,
-    "MIDCPNIFTY": 75,
-}
 
 STRIKE_INTERVALS: dict[str, int] = {
     "NIFTY": 50,

@@ -16,8 +16,33 @@ from core.models import (
     UserStrategy, UserStrategyLeg,
 )
 from engine.strategy_compiler import (
-    ValidationError, compile_user_strategy, resolve_expiry, validate_user_strategy, MAX_LOTS, LOT_SIZES,
+    ValidationError, compile_user_strategy, resolve_expiry, validate_user_strategy, MAX_LOTS,
 )
+from market.instruments import Instrument, instrument_resolver
+from tests.fixtures.lot_size_reference import INDEX_OPTIONS as _REFERENCE
+
+
+# The compiler sizes legs with `lots * lot_size`, and the lot size now comes from the
+# authoritative instrument resolver rather than a hardcoded dict in production code.
+# With no provider registered it resolves to None and the compiler refuses to build a
+# plan -- the intended behaviour -- so these tests register a fixture contract and
+# assert against the October 2026 validation reference instead.
+@pytest.fixture(autouse=True)
+def _authoritative_lot_size():
+    nifty_lot = _REFERENCE["NIFTY"]
+    saved = list(instrument_resolver._providers)
+    instrument_resolver._providers = []
+    instrument_resolver.register(
+        "fixture-dhan",
+        lambda symbol, **k: Instrument(
+            broker="dhan", security_id="1", broker_symbol=symbol,
+            exchange_segment="NSE_FNO", instrument_type="OPT",
+            lot_size=nifty_lot, source="fixture",
+        ),
+        authoritative=True,
+    )
+    yield
+    instrument_resolver._providers = saved
 
 
 # ── Fixtures ──
@@ -85,7 +110,7 @@ class TestCompile:
         assert o.side == OrderSide.BUY
         assert o.instrument_type == InstrumentType.OPT
         assert o.source == "user_strategy"
-        assert o.quantity == LOT_SIZES["NIFTY"]  # 1 lot * 65
+        assert o.quantity == _REFERENCE["NIFTY"]  # 1 lot
         assert o.strategy_id == s.id
 
     def test_happy_path_multiple_legs(self):
@@ -103,7 +128,7 @@ class TestCompile:
         assert plan.orders[0].side == OrderSide.SELL
         assert plan.orders[0].option_type == OptionType.CE
         assert plan.orders[0].strike_price == 24250.0  # ATM(24200) + 1*50
-        assert plan.orders[0].quantity == LOT_SIZES["NIFTY"]
+        assert plan.orders[0].quantity == _REFERENCE["NIFTY"]
 
     def test_futures_leg(self):
         """3. Futures segment leg: no option_type, no strike, no expiry."""
@@ -121,7 +146,7 @@ class TestCompile:
         legs = [make_leg(lots=3)]
         s = make_strategy(legs=legs)
         plan = compile_user_strategy(s, spot_price=24200.0, option_chain=SAMPLE_OPTION_CHAIN)
-        assert plan.orders[0].quantity == 3 * LOT_SIZES["NIFTY"]
+        assert plan.orders[0].quantity == 3 * _REFERENCE["NIFTY"]
         assert plan.total_lots == 3
 
     def test_strike_resolution_atm_offset_positive(self):
