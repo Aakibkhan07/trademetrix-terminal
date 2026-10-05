@@ -596,6 +596,28 @@ class DhanMarketFeed:
     # ── connection ───────────────────────────────────────────────────────────
 
     @staticmethod
+    def _ssl_context():
+        """An SSL context that actually verifies Dhan's certificate.
+
+        Measured: one Python 3.14 environment had a completely empty system CA store
+        (0 certificates), so `ssl.create_default_context()` could not verify any host and
+        every `wss://` handshake died with "unable to get local issuer certificate".
+        `httpx` was unaffected because it bundles certifi.
+
+        So the CA bundle is chosen explicitly: certifi when importable, otherwise the
+        system store. Verification is never disabled -- an unverified socket to a
+        trading broker's feed would make every packet attacker-controllable.
+        """
+        import ssl
+
+        try:
+            import certifi
+
+            return ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            return ssl.create_default_context()
+
+    @staticmethod
     async def _default_connect(url: str):
         # Protocol-level keepalive only. The SDK sends no application-level ping for v2,
         # so nothing is invented here; `ping_interval` covers liveness at the transport.
@@ -603,7 +625,7 @@ class DhanMarketFeed:
 
         return await websockets.connect(
             url, ping_interval=20, ping_timeout=20, open_timeout=CONNECT_TIMEOUT_SECONDS,
-            max_size=4 * 1024 * 1024,
+            max_size=4 * 1024 * 1024, ssl=DhanMarketFeed._ssl_context(),
         )
 
     async def _open(self) -> None:
@@ -649,18 +671,34 @@ class DhanMarketFeed:
             for frame in build_unsubscribe_frame(removed):
                 await self._ws.send(frame)
 
-    async def _pump(self, stop: asyncio.Event, max_frames: int | None = None) -> None:
-        """Drain frames until stopped.
+    async def _pump(self, stop: asyncio.Event, max_frames: int | None = None,
+                     deadline_seconds: float | None = None) -> None:
+        """Drain frames until stopped, the frame budget is hit, or the deadline passes.
 
-        ``max_frames`` bounds the drain so a caller can process the frames already
-        buffered without waiting on a socket that has nothing left to send.
+        All three bounds are needed. An earlier version counted only successfully
+        received frames, so a quiet market -- where every ``recv`` times out -- never
+        advanced the counter and the drain ran forever. ``deadline_seconds`` is what makes
+        "no packets are arriving" a terminating observation instead of a hang, which is
+        the distinction this integration test exists to make.
         """
         drained = 0
+        loop = asyncio.get_running_loop()
+        hard_deadline = None if deadline_seconds is None else loop.time() + deadline_seconds
         while not stop.is_set():
             if max_frames is not None and drained >= max_frames:
                 return
+            if hard_deadline is not None and loop.time() >= hard_deadline:
+                return
+            # The recv timeout must not exceed what is left of the deadline, otherwise the
+            # deadline is only observable after a full RECV_TIMEOUT_SECONDS sleep. That
+            # made `deadline_seconds=1` take 45s on a silent socket -- observed against the
+            # real Dhan feed with the market closed, where nothing arrives to advance the
+            # frame budget.
+            recv_timeout = RECV_TIMEOUT_SECONDS
+            if hard_deadline is not None:
+                recv_timeout = max(0.05, min(recv_timeout, hard_deadline - loop.time()))
             try:
-                raw = await asyncio.wait_for(self._ws.recv(), RECV_TIMEOUT_SECONDS)
+                raw = await asyncio.wait_for(self._ws.recv(), recv_timeout)
             except asyncio.TimeoutError:
                 # A quiet market is not a dead socket. Protocol ping keeps it honest.
                 continue

@@ -17,6 +17,7 @@ plausible-looking number.
 
 import asyncio
 import json
+import ssl
 import struct
 
 import pytest
@@ -698,3 +699,69 @@ class TestHistoricalDefectsDoNotReturn:
         for field in ("ltp", "ltq", "bid", "ask", "bid_quantity", "ask_quantity",
                       "volume", "open_interest", "open", "high", "low", "close"):
             assert getattr(event, field) is None, field
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Defects found by the live Dhan integration test
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class TestLiveDefectsFixed:
+    """Both of these were found by running against the real Dhan server, not by reading.
+
+    The unit suite passed for the whole time the websocket could not connect at all, which
+    is the clearest possible argument for running the integration test.
+    """
+
+    def test_tls_verification_uses_a_real_ca_bundle(self):
+        """An empty system CA store made every handshake fail.
+
+        Measured on the host running the integration test: `ssl.create_default_context()`
+        had **0** CA certificates, so any `wss://` connect died with "unable to get local
+        issuer certificate". httpx was unaffected because it bundles certifi. The fix
+        names the CA bundle explicitly.
+        """
+        ctx = DhanMarketFeed._ssl_context()
+        assert ctx.verify_mode is ssl.CERT_REQUIRED, "certificate verification was weakened"
+        assert ctx.check_hostname is True
+        assert len(ctx.get_ca_certs()) > 0, "the context trusts nothing"
+
+    def test_verification_is_never_disabled_anywhere_in_the_module(self):
+        import inspect
+
+        from market import dhan_feed
+
+        code = executable_source(dhan_feed)
+        assert "CERT_NONE" not in code
+        assert "check_hostname = False" not in code
+        assert "verify=False" not in code
+        assert "ssl=False" not in code
+
+    @pytest.mark.asyncio
+    async def test_a_silent_market_terminates_the_drain(self):
+        """A quiet market must be an observation, not a hang.
+
+        The pump counted only frames that actually arrived, so when every `recv` timed out
+        the counter never advanced and the loop ran forever. The live test hung on exactly
+        this: a closed market sends nothing, so the deadline never came from the frame
+        budget. `deadline_seconds` is what makes "no packets are arriving" terminating.
+        """
+        f = feed([FakeSocket([])])  # a socket that will never produce a frame
+        f.subscribe([DhanSubscription("NSE_FNO", "40749")])
+        await f.connect_once()
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        await f._pump(asyncio.Event(), max_frames=10, deadline_seconds=1.0)
+        elapsed = loop.time() - started
+        assert elapsed < 4.0, f"drain took {elapsed:.1f}s; the deadline did not apply"
+        assert f.quotes() == {}, "a silent socket must not fabricate quotes"
+
+    @pytest.mark.asyncio
+    async def test_a_frame_budget_alone_is_not_a_deadline(self):
+        """Documents why the deadline is a separate parameter, not a frame count."""
+        f = feed([FakeSocket([])])
+        f.subscribe([DhanSubscription("NSE_FNO", "40749")])
+        await f.connect_once()
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        await f._pump(asyncio.Event(), max_frames=5, deadline_seconds=1.0)
+        assert loop.time() - started < 4.0
