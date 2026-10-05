@@ -3,6 +3,7 @@ import { useApi } from '@/lib/use-api'
 import { fmtMoney, fmtNum, NO_VALUE } from '@/lib/format'
 import { journalNarrative, type JournalResponse } from '@/lib/journal'
 import { API_BASE } from '@/lib/api'
+import { useMountedToday } from '@/lib/use-mounted-today'
 
 /**
  * What `GET /ai/journal?lookback_days=1` actually answers — `ai/journal.py::analyze_trades`.
@@ -25,7 +26,12 @@ import { API_BASE } from '@/lib/api'
  * later means adding them to `_compute_stats` first.
  */
 export default function DailyReportPage() {
-  const today = new Date().toISOString().slice(0, 10)
+  // Was `new Date().toISOString().slice(0, 10)`, which is UTC. The server renders in UTC and the
+  // browser runs in IST, so between 18:30 and 00:00 UTC — the middle of every Indian trading
+  // evening — the two passes disagreed on the date and React threw #425, 9 times per load. The page
+  // still looked correct, which is why it survived: only the hydration was wrong. `null` until after
+  // mount makes both passes agree; see lib/use-mounted-today.ts.
+  const today = useMountedToday()
   const { data, loading } = useApi<JournalResponse>(`/ai/journal?lookback_days=1`)
   const stats = data?.stats ?? {}
   const analysisText = journalNarrative(data?.analysis)
@@ -40,7 +46,9 @@ export default function DailyReportPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 900, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Daily Report — {today}</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>
+            Daily Report — {today ?? '—'}
+          </h1>
           <p style={{ color: 'var(--text-sub)', fontSize: 14, margin: '4px 0 0' }}>Institutional 1-pager · P&L, trades, win, drawdown · auto-emailed 18:00 IST + Telegram</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
