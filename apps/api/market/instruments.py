@@ -84,6 +84,10 @@ class Instrument:
     strike: float | None = None
     option_type: str = ""
     source: str = ""
+    #: The broker's id for the *underlying* instrument. Distinct from ``underlying``,
+    #: which is the human symbol. Multi-leg strategies need the underlying's id to
+    #: address a synthetic leg, and it is not derivable from the contract's own row.
+    underlying_security_id: str = ""
 
     @property
     def has_lot_contract(self) -> bool:

@@ -665,3 +665,88 @@ def _settings(**overrides):
     from core.models import RiskSettings
 
     return RiskSettings(user_id=TEST_UUID, **overrides)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# The backtest proxy lot size must never reach a live-capable path
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class TestBacktestProxyIsIsolated:
+    """`BACKTEST_PROXY_UNITS_PER_LOT = 1` exists only for index-symbol backtests.
+
+    A backtest on `NSE:NIFTY50-INDEX` is a proxy simulation: the index is not tradable,
+    so no contract and no contract lot size exist. Those runs use 1 unit per lot. That
+    number must never reach an execution path that could send an order to a broker.
+    """
+
+    def test_the_constant_is_defined_only_in_the_backtest_manager(self):
+        import pathlib
+
+        api = pathlib.Path(__file__).resolve().parents[1]
+        offenders = []
+        for path in api.rglob("*.py"):
+            rel = path.relative_to(api)
+            if rel.parts[0] in {"tests", "scripts", "__pycache__"}:
+                continue
+            if "BACKTEST_PROXY_UNITS_PER_LOT" in path.read_text(encoding="utf-8"):
+                if str(rel) != "backtest/manager.py":
+                    offenders.append(str(rel))
+        assert not offenders, f"proxy constant referenced outside the backtest manager: {offenders}"
+
+    def test_the_gate_has_no_fallback_for_a_missing_lot_size(self, resolver):
+        """A live-capable order with unresolvable metadata is blocked, not sized at 1.
+
+        This is the concrete risk the isolation rules out: if the gate ever treated a
+        missing lot size as "1 unit", the backtest proxy would have become the live
+        default.
+        """
+        resolver()  # nothing resolvable
+        order = nifty_order(1, is_paper=False)
+
+        from engine.gate import _validate_quantity_for_instrument
+
+        reason = _validate_quantity_for_instrument(order, "dhan")
+        assert reason, "an unresolvable contract was accepted"
+        assert "ORDER BLOCKED" in reason
+        assert "Lot Size" in reason
+
+    @pytest.mark.asyncio
+    async def test_a_live_order_at_one_unit_is_still_blocked(self, resolver):
+        resolver()
+        result, final_quantity = await run_to_oms(nifty_order(1, is_paper=False))
+        assert final_quantity is None
+        assert "ORDER BLOCKED" in result.message
+
+    def test_the_backtest_manager_injects_the_proxy_only_as_a_lot_size(self):
+        """The proxy is injected as `lot_size`, so the strategy still multiplies lots."""
+        from backtest.manager import BACKTEST_PROXY_UNITS_PER_LOT
+
+        assert BACKTEST_PROXY_UNITS_PER_LOT == 1
+        from strategies.trend_rider import TrendRider
+
+        strategy = TrendRider({"symbol": "NSE:NIFTY50-INDEX",
+                               "lot_size": BACKTEST_PROXY_UNITS_PER_LOT, "lots": 3})
+        assert strategy.quantity == 3
+
+    def test_an_index_proxy_run_resolves_no_real_contract(self, resolver):
+        """`NSE:NIFTY50-INDEX` must not acquire a tradeable option lot size.
+
+        The proxy exists precisely because no contract exists. If it ever resolved to a
+        real NIFTY option row, the backtest would be reporting a quantity from a contract
+        the user never asked for.
+        """
+        resolver()
+        from engine.gate import _validate_quantity_for_instrument
+
+        order = NormalizedOrder(
+            symbol="NSE:NIFTY50-INDEX",
+            exchange=Exchange.NSE,
+            instrument_type=InstrumentType.FUT,
+            side=OrderSide.BUY,
+            order_type=OrderType.MARKET,
+            product=ProductType.INTRADAY,
+            quantity=1,
+            is_paper=False,
+        )
+        assert "ORDER BLOCKED" in _validate_quantity_for_instrument(order, "dhan")
