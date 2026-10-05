@@ -284,6 +284,7 @@ async def create_backtest(
         engine = BacktestEngine(
             strategy_type=req.strategy_type,
             config=req.config,
+            symbol=req.symbol,
             initial_capital=req.initial_capital,
             slippage_pct=req.slippage_pct,
             brokerage_pct=req.brokerage_pct,

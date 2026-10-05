@@ -385,7 +385,26 @@ class BacktestManager:
         strategy_cls = get_strategy(config.strategy_type)
         if not strategy_cls:
             raise ValueError(f"Unknown strategy: {config.strategy_type}")
-        return strategy_cls(config.strategy_params)
+        # The candles for this run were loaded for config.symbol, so that is the
+        # only symbol the strategy may trade. Every strategy reads its symbol with
+        # `config.get("symbol", <default>)` from its own params dict, and
+        # config.symbol was never reaching them -- the order went out for the
+        # strategy's fallback ("NIFTY") while the fill engine held candles for
+        # "NSE:NIFTY50-INDEX". Those keys never met, so _last_times was never
+        # populated for the traded symbol (empty entry_time/exit_time) and the fill
+        # engine had no candle to price against.
+        #
+        # config.symbol deliberately overrides any symbol in strategy_params: it is
+        # what the run was requested for and what the data was loaded for, so a
+        # disagreement between the two is a defect rather than a preference.
+        if not config.symbol:
+            raise ValueError(
+                "BacktestConfig.symbol is required — refusing to run a backtest "
+                "against a strategy's default symbol."
+            )
+        params = dict(config.strategy_params)
+        params["symbol"] = config.symbol
+        return strategy_cls(params)
 
     async def _collect_snapshot(
         self, broker: BacktestBroker, index: int, timestamp: str | None = None,

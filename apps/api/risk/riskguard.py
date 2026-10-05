@@ -32,6 +32,7 @@ class RiskGuard:
             return {"allowed": False, "reason": "LIVE mode not enabled. Enable it first via POST /risk/live/enable with confirm=true."}
 
         checks = [
+            await self._check_live_requires_position_ceiling(order, settings),
             await self._check_max_capital(order, settings),
             await self._check_max_position_size(order, settings),
             await self._check_max_open_positions(order, settings),
@@ -44,6 +45,41 @@ class RiskGuard:
                 return check
 
         return {"allowed": True, "reason": ""}
+
+    async def _check_live_requires_position_ceiling(self, order: NormalizedOrder, settings: RiskSettings) -> dict:
+        """A live order needs an explicit position ceiling.
+
+        ``_check_max_position_size`` treats ``max_position_size <= 0`` as
+        unlimited. That is defensible for a simulation, where no money is at stake,
+        and unsafe for a live order: three of the four production ``risk_settings``
+        rows carry 0, so on those accounts the ceiling that would have stopped an
+        oversized order did not exist at all.
+
+        There is no override flag. Setting a real ``max_position_size`` is how an
+        operator permits live trading, and ``PUT /risk/settings`` already accepts
+        one; an account that has not set a ceiling is an account that has not opted
+        in. Paper orders are unaffected, which keeps backtests and demos working
+        without a ceiling.
+
+        Note this is a floor on configuration, not a substitute for the check
+        itself. ``_check_max_position_size`` values the order at
+        ``quantity * (price or 0)``, so a MARKET order carrying no limit price is
+        valued at zero and passes regardless of size. That gap is reported in
+        CRITICAL_LIVE_EXECUTION_REPAIR_REPORT.md and is not closed here.
+        """
+        if order.is_paper:
+            return {"allowed": True, "reason": ""}
+        if settings.max_position_size and settings.max_position_size > 0:
+            return {"allowed": True, "reason": ""}
+        return {
+            "allowed": False,
+            "reason": (
+                "LIVE_POSITION_CEILING_UNSET: max_position_size is "
+                f"{settings.max_position_size}. A live order requires an explicit "
+                "position ceiling; set one via PUT /risk/settings. A value of 0 is "
+                "treated as unlimited for paper orders only."
+            ),
+        }
 
     async def _load_settings(self, strategy_id: str | None = None) -> RiskSettings | None:
         supabase = get_supabase()

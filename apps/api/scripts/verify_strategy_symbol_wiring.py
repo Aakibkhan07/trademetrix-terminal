@@ -1,67 +1,84 @@
-"""Does the strategy trade the symbol the user asked to backtest?
+"""Does the strategy trade the symbol the run was actually requested for?
 
-`run-v2` passes the requested symbol as `BacktestConfig.symbol` and separately passes the
-user's form fields as `strategy_params`. Every strategy reads its symbol with
-`config.get("symbol", ...)` — where `config` is `strategy_params`. So the symbol the run was
-asked for never reaches the strategy, and it falls back to its own default.
+`BacktestConfig.symbol` and `BacktestConfig.strategy_params` are two different
+fields. Strategies read their symbol with `config.get("symbol", <default>)` from
+their own params dict, so unless the run's symbol is merged into that dict the
+strategy trades its default (`NIFTY`, or `BANKNIFTY` for orb_pro) while the fill
+engine holds candles for the requested instrument.
 
-If that is what happens, the order carries the fallback symbol while the candles carry the
-requested one, which explains all three reported symptoms at once: no `entry_time`/`exit_time`
-(`_last_times` is keyed by the order's symbol), a nonsensical entry price, and an implausible
-P&L — there is no candle at the symbol being traded.
+This exercises the real `BacktestManager._setup_strategy` rather than
+constructing strategies directly, because the wiring under test lives in the
+manager, not in the strategy classes.
 
-This asserts the wiring directly rather than inferring it from a backtest's output.
+    python scripts/verify_strategy_symbol_wiring.py
+
+Exits non-zero if any strategy trades a symbol the run was not asked for.
 """
 
+import asyncio
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from backtest.manager import backtest_manager  # noqa: E402
 from backtest.models import BacktestConfig  # noqa: E402
-from strategies import get_strategy  # noqa: E402
 
-REQUESTED = "NSE:NIFTY50-INDEX"
+# Index and derivative display symbols as the app actually carries them, plus an
+# equity and an option contract, so the check covers the instrument families the
+# backtest surface accepts rather than one index.
+CASES = [
+    ("trend_rider", "NSE:NIFTY50-INDEX"),
+    ("macd_cross", "NSE:NIFTY50-INDEX"),
+    ("orb_pro", "NSE:NIFTY50-INDEX"),
+    ("bollinger_bandit", "NSE:BANKNIFTY-INDEX"),
+    ("rsi_mean_reversion", "NSE:BANKNIFTY-INDEX"),
+    ("smc_sniper", "NSE:NIFTY50-INDEX"),
+    ("intraday_momentum", "NSE:RELIANCE-EQ"),
+    ("mean_reversion_pro", "NSE:FINNIFTY-INDEX"),
+    ("breakout_scanner", "NSE:SENSEX-INDEX"),
+    ("arbitrage_hunter", "NSE:NIFTY50-INDEX"),
+]
 
-KEYS = ("trend_rider", "macd_cross", "bollinger_bandit", "rsi_mean_reversion", "smc_sniper", "orb_pro")
 
+async def main() -> int:
+    print(f"  {'strategy':<24}{'requested':<26}{'strategy.symbol':<26}{'quantity'}")
+    print("  " + "-" * 88)
 
-def main() -> None:
-    # Exactly what the route builds when a user submits the form with no strategy params.
-    config = BacktestConfig(
-        strategy_type="trend_rider",
-        strategy_params={},
-        symbol=REQUESTED,
-        exchange="NSE",
-        interval="1d",
-        days=365,
-    )
+    mismatched: list[tuple[str, str, str]] = []
 
-    print(f"  BacktestConfig.symbol        : {config.symbol}")
-    print(f"  BacktestConfig.strategy_params: {config.strategy_params}")
+    for key, requested in CASES:
+        # Exactly what run-v2 builds when a user submits the form with no strategy
+        # params — the normal case, and the one that used to break.
+        config = BacktestConfig(
+            strategy_type=key,
+            strategy_params={},
+            symbol=requested,
+            exchange="NSE",
+            interval="1d",
+            days=365,
+        )
+        strategy = await backtest_manager._setup_strategy(config)
+        actual = strategy.symbol
+
+        if actual != requested:
+            mismatched.append((key, requested, actual))
+
+        flag = "" if actual == requested else "   <-- MISMATCH"
+        print(f"  {key:<24}{requested:<26}{actual:<26}{strategy.quantity}{flag}")
+
     print()
-    print(f"  {'strategy':<24}{'config.symbol':<20}{'strategy.symbol':<20}{'order symbol would be'}")
-    print("  " + "-" * 92)
-
-    mismatched = []
-    for key in KEYS:
-        strat = get_strategy(key)(config.strategy_params)
-        actual = strat.symbol
-        flag = "" if actual == config.symbol else "  <-- MISMATCH"
-        if actual != config.symbol:
-            mismatched.append((key, config.symbol, actual))
-        print(f"  {key:<24}{config.symbol:<20}{actual:<20}{actual}{flag}")
-
-    print()
+    total = len(CASES)
     if mismatched:
-        print(f"  {len(mismatched)} of {len(KEYS)} strategies trade a symbol the run was not asked for.")
-        print("  The candles are loaded for config.symbol; the order is placed for strategy.symbol.")
-        print("  Those keys never meet, so:")
-        print("    - _last_times[strategy.symbol] is never populated -> entry_time/exit_time empty")
-        print("    - the fill engine has no candle at strategy.symbol -> price is not the traded series")
-    else:
-        print("  every strategy honours config.symbol")
+        print(f"  FAIL — {len(mismatched)} of {total} trade a symbol the run was not asked for.")
+        return 1
+
+    print(f"  PASS — all {total} strategies trade the requested symbol.")
+    print("  The strategy's default is no longer reachable while config.symbol is set,")
+    print("  so _last_times is populated for the symbol being traded and the fill")
+    print("  engine prices against the series that was actually loaded.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(asyncio.run(main()))

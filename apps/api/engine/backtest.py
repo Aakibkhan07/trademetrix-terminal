@@ -130,11 +130,26 @@ class BacktestResult:
 class BacktestEngine:
     def __init__(self, strategy_type: str, config: dict, initial_capital: float = 100000,
                  slippage_pct: float = 0.05, brokerage_pct: float = 0.03,
-                 stt_pct: float = 0.025, exchange_pct: float = 0.003):
+                 stt_pct: float = 0.025, exchange_pct: float = 0.003,
+                 symbol: str = ""):
         strategy_cls = get_strategy(strategy_type)
         if not strategy_cls:
             raise ValueError(f"Unknown strategy: {strategy_type}")
-        self.strategy = strategy_cls(config)
+        # `symbol` is a separate request field from `config`, so it never reached the
+        # strategy: it traded its own default while the candles belonged to req.symbol,
+        # and the fill engine had no candle at the symbol being traded. Declared as a
+        # parameter rather than left implicit so the dependency is visible at every
+        # call site. It wins over config["symbol"] because it is what the run was
+        # requested for and what the loader fetched.
+        strategy_config = dict(config or {})
+        resolved = symbol or strategy_config.get("symbol") or ""
+        if not resolved:
+            raise ValueError(
+                "symbol is required — refusing to run a backtest against a "
+                "strategy's default symbol."
+            )
+        strategy_config["symbol"] = resolved
+        self.strategy = strategy_cls(strategy_config)
         self.initial_capital = initial_capital
         self.capital = initial_capital
         self.result = BacktestResult(

@@ -115,16 +115,43 @@ class DhanAdapter(BaseBroker, BrokerAdapterBase):
 
     async def place_order(self, order: NormalizedOrder) -> OrderResult:
         client = await self._get_client()
-        exchange_segment_map = {
-            (Exchange.NSE, InstrumentType.EQ): "NSE_EQ",
-            (Exchange.NFO, InstrumentType.FUT): "NSE_FNO",
-            (Exchange.NFO, InstrumentType.OPT): "NSE_FNO",
-            (Exchange.BSE, InstrumentType.EQ): "BSE_EQ",
-            (Exchange.BSE, InstrumentType.FUT): "BSE_FNO",
-            (Exchange.BSE, InstrumentType.OPT): "BSE_FNO",
-            (Exchange.NFO, InstrumentType.EQ): "NSE_EQ",
-        }
-        seg = exchange_segment_map.get((order.exchange, order.instrument_type), "NSE_EQ")
+
+        # Contract metadata must come from the canonical resolver, never from the
+        # display symbol. Dhan's `securityId` is a broker-assigned internal
+        # identifier, and this previously sent `order.symbol` -- the app's canonical
+        # display string -- straight into that field. `exchangeSegment` also
+        # defaulted to "NSE_EQ" for any (exchange, instrument_type) pair outside the
+        # seven-entry map above, so a futures order could be addressed to the
+        # cash-equity segment.
+        #
+        # Unresolvable metadata blocks the order. It is returned as a failed result
+        # rather than raised: OMS treats an exception from place_order as a retryable
+        # queue error (oms/manager.py:533 re-queues without completing the item), so
+        # raising here would retry a permanently-blocked order forever. A failed
+        # result is what marks the order REJECTED and completes the queue item.
+        #
+        # The local exchange/instrument-type map this used to consult is gone. It
+        # defaulted to "NSE_EQ" for any pair it did not list, so an unrecognised
+        # futures order was addressed to the cash-equity segment; the segment now
+        # comes from the resolver alongside the security id it belongs with.
+        from market.instruments import instrument_resolver
+
+        raw_type = getattr(order.instrument_type, "value", order.instrument_type) or ""
+        instrument = instrument_resolver.resolve(
+            order.symbol, broker="dhan", instrument_type=str(raw_type)
+        )
+        if instrument is None:
+            blocked = (
+                "ORDER BLOCKED - Unable to resolve authoritative instrument metadata. "
+                f"Symbol: {order.symbol}. Broker: dhan. Instrument type: {raw_type}. "
+                "Required metadata: Security ID, Exchange Segment, Instrument Type, Lot Size."
+            )
+            logger.error(blocked)
+            return OrderResult(success=False, message=blocked, status="rejected")
+
+        seg = instrument.exchange_segment
+        security_id = instrument.security_id
+
         payload: dict = {
             "dhanClientId": self._client_id,
             "transactionType": self._map_side(order.side),
@@ -132,7 +159,7 @@ class DhanAdapter(BaseBroker, BrokerAdapterBase):
             "productType": self._map_product(order.product),
             "orderType": self._map_order_type(order.order_type),
             "validity": "DAY",
-            "securityId": order.symbol,
+            "securityId": security_id,
             "quantity": order.quantity,
             "afterMarketOrder": False,
         }
@@ -149,6 +176,23 @@ class DhanAdapter(BaseBroker, BrokerAdapterBase):
                 payload["drvOptionType"] = order.option_type.value
             if order.strike_price:
                 payload["drvStrikePrice"] = order.strike_price
+        # Derivative identity now prefers the resolved instrument. The order's own
+        # fields are used only when present, because they are set opportunistically by
+        # whichever caller built the order and are frequently absent -- which is how a
+        # contract could reach the broker without an expiry or a strike. Same source
+        # as the security id and segment, so the payload cannot describe two different
+        # contracts.
+        if order.instrument_type in (InstrumentType.FUT, InstrumentType.OPT):
+            payload["drvExpiryDate"] = order.expiry_date or instrument.expiry or None
+            if payload["drvExpiryDate"] is None:
+                payload.pop("drvExpiryDate")
+        if order.instrument_type == InstrumentType.OPT:
+            opt_type = order.option_type.value if order.option_type else instrument.option_type
+            if opt_type:
+                payload["drvOptionType"] = opt_type
+            strike = order.strike_price if order.strike_price else instrument.strike
+            if strike:
+                payload["drvStrikePrice"] = strike
         hdrs = self._headers()
         if order.client_order_id:
             hdrs["correlationId"] = order.client_order_id

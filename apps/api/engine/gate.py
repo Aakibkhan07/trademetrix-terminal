@@ -5,11 +5,12 @@ import re
 import time
 from datetime import UTC, datetime, date
 
-from core.constants import LOT_SIZES, STRIKE_INTERVALS
+from core.constants import STRIKE_INTERVALS
 from core.db import async_supabase, get_supabase
 from core.models import NormalizedOrder, OptionType, OrderResult, OrderStatus
 from core.safe_query import async_safe_execute, async_safe_single
 from execution.models import ExecutionRequest
+from market.instruments import blocked_message, resolve_for_order
 from market.symbol_master import symbol_master
 from risk.riskguard import RiskGuard
 
@@ -56,12 +57,18 @@ def _classify_rejection(reason: str) -> str:
         return "DAILY_LOSS_CAP"
     if "max position size" in r:
         return "MAX_POSITION_SIZE"
+    if "live_position_ceiling_unset" in r:
+        return "LIVE_POSITION_CEILING_UNSET"
     if "max capital" in r:
         return "MAX_CAPITAL"
     if "drawdown" in r:
         return "MAX_DRAWDOWN"
     if "open positions" in r:
         return "MAX_OPEN_POSITIONS"
+    if "invalid_lot_multiple" in r or "not a multiple of" in r:
+        return "INVALID_LOT_MULTIPLE"
+    if "invalid_quantity" in r or "positive number of units" in r:
+        return "INVALID_QUANTITY"
     return "RISK_REJECTED"
 
 
@@ -325,36 +332,59 @@ async def _snap_to_itm_strike(user_id: str, order: NormalizedOrder) -> bool:
     return True
 
 
-def _get_lot_size(symbol: str) -> int | None:
-    s = (symbol or "").upper()
-    if "BANKNIFTY" in s:
-        return LOT_SIZES.get("BANKNIFTY")
-    if "FINNIFTY" in s:
-        return LOT_SIZES.get("FINNIFTY")
-    if "MIDCPNIFTY" in s:
-        return LOT_SIZES.get("MIDCPNIFTY")
-    if "SENSEX" in s:
-        return LOT_SIZES.get("SENSEX")
-    if "NIFTY" in s:
-        return LOT_SIZES.get("NIFTY")
-    return None
+def _validate_quantity_for_instrument(order: NormalizedOrder, broker: str) -> str:
+    """Return a rejection reason, or "" when the requested quantity is acceptable.
 
+    ``NormalizedOrder.quantity`` is UNITS everywhere in this system, so there is
+    nothing here to convert. Every broker adapter forwards it as the broker order
+    quantity unchanged (``dhan_adapter.py:136``, ``zerodha_adapter.py:100``,
+    ``angelone_adapter.py:265``, ``upstox_adapter.py:184``, ``fyers_adapter.py:322``)
+    and each parses ``quantity`` back out of broker responses as units; the paper
+    fill engine fills it verbatim (``paper/fill_engine.py:30``); and the web client
+    converts lots to units exactly once, ``lots * lotSize``
+    (``components/trade/order-card.tsx:45``).
 
-def _snap_quantity_to_lot(order: NormalizedOrder) -> bool:
-    if order.instrument_type and order.instrument_type.value == "EQ":
-        return False
-    lot = _get_lot_size(order.symbol)
-    if not lot or lot <= 1:
-        return False
+    This function must therefore never multiply. It previously did
+    ``order.quantity = 10 * lot``, which discarded the strategy's risk-derived size
+    and, for NIFTY at lot 65, turned every request into 650 units -- roughly
+    Rs 1.56 crore notional at the index level then being quoted. That was a
+    quantity *replacement*, not a snap.
+
+    Lot size is no longer substring-matched against a hardcoded dict. It comes from
+    :mod:`market.instruments`, the single canonical resolver, and an unresolvable
+    contract blocks the order rather than falling back to a default. Cash equity has
+    no lot contract and is exempt.
+
+    Refusing is deliberate: silently rounding a strategy's size into a different
+    trade is how an order stops being the one that was risk-checked.
+    """
     qty = int(order.quantity or 0)
     if qty <= 0:
-        return False
-    new_qty = 10 * lot
-    if qty == new_qty:
-        return False
-    logger.info("Lot enforce 10 lots: %s qty %s -> %s (lot %s x10)", order.symbol, qty, new_qty, lot)
-    order.quantity = new_qty
-    return True
+        return f"INVALID_QUANTITY: quantity must be a positive number of units, got {qty}"
+
+    raw_type = getattr(order.instrument_type, "value", order.instrument_type) or ""
+    if str(raw_type).upper() == "EQ":
+        return ""  # cash equity carries no lot concept
+
+    instrument = resolve_for_order(order, broker=broker)
+    if instrument is None:
+        # No authoritative provider can describe this contract, so there is no
+        # security id, no segment and no lot size to validate against. Blocking is
+        # the only safe answer: an order sized on an assumed lot is an order nobody
+        # risk-checked. This is expected until Dhan instrument ingestion lands.
+        return blocked_message(order.symbol, broker, str(raw_type))
+
+    lot = instrument.lot_size
+    if lot <= 0:
+        return blocked_message(order.symbol, broker, str(raw_type))
+
+    if qty % lot != 0:
+        return (
+            f"INVALID_LOT_MULTIPLE: quantity {qty} units is not a multiple of the "
+            f"{lot}-unit contract lot for {instrument.broker_symbol} "
+            f"({qty} = {qty // lot} x {lot} + {qty % lot} leftover units)"
+        )
+    return ""
 
 
 async def execute_order(
@@ -413,7 +443,13 @@ async def execute_order(
             if order.option_type:
                 await _snap_to_itm_strike(user_id, order)
 
-            _snap_quantity_to_lot(order)
+            lot_reason = _validate_quantity_for_instrument(order, order.broker)
+            if lot_reason:
+                reason_code = _classify_rejection(lot_reason)
+                order.status = OrderStatus.REJECTED
+                order.message = reason_code
+                await _write_audit(user_id, "rejected", order, source=source, reason=lot_reason)
+                return OrderResult(success=False, message=lot_reason, status="rejected")
 
             riskguard = RiskGuard(user_id)
             risk_check = await riskguard.check_order(order)
