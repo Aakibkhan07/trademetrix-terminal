@@ -93,9 +93,11 @@ async def test_an_option_order_reaches_the_oms_with_its_derivative_identity() ->
     from routes import v1_orders
 
     placed: list = []
+    kwargs: list = []
 
-    async def _capture(req):
+    async def _capture(req, **kw):
         placed.append(req)
+        kwargs.append(kw)
         order = MagicMock()
         order.oms_order_id = "oms-1"
         return order
@@ -117,6 +119,7 @@ async def test_an_option_order_reaches_the_oms_with_its_derivative_identity() ->
         "option_type": "CE",
         "strike_price": 22400.0,
         "expiry_date": "2026-10-06",
+        "max_retries": 0,
     }
 
     with (
@@ -144,6 +147,9 @@ async def test_an_option_order_reaches_the_oms_with_its_derivative_identity() ->
     assert req.strike_price == 22400.0
     assert req.expiry_date == "2026-10-06"
     assert req.quantity == 65
+    # The retry budget has to reach the OMS, not stop at the route body: a caller that asks
+    # for one attempt and silently gets three has no way to know.
+    assert kwargs == [{"max_retries": 0}]
 
 
 # --------------------------------------------------------------------------------------
@@ -403,3 +409,77 @@ async def test_a_non_json_refusal_body_does_not_raise() -> None:
     assert result.success is False
     assert result.error_code == "HTTP_502"
     assert "502" in result.message
+
+
+# --------------------------------------------------------------------------------------
+# 4. a per-order retry budget, bounded so it can only lower the retry count
+# --------------------------------------------------------------------------------------
+
+def test_the_route_exposes_a_per_order_retry_budget() -> None:
+    from routes.v1_orders import PlaceOrderRequest
+
+    field = PlaceOrderRequest.model_fields["max_retries"]
+    assert field.default is None
+    assert field.metadata[0].ge == 0
+
+
+def test_the_route_cannot_raise_the_retry_budget_above_the_model_default() -> None:
+    """The ceiling is the shipped default; otherwise this parameter would be a way to
+    make the OMS re-POST more often than it does today."""
+    from oms.models import OmniOrder
+    from routes.v1_orders import PlaceOrderRequest
+
+    constraints = PlaceOrderRequest.model_fields["max_retries"].metadata
+    ceiling = next(c.le for c in constraints if hasattr(c, "le"))
+    assert ceiling == OmniOrder.model_fields["max_retries"].default
+
+
+@pytest.mark.asyncio
+async def test_max_retries_zero_yields_exactly_one_attempt() -> None:
+    from oms.models import OmniOrder
+    from oms.manager import order_manager
+    from execution.models import ExecutionRequest
+
+    req = ExecutionRequest(
+        user_id="17ba8349-30e6-48fa-a0f3-9a06389fe44b", broker="dhan",
+        symbol="NIFTY-Oct2026-22400-CE", exchange="NSE", side="BUY",
+        order_type="MARKET", product="INTRADAY", quantity=65,
+        instrument_type="OPT", strike_price=22400.0, expiry_date="2026-10-06",
+        option_type="CE", source="max_retries_test",
+    )
+    fake_queue = MagicMock()
+    fake_queue.enqueue = AsyncMock()
+    with patch.object(order_manager, "_add_order"), \
+         patch("oms.manager.save_order", AsyncMock()), \
+         patch("oms.manager.order_queue", fake_queue):
+        order = await order_manager.place_order(req, max_retries=0)
+    assert order.max_retries == 0
+    # the worker's gate is `retry_count < max_retries`, so 0 < 0 is False: never re-enqueued
+    assert not (order.retry_count < order.max_retries)
+
+
+@pytest.mark.asyncio
+async def test_the_retry_budget_cannot_be_raised_beyond_the_default() -> None:
+    from oms.models import OmniOrder
+    from oms.manager import order_manager
+    from execution.models import ExecutionRequest
+
+    req = ExecutionRequest(
+        user_id="17ba8349-30e6-48fa-a0f3-9a06389fe44b", broker="dhan",
+        symbol="NIFTY-Oct2026-22400-CE", exchange="NSE", side="BUY",
+        order_type="MARKET", product="INTRADAY", quantity=65,
+        source="max_retries_test",
+    )
+    fake_queue = MagicMock()
+    fake_queue.enqueue = AsyncMock()
+    with patch.object(order_manager, "_add_order"), \
+         patch("oms.manager.save_order", AsyncMock()), \
+         patch("oms.manager.order_queue", fake_queue):
+        order = await order_manager.place_order(req, max_retries=99)
+    assert order.max_retries == OmniOrder.model_fields["max_retries"].default
+
+
+def test_omni_order_default_is_unchanged() -> None:
+    from oms.models import OmniOrder
+
+    assert OmniOrder.model_fields["max_retries"].default == 3

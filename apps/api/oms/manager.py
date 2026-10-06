@@ -111,6 +111,11 @@ def build_execution_request(order: "OmniOrder") -> ExecutionRequest:
     )
 
 
+# The retry budget a caller may not exceed. `OmniOrder.max_retries` defaults to this,
+# and `place_order(max_retries=...)` can only lower it, never raise it.
+MAX_ORDER_RETRIES = 3
+
+
 def _oms_order_id() -> str:
     raw = f"oms:{time.time_ns()}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
@@ -170,7 +175,16 @@ class OrderManager:
         self._bracket_task = None
         logger.info("OrderManager stopped")
 
-    async def place_order(self, req: ExecutionRequest) -> OmniOrder:
+    async def place_order(
+        self, req: ExecutionRequest, *, max_retries: int | None = None
+    ) -> OmniOrder:
+        """`max_retries` may only *lower* the retry budget for this order.
+
+        A caller that needs a single attempt (a controlled broker test, or any flow that
+        must not re-POST) cannot express that today: `OmniOrder.max_retries` defaults to 3
+        and the worker re-queues up to that many times. The ceiling stays the model default
+        so this parameter can never *raise* the budget.
+        """
         from oms.identity import intent_fingerprint
 
         oms_id = _oms_order_id()
@@ -210,6 +224,11 @@ class OrderManager:
             # Recorded once. If a later attempt presents a different fingerprint, it is a new
             # order and goes through complete risk evaluation.
             intent_fingerprint=intent_fingerprint(req),
+                **(
+                    {"max_retries": max(0, min(int(max_retries), MAX_ORDER_RETRIES))}
+                    if max_retries is not None
+                    else {}
+                ),
         )
 
         self._add_order(order)

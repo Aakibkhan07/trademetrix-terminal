@@ -36,6 +36,12 @@ class PlaceOrderRequest(BaseModel):
     source: str = Field(default="api", description="Order source")
     broker: str | None = Field(None, description="Broker to route through (auto-detected if not set)")
     is_paper: bool = Field(default=False, description="Paper trade (simulated, no real broker)")
+    # Per-order retry budget. Additive and bounded by the model default, so a caller can
+    # only ever reduce it -- never raise it above the behaviour that already ships.
+    max_retries: int | None = Field(
+        default=None, ge=0, le=3,
+        description="Retry budget for this order; 0 means exactly one attempt",
+    )
 
 
 class ModifyOrderRequest(BaseModel):
@@ -163,7 +169,7 @@ async def place_order(
         raise HTTPException(status_code=400, detail=f"Risk check failed: {'; '.join(reasons)}")
 
     try:
-        order = await order_manager.place_order(exec_req)
+        order = await order_manager.place_order(exec_req, max_retries=req.max_retries)
         logger.info("Order placed: %s for user=%s symbol=%s qty=%s", order.oms_order_id, current_user.id, req.symbol, req.quantity)
         try:
             from application.services.analytics_service import AnalyticsService
