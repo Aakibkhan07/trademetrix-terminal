@@ -1,4 +1,5 @@
 import logging
+import re
 import secrets
 
 from application.interfaces.broker_oauth import EXECUTION, BrokerRepository
@@ -37,7 +38,52 @@ class BrokerService:
     async def save_credentials(self, user_id: str, broker: str, api_key: str, secret_key: str, access_token: str | None = None, additional_params: dict | None = None, *, role: str = EXECUTION) -> BrokerCredential:
         if not self._broker_supported(broker):
             raise ValueError(f"Unsupported broker: {broker}")
+        self._validate_identifier(broker, api_key)
         return await self._repo.upsert_credentials(user_id, broker, api_key, secret_key, access_token, additional_params, role=role)
+
+    @staticmethod
+    def _validate_identifier(broker: str, identifier: str) -> None:
+        """Refuse an identifier whose shape the broker could never have issued.
+
+        A Dhan client id is numeric. `c7524fc5` was stored against the owner's account
+        anyway, because nothing checked, and it was then supplied to every Dhan call --
+        authentication, the websocket feed, and the order payload. Dhan answers all three
+        with `401 Invalid_Authentication`, which is byte-identical to its answer for an
+        expired token, so the real cause stayed hidden behind an expired token that was
+        also, coincidentally, expired.
+
+        Rejecting at the boundary is the only point where the stored value can still be
+        corrected. Every later stage sees only the fact that authentication failed.
+
+        The pattern is read from the authored ``BROKER_METADATA`` rather than through
+        ``get_broker_metadata()``. That accessor returns the SDK registry's UI projection,
+        which is assembled from a fixed key whitelist, so a key added here would not reach
+        it at all -- and the first version of this guard read from there and silently
+        accepted everything. A lookup failure is logged, not swallowed: a guard that
+        cannot report itself is worse than no guard, because it reads as one that passed.
+        """
+        if not identifier:
+            return  # an empty identifier is the caller's business, not this guard's
+        try:
+            from brokers.registry import BROKER_METADATA
+
+            meta = BROKER_METADATA.get(broker) or {}
+            pattern = meta.get("client_id_pattern")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("identifier validation unavailable for %s: %s", broker, exc)
+            raise ValueError(
+                f"Cannot validate the {broker.title()} client ID, so the credential was not "
+                f"saved rather than saved unverified. ({type(exc).__name__}: {exc})"
+            ) from exc
+        if not pattern or re.fullmatch(pattern, identifier):
+            return
+        raise ValueError(
+            f"{broker.title()} client ID has the wrong shape. "
+            f"This broker issues a numeric client ID (for example 1100793385), "
+            f"but the value supplied looks like something else. "
+            f"Check that you copied the Client ID and not the app id, a UUID fragment, "
+            f"or the access token."
+        )
 
     async def delete_credentials(self, user_id: str, broker: str, *, role: str = EXECUTION) -> bool:
         return await self._repo.delete_credentials(user_id, broker, role=role)

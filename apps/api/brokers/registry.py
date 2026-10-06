@@ -57,6 +57,14 @@ _register_broker_meta("dhan", {
     "has_additional_params": False,
     "instructions": "1. Go to api.dhan.co\n2. Create an application\n3. Copy Client ID & Secret here\n4. Click Authorize to complete OAuth",
     "oauth_available": True,
+    #: Dhan issues a *numeric* client id (10 digits for current accounts). Nothing in the
+    #: save path checked the shape, so `c7524fc5` -- eight hex characters, never a Dhan
+    #: client id -- was stored against the owner's account and supplied to every Dhan call.
+    #: Dhan answered `401 Invalid_Authentication` for it, which is byte-identical to the
+    #: answer for a genuinely expired token, so the stored value read as a token problem and
+    #: sent the investigation after the token instead of the id that was actually wrong.
+    #: Enforced in `BrokerService.save_credentials`.
+    "client_id_pattern": r"^\d{8,12}$",
 })
 
 _register_broker_meta("upstox", {

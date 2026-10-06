@@ -190,6 +190,15 @@ class SharedDataSocket:
                 raw_token = decrypt_broker_credentials(row["encrypted_access_token"]) if row.get("encrypted_access_token") else ""
                 client_id = decrypt_broker_credentials(row["encrypted_api_key"]) if row.get("encrypted_api_key") else ""
                 secret_key = decrypt_broker_credentials(row["encrypted_secret_key"]) if row.get("encrypted_secret_key") else ""
+                # Dhan stores its user-generated access token in `encrypted_secret_key` --
+                # `DhanAdapter.authenticate` reads `access_token or secret_key` precisely
+                # because of this. Reading only `encrypted_access_token` therefore handed
+                # the Dhan feed an EMPTY token: authenticate raised "access_token
+                # required", the `except` below swallowed it, and every Dhan market-data
+                # feed silently fell back to Yahoo while the UI showed a connected broker.
+                # The credential was present the whole time.
+                if broker_type == "dhan" and not raw_token and secret_key:
+                    raw_token = secret_key
                 self._feed_extra = dict(row.get("additional_params") or {})
         except Exception as e:
             logger.warning("Could not load broker credentials (%s), will use Yahoo Finance fallback", e)

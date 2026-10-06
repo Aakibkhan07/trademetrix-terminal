@@ -41,7 +41,12 @@ class DhanAdapter(BaseBroker, BrokerAdapterBase):
         self._access_token: str = ""
         self._client_id: str = ""
         self._base_url = "https://api.dhan.co/v2"
-        self._ws_url = "wss://api.dhan.co/v2/ws"
+        #: There is deliberately no `_ws_url` here. This adapter once carried its own
+        #: websocket URL -- `wss://api.dhan.co/v2/ws`, which is the wrong host and the wrong
+        #: path -- and its own connection code to go with it. The feed endpoint now lives in
+        #: exactly one place, `market.dhan_feed.DHAN_FEED_WSS_URL` (`wss://api-feed.dhan.co`),
+        #: and `stream()` delegates to `DhanMarketFeed`. Keeping a second URL around would
+        #: only invite the second implementation back.
         self._running = False
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -318,73 +323,114 @@ class DhanAdapter(BaseBroker, BrokerAdapterBase):
         return candles
 
     async def stream(self, symbols: list[str], on_tick: Callable[[Tick], None]) -> None:
+        """Stream live ticks by delegating to the one verified Dhan feed.
+
+        This method used to hold a second, independent Dhan websocket implementation. It
+        was wrong in seven ways at once, and every one of them failed silently:
+
+          * ``httpx.AsyncClient.stream()`` cannot upgrade to a websocket -- the upgrade
+            handshake does not exist in httpx, so the request could never become one.
+          * ``wss://api.dhan.co/v2/ws`` is the wrong host *and* the wrong path. Dhan's feed
+            is ``wss://api-feed.dhan.co``; ``api.dhan.co`` serves no websocket at all.
+          * ``RequestCode: 1`` is not a v2 subscription code (v2 uses 15/17/21).
+          * ``SecurityToken`` is not a v2 field name; v2 uses ``SecurityId``.
+          * ``ExchangeSegment`` was hardcoded to ``NSE_EQ``, so a derivative could never be
+            subscribed even when handed a correct id.
+          * The display symbol was sent where the broker-assigned security id belongs.
+          * Dhan's v2 feed emits *binary* packets, but this read the body as JSON lines, so
+            ``json.loads`` threw on every packet and ``continue`` swallowed all of them.
+
+        It then retried forever on a capped backoff, so a Dhan feed looked connected and
+        delivered nothing. `market/dhan_feed.py` is the verified implementation -- proven
+        against Dhan's live server, with the real protocol, the real binary decoding, and
+        the CA bundle named explicitly. There is now exactly one Dhan feed in the codebase
+        and this method only forwards to it.
+
+        This was not dead code: `market/data_socket.py` calls `adapter.stream(...)` on
+        broker-feed startup, so the stale copy was the path every Dhan market-data feed
+        actually took.
+        """
         if not self._access_token:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
 
+        from market.dhan_feed import DhanMarketFeed, FeedMode, subscription_for_instrument
+        from market.instruments import instrument_resolver
+
+        # A symbol becomes a subscription only via resolved contract metadata. No default
+        # segment, no display-symbol fallback: an unresolvable symbol is refused and
+        # named, because defaulting it to NSE_EQ is precisely how this method was wrong.
+        subscriptions, symbol_of, refused = [], {}, []
+        for symbol in symbols:
+            instrument = None
+            for candidate_type in ("OPT", "FUT", "EQ"):
+                try:
+                    instrument = instrument_resolver.resolve(
+                        symbol, broker=self.broker_name, instrument_type=candidate_type,
+                    )
+                except Exception:  # noqa: BLE001 - a provider failure is a refusal, not a crash
+                    instrument = None
+                if instrument is not None:
+                    break
+            if instrument is None or not instrument.security_id:
+                refused.append(symbol)
+                continue
+            sub = subscription_for_instrument(instrument, mode=FeedMode.QUOTE)
+            subscriptions.append(sub)
+            symbol_of[sub.identity] = symbol
+
+        if refused:
+            logger.error(
+                "Dhan feed refused %d symbol(s) with no authoritative metadata (not "
+                "subscribed, never defaulted to NSE_EQ): %s",
+                len(refused), ", ".join(refused[:10]),
+            )
+        if not subscriptions:
+            raise RuntimeError(
+                "No Dhan symbol resolved to contract metadata, so no feed was opened. "
+                f"Refused: {refused[:10]}"
+            )
+
+        async def _emit(event) -> None:
+            # A packet carrying no price is not a tick. Forwarding it would publish a
+            # zero last_price, which every downstream consumer reads as a real quote.
+            if event.ltp is None:
+                return
+            tick = Tick(
+                symbol=symbol_of.get(event.identity, event.security_id),
+                exchange=Exchange.NSE,
+                last_price=float(event.ltp),
+                bid=float(event.bid) if event.bid is not None else 0.0,
+                ask=float(event.ask) if event.ask is not None else 0.0,
+                bid_qty=int(event.bid_quantity) if event.bid_quantity is not None else 0,
+                ask_qty=int(event.ask_quantity) if event.ask_quantity is not None else 0,
+                volume=int(event.volume) if event.volume is not None else 0,
+                oi=int(event.open_interest) if event.open_interest is not None else 0,
+                timestamp=event.timestamp or datetime.now(UTC),
+                broker=self.broker_name,
+            )
+            if inspect.iscoroutinefunction(on_tick):
+                await on_tick(tick)
+            else:
+                on_tick(tick)
+
+        feed = DhanMarketFeed(self._access_token, self._client_id, on_event=_emit)
+        feed.subscribe(subscriptions)
+        self._feed = feed
         self._running = True
-        retry_delay = 1
-
-        while self._running:
-            try:
-                async with httpx.AsyncClient() as client:
-                    async with client.stream(
-                        "GET",
-                        self._ws_url,
-                        headers={
-                            "access-token": self._access_token,
-                            "client-id": self._client_id,
-                        },
-                    ) as resp:
-                        if resp.status_code != 200:
-                            logger.error("Dhan WS connect failed: %s", resp.status_code)
-                            await asyncio.sleep(retry_delay)
-                            retry_delay = min(retry_delay * 2, 30)
-                            continue
-
-                        retry_delay = 1
-                        subscribe_payload = {
-                            "RequestCode": 1,
-                            "ClientId": self._client_id,
-                            "AuthToken": self._access_token,
-                            "SymbolCount": len(symbols),
-                            "SymbolList": [
-                                {
-                                    "ExchangeSegment": "NSE_EQ",
-                                    "SecurityToken": sym,
-                                }
-                                for sym in symbols
-                            ],
-                        }
-
-                        async with client.stream(
-                            "POST",
-                            f"{self._base_url}/feeds/ws",
-                            json=subscribe_payload,
-                            headers=self._headers(),
-                        ) as ws:
-                            async for line in ws.aiter_lines():
-                                if not self._running:
-                                    break
-                                if not line.strip():
-                                    continue
-                                try:
-                                    data = json.loads(line)
-                                    tick = self._parse_tick(data)
-                                    if tick:
-                                        if inspect.iscoroutinefunction(on_tick):
-                                            await on_tick(tick)
-                                        else:
-                                            on_tick(tick)
-                                except json.JSONDecodeError:
-                                    continue
-
-            except Exception as e:
-                logger.error("Dhan WS error: %s, reconnecting in %ds", e, retry_delay)
-                await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 2, 30)
+        try:
+            await feed.run()
+        finally:
+            self._running = False
+            self._feed = None
 
     async def disconnect(self) -> None:
         self._running = False
+        feed = getattr(self, "_feed", None)
+        if feed is not None:
+            try:
+                await feed.stop()
+            except Exception:  # noqa: BLE001 - shutdown must not mask the original error
+                logger.debug("Dhan feed stop raised during disconnect", exc_info=True)
         await self.close_http_client()
 
     def _parse_tick(self, data: dict) -> Tick | None:

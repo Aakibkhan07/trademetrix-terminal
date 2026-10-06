@@ -56,6 +56,27 @@ class OmniOrder(BaseModel):
     average_price: float = 0.0
     price: float = 0.0
     trigger_price: float | None = None
+    #: The derivative identity of the contract.
+    #:
+    #: These were absent, and their absence was invisible until the *queue* path was
+    #: exercised end to end. `place_order` accepts them on `ExecutionRequest` and
+    #: `_process_queue` rebuilds the request from this model, so anything not stored here is
+    #: gone by the time the broker adapter sees the order. The measured effect: an option
+    #: order placed through the real OMS queue reached Dhan with the correct `securityId`
+    #: and `exchangeSegment` but **no expiry, no strike and no option type** -- because
+    #: `DhanAdapter.place_order` only emits `drvExpiryDate` / `drvStrikePrice` /
+    #: `drvOptionType` when `instrument_type` is FUT or OPT. A direct
+    #: `ExecutionManager.place_order` call carried all of them, so the two paths disagreed
+    #: about which contract was being traded.
+    #:
+    #: Defaults are empty rather than required so an equity order, and every row written
+    #: before this existed, still loads.
+    instrument_type: str = ""
+    expiry_date: str = ""
+    strike_price: float | None = None
+    option_type: str = ""
+    validity: str = ""
+    disclosed_quantity: int = 0
     state: OMSOrderState = OMSOrderState.NEW
     prev_state: OMSOrderState | None = None
     relation_type: OrderRelationType = OrderRelationType.NONE

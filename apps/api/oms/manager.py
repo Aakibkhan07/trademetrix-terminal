@@ -51,6 +51,59 @@ TERMINAL_OMS_STATES = {
 }
 
 
+def _text(value) -> str:
+    """Normalise an enum member or plain value to its stored string form.
+
+    `ExecutionRequest` carries these as pydantic enums while `OmniOrder` stores strings,
+    because the row is written to a text column. ``InstrumentType.OPT`` has to become
+    ``"OPT"``, and ``None`` has to become ``""`` so the column is never null.
+    """
+    if value is None:
+        return ""
+    return str(getattr(value, "value", value))
+
+
+def build_execution_request(order: "OmniOrder") -> ExecutionRequest:
+    """Rebuild the broker request from a persisted OMS order.
+
+    Extracted from `_process_queue` so it can be exercised directly. While it was inline,
+    the only way to test it was to run the worker against a live Redis and a broker
+    adapter -- and a source-level assertion that the keyword names were present passed while
+    `disclosed_quantity=order.disclosed_quantity or None` raised a `ValidationError` on every
+    order whose disclosed quantity is 0, because 0 is falsy. The presence of a keyword is
+    not the correctness of a keyword; only running it is.
+
+    `disclosed_quantity` is coerced to 0 rather than `None` because
+    `ExecutionRequest.disclosed_quantity` is a non-optional int.
+    """
+    return ExecutionRequest(
+        user_id=order.user_id,
+        broker=order.broker,
+        symbol=order.symbol,
+        exchange=order.exchange,
+        side=order.side,
+        order_type=order.order_type,
+        product=order.product,
+        quantity=order.quantity,
+        price=order.price,
+        trigger_price=order.trigger_price,
+        # Restored from the persisted order. Without these the broker adapter had no
+        # `instrument_type` and therefore emitted no `drvExpiryDate`, `drvStrikePrice` or
+        # `drvOptionType` at all -- the two order paths disagreed about which contract was
+        # being traded, and only the queue path is what production uses.
+        instrument_type=order.instrument_type or None,
+        expiry_date=order.expiry_date or None,
+        strike_price=order.strike_price,
+        option_type=order.option_type or None,
+        validity=order.validity or None,
+        disclosed_quantity=int(order.disclosed_quantity or 0),
+        strategy_id=order.strategy_id or None,
+        source=order.source,
+        is_paper=order.is_paper,
+        execution_request_id=order.execution_request_id,
+    )
+
+
 def _oms_order_id() -> str:
     raw = f"oms:{time.time_ns()}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
@@ -128,6 +181,15 @@ class OrderManager:
             quantity=req.quantity,
             price=req.price,
             trigger_price=req.trigger_price,
+            # Derivative identity. Dropping these here is what made the queue path send an
+            # option order to Dhan with no expiry, no strike and no option type, while a
+            # direct ExecutionManager call carried all three. See `OmniOrder`.
+            instrument_type=_text(req.instrument_type),
+            expiry_date=_text(req.expiry_date),
+            strike_price=float(req.strike_price) if req.strike_price else None,
+            option_type=_text(req.option_type),
+            validity=_text(req.validity),
+            disclosed_quantity=int(req.disclosed_quantity or 0),
             strategy_id=req.strategy_id or "",
             source=req.source,
             is_paper=req.is_paper or (req.broker == PAPER_BROKER),
@@ -441,22 +503,7 @@ class OrderManager:
                 await save_order(order)
                 self._publish_event("OrderSent", order)
 
-                req = ExecutionRequest(
-                    user_id=order.user_id,
-                    broker=order.broker,
-                    symbol=order.symbol,
-                    exchange=order.exchange,
-                    side=order.side,
-                    order_type=order.order_type,
-                    product=order.product,
-                    quantity=order.quantity,
-                    price=order.price,
-                    trigger_price=order.trigger_price,
-                    strategy_id=order.strategy_id or None,
-                    source=order.source,
-                    is_paper=order.is_paper,
-                    execution_request_id=order.execution_request_id,
-                )
+                req = build_execution_request(order)
 
                 exec_start = time.monotonic()
                 exec_result = await self._exec_mgr.place_order(req)

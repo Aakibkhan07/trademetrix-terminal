@@ -777,7 +777,7 @@ async def test_connecting_data_after_orders_leaves_the_order_broker_alone(repo_a
     svc = BrokerService(repo)
     svc._broker_supported = lambda broker: True  # type: ignore[method-assign]
 
-    await repo._run(lambda: svc.save_credentials(USER, "dhan", "cid", "secret"))
+    await repo._run(lambda: svc.save_credentials(USER, "dhan", "1100793385", "secret"))
     await repo._run(lambda: repo.activate_broker(USER, "dhan", role=EXECUTION))
 
     await repo._run(lambda: svc.save_credentials(USER, "fyers", "appid", "appsecret", role=MARKET_DATA))
@@ -812,7 +812,7 @@ async def test_the_reverse_order_also_works(repo_and_store):
     await repo._run(lambda: svc.save_credentials(USER, "fyers", "appid", "appsecret", role=MARKET_DATA))
     await repo._run(lambda: repo.activate_broker(USER, "fyers", role=MARKET_DATA))
 
-    await repo._run(lambda: svc.save_credentials(USER, "dhan", "cid", "secret"))
+    await repo._run(lambda: svc.save_credentials(USER, "dhan", "1100793385", "secret"))
     await repo._run(lambda: repo.activate_broker(USER, "dhan", role=EXECUTION))
 
     assert await repo._run(lambda: repo.get_active_broker(USER, role=EXECUTION)) == "dhan"
