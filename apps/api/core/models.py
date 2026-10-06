@@ -111,6 +111,14 @@ class OrderResult(BaseModel):
 class Position(BaseModel):
     symbol: str
     exchange: Exchange
+    #: Broker-assigned contract identity. `security_id` alone is NOT globally unique --
+    #: the Dhan master holds 14,626 security ids under more than one segment -- so a position
+    #: is identified by (exchange, exchange_segment, security_id), never by security_id or by
+    #: the display symbol. Before these existed the adapter stored the *security id* in
+    #: `symbol`, so a position was labelled with a five-digit number and the three fields
+    #: that distinguish two option contracts were unrepresentable.
+    security_id: str = ""
+    exchange_segment: str = ""
     quantity: int
     buy_quantity: int = 0
     sell_quantity: int = 0

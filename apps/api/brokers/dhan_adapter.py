@@ -483,7 +483,24 @@ class DhanAdapter(BaseBroker, BrokerAdapterBase):
 
     @staticmethod
     def _unmap_product(val: str) -> ProductType:
-        mapping = {"INTRADAY": ProductType.INTRADAY, "DELIVERY": ProductType.DELIVERY, "MIS": ProductType.INTRADAY, "NRML": ProductType.NRML}
+        """Dhan product type -> the local vocabulary.
+
+        `CNC` and `MARGIN` were missing, so both silently became INTRADAY through the
+        fallback. That made a delivery position and a margin position indistinguishable
+        from an intraday one -- three different product types collapsed into one, which is
+        exactly what position reconciliation must not lose. An unknown value still falls back
+        to INTRADAY, because refusing to record a position at all is worse than recording it
+        under the wrong product: the quantity and identity remain correct and a human can see
+        the product is unrecognised.
+        """
+        mapping = {
+            "INTRADAY": ProductType.INTRADAY,
+            "MIS": ProductType.INTRADAY,
+            "DELIVERY": ProductType.DELIVERY,
+            "CNC": ProductType.DELIVERY,
+            "NRML": ProductType.NRML,
+            "MARGIN": ProductType.NRML,
+        }
         return mapping.get(val.upper(), ProductType.INTRADAY)
 
     def _normalize_order(self, item: dict) -> NormalizedOrder:
@@ -510,9 +527,64 @@ class DhanAdapter(BaseBroker, BrokerAdapterBase):
         )
 
     def _normalize_position(self, item: dict) -> Position:
-        inst = self._parse_instrument(item.get("securityId", ""))
+        """Normalise one Dhan position.
+
+        This used to store the broker's `securityId` in `symbol` and then feed that same
+        string to `_parse_instrument`, which matches a Fyers-style compact symbol like
+        `NIFTY26OCT23250CE`. A five-digit security id matches nothing, so **every** Dhan
+        option position was recorded as `EQ` with no strike, no expiry and no option type,
+        labelled with a number. Reconciliation therefore had nothing to match on: two
+        different option contracts, or the same contract in two segments, were
+        indistinguishable in local state.
+
+        The contract identity now comes from the Dhan instrument master by
+        `(exchange_segment, security_id)`, which is the key the master itself is indexed
+        on, and the broker's own `productType` is honoured rather than assumed to be
+        INTRADAY.
+        """
+        security_id = str(item.get("securityId", "") or "")
+        segment = str(item.get("exchangeSegment", "") or "")
+        symbol = security_id
+        inst = {"instrument_type": InstrumentType.EQ, "strike_price": None,
+                "expiry_date": None, "option_type": None}
+        lot = 1.0
+        if security_id:
+            try:
+                from market.dhan_instruments import dhan_instrument_provider
+
+                # Resolved by (exchange_segment, security_id) -- the key the Dhan master is
+                # indexed on. Resolving by symbol alone cannot work here, because the broker
+                # gave us an id, not a symbol.
+                resolved = dhan_instrument_provider.resolve_by_security_id(
+                    security_id, exchange_segment=segment,
+                )
+                if resolved is not None:
+                    symbol = resolved.broker_symbol or resolved.security_id
+                    inst = {
+                        "instrument_type": (InstrumentType(resolved.instrument_type)
+                                            if resolved.instrument_type else
+                                            InstrumentType.EQ),
+                        "strike_price": resolved.strike,
+                        "expiry_date": resolved.expiry,
+                        "option_type": (OptionType(resolved.option_type)
+                                        if resolved.option_type else None),
+                    }
+                    lot = float(resolved.lot_size or 1.0)
+            except Exception as e:  # noqa: BLE001 - keep the raw identity rather than guess
+                logger.warning("Could not resolve Dhan position %s/%s: %s",
+                               segment, security_id, e)
+
+        product = ProductType.INTRADAY
+        raw_product = str(item.get("productType", "") or "").upper()
+        if raw_product:
+            mapped = self._unmap_product(raw_product)
+            if mapped is not None:
+                product = mapped
+
         return Position(
-            symbol=item.get("securityId", ""),
+            symbol=symbol,
+            security_id=security_id,
+            exchange_segment=segment,
             exchange=Exchange(item.get("exchange", "NSE")),
             quantity=int(item.get("netQty", 0)),
             buy_quantity=int(item.get("buyQty", 0)),
@@ -521,7 +593,8 @@ class DhanAdapter(BaseBroker, BrokerAdapterBase):
             average_sell_price=float(item.get("avgSellPrice", 0)),
             unrealised_pnl=float(item.get("unrealizedPnl", 0)),
             realised_pnl=float(item.get("realizedPnl", 0)),
-            product=ProductType.INTRADAY,
+            product=product,
+            multiplier=lot,
             broker=self.broker_name,
             instrument_type=inst["instrument_type"],
             strike_price=inst["strike_price"],
