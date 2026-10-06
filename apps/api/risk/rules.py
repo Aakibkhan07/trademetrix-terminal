@@ -338,6 +338,10 @@ class DuplicateOrderRule(RiskRule):
 
     def __init__(self):
         self._recent_orders: dict[str, dict[str, float]] = defaultdict(dict)
+        #: Logical order id -> the fingerprint of the intent first seen under it. This is
+        #: what separates "the same order, sent again" from "a new order that happens to
+        #: look identical".
+        self._intents: dict[str, dict[str, str]] = defaultdict(dict)
         self._locks: dict[str, asyncio.Lock] = {}
         self._locks_lock = asyncio.Lock()
 
@@ -359,6 +363,41 @@ class DuplicateOrderRule(RiskRule):
             for key in [k for k, ts in recent.items() if ts < cutoff]:
                 del recent[key]
             dedup_key = f"{req.user_id}:{req.broker}:{req.symbol}:{req.side}:{req.quantity}:{req.order_type}:{req.price}"
+            # A transport retry of one logical order must not be refused as a duplicate of
+            # itself. Measured: the OMS worker re-evaluated this rule on its retry path, hit
+            # the 60s window against the order's own first evaluation, and produced
+            # `Duplicate order detected` for an order whose first send may never have reached
+            # the broker -- then converted the retry into a permanent RISK_REJECTED.
+            #
+            # This narrows only that case. The identity is `execution_request_id` -- the
+            # value the OMS carries unchanged across attempts and sends to Dhan as
+            # `correlationId` -- AND the intent fingerprint, so a "retry" that changed the
+            # contract, side, quantity or any other material attribute is not the same order
+            # and falls through to the duplicate window below. Genuinely new orders,
+            # including two identical ones inside 60s, are refused exactly as before.
+            # Nothing is disabled and no window is widened.
+            from oms.identity import intent_fingerprint, same_intent
+
+            logical_id = (req.execution_request_id or "").strip()
+            if logical_id:
+                recorded = self._intents[req.user_id].get(logical_id)
+                if recorded is not None:
+                    if same_intent(recorded, req):
+                        return RiskRuleResult(
+                            rule=self.rule_type,
+                            latency_ms=(time.monotonic() - start) * 1000,
+                            details={"logical_order_id": logical_id,
+                                     "retry_of_same_intent": True},
+                        )
+                    logger.warning(
+                        "Logical order %s changed material attributes; the retry is being "
+                        "treated as a NEW order for duplicate purposes", logical_id,
+                    )
+                self._intents[req.user_id][logical_id] = intent_fingerprint(req)
+                if len(self._intents[req.user_id]) > 100:
+                    for key in list(self._intents[req.user_id])[:50]:
+                        del self._intents[req.user_id][key]
+
             if dedup_key in recent:
                 return RiskRuleResult(
                     rule=self.rule_type, decision=RiskDecision.REJECTED,

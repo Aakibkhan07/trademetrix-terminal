@@ -74,6 +74,22 @@ async def retry_with_backoff(
             return result, attempt, elapsed
         except Exception as e:
             last_error = e
+            # An indeterminate send is never retried, whatever else is true of it. The
+            # exception type below is not in TRANSIENT_EXCEPTIONS and its `code` is not in
+            # TRANSIENT_ERRORS, so `is_transient` returns False and the `raise` below fires
+            # on the first attempt. That branch is kept explicit rather than relying on the
+            # classification staying false: this is the difference between one POST to a
+            # broker and up to MAX_RETRIES + 1 POSTs to a broker that may have already
+            # accepted the first.
+            from execution.indeterminate import is_indeterminate
+
+            if is_indeterminate(e):
+                logger.warning(
+                    "Indeterminate result from %s — not retrying; the order must be "
+                    "reconciled with the broker first (attempt %d/%d)", operation_name,
+                    attempt + 1, max_retries,
+                )
+                raise
             if isinstance(e, TRANSIENT_EXCEPTIONS):
                 pass
             else:

@@ -11,6 +11,7 @@ from core.safe_query import async_safe_single
 from execution.audit import log_execution_event, log_validation_failure
 from execution.broker_adapter import BrokerExecutionAdapter
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
+from execution.indeterminate import ORDER_RESULT_UNKNOWN, IndeterminateOrderError
 from execution.models import (
     ExecutionRequest,
     ExecutionResult,
@@ -214,7 +215,13 @@ latency_ms=elapsed_ms,
                 result = ExecutionResult(
                     success=False, execution_request_id=request_id,
                     state=ExecutionState.REJECTED, message=broker_result.message,
-                    error_code="ORDER_REJECTED", latency_ms=elapsed_ms,
+                    latency_ms=elapsed_ms,
+                    # Carried through. The OMS branches on this flag before it looks at the
+                    # state, so an indeterminate result is not mistaken for a rejection. It
+                    # has to survive this conversion: `place_order` returns an
+                    # `ExecutionResult`, so a flag set only on `OrderResult` never arrives.
+                    indeterminate=broker_result.indeterminate,
+                    error_code=(broker_result.error_code or "ORDER_REJECTED"),
                 )
 
         except Exception as e:
@@ -467,6 +474,16 @@ latency_ms=elapsed_ms,
             if attempts > 0:
                 execution_observability.record_retry()
             return result
+        except IndeterminateOrderError as e:
+            # Preserved rather than flattened. This used to fall into the generic
+            # `except Exception` below and become `OrderResult(success=False)`, which the
+            # OMS read as "the broker refused" and retried. It is not a refusal: nobody
+            # knows. Reconciliation decides.
+            logger.error("Indeterminate place_order for %s: %s", request_id, e)
+            return OrderResult(
+                success=False, indeterminate=True,
+                error_code=ORDER_RESULT_UNKNOWN, message=str(e),
+            )
         except Exception as e:
             logger.error("All retry attempts failed for %s: %s", request_id, e)
             return OrderResult(success=False, message=str(e))

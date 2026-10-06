@@ -9,6 +9,15 @@ class OMSOrderState(StrEnum):
     VALIDATED = "VALIDATED"
     QUEUED = "QUEUED"
     SENT = "SENT"
+    #: The request left us and the broker never answered. Nobody knows whether it exists.
+    #: `SENT` used to be stretched to cover this, and a failure beneath it was read as a
+    #: rejection -- so a lost response produced a retry, and the retry a duplicate order.
+    UNKNOWN = "UNKNOWN"
+    #: A reconciliation attempt is in flight. Never retried from here.
+    RECONCILING = "RECONCILING"
+    #: More than one broker order matches, or matching cannot be narrowed. Requires a human.
+    #: Never auto-resolved: picking one would risk duplicating or cancelling a real order.
+    AMBIGUOUS = "AMBIGUOUS"
     PENDING = "PENDING"
     PARTIAL = "PARTIAL"
     FILLED = "FILLED"
@@ -21,7 +30,25 @@ OMS_STATE_TRANSITIONS: dict[OMSOrderState, set[OMSOrderState]] = {
     OMSOrderState.NEW: {OMSOrderState.VALIDATED, OMSOrderState.QUEUED, OMSOrderState.REJECTED},
     OMSOrderState.VALIDATED: {OMSOrderState.QUEUED, OMSOrderState.REJECTED},
     OMSOrderState.QUEUED: {OMSOrderState.SENT, OMSOrderState.REJECTED, OMSOrderState.CANCELLED},
-    OMSOrderState.SENT: {OMSOrderState.PENDING, OMSOrderState.PARTIAL, OMSOrderState.FILLED, OMSOrderState.REJECTED},
+    OMSOrderState.SENT: {
+        OMSOrderState.UNKNOWN, OMSOrderState.RECONCILING,
+        OMSOrderState.PENDING, OMSOrderState.PARTIAL,
+        OMSOrderState.FILLED, OMSOrderState.REJECTED,
+    },
+    #: An unknown result may only be resolved by asking the broker. Retrying from here
+    #: without asking is what produced duplicate orders at the broker.
+    OMSOrderState.UNKNOWN: {
+        OMSOrderState.RECONCILING, OMSOrderState.PENDING, OMSOrderState.PARTIAL,
+        OMSOrderState.FILLED, OMSOrderState.REJECTED, OMSOrderState.AMBIGUOUS,
+        OMSOrderState.CANCELLED, OMSOrderState.EXPIRED,
+    },
+    OMSOrderState.RECONCILING: {
+        OMSOrderState.UNKNOWN, OMSOrderState.PENDING, OMSOrderState.PARTIAL,
+        OMSOrderState.FILLED, OMSOrderState.REJECTED, OMSOrderState.AMBIGUOUS,
+        OMSOrderState.CANCELLED, OMSOrderState.EXPIRED,
+    },
+    #: Terminal, deliberately. An ambiguous order is a human decision.
+    OMSOrderState.AMBIGUOUS: set(),
     OMSOrderState.PENDING: {OMSOrderState.PARTIAL, OMSOrderState.FILLED, OMSOrderState.CANCELLED, OMSOrderState.REJECTED, OMSOrderState.EXPIRED},
     OMSOrderState.PARTIAL: {OMSOrderState.QUEUED, OMSOrderState.PENDING, OMSOrderState.FILLED, OMSOrderState.CANCELLED, OMSOrderState.REJECTED},
     OMSOrderState.FILLED: set(),
@@ -77,6 +104,17 @@ class OmniOrder(BaseModel):
     option_type: str = ""
     validity: str = ""
     disclosed_quantity: int = 0
+    #: Reconciliation bookkeeping. Needed because an order whose response was lost has no
+    #: `broker_order_id`, so the existing loop -- which matches on `broker_order_id` alone --
+    #: could not see it at all, and the order sat in whatever state it failed in forever.
+    reconcile_attempts: int = 0
+    #: Consecutive "the broker does not have it" observations. A single absence is not proof.
+    not_found_observations: int = 0
+    #: Deterministic fingerprint of the material order attributes, used to tell a retry of
+    #: the same intent from a genuinely new order. Excludes price and any timestamp: a
+    #: MARKET order is legitimately re-priced between attempts, and a timestamp alone would
+    #: make every retry look like a new order.
+    intent_fingerprint: str = ""
     state: OMSOrderState = OMSOrderState.NEW
     prev_state: OMSOrderState | None = None
     relation_type: OrderRelationType = OrderRelationType.NONE

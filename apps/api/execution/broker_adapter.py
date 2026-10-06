@@ -124,8 +124,15 @@ class BrokerExecutionAdapter:
             )
             return result
         except (asyncio.TimeoutError, httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadTimeout) as e:
-            logger.warning("Transient error in place_order for %s: %s", self.broker, e)
-            raise
+            # A lost response says nothing about whether the broker accepted the order, so it
+            # is raised as indeterminate rather than returned as a plain failure. A bare
+            # transport error used to reach `retry_with_backoff`, which classified it as
+            # transient and re-sent the POST up to `MAX_RETRIES` more times -- against a
+            # broker that may already have accepted the first one.
+            from execution.indeterminate import IndeterminateOrderError
+
+            logger.warning("Indeterminate place_order for %s: %s", self.broker, e)
+            raise IndeterminateOrderError(str(e), broker=self.broker) from e
         except Exception as e:
             logger.error("place_order failed for %s: %s", self.broker, e)
             result = OrderResult(success=False, message=str(e))

@@ -164,7 +164,13 @@ class OrderManager:
         logger.info("OrderManager stopped")
 
     async def place_order(self, req: ExecutionRequest) -> OmniOrder:
+        from oms.identity import intent_fingerprint
+
         oms_id = _oms_order_id()
+        # Minted ONCE, here, and carried unchanged through every retry. It becomes
+        # `client_order_id`, which the Dhan adapter sends as the `correlationId` header --
+        # so it is the one identifier that survives a lost response and lets reconciliation
+        # find the order. A retry must never mint a new one.
         exec_request_id = req.execution_request_id or oms_id
 
         order = OmniOrder(
@@ -194,6 +200,9 @@ class OrderManager:
             source=req.source,
             is_paper=req.is_paper or (req.broker == PAPER_BROKER),
             state=OMSOrderState.NEW,
+            # Recorded once. If a later attempt presents a different fingerprint, it is a new
+            # order and goes through complete risk evaluation.
+            intent_fingerprint=intent_fingerprint(req),
         )
 
         self._add_order(order)
@@ -512,7 +521,20 @@ class OrderManager:
                 order.latency_ms = latency_ms
                 oms_metrics.record_broker_latency(order.broker, latency_ms)
 
-                if exec_result.success:
+                if exec_result.indeterminate:
+                    # The broker never answered. This is not a rejection -- the request may
+                    # be sitting at the broker right now -- so the order stops here and
+                    # reconciliation decides. Retrying from this point is what produced
+                    # duplicate orders: the previous code requeued immediately, and
+                    # `retry_with_backoff` had already re-sent the POST up to three more
+                    # times before this branch existed.
+                    order.state = OMSOrderState.UNKNOWN
+                    order.updated_at = datetime.now(UTC)
+                    order.message = exec_result.message or "broker did not respond"
+                    await save_order(order)
+                    await order_queue.complete(item.oms_order_id)
+                    self._publish_event("OrderUnknown", order)
+                elif exec_result.success:
                     is_partial = exec_result.state == ExecutionState.PARTIALLY_FILLED
                     is_filled = exec_result.state == ExecutionState.FILLED
                     order.broker_order_id = exec_result.broker_order_id or ""
@@ -555,6 +577,9 @@ class OrderManager:
                         await save_order(order)
                         self._publish_event("OrderPending", order)
                 else:
+                    # A definitive failure -- the broker answered and refused. The case where
+                    # the broker did *not* answer is the `indeterminate` branch above, and
+                    # that one must never reach this retry: it reconciles instead.
                     if order.retry_count < order.max_retries:
                         order.state = OMSOrderState.QUEUED
                         await order_queue.enqueue_retry(item, delay_seconds=2.0 ** order.retry_count)
@@ -593,6 +618,12 @@ class OrderManager:
             await asyncio.sleep(RECONCILE_INTERVAL_SECONDS)
 
     async def _reconcile_once(self) -> None:
+        # Orders whose broker result is unknown have no `broker_order_id`, so the loop below
+        # -- which selects on exactly that field -- could never see them. That is why an
+        # order with a lost response used to sit unresolved forever instead of being
+        # reconciled at all.
+        await self._reconcile_unknown_once()
+
         active = [
             o for o in self._orders.values()
             if o.broker_order_id and o.state in (OMSOrderState.PENDING, OMSOrderState.PARTIAL)
@@ -614,6 +645,194 @@ class OrderManager:
                 if remote is None:
                     continue
                 await self._apply_remote_status(order, remote)
+
+    #: Injected in tests so the decision table can be driven deterministically. Left None in
+    #: production, where the reconciler is built against the real broker adapter.
+    reconciler_factory: Any = None
+
+    def _build_reconciler(self, user_id: str, broker: str):
+        """A reconciler bound to this user's live broker.
+
+        The two callables are Dhan's own lookups -- `GET /v2/orders/external/{correlationId}`
+        and the day order list -- as exposed by the official Dhan client. No identifier is
+        invented here; if the adapter cannot answer, reconciliation reports UNKNOWN rather
+        than guessing.
+        """
+        if self.reconciler_factory is not None:
+            return self.reconciler_factory(user_id, broker)
+
+        from oms.reconciliation import OrderReconciler
+
+        async def lookup_by_correlation(correlation_id: str):
+            adapter = await self._exec_mgr._get_adapter(user_id, broker)
+            client = getattr(adapter, "_adapter", None)
+            inner = getattr(client, "_inner", client)
+            fetch = getattr(inner, "_get_client", None)
+            if fetch is None:
+                raise RuntimeError("adapter cannot issue HTTP requests")
+            http = await fetch()
+            base = getattr(inner, "_base_url", "https://api.dhan.co/v2")
+            headers = inner._headers()
+            resp = await http.get(f"{base}/orders/external/{correlation_id}",
+                                  headers=headers, timeout=15.0)
+            if resp.status_code == 404:
+                return []
+            resp.raise_for_status()
+            return resp.json()
+
+        async def list_orders():
+            adapter = await self._exec_mgr._get_adapter(user_id, broker)
+            client = getattr(adapter, "_adapter", None)
+            inner = getattr(client, "_inner", client)
+            fetch = getattr(inner, "_get_client", None)
+            if fetch is None:
+                raise RuntimeError("adapter cannot issue HTTP requests")
+            http = await fetch()
+            base = getattr(inner, "_base_url", "https://api.dhan.co/v2")
+            resp = await http.get(f"{base}/orders", headers=inner._headers(), timeout=20.0)
+            resp.raise_for_status()
+            data = resp.json()
+            return data if isinstance(data, list) else []
+
+        return OrderReconciler(lookup_by_correlation=lookup_by_correlation,
+                               list_orders=list_orders)
+
+    async def _reconcile_unknown_once(self) -> None:
+        """Resolve orders the broker never answered for.
+
+        Every verdict is acted on. `UNKNOWN` and `AMBIGUOUS` produce **no** retry and no
+        duplicate: UNKNOWN goes back to waiting, AMBIGUOUS becomes terminal and waits for a
+        human. Only a definitive NOT_FOUND can make a retry eligible, and even then the
+        decision is recorded rather than acted on here -- `retry_eligible` is a fact for the
+        caller, not an action taken in the middle of a reconciliation pass.
+        """
+        pending = [
+            o for o in self._orders.values()
+            if o.state in (OMSOrderState.UNKNOWN, OMSOrderState.RECONCILING)
+        ]
+        for order in pending:
+            try:
+                await self._reconcile_one_unknown(order)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:  # noqa: BLE001 - one bad order must not stop the loop
+                logger.error("Unknown-order reconciliation failed for %s: %s",
+                             order.oms_order_id, e, exc_info=True)
+
+    async def _reconcile_one_unknown(self, order: OmniOrder) -> None:
+        from oms.reconciliation import ReconcileVerdict
+
+        order.state = OMSOrderState.RECONCILING
+        order.reconcile_attempts += 1
+        await save_order(order)
+
+        reconciler = self._build_reconciler(order.user_id, order.broker)
+        outcome = await reconciler.reconcile(
+            correlation_id=order.client_order_id or order.execution_request_id or "",
+            expected_attributes=self._reconcile_attributes(order),
+            sent_at=order.sent_at,
+            broker_order_id=order.broker_order_id or "",
+            not_found_observations=order.not_found_observations,
+        )
+        order.message = outcome.reason
+
+        if outcome.verdict is ReconcileVerdict.ACCEPTED and outcome.match:
+            order.broker_order_id = outcome.match.broker_order_id
+            order.not_found_observations = 0
+            order.state = OMSOrderState.PENDING
+            await save_order(order)
+            self._publish_event("OrderPending", order)
+            return
+
+        if outcome.verdict is ReconcileVerdict.REJECTED:
+            order.not_found_observations = 0
+            order.state = OMSOrderState.REJECTED
+            order.error_code = order.error_code or "BROKER_REJECTED"
+            await save_order(order)
+            await remove_order(order.oms_order_id)
+            self._record_terminal(order)
+            self._publish_event("OrderRejected", order)
+            return
+
+        if outcome.verdict is ReconcileVerdict.AMBIGUOUS:
+            # Never resolved automatically. Choosing one of several real broker orders could
+            # cancel a live position or leave a duplicate behind.
+            order.state = OMSOrderState.AMBIGUOUS
+            order.error_code = "AMBIGUOUS_BROKER_MATCH"
+            await save_order(order)
+            await remove_order(order.oms_order_id)
+            logger.error(
+                "Order %s is AMBIGUOUS at the broker (%d candidates); manual review required",
+                order.oms_order_id, len(outcome.candidates),
+            )
+            self._record_terminal(order)
+            self._publish_event("OrderAmbiguous", order)
+            return
+
+        if outcome.verdict is ReconcileVerdict.NOT_FOUND:
+            order.not_found_observations = outcome and order.not_found_observations + 1
+            order.state = OMSOrderState.QUEUED
+            order.retry_count += 1
+            order.message = (
+                f"{outcome.reason}; broker confirmed no matching order, retry is eligible"
+            )
+            await save_order(order)
+            await order_queue.enqueue_retry(
+                OrderQueueItem(oms_order_id=order.oms_order_id),
+                delay_seconds=2.0,
+            )
+            oms_metrics.record_retry()
+            logger.warning("Order %s: %s", order.oms_order_id, outcome.reason)
+            return
+
+        if outcome.verdict is ReconcileVerdict.UNKNOWN:
+            # Still cannot tell. Stay put -- no retry, no duplicate. Explicit rather than a
+            # fall-through, so that a verdict added later cannot silently land here and be
+            # treated as "keep waiting".
+            order.not_found_observations = order.not_found_observations + 1
+            order.state = OMSOrderState.UNKNOWN
+            await save_order(order)
+            logger.info("Order %s still unknown: %s", order.oms_order_id, outcome.reason)
+            return
+
+        # An unrecognised verdict is not a licence to retry either.
+        logger.error(
+            "Order %s: reconciliation returned an unhandled verdict %r; leaving it %s",
+            order.oms_order_id, outcome.verdict, order.state.value,
+        )
+
+    def _reconcile_attributes(self, order: OmniOrder) -> dict:
+        """The contract identity to match a broker order against.
+
+        `securityId` and `exchangeSegment` come from the resolver, not from the display
+        symbol, so two contracts can never be confused here.
+        """
+        expected = {
+            "transactionType": order.side,
+            "quantity": order.quantity,
+            "orderType": order.order_type,
+            "productType": order.product,
+            "drvExpiryDate": order.expiry_date,
+            "drvStrikePrice": order.strike_price,
+            "drvOptionType": order.option_type,
+        }
+        try:
+            from market.instruments import instrument_resolver
+
+            instrument = instrument_resolver.resolve(
+                order.symbol, broker=order.broker,
+                instrument_type=order.instrument_type or "EQ",
+            )
+            if instrument is not None:
+                expected["securityId"] = instrument.security_id
+                expected["exchangeSegment"] = instrument.exchange_segment
+                expected["drvExpiryDate"] = expected["drvExpiryDate"] or instrument.expiry
+                expected["drvStrikePrice"] = expected["drvStrikePrice"] or instrument.strike
+                expected["drvOptionType"] = expected["drvOptionType"] or instrument.option_type
+        except Exception as e:  # noqa: BLE001 - weaker matching, never a guess
+            logger.warning("Could not resolve contract identity for %s: %s",
+                           order.oms_order_id, e)
+        return expected
 
     async def _apply_remote_status(self, order: OmniOrder, remote: Any) -> None:
         remote_status = remote.status.value if hasattr(remote.status, "value") else str(remote.status or "")

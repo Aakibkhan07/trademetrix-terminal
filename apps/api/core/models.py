@@ -98,6 +98,14 @@ class OrderResult(BaseModel):
     status: str = ""
     filled_qty: int = 0
     avg_price: float = 0.0
+    #: True when the broker never answered, so `success=False` does NOT mean the broker
+    #: refused the order. It means nobody knows yet.
+    #:
+    #: Without this the OMS read a lost response as a rejection and retried, which both
+    #: created duplicate orders at the broker and turned the retry into a permanent
+    #: `RISK_REJECTED`. Only reconciliation may decide what an indeterminate send means.
+    indeterminate: bool = False
+    error_code: str = ""
 
 
 class Position(BaseModel):

@@ -106,6 +106,13 @@ class ExecutionResult(BaseModel):
     avg_price: float = 0.0
     latency_ms: float = 0.0
     lifecycle: OrderLifecycle | None = None
+    #: Mirrors `OrderResult.indeterminate`. Present because the OMS reads it off *this*
+    #: object: `ExecutionManager.place_order` returns an `ExecutionResult`, not an
+    #: `OrderResult`, so a field on only the latter is invisible to the OMS -- and reading
+    #: it raised `AttributeError` inside the worker's blanket `except`, which loses the
+    #: queue item and leaves the order stuck at SENT. Caught by the full-path simulation,
+    #: not by any unit test of either class.
+    indeterminate: bool = False
 
 
 class ExecutionEvent(BaseModel):

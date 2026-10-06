@@ -60,8 +60,20 @@ async def test_broker_adapter_place_order_transient_re_raises():
         quantity=1,
     )
 
-    with pytest.raises(httpx.TimeoutException):
+    # A transport failure is still re-raised rather than swallowed into a failed result --
+    # that was the original point of this test and it still holds. The type changed on
+    # purpose: a bare `httpx.TimeoutException` reached `retry_with_backoff`, which classified
+    # it as transient and re-sent the POST up to `MAX_RETRIES` more times against a broker
+    # that may already have accepted the first one. The raised error now says the result is
+    # *unknown*, which `retry_with_backoff` refuses to retry and the OMS routes to
+    # reconciliation. The original exception is kept as `__cause__` so nothing is lost.
+    from execution.indeterminate import ORDER_RESULT_UNKNOWN, IndeterminateOrderError
+
+    with pytest.raises(IndeterminateOrderError) as caught:
         await adapter.place_order(order)
+    assert caught.value.code == ORDER_RESULT_UNKNOWN
+    assert isinstance(caught.value.__cause__, httpx.TimeoutException)
+    assert "Connection timed out" in str(caught.value.__cause__)
 
 
 @pytest.mark.asyncio
