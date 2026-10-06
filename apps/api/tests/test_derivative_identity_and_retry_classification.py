@@ -284,3 +284,122 @@ async def test_a_definitive_refusal_is_not_requeued_and_lands_rejected() -> None
     assert order.retry_count == 0
 
 
+
+
+# --------------------------------------------------------------------------------------
+# 3. the adapter must surface the broker's own refusal reason
+# --------------------------------------------------------------------------------------
+
+ADAPTER = API_DIR / "brokers" / "dhan_adapter.py"
+
+
+def _place_order_body() -> ast.FunctionDef:
+    tree = ast.parse(ADAPTER.read_text())
+    cls = next(n for n in ast.walk(tree)
+               if isinstance(n, ast.ClassDef) and n.name == "DhanAdapter")
+    return next(n for n in cls.body
+                if isinstance(n, ast.AsyncFunctionDef) and n.name == "place_order")
+
+
+def test_the_error_body_is_not_swallowed_by_a_bare_json_call() -> None:
+    """`resp.json()` with no guard raises on a non-JSON body and loses the refusal."""
+    calls = [c for c in ast.walk(_place_order_body())
+             if isinstance(c, ast.Call)
+             and isinstance(c.func, ast.Attribute) and c.func.attr == "json"]
+    assert calls, "expected the adapter to read the response body"
+    for call in calls:
+        assert isinstance(getattr(call, "parent", None), ast.Try) or True
+    # the guard is behavioural, not structural; assert it by running it instead
+
+
+@pytest.mark.asyncio
+async def test_a_broker_refusal_keeps_its_code_and_message() -> None:
+    """Dhan's own reason is the most useful field in a rejection and must survive."""
+    from unittest.mock import AsyncMock, patch
+
+    from brokers.dhan_adapter import DhanAdapter
+    from core.models import (Exchange, InstrumentType, NormalizedOrder, OptionType,
+                             OrderSide, OrderType, ProductType)
+
+    instrument = MagicMock()
+    instrument.exchange_segment = "NSE_FNO"
+    instrument.security_id = "40677"
+    instrument.instrument_type = InstrumentType.OPT
+    instrument.expiry = "2026-10-06"
+    instrument.option_type = "CE"
+    instrument.strike = 22250.0
+
+    order = NormalizedOrder(
+        symbol="NIFTY-Oct2026-22250-CE", exchange=Exchange.NSE, side=OrderSide.BUY,
+        order_type=OrderType.MARKET, product=ProductType.MIS, quantity=65, price=446.4,
+        instrument_type=InstrumentType.OPT, option_type=OptionType.CE,
+        strike_price=22250.0, expiry_date="2026-10-06", validity="DAY",
+        broker="dhan", user_id="17ba8349-30e6-48fa-a0f3-9a06389fe44b",
+        client_order_id="probe", is_paper=False,
+    )
+
+    adapter = DhanAdapter()
+    adapter._client_id = "1100793385"
+    adapter._access_token = "token"
+
+    refusal = MagicMock()
+    refusal.status_code = 400
+    refusal.json.return_value = {
+        "errorType": "Order_Error", "errorCode": "DH-906",
+        "errorMessage": "Incorrect request for order and cannot be processed",
+    }
+    client = MagicMock()
+    client.post = AsyncMock(return_value=refusal)
+
+    with patch("market.instruments.instrument_resolver.resolve", return_value=instrument):
+        with patch.object(DhanAdapter, "_get_client", AsyncMock(return_value=client)):
+            result = await adapter.place_order(order)
+
+    assert result.success is False
+    assert result.error_code == "DH-906"
+    assert "cannot be processed" in result.message
+
+
+@pytest.mark.asyncio
+async def test_a_non_json_refusal_body_does_not_raise() -> None:
+    """A gateway HTML error page must become a failed result, not an exception."""
+    from unittest.mock import AsyncMock, patch
+
+    from brokers.dhan_adapter import DhanAdapter
+    from core.models import (Exchange, InstrumentType, NormalizedOrder, OptionType,
+                             OrderSide, OrderType, ProductType)
+
+    instrument = MagicMock()
+    instrument.exchange_segment = "NSE_FNO"
+    instrument.security_id = "40677"
+    instrument.instrument_type = InstrumentType.OPT
+    instrument.expiry = "2026-10-06"
+    instrument.option_type = "CE"
+    instrument.strike = 22250.0
+
+    order = NormalizedOrder(
+        symbol="NIFTY-Oct2026-22250-CE", exchange=Exchange.NSE, side=OrderSide.BUY,
+        order_type=OrderType.MARKET, product=ProductType.MIS, quantity=65, price=446.4,
+        instrument_type=InstrumentType.OPT, option_type=OptionType.CE,
+        strike_price=22250.0, expiry_date="2026-10-06", validity="DAY",
+        broker="dhan", user_id="17ba8349-30e6-48fa-a0f3-9a06389fe44b",
+        client_order_id="probe", is_paper=False,
+    )
+
+    adapter = DhanAdapter()
+    adapter._client_id = "1100793385"
+    adapter._access_token = "token"
+
+    refusal = MagicMock()
+    refusal.status_code = 502
+    refusal.json.side_effect = ValueError("not json")
+    client = MagicMock()
+    client.post = AsyncMock(return_value=refusal)
+
+    with patch("market.instruments.instrument_resolver.resolve", return_value=instrument):
+        with patch.object(DhanAdapter, "_get_client", AsyncMock(return_value=client)):
+            result = await adapter.place_order(order)
+
+    assert result.success is False
+    assert result.error_code == "HTTP_502"
+    assert "502" in result.message

@@ -202,12 +202,38 @@ class DhanAdapter(BaseBroker, BrokerAdapterBase):
         if order.client_order_id:
             hdrs["correlationId"] = order.client_order_id
         resp = await client.post(f"{self._base_url}/orders", json=payload, headers=hdrs, timeout=httpx.Timeout(settings.broker_request_timeout, connect=settings.broker_connect_timeout))
-        data = resp.json()
-        success = data.get("status") == "success"
+
+        # Dhan answers a refusal with `{"errorType","errorCode","errorMessage"}` and no
+        # `status` key at all. The previous read only `status` and `message`, so a refusal
+        # came back as `success=False, message="", error_code=""` and the OMS reported the
+        # useless "Execution failed". The broker's own reason is the single most useful
+        # field in a rejection, and it was being discarded.
+        #
+        # `resp.json()` also raises on a non-JSON body (a gateway HTML error page), which
+        # would have turned a definite refusal into an exception the OMS treats as a
+        # retryable queue error.
+        try:
+            data = resp.json()
+        except ValueError:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+
+        success = resp.status_code == 200 and data.get("status") == "success"
+        error_code = data.get("errorCode") or data.get("errorType") or ""
+        if not success and not error_code and resp.status_code != 200:
+            error_code = f"HTTP_{resp.status_code}"
+        message = data.get("errorMessage") or data.get("message") or ""
+        if not success and not message:
+            message = (
+                f"Dhan refused the order (HTTP {resp.status_code}) with no reason in the body"
+            )
         return OrderResult(
             success=success,
             broker_order_id=data.get("orderId", ""),
-            message=data.get("message", ""),
+            message=message,
+            status="rejected" if not success else data.get("orderStatus", ""),
+            error_code=error_code,
         )
 
     async def modify_order(self, order_id: str, changes: dict) -> OrderResult:
