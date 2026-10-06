@@ -142,6 +142,15 @@ async def place_order(
         trigger_price=req.trigger_price or 0.0,
         disclosed_quantity=req.disclosed_quantity or 0,
         validity=req.validity or "DAY",
+        # Derivative identity must survive the route. `ExecutionRequest.instrument_type`
+        # defaults to "EQ", so an option order that omits these four fields reaches the OMS
+        # as an equity order: contract resolution then asks for an EQ lot size it does not
+        # have, and the order is rejected with VALIDATION_FAILED before the broker is called.
+        # Measured: NIFTY 22400 CE qty 65 -> REJECTED / "Validation failed" with 0 Dhan POSTs.
+        instrument_type=(req.instrument_type or "EQ").upper(),
+        strike_price=req.strike_price,
+        expiry_date=req.expiry_date,
+        option_type=req.option_type.upper() if req.option_type else None,
         strategy_id=req.strategy_id or "",
         source=req.source,
         is_paper=req.is_paper,

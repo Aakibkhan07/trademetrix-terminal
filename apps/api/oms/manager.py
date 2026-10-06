@@ -9,6 +9,7 @@ from typing import Any
 from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_forget
 from execution.manager import ExecutionManager
 from execution.models import ExecutionRequest, ExecutionState
+from execution.retry import is_transient
 from oms.models import (
     BracketOrder,
     OCOOrder,
@@ -91,11 +92,17 @@ def build_execution_request(order: "OmniOrder") -> ExecutionRequest:
         # `instrument_type` and therefore emitted no `drvExpiryDate`, `drvStrikePrice` or
         # `drvOptionType` at all -- the two order paths disagreed about which contract was
         # being traded, and only the queue path is what production uses.
-        instrument_type=order.instrument_type or None,
+        # `instrument_type` and `validity` are non-optional on ExecutionRequest (they
+        # default to "EQ" / "DAY"). `... or None` therefore raised a ValidationError on any
+        # order whose stored value was empty -- which is exactly the case for an order
+        # recovered from the database, where the columns are backfilled to "".
+        # This is the same class of defect as the `disclosed_quantity` line above: coercing
+        # an absent value to None for a field that is not Optional.
+        instrument_type=order.instrument_type or "EQ",
         expiry_date=order.expiry_date or None,
         strike_price=order.strike_price,
         option_type=order.option_type or None,
-        validity=order.validity or None,
+        validity=order.validity or "DAY",
         disclosed_quantity=int(order.disclosed_quantity or 0),
         strategy_id=order.strategy_id or None,
         source=order.source,
@@ -580,7 +587,20 @@ class OrderManager:
                     # A definitive failure -- the broker answered and refused. The case where
                     # the broker did *not* answer is the `indeterminate` branch above, and
                     # that one must never reach this retry: it reconciles instead.
-                    if order.retry_count < order.max_retries:
+                    #
+                    # A definitive answer is only retryable if it is also *transient*. The
+                    # retry budget used to be the only condition, so a `VALIDATION_FAILED`
+                    # was re-executed 4x against unchanged inputs -- measured on a live Dhan
+                    # option order: attempts 1, 2 and 3, all rejected identically. Worse, a
+                    # broker-level refusal such as MARGIN_INSUFFICIENT or ORDER_REJECTED
+                    # would re-POST a new order to the broker, which is precisely the
+                    # duplicate-order hazard this module exists to prevent. An unknown code
+                    # is treated as non-transient: re-sending is the riskier direction.
+                    retryable = (
+                        order.retry_count < order.max_retries
+                        and is_transient(exec_result.error_code or "")
+                    )
+                    if retryable:
                         order.state = OMSOrderState.QUEUED
                         await order_queue.enqueue_retry(item, delay_seconds=2.0 ** order.retry_count)
                         order.retry_count += 1
