@@ -240,7 +240,7 @@ def instrument_family_to_type(family: str, option_type: str | None, *, where: st
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DhanContract:
     """One row of Dhan's master, normalized. Frozen because it is shared state."""
 
@@ -685,7 +685,16 @@ class DhanInstrumentProvider:
         try:
             text = await self.download()
             candidate = self.parse(text)
+            # Release the raw CSV before installing. Measured: the body is 34.5M chars,
+            # which is ~74MB resident as a Python str, and it was staying alive across
+            # `install` -- exactly the window where the previous dataset is still held
+            # for the "never destroy the last known good" guarantee. That overlap was
+            # 165MB of avoidable peak on a refresh.
+            del text
             self.install(candidate)
+            # `candidate` is now the installed dataset; dropping the local name means the
+            # only reference left is the provider's, so a later refresh cannot pin it.
+            del candidate
         except Exception as exc:  # noqa: BLE001 - health must record any failure
             self.health.validation_status = "failed"
             self.health.error = str(exc)
