@@ -1,8 +1,6 @@
 import asyncio
-import datetime
 import json
 import logging
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
 from application.services.broker_service import BrokerService
@@ -396,172 +394,36 @@ async def get_historical(
     return {"symbol": symbol, "interval": interval, "candles": candles}
 
 
-NSE_INDICES = {"NIFTY", "BANKNIFTY", "FINNIFTY"}
-
-
-async def _fetch_nse_option_chain(symbol: str) -> dict | None:
-    if symbol.upper() not in NSE_INDICES:
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            client.headers.update({
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Accept": "application/json, text/plain, */*",
-            })
-            await client.get("https://www.nseindia.com")
-            resp = await client.get(f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol.upper()}")
-            if resp.status_code != 200:
-                logger.warning("NSE option chain returned status %d", resp.status_code)
-                return None
-            data = resp.json()
-            records = data.get("records", {})
-            raw_expiries = records.get("expiryDates", [])
-            raw_data = records.get("data", [])
-            if not raw_expiries or not raw_data:
-                return None
-            expiries = []
-            for e in raw_expiries:
-                try:
-                    dt = datetime.datetime.strptime(e, "%d-%b-%Y").strftime("%d%b").upper()
-                    expiries.append(dt)
-                except Exception:
-                    expiries.append(e.upper().replace("-", ""))
-            option_chain = []
-            strikes_seen = set()
-            for row in raw_data:
-                strike = row.get("strikePrice", 0)
-                if not strike or strike in strikes_seen:
-                    continue
-                strikes_seen.add(strike)
-                ce = row.get("CE") or {}
-                pe = row.get("PE") or {}
-                option_chain.append({
-                    "strike": strike,
-                    "call": {
-                        "ltp": ce.get("lastPrice", 0),
-                        "change": ce.get("change", 0),
-                        "change_pct": ce.get("pChange", 0),
-                        "bid": ce.get("bidprice", 0),
-                        "ask": ce.get("askPrice", 0),
-                        "volume": ce.get("totalTradedVolume", 0),
-                        "oi": ce.get("openInterest", 0),
-                        "iv": ce.get("impliedVolatility", 0),
-                    },
-                    "put": {
-                        "ltp": pe.get("lastPrice", 0),
-                        "change": pe.get("change", 0),
-                        "change_pct": pe.get("pChange", 0),
-                        "bid": pe.get("bidprice", 0),
-                        "ask": pe.get("askPrice", 0),
-                        "volume": pe.get("totalTradedVolume", 0),
-                        "oi": pe.get("openInterest", 0),
-                        "iv": pe.get("impliedVolatility", 0),
-                    },
-                })
-            if option_chain and expiries:
-                logger.info("NSE option chain fetched successfully for %s (%d strikes, %d expiries)", symbol, len(option_chain), len(expiries))
-                return {"optionChain": option_chain, "expiries": expiries}
-    except Exception as e:
-        logger.warning("NSE option chain fetch failed for %s: %s", symbol, e)
-    return None
-
-
 @router.get("/option-chain")
 async def get_option_chain(
     symbol: str = Query("NIFTY"),
+    expiry: str = Query(""),
     current_user: UserProfile = Depends(get_current_user),
 ):
-    from brokers.token_manager import TokenManager
+    """Option chain for an index, via the single canonical engine.
 
+    This handler used to carry its own ~165-line copy of the NSE fetch, duplicating
+    `market.option_chain.OptionChainEngine`. That copy still called the retired
+    `/api/option-chain-indices` endpoint, so it returned None and every caller got a
+    503 -- and fixing the engine changed nothing here, because the route never called
+    it. `option_chain_engine` was already imported at module scope and unused.
+
+    Delegating makes the endpoint and `/terminal/option-chain` share one
+    implementation, one cache and one set of vendor quirks (the v3 endpoint's required
+    `expiry` parameter and its `buyPrice1`/`sellPrice1` bid/ask rename).
+
+    `expiry` is newly accepted because the v3 endpoint requires one to return any rows
+    at all. Omitting it uses the nearest expiry, which is what the frontend does.
+    """
     symbol = normalize_index_symbol(symbol)
-    fyers_map = {"NIFTY": "NSE:NIFTY50-INDEX", "BANKNIFTY": "NSE:NIFTYBANK-INDEX", "FINNIFTY": "NSE:FINNIFTY-INDEX", "MIDCPNIFTY": "NSE:MIDCPNIFTY-INDEX", "SENSEX": "BSE:SENSEX-INDEX"}
-    fyers_symbol = fyers_map.get(symbol.upper(), symbol)
+    data = await option_chain_engine.get_option_chain(symbol, expiry=expiry)
+    if data and data.get("optionChain"):
+        return data
 
-    try:
-        tm = TokenManager(current_user.id, "fyers")
-        session = await tm.get_session()
-        raw_token = session["access_token"]
-        client_id = session.get("client_id", "")
-
-        from brokers.fyers_http import get_transport
-        tr = get_transport(client_id, raw_token)
-        resp = await tr.request(
-            "POST",
-            "/data/options-chain-v3",
-            json_body={"symbol": fyers_symbol, "strikecount": 9, "timestamp": ""},
-            cache_ttl=10.0,
-            retries=1,
-            caller="option-chain-route",
-        )
-        data = resp.json()
-        if data.get("s") == "ok":
-            chain = data.get("data", {})
-            raw_options = chain.get("optionsChain", []) or chain.get("optionChain", [])
-            raw_expiry_data = chain.get("expiryData", [])
-
-            expiries = []
-            for e in raw_expiry_data:
-                if isinstance(e, dict):
-                    date_str = e.get("date", "")
-                    try:
-                        dt = datetime.datetime.strptime(date_str, "%d-%m-%Y")
-                        expiries.append(dt.strftime("%d%b").upper())
-                    except Exception:
-                        expiries.append(date_str.replace("-", "").upper())
-
-            by_strike: dict[int, dict[str, dict]] = {}
-            for row in raw_options:
-                strike = row.get("strike_price", 0)
-                if strike < 0:
-                    continue
-                opt_type = row.get("option_type", "")
-                if opt_type not in ("CE", "PE"):
-                    continue
-                by_strike.setdefault(strike, {})[opt_type] = row
-
-            option_chain = []
-            for strike in sorted(by_strike):
-                ce = by_strike[strike].get("CE", {})
-                pe = by_strike[strike].get("PE", {})
-                option_chain.append({
-                    "strike": strike,
-                    "call": {
-                        "ltp": ce.get("ltp", 0),
-                        "change": ce.get("ltpch", 0),
-                        "change_pct": ce.get("ltpchp", 0),
-                        "bid": ce.get("bid", 0),
-                        "ask": ce.get("ask", 0),
-                        "volume": ce.get("volume", 0),
-                        "oi": ce.get("oi", 0),
-                        "iv": ce.get("iv", 0),
-                    },
-                    "put": {
-                        "ltp": pe.get("ltp", 0),
-                        "change": pe.get("ltpch", 0),
-                        "change_pct": pe.get("ltpchp", 0),
-                        "bid": pe.get("bid", 0),
-                        "ask": pe.get("ask", 0),
-                        "volume": pe.get("volume", 0),
-                        "oi": pe.get("oi", 0),
-                        "iv": pe.get("iv", 0),
-                    },
-                })
-
-            if option_chain and expiries:
-                logger.info("Fyers option chain fetched for %s (%d strikes)", symbol, len(option_chain))
-                return {"optionChain": option_chain, "expiries": expiries}
-    except Exception as e:
-        logger.warning("Fyers option chain unavailable (%s)", e)
-
-    nse_data = await _fetch_nse_option_chain(symbol)
-    if nse_data:
-        return nse_data
-
-    # No simulated fallback. See the note on `OptionChainEngine.get_option_chain`: the generator
-    # that used to be called here produced a formula-built chain whose only label was
-    # `mock: True`, which the frontend does not read, so the fabricated premiums reached the UI as
-    # though they were real. The 503 below is the honest answer and it already existed.
+    # No simulated fallback. See the note on `OptionChainEngine.get_option_chain`: the
+    # generator that used to be called here produced a formula-built chain whose only
+    # label was `mock: True`, which the frontend does not read, so fabricated premiums
+    # reached the UI as though they were real. The 503 is the honest answer.
     raise HTTPException(status_code=503, detail=f"Option chain unavailable for {symbol}")
 
 

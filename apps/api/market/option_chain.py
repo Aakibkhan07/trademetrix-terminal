@@ -30,6 +30,61 @@ def normalize_index_symbol(symbol: str) -> str:
     return _INDEX_ALIASES.get(s, s)
 
 
+def _fmt_expiry(raw: str) -> str:
+    """NSE sends '13-Oct-2026'; the rest of this module and the UI use '13OCT'."""
+    try:
+        return datetime.datetime.strptime(raw, "%d-%b-%Y").strftime("%d%b").upper()
+    except (ValueError, TypeError):
+        return str(raw).upper().replace("-", "")
+
+
+def _num(leg: dict, *names: str) -> float:
+    """First key that is present AND non-null.
+
+    `leg.get(name, 0)` is not enough on the v3 payload: NSE renamed bid/ask to
+    buyPrice1/sellPrice1 and sends the old names as explicit nulls, so the default
+    never fires and None leaks into the payload. Same trap as `dict.get(key, default)`
+    against a SQL NULL -- the key is present, the default does not apply.
+    """
+    for name in names:
+        value = leg.get(name)
+        if value is not None:
+            return value
+    return 0
+
+
+def _leg(d: dict) -> dict:
+    """Normalise one CE/PE leg of an NSE chain row to the internal shape."""
+    return {
+        "ltp": _num(d, "lastPrice"),
+        "change": _num(d, "change"),
+        "change_pct": _num(d, "pChange", "PChange"),
+        # buyPrice1/sellPrice1 are the current names; bidprice/askPrice are kept as
+        # fallbacks because v3 answers null for them on every leg measured (216/216).
+        "bid": _num(d, "buyPrice1", "bidprice", "bidPrice"),
+        "ask": _num(d, "sellPrice1", "askPrice", "askprice"),
+        "volume": _num(d, "totalTradedVolume"),
+        "oi": _num(d, "openInterest"),
+        "iv": _num(d, "impliedVolatility"),
+    }
+
+
+def _nse_client() -> httpx.AsyncClient:
+    """Client shaped for nseindia.com: primed cookie jar, browser-ish headers."""
+    return httpx.AsyncClient(
+        timeout=httpx.Timeout(45.0, connect=15.0),
+        follow_redirects=True,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/131.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "application/json, text/plain, */*",
+            "Referer": "https://www.nseindia.com/option-chain",
+        },
+    )
+
+
 class OptionChainEngine:
     _instance = None
 
@@ -109,98 +164,122 @@ class OptionChainEngine:
         if symbol not in NSE_INDICES:
             return None
         try:
-            async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
-                client.headers.update({
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Accept": "application/json, text/plain, */*",
-                })
+            # One client for the whole sequence: NSE is cookie-gated, so the priming GET
+            # and the two API calls must share a session or the API calls answer 403.
+            #
+            # 5s was also too tight. The API calls themselves measure 37-59ms, but the
+            # priming GET occasionally exceeds 20s on its own, and a client-wide timeout
+            # took the entire chain down with it -- which is what surfaced to the UI as a
+            # 503 on /marketdata/option-chain. connect is separated because a slow TCP
+            # handshake to nseindia.com is a different failure from a slow response.
+            async with _nse_client() as client:
                 await client.get("https://www.nseindia.com")
-                resp = await client.get(f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}")
-                if resp.status_code != 200:
+                # NSE retired /api/option-chain-indices; it now answers 404 "Resource not
+                # found" (measured 2026-10-09). Two replacements, both measured:
+                #   /api/option-chain-contract-info -> {expiryDates, strikePrice}
+                #   /api/option-chain-v3            -> records.data, and it REQUIRES an
+                #       expiry. Without one it returns HTTP 200 with 0 rows, so an absent
+                #       expiry parameter fails silently rather than loudly.
+                # _expiries_from, not _fetch_nse_expiries: v3 needs NSE's wire form
+                # ('13-Oct-2026'). The latter returns display codes for the UI.
+                expiries_raw = await self._expiries_from(client, symbol)
+                if not expiries_raw:
                     return None
-                data = resp.json()
-                records = data.get("records", {})
-                raw_expiries = records.get("expiryDates", [])
-                raw_data = records.get("data", [])
-                if not raw_expiries or not raw_data:
-                    return None
-                expiries = []
-                for e in raw_expiries:
-                    try:
-                        dt = datetime.datetime.strptime(e, "%d-%b-%Y").strftime("%d%b").upper()
-                        expiries.append(dt)
-                    except Exception:
-                        expiries.append(e.upper().replace("-", ""))
-                option_chain = []
-                strikes_seen = set()
-                for row in raw_data:
-                    strike = row.get("strikePrice", 0)
-                    if not strike or strike in strikes_seen:
-                        continue
-                    strikes_seen.add(strike)
-                    ce = row.get("CE") or {}
-                    pe = row.get("PE") or {}
-                    option_chain.append({
-                        "strike": strike,
-                        "call": {
-                            "ltp": ce.get("lastPrice", 0),
-                            "change": ce.get("change", 0),
-                            "change_pct": ce.get("pChange", 0),
-                            "bid": ce.get("bidprice", 0),
-                            "ask": ce.get("askPrice", 0),
-                            "volume": ce.get("totalTradedVolume", 0),
-                            "oi": ce.get("openInterest", 0),
-                            "iv": ce.get("impliedVolatility", 0),
-                        },
-                        "put": {
-                            "ltp": pe.get("lastPrice", 0),
-                            "change": pe.get("change", 0),
-                            "change_pct": pe.get("pChange", 0),
-                            "bid": pe.get("bidprice", 0),
-                            "ask": pe.get("askPrice", 0),
-                            "volume": pe.get("totalTradedVolume", 0),
-                            "oi": pe.get("openInterest", 0),
-                            "iv": pe.get("impliedVolatility", 0),
-                        },
-                    })
-                if option_chain and expiries:
-                    logger.info("NSE option chain fetched for %s (%d strikes)", symbol, len(option_chain))
-                    return {"optionChain": option_chain, "expiries": expiries}
+                return await self._fetch_nse_v3(client, symbol, expiries_raw[0])
         except Exception as e:
             logger.warning("NSE option chain fetch failed for %s: %s", symbol, e)
         return None
 
-    async def _fetch_nse_expiries(self, symbol: str) -> list[str] | None:
+    async def _fetch_nse_v3(
+        self, client: httpx.AsyncClient, symbol: str, expiry: str
+    ) -> dict | None:
+        """Fetch one expiry from NSE's v3 endpoint.
+
+        Kept separate from the caller so the request shape is testable without a
+        network, and so a fallback chain can be added later without touching this.
+        """
+        try:
+            resp = await client.get(
+                "https://www.nseindia.com/api/option-chain-v3",
+                params={"type": "Indices", "symbol": symbol, "expiry": expiry},
+            )
+            if resp.status_code != 200:
+                logger.info("NSE v3 option chain %s returned HTTP %s", symbol,
+                            resp.status_code)
+                return None
+            data = resp.json()
+            records = data.get("records", {})
+            raw_data = records.get("data", [])
+            if not raw_data:
+                return None
+            expiries = [_fmt_expiry(e) for e in records.get("expiryDates", [])]
+            option_chain = []
+            strikes_seen = set()
+            for row in raw_data:
+                strike = row.get("strikePrice", 0)
+                if not strike or strike in strikes_seen:
+                    continue
+                strikes_seen.add(strike)
+                ce = row.get("CE") or {}
+                pe = row.get("PE") or {}
+                option_chain.append({
+                    "strike": strike,
+                    "call": _leg(ce),
+                    "put": _leg(pe),
+                })
+            if option_chain and expiries:
+                logger.info("NSE option chain fetched for %s (%d strikes, expiry %s)",
+                            symbol, len(option_chain), expiry)
+                return {"optionChain": option_chain, "expiries": expiries}
+        except Exception as e:
+            logger.warning("NSE v3 option chain fetch failed for %s: %s", symbol, e)
+        return None
+
+    async def _fetch_nse_expiries(
+        self, symbol: str, client: httpx.AsyncClient | None = None
+    ) -> list[str] | None:
+        """Expiry codes for an index, newest first, capped at 5.
+
+        `client` is accepted so the chain fetch can share its primed NSE session.
+        Standing alone (the /expiries route) this opens its own client.
+        """
         if symbol not in NSE_INDICES:
             return None
         try:
-            async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
-                client.headers.update({
-                    "User-Agent": "Mozilla/5.0",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Accept": "application/json",
-                })
-                await client.get("https://www.nseindia.com")
-                resp = await client.get(f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}")
-                if resp.status_code != 200:
-                    return None
-                data = resp.json()
-                records = data.get("records", {})
-                raw_expiries = records.get("expiryDates", [])
-                if not raw_expiries:
-                    return None
-                expiries = []
-                for e in raw_expiries:
-                    try:
-                        dt = datetime.datetime.strptime(e, "%d-%b-%Y").strftime("%d%b").upper()
-                        expiries.append(dt)
-                    except Exception:
-                        expiries.append(e.upper().replace("-", ""))
-                return expiries[:5]
+            if client is not None:
+                raw = await self._expiries_from(client, symbol)
+            else:
+                async with _nse_client() as own:
+                    await own.get("https://www.nseindia.com")
+                    raw = await self._expiries_from(own, symbol)
+            if not raw:
+                return None
+            return [_fmt_expiry(e) for e in raw]
         except Exception as e:
             logger.warning("NSE expiries fetch failed for %s: %s", symbol, e)
         return None
+
+    async def _expiries_from(self, client: httpx.AsyncClient, symbol: str) -> list[str] | None:
+        """Expiries in NSE's own wire format ('13-Oct-2026'), not the UI's '13OCT'.
+
+        The chain fetch needs this form for the v3 `expiry` parameter, while
+        `_fetch_nse_expiries` hands the display codes to the UI. Keeping the raw form
+        here is what stops the two from being confused: passing '13OCT' to v3 returns
+        HTTP 200 with zero rows, so it would look like an empty chain rather than a bug.
+        """
+        resp = await client.get(
+            "https://www.nseindia.com/api/option-chain-contract-info",
+            params={"symbol": symbol},
+        )
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        # Measured shape is {"expiryDates": [...], "strikePrice": [...]} -- expiryDates is
+        # at the TOP level here, not under records as it was on the retired endpoint.
+        raw_expiries = data.get("expiryDates") or []
+        if not raw_expiries:
+            return None
+        return list(raw_expiries)[:5] or None
 
     async def _fetch_fyers_option_chain(self, symbol: str) -> dict | None:
         fyers_map = {"NIFTY": "NSE:NIFTY50-INDEX", "BANKNIFTY": "NSE:NIFTYBANK-INDEX", "FINNIFTY": "NSE:FINNIFTY-INDEX", "MIDCPNIFTY": "NSE:MIDCPNIFTY-INDEX", "SENSEX": "BSE:SENSEX-INDEX"}
