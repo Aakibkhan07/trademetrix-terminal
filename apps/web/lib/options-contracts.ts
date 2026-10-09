@@ -24,15 +24,40 @@ export interface IndexMeta {
   fallbackLot: number
   /** Typical strike interval for ATM-offset math. */
   strikeInterval: number
+  /**
+   * Whether a public option chain exists for this index on our own host.
+   *
+   * NSE's chain endpoint covers NSE indices only. SENSEX is a BSE index and BSE's
+   * own OptionChain API answers 403 "Access Denied" to this host's IP (measured
+   * 2026-10-09), so /marketdata/option-chain returns 503 for it. That is a vendor
+   * gap, not a bug in the app — but offering a tab that can only ever fail is the
+   * same "quiet failure looks like a dead button" class, so the strip says so.
+   */
+  chainAvailable: boolean
+  /** Why `chainAvailable` is false, shown to the user. */
+  chainUnavailableReason?: string
 }
 
 export const INDEXES: IndexMeta[] = [
-  { key: 'NIFTY', name: 'NIFTY', spotSymbol: 'NSE:NIFTY50-INDEX', fallbackLot: 65, strikeInterval: 50 },
-  { key: 'BANKNIFTY', name: 'BANKNIFTY', spotSymbol: 'NSE:NIFTYBANK-INDEX', fallbackLot: 30, strikeInterval: 100 },
-  { key: 'FINNIFTY', name: 'FINNIFTY', spotSymbol: 'NSE:FINNIFTY-INDEX', fallbackLot: 60, strikeInterval: 50 },
-  { key: 'MIDCPNIFTY', name: 'MIDCPNIFTY', spotSymbol: 'NSE:MIDCPNIFTY-INDEX', fallbackLot: 75, strikeInterval: 25 },
-  { key: 'SENSEX', name: 'SENSEX', spotSymbol: 'BSE:SENSEX-INDEX', fallbackLot: 20, strikeInterval: 100 },
+  { key: 'NIFTY', name: 'NIFTY', spotSymbol: 'NSE:NIFTY50-INDEX', fallbackLot: 65, strikeInterval: 50, chainAvailable: true },
+  { key: 'BANKNIFTY', name: 'BANKNIFTY', spotSymbol: 'NSE:NIFTYBANK-INDEX', fallbackLot: 30, strikeInterval: 100, chainAvailable: true },
+  { key: 'FINNIFTY', name: 'FINNIFTY', spotSymbol: 'NSE:FINNIFTY-INDEX', fallbackLot: 60, strikeInterval: 50, chainAvailable: true },
+  { key: 'MIDCPNIFTY', name: 'MIDCPNIFTY', spotSymbol: 'NSE:MIDCPNIFTY-INDEX', fallbackLot: 75, strikeInterval: 25, chainAvailable: true },
+  {
+    key: 'SENSEX',
+    name: 'SENSEX',
+    spotSymbol: 'BSE:SENSEX-INDEX',
+    fallbackLot: 20,
+    strikeInterval: 100,
+    chainAvailable: false,
+    chainUnavailableReason: 'SENSEX is a BSE index. NSE does not publish its option chain, and BSE blocks this server, so no live chain is available.',
+  },
 ]
+
+/** Indices for which a chain can actually be loaded. */
+export function chainCapableIndexes(): IndexMeta[] {
+  return INDEXES.filter(i => i.chainAvailable)
+}
 
 export function indexMeta(key: IndexKey): IndexMeta {
   return INDEXES.find(i => i.key === key) || INDEXES[0]

@@ -19,13 +19,30 @@ export function IndexStrip({ index, onIndexChange, spot, changePct, connected }:
         <button
           key={i.key}
           data-kb={`index-${i.key}`}
+          data-chain-available={i.chainAvailable}
           className={`t-chip ${index === i.key ? 'active' : ''}`}
           style={{ fontSize: 13, fontWeight: index === i.key ? 700 : 500 }}
           onClick={() => onIndexChange(i.key)}
+          // SENSEX has no reachable chain (BSE blocks this host). Saying so on the
+          // control is honest; the alternative is a tab that always renders "unavailable".
+          title={i.chainAvailable ? i.name : i.chainUnavailableReason}
         >
           {i.name}
+          {!i.chainAvailable && (
+            <span className="t-faint" style={{ marginLeft: 4, fontSize: 10 }}>N/A</span>
+          )}
         </button>
       ))}
+      {!meta.chainAvailable && meta.chainUnavailableReason && (
+        <span
+          className="t-faint"
+          role="status"
+          data-testid="chain-unavailable-reason"
+          style={{ fontSize: 12, flexBasis: '100%' }}
+        >
+          {meta.chainUnavailableReason}
+        </span>
+      )}
       <span style={{ flex: 1 }} />
       <span className={`t-dot ${connected ? 't-dot-green t-dot-pulse' : 't-dot-sub'}`} />
       <span className="t-faint" style={{ fontSize: 12 }}>{connected ? 'LIVE' : 'SYNCING'}</span>
