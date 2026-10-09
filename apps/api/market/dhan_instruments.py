@@ -51,6 +51,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 
 from market.instruments import Instrument, InstrumentResolutionError, instrument_resolver
+from market.instrument_store import ReopenRejectedError
 
 logger = logging.getLogger(__name__)
 
@@ -347,7 +348,18 @@ class DhanMasterHealth:
 
 @dataclass
 class _Dataset:
-    """An immutable-by-convention snapshot. Replaced wholesale, never mutated."""
+    """An immutable-by-convention snapshot. Replaced wholesale, never mutated.
+
+    Two interchangeable backends behind one accessor surface. When ``mmap`` is None the
+    ``contracts``/``by_*`` dicts hold the rows; when it is set those dicts are empty and
+    the accessors below serve from the mapped store instead. Callers above this line
+    never know which is in use.
+
+    Why two: 138,106 contracts cost ~198 MB as objects and ~97 MB mapped from an 11 MB
+    directory, inside a 768 MiB container. Keeping the object path means the parser,
+    its validation and every existing test keep working unchanged, so switching backends
+    is a one-line change rather than a migration.
+    """
 
     contracts: dict[tuple[str, str, str], DhanContract] = field(default_factory=dict)
     by_trading_symbol: dict[str, DhanContract] = field(default_factory=dict)
@@ -355,9 +367,102 @@ class _Dataset:
     by_underlying: dict[str, list[DhanContract]] = field(default_factory=dict)
     installed_at: str = ""
     source_url: str = ""
+    #: Optional MmapStore. Set => the dicts above are empty by design.
+    mmap: object | None = None
+
+    @property
+    def is_mmap(self) -> bool:
+        return self.mmap is not None
+
+    @property
+    def contract_count(self) -> int:
+        """Row count for either backend."""
+        return len(self.mmap) if self.mmap is not None else len(self.contracts)
 
     def option_underlyings(self) -> list[str]:
+        if self.mmap is not None:
+            return self.mmap.option_underlyings()
         return sorted(self.by_underlying)
+
+    def rows_for_underlying(self, underlying: str) -> list[DhanContract]:
+        if self.mmap is None:
+            return self.by_underlying.get((underlying or "").upper(), [])
+        name = (underlying or "").upper()
+        if name not in self.mmap._underlyings:  # noqa: SLF001 - same package
+            return []
+        return [_contract_from_fields(self.mmap.fields(slot), self.installed_at)
+                for slot in self.mmap.iter_underlying(name)]
+
+    def contract_for(
+        self, exchange: str, exchange_segment: str, security_id: str
+    ) -> DhanContract | None:
+        if self.mmap is None:
+            return self.contracts.get((exchange, exchange_segment, security_id))
+        slot = self.mmap.slot_for_security(exchange, exchange_segment, security_id)
+        return _contract_from_fields(self.mmap.fields(slot), self.installed_at) \
+            if slot is not None else None
+
+    def contracts_for_security_id(self, security_id: str) -> list[DhanContract]:
+        if self.mmap is None:
+            return [c for c in self.by_security_id.values() if c.security_id == security_id]
+        return [_contract_from_fields(self.mmap.fields(s), self.installed_at)
+                for s in self.mmap.slots_for_security_id(security_id)]
+
+    def contract_for_segment_and_id(
+        self, exchange_segment: str, security_id: str
+    ) -> DhanContract | None:
+        """First contract matching (segment, security_id).
+
+        Ordered by slot, so an id that exists under one exchange only ever yields that
+        exchange's row -- the same result the object path got from a first-match scan.
+        """
+        if self.mmap is None:
+            for key, contract in self.contracts.items():
+                if key[2] == security_id and key[1] == exchange_segment:
+                    return contract
+            return None
+        for slot in self.mmap.slots_for_security_id(security_id):
+            f = self.mmap.fields(slot)
+            if f["exchange_segment"] == exchange_segment:
+                return _contract_from_fields(f, self.installed_at)
+        return None
+
+    def contract_for_symbol(self, trading_symbol: str) -> DhanContract | None:
+        if self.mmap is None:
+            return self.by_trading_symbol.get((trading_symbol or "").strip())
+        slot = self.mmap.slot_for_symbol((trading_symbol or "").strip())
+        return _contract_from_fields(self.mmap.fields(slot), self.installed_at) \
+            if slot is not None else None
+
+    def find_option(
+        self, underlying: str, expiry: str, strike: float, option_type: str
+    ) -> DhanContract | None:
+        """Exact option lookup by canonical identity.
+
+        The mapped path uses the sorted option index -- one bisect, no scan -- instead of
+        walking every contract for the underlying. Falls back to the scan when the
+        mapping fails, because a miss must not mean "not found": identity rules here are
+        stricter than the raw file in at least one respect, and a wrong None would block
+        a trade that is actually valid.
+        """
+        if self.mmap is None:
+            return None
+        try:
+            slot = self.mmap.slot_for_option(
+                underlying, expiry, int(round(float(strike) * 100)), option_type)
+        except ReopenRejectedError:
+            slot = None
+        if slot is not None:
+            return _contract_from_fields(self.mmap.fields(slot), self.installed_at)
+        families = {INDEX_OPTION, STOCK_OPTION, FUT_OPTION, CURRENCY_OPTION}
+        for contract in self.rows_for_underlying(underlying):
+            if (contract.instrument_family in families
+                    and contract.option_type == option_type
+                    and contract.expiry_date == expiry
+                    and contract.strike_price is not None
+                    and float(contract.strike_price) == float(strike)):
+                return contract
+        return None
 
 
 def _contract_from_fields(f: dict, installed_at: str = "") -> DhanContract:
@@ -640,34 +745,60 @@ class DhanInstrumentProvider:
         self._validate_candidate(candidate)
         self._reject_partial_refresh(candidate)
         self._dataset = candidate
-        options = sum(1 for c in candidate.contracts.values() if c.instrument_type == "OPT")
-        index_options = sum(
-            1 for c in candidate.contracts.values() if c.instrument_family == INDEX_OPTION
-        )
-        stock_options = sum(
-            1 for c in candidate.contracts.values() if c.instrument_family == STOCK_OPTION
-        )
-        futures = sum(
-            1 for c in candidate.contracts.values() if c.instrument_type == "FUT"
-        )
+        counts = self._count_families(candidate)
         self.health = DhanMasterHealth(
             last_successful_refresh=candidate.installed_at,
             last_attempt=datetime.now(UTC).isoformat(),
-            row_count=len(candidate.contracts),
-            option_contract_count=options,
-            index_option_count=index_options,
-            stock_option_count=stock_options,
-            future_count=futures,
+            row_count=candidate.contract_count,
+            option_contract_count=counts["options"],
+            index_option_count=counts["index_options"],
+            stock_option_count=counts["stock_options"],
+            future_count=counts["futures"],
             validation_status="ok",
             error="",
             source_url=candidate.source_url,
         )
         logger.info(
             "Dhan instrument master installed: %d contracts (%d options: %d index, %d stock; "
-            "%d futures) from %s",
-            len(candidate.contracts), options, index_options, stock_options, futures,
-            candidate.source_url,
+            "%d futures) from %s [%s backend]",
+            candidate.contract_count, counts["options"], counts["index_options"],
+            counts["stock_options"], counts["futures"], candidate.source_url,
+            "mmap" if candidate.is_mmap else "object",
         )
+
+    @staticmethod
+    def _count_families(candidate: _Dataset) -> dict[str, int]:
+        """Health counters, computed the same way for either backend.
+
+        Previously this was four separate passes over `candidate.contracts`. It is one
+        pass now because the mapped backend has no dict to iterate, and the counters are
+        reported to operators -- a number that silently reported 0 for a mapped dataset
+        would be worse than no number.
+        """
+        out = {"options": 0, "index_options": 0, "stock_options": 0, "futures": 0}
+        if candidate.is_mmap:
+            store = candidate.mmap
+            for slot in range(len(store)):
+                f = store.fields(slot)
+                if f["instrument_type"] == "OPT":
+                    out["options"] += 1
+                if f["instrument_family"] == INDEX_OPTION:
+                    out["index_options"] += 1
+                if f["instrument_family"] == STOCK_OPTION:
+                    out["stock_options"] += 1
+                if f["instrument_type"] == "FUT":
+                    out["futures"] += 1
+            return out
+        for c in candidate.contracts.values():
+            if c.instrument_type == "OPT":
+                out["options"] += 1
+            if c.instrument_family == INDEX_OPTION:
+                out["index_options"] += 1
+            if c.instrument_family == STOCK_OPTION:
+                out["stock_options"] += 1
+            if c.instrument_type == "FUT":
+                out["futures"] += 1
+        return out
 
     def _reject_partial_refresh(self, candidate: _Dataset) -> None:
         """Refuse a dataset that looks like a truncated download.
@@ -679,8 +810,8 @@ class DhanInstrumentProvider:
         """
         if self._dataset is None:
             return
-        previous = len(self._dataset.contracts)
-        incoming = len(candidate.contracts)
+        previous = self._dataset.contract_count
+        incoming = candidate.contract_count
         floor = previous * MIN_CONTRACT_RETENTION
         if incoming < floor:
             raise DhanMasterValidationError(
@@ -691,27 +822,46 @@ class DhanInstrumentProvider:
 
     @staticmethod
     def _validate_candidate(candidate: _Dataset) -> None:
-        """Final gate before install. A candidate that fails this is never installed."""
-        if not candidate.contracts:
+        """Final gate before install. A candidate that fails this is never installed.
+
+        Applies the same per-contract rules to either backend. The mapped backend is not
+        trusted because it exists: its records are walked too, through the decoder, so a
+        bad row is caught by the same check that catches a bad row in the object graph.
+        Trusting the store's CRC instead would be cheaper and would be a different
+        guarantee -- it proves the bytes are unchanged since they were written, not that
+        what was written was valid.
+        """
+        count = candidate.contract_count
+        if count <= 0:
             raise DhanMasterValidationError("candidate dataset is empty")
+        if candidate.is_mmap:
+            store = candidate.mmap
+            for slot in range(len(store)):
+                contract = _contract_from_fields(store.fields(slot), candidate.installed_at)
+                DhanInstrumentProvider._check_contract(contract)
+            return
         for contract in candidate.contracts.values():
-            if not contract.security_id:
-                raise DhanMasterValidationError("candidate has a contract with no security id")
-            if contract.lot_size <= 0:
+            DhanInstrumentProvider._check_contract(contract)
+
+    @staticmethod
+    def _check_contract(contract: DhanContract) -> None:
+        if not contract.security_id:
+            raise DhanMasterValidationError("candidate has a contract with no security id")
+        if contract.lot_size <= 0:
+            raise DhanMasterValidationError(
+                f"candidate contract {contract.security_id} has lot size {contract.lot_size}"
+            )
+        if contract.instrument_type == "OPT":
+            if not (contract.underlying_symbol and contract.underlying_security_id
+                    and contract.expiry_date and contract.strike_price is not None
+                    and contract.option_type):
                 raise DhanMasterValidationError(
-                    f"candidate contract {contract.security_id} has lot size {contract.lot_size}"
+                    f"candidate option {contract.security_id} is not fully identified"
                 )
-            if contract.instrument_type == "OPT":
-                if not (contract.underlying_symbol and contract.underlying_security_id
-                        and contract.expiry_date and contract.strike_price is not None
-                        and contract.option_type):
-                    raise DhanMasterValidationError(
-                        f"candidate option {contract.security_id} is not fully identified"
-                    )
-            if not contract.exchange_segment:
-                raise DhanMasterValidationError(
-                    f"candidate contract {contract.security_id} has no exchange segment"
-                )
+        if not contract.exchange_segment:
+            raise DhanMasterValidationError(
+                f"candidate contract {contract.security_id} has no exchange segment"
+            )
 
     async def refresh(self) -> DhanMasterHealth:
         """Download, parse, validate, install. Never destroys the previous dataset."""
@@ -768,12 +918,9 @@ class DhanInstrumentProvider:
     ) -> Instrument | None:
         dataset = self._require_dataset(for_live=for_live)
         if exchange_segment:
-            contract = dataset.contracts.get(
-                next((k for k in dataset.contracts
-                      if k[2] == security_id and k[1] == exchange_segment), ("", "", ""))
-            )
+            contract = dataset.contract_for_segment_and_id(exchange_segment, security_id)
         else:
-            matches = [c for c in dataset.by_security_id.values() if c.security_id == security_id]
+            matches = dataset.contracts_for_security_id(security_id)
             contract = matches[0] if len(matches) == 1 else None
         return contract.to_instrument() if contract else None
 
@@ -781,7 +928,7 @@ class DhanInstrumentProvider:
         self, trading_symbol: str, *, for_live: bool = False
     ) -> Instrument | None:
         dataset = self._require_dataset(for_live=for_live)
-        contract = dataset.by_trading_symbol.get((trading_symbol or "").strip())
+        contract = dataset.contract_for_symbol(trading_symbol)
         return contract.to_instrument() if contract else None
 
     def resolve_index_option_lot_size(self, underlying: str, *, for_live: bool = False) -> int | None:
@@ -792,7 +939,7 @@ class DhanInstrumentProvider:
         constant; an index with no contracts in the master resolves to None.
         """
         dataset = self._require_dataset(for_live=for_live)
-        rows = dataset.by_underlying.get((underlying or "").upper())
+        rows = dataset.rows_for_underlying(underlying)
         if not rows:
             return None
         lots = {c.lot_size for c in rows if c.instrument_family == INDEX_OPTION}
@@ -801,7 +948,7 @@ class DhanInstrumentProvider:
     def _expiries_for(self, underlying: str, *, option: bool, min_days: int = 0) -> list[str]:
         # See the note in strikes(): an unloaded master must raise, not report no expiries.
         dataset = self._require_dataset(for_live=False)
-        rows = dataset.by_underlying.get(underlying.upper(), [])
+        rows = dataset.rows_for_underlying(underlying)
         families = (
             {INDEX_OPTION, STOCK_OPTION, FUT_OPTION, CURRENCY_OPTION}
             if option else {INDEX_FUTURE, STOCK_FUTURE, CURRENCY_FUTURE, "FUT"}
@@ -825,7 +972,7 @@ class DhanInstrumentProvider:
         # when the real answer is that the master was never loaded.
         dataset = self._require_dataset(for_live=False)
         out: set[float] = set()
-        for contract in dataset.by_underlying.get((underlying or "").upper(), []):
+        for contract in dataset.rows_for_underlying(underlying):
             if contract.expiry_date != expiry or contract.strike_price is None:
                 continue
             if option_type and contract.option_type != option_type:
@@ -867,7 +1014,14 @@ class DhanInstrumentProvider:
             return None
 
         families = {INDEX_OPTION, STOCK_OPTION, FUT_OPTION, CURRENCY_OPTION}
-        for contract in dataset.by_underlying.get((underlying or "").upper(), []):
+        # The mapped path resolves this with one bisect on the sorted option index rather
+        # than walking every contract for the underlying. It falls back to the scan if
+        # the index misses, so a lookup that the object path would find is still found.
+        direct = dataset.find_option(underlying, expiry or "", want_strike, want_type)
+        if direct is not None:
+            if direct.instrument_family in families:
+                return direct.to_instrument()
+        for contract in dataset.rows_for_underlying(underlying):
             if contract.instrument_family not in families:
                 continue
             if contract.option_type != want_type:
@@ -884,7 +1038,7 @@ class DhanInstrumentProvider:
     ) -> Instrument | None:
         dataset = self._require_dataset(for_live=for_live)
         families = {INDEX_FUTURE, STOCK_FUTURE, CURRENCY_FUTURE, "FUT"}
-        for contract in dataset.by_underlying.get((underlying or "").upper(), []):
+        for contract in dataset.rows_for_underlying(underlying):
             if contract.instrument_family in families and contract.expiry_date == (expiry or ""):
                 return contract.to_instrument()
         return None
@@ -909,19 +1063,21 @@ class DhanInstrumentProvider:
         if not text:
             return None
 
-        found = dataset.by_trading_symbol.get(text)
+        found = dataset.contract_for_symbol(text)
         if found is not None:
             return found.to_instrument()
 
         stripped = text.split(":")[-1].strip()
-        found = dataset.by_trading_symbol.get(stripped)
+        found = dataset.contract_for_symbol(stripped)
         if found is not None:
             return found.to_instrument()
 
         if text.isdigit():
-            for contract in dataset.by_security_id.values():
-                if contract.security_id == text:
-                    return contract.to_instrument()
+            # A bare id is ambiguous when it exists under more than one exchange. The
+            # symbol path above returns the first match, and this path keeps that
+            # behaviour on both backends rather than inventing a stricter rule here.
+            for contract in dataset.contracts_for_security_id(text):
+                return contract.to_instrument()
         return None
 
 
