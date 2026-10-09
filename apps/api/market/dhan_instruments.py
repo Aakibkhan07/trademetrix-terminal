@@ -360,6 +360,40 @@ class _Dataset:
         return sorted(self.by_underlying)
 
 
+def _contract_from_fields(f: dict, installed_at: str = "") -> DhanContract:
+    """Rebuild a DhanContract from one decoded mmap record.
+
+    Field names and the empty-string conventions match ``parse()`` exactly, because
+    callers compare against them: ``expiry_date`` is a str, not a date, and a missing
+    option_type is "" rather than None. Getting that wrong turns a real contract into
+    one that looks absent.
+
+    Scaled integers are converted here rather than in the store so the store holds no
+    opinion about price semantics. A zero strike stays 0.0 and never becomes "" or
+    None, which is what a `value or ""` normalisation once did to 641 contracts.
+    """
+    return DhanContract(
+        provider="dhan",
+        exchange=f["exchange"],
+        exchange_segment=f["exchange_segment"],
+        security_id=str(f["security_id"]),
+        trading_symbol=f["trading_symbol"],
+        display_symbol=f["trading_symbol"],
+        instrument_type=f["instrument_type"],
+        instrument_family=f["instrument_family"],
+        underlying_symbol=f["underlying_symbol"],
+        underlying_security_id=str(f["underlying_security_id"]),
+        expiry_date=f["expiry_date"],
+        strike_price=f["strike_scaled"] / 100.0,
+        option_type=f["option_type"],
+        lot_size=int(f["lot_size"]),
+        tick_size=f["tick_scaled"] / 100_000.0,
+        instrument_status=f["instrument_status"],
+        source=f["source"],
+        source_updated_at=installed_at,
+    )
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # The provider
 # ──────────────────────────────────────────────────────────────────────────────
