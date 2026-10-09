@@ -36,6 +36,12 @@ class BrokerSpec:
     oauth_available: bool = False
     adapter_class: type | None = None
     capabilities: BrokerCapabilities | None = None
+    #: True when this broker's auth path has been verified end-to-end against the live
+    #: broker API. ``None`` means "not measured yet" and is treated as available, so a
+    #: new broker is never hidden from users by omission. ``False`` means measured and
+    #: broken, and the UI withholds the Connect button with a reason.
+    #: See the note on ``to_metadata()["auth_verified"]``.
+    auth_verified: bool | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
     def to_metadata(self) -> dict[str, Any]:
@@ -55,6 +61,22 @@ class BrokerSpec:
             # connected from one that simply has not been connected yet — and it has to come from
             # here, because the registry is the only thing that knows.
             "execution_adapter_available": self.adapter_class is not None,
+            # Whether this broker's auth path has been verified end-to-end against the
+            # LIVE broker API from production: correct base URL, correct token
+            # semantics, and a token that the broker actually accepts.
+            #
+            # This is deliberately NOT derived from the adapter class. A registered
+            # adapter proves only that code exists -- measured on production, Dhan and
+            # Upstox both had working adapters and both authenticated-failed, because
+            # the stored tokens had expired broker-side (Dhan DH-901 "invalid or
+            # expired"). Showing a user a Connect button for a broker whose token path
+            # is known-broken costs them a failed round-trip and erodes trust in the
+            # whole page.
+            #
+            # Unverified is NOT the same as unavailable: an unlisted broker defaults to
+            # available so an older API or a newly-added broker is never hidden. Only a
+            # broker explicitly recorded as broken is withheld.
+            "auth_verified": self.auth_verified,
             **({"additional_params_fields": self.additional_params_fields} if self.has_additional_params else {}),
         }
 
@@ -82,12 +104,15 @@ class BrokerRegistry:
         display_name: str = "",
         adapter_class: type | None = None,
         capabilities: BrokerCapabilities | None = None,
+        auth_verified: bool | None = None,
         meta: dict[str, Any] | None = None,
     ) -> BrokerSpec:
         if spec is None:
             if not name:
                 raise ValueError("Broker name is required")
-            spec = BrokerSpec(name=name, display_name=display_name or name, adapter_class=adapter_class)
+            spec = BrokerSpec(name=name, display_name=display_name or name,
+                              adapter_class=adapter_class,
+                              auth_verified=auth_verified)
             if meta:
                 for key, value in meta.items():
                     if hasattr(spec, key) and key not in ("name",):

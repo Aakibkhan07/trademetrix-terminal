@@ -10,6 +10,7 @@ from execution.event_bus import execution_event_bus, ExecutionEvent, fire_and_fo
 from execution.manager import ExecutionManager
 from execution.models import ExecutionRequest, ExecutionState
 from execution.retry import is_transient
+from market.subscription_manager import is_permanent_feed_error
 from oms.models import (
     BracketOrder,
     OCOOrder,
@@ -147,6 +148,10 @@ class OrderManager:
         self._quote_cache: dict[tuple[str, str, str], tuple[float, float]] = {}
         self._quote_inflight: dict[tuple[str, str], asyncio.Task] = {}
         self._warn_since: dict[str, float] = {}
+        #: users whose Fyers credential is permanently unusable (cannot decrypt, or
+        #: the broker rejected the token). Their paper-bracket refresh stops
+        #: attempting Fyers; see the call site for the measurement that motivated it.
+        self._paper_fyers_unusable: dict[str, bool] = {}
 
     def _log_throttled(self, fmt: str, symbol: str, *args) -> None:
         """Rate-limit repeated warning logs per symbol (a dead token would
@@ -1170,22 +1175,43 @@ class OrderManager:
                 except Exception:
                     pass
             if not q or not (q.get("last_price") or q.get("ltp")):
-                try:
-                    from brokers.token_manager import TokenManager
-                    from brokers.fyers_adapter import FyersAdapter
-                    session = await TokenManager(bracket.user_id, "fyers").get_session()
-                    if session:
-                        adapter = FyersAdapter()
-                        await adapter.authenticate({
-                            "client_id": session.get("client_id", ""),
-                            "access_token": session.get("access_token", ""),
-                        })
-                        quotes = await adapter.get_quotes([bracket.symbol])
-                        if quotes and getattr(quotes[0], "last_price", 0) > 0:
-                            market_cache.put_quote(bracket.symbol, quotes[0].model_dump(mode="json"))
-                            q = market_cache.get_quote(bracket.symbol)
-                except Exception as e:
-                    self._log_throttled("Paper bracket quote refresh failed for %s: %s", bracket.symbol, e)
+                # Last-resort refresh, and only worth attempting while the user's Fyers
+                # credential is actually usable. This runs on the 2s bracket loop for
+                # every open bracket, so a credential that cannot be decrypted or whose
+                # token the broker rejects used to raise on every pass: measured on
+                # production, 62 "Cannot decrypt broker credentials" errors in 5 minutes
+                # across 11 open brackets, which kept the broker circuit breaker open.
+                #
+                # The failure is per-user and permanent until they re-authenticate, so it
+                # is remembered and the Fyers path is skipped entirely afterwards.
+                if self._paper_fyers_unusable.get(bracket.user_id):
+                    q = None
+                else:
+                    try:
+                        from brokers.token_manager import TokenManager
+                        from brokers.fyers_adapter import FyersAdapter
+                        session = await TokenManager(bracket.user_id, "fyers").get_session()
+                        if session:
+                            adapter = FyersAdapter()
+                            await adapter.authenticate({
+                                "client_id": session.get("client_id", ""),
+                                "access_token": session.get("access_token", ""),
+                            })
+                            quotes = await adapter.get_quotes([bracket.symbol])
+                            if quotes and getattr(quotes[0], "last_price", 0) > 0:
+                                market_cache.put_quote(bracket.symbol, quotes[0].model_dump(mode="json"))
+                                q = market_cache.get_quote(bracket.symbol)
+                    except Exception as e:
+                        if is_permanent_feed_error(e):
+                            self._paper_fyers_unusable[bracket.user_id] = True
+                            logger.error(
+                                "Paper bracket refresh: Fyers credential unusable for "
+                                "user %s (%s). Skipping this path for them until they "
+                                "re-authenticate; Yahoo fallback still applies.",
+                                bracket.user_id, e,
+                            )
+                        else:
+                            self._log_throttled("Paper bracket quote refresh failed for %s: %s", bracket.symbol, e)
             if q:
                 price = float(q.get("last_price") or q.get("ltp") or 0)
         else:

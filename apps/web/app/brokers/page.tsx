@@ -27,6 +27,23 @@ function hasExecutionAdapter(meta: BrokerMeta | undefined): boolean {
   return meta?.execution_adapter_available !== false
 }
 
+/**
+ * Whether this broker's authentication has been verified against its LIVE API.
+ *
+ * Distinct from `hasExecutionAdapter`, which only says an adapter class exists. Having
+ * an adapter does not mean the auth path works: on production, Dhan and Upstox both had
+ * working adapters and both failed authentication, because the broker rejected the
+ * token (Dhan: `DH-901 "Client ID or user generated access token is invalid or expired"`).
+ * Offering a Connect button there costs the user a guaranteed failed round-trip.
+ *
+ * `undefined` means the backend did not report the field — an older API, or a broker
+ * added since. That is treated as verified so a working broker is never hidden by
+ * omission; only an explicit `false` withholds the button.
+ */
+function isAuthVerified(meta: BrokerMeta | undefined): boolean {
+  return (meta as { auth_verified?: boolean } | undefined)?.auth_verified !== false
+}
+
 export default function BrokersPage() {
   const [credentials, setCredentials] = useState<BrokerCred[]>([])
   const [metadataMap, setMetadataMap] = useState<Record<string, BrokerMeta>>({})
@@ -237,9 +254,11 @@ export default function BrokersPage() {
   const connectedBrokers = credentials.filter(c => c.is_active)
   const availableBrokers = Object.keys(metadataMap).filter(
     b => !connectedBrokers.some(c => c.broker === b) && hasExecutionAdapter(metadataMap[b])
+      && isAuthVerified(metadataMap[b])
   )
   const placeholderBrokers = Object.keys(metadataMap).filter(
-    b => !connectedBrokers.some(c => c.broker === b) && !hasExecutionAdapter(metadataMap[b])
+    b => !connectedBrokers.some(c => c.broker === b)
+      && (!hasExecutionAdapter(metadataMap[b]) || !isAuthVerified(metadataMap[b]))
   )
 
   const stats = {

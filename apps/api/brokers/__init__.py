@@ -50,6 +50,13 @@ def _register_spec(name: str, cls: type[BaseBroker]) -> None:
             additional_params_fields=meta.get("additional_params_fields", []),
             instructions=meta.get("instructions", ""),
             oauth_available=meta.get("oauth_available", False),
+            #: Whether this broker's auth path was verified against its live API.
+            #: Forwarded explicitly because this list is the ONLY path from the
+            #: authored BROKER_METADATA copy to the SDK spec -- a field added to
+            #: BrokerSpec but not listed here silently arrives as None, and None
+            #: means "visible". That failure is invisible: the broker stays on screen
+            #: and nobody notices the value was dropped.
+            auth_verified=meta.get("auth_verified"),
             adapter_class=cls,
         )
     )

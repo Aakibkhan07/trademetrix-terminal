@@ -65,6 +65,15 @@ _register_broker_meta("dhan", {
     #: sent the investigation after the token instead of the id that was actually wrong.
     #: Enforced in `BrokerService.save_credentials`.
     "client_id_pattern": r"^\d{8,12}$",
+    # Measured against the live API on 2026-10-09: all four active Dhan credentials
+    # authenticate-fail. One user (1100793385) has a well-formed numeric client id and
+    # Dhan answers `DH-901 "Client ID or user generated access token is invalid or
+    # expired"`; the other three hold placeholder client ids (`DHAN-TEST`,
+    # `TEST-DHAN-CLIENT-ID`, `DHAN-CLIENT`) which can never authenticate.
+    # The adapter itself is correct -- endpoint, base URL and headers were all confirmed
+    # against api.dhan.co/v2. This flag records the credential state, not a code defect.
+    # Set to None (the default) once real tokens are in place and this authenticates.
+    "auth_verified": False,
 })
 
 _register_broker_meta("upstox", {
@@ -78,6 +87,11 @@ _register_broker_meta("upstox", {
     "has_additional_params": False,
     "instructions": "1. Go to upstox.com/api\n2. Create an application\n3. Copy API Key & Secret here\n4. Click Authorize to complete OAuth",
     "oauth_available": True,
+    # Measured against the live API on 2026-10-09: both active Upstox credentials hold
+    # placeholder client ids (`UPSTOX-TEST`, `UPSTOX-KEY`) and authentication fails with
+    # "invalid access_token". The adapter is correct; the stored credentials are not real.
+    # Set to None once real OAuth tokens are connected.
+    "auth_verified": False,
 })
 
 _register_broker_meta("aliceblue", {

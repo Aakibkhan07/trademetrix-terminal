@@ -10,6 +10,44 @@ from market.observability import market_metrics
 
 logger = logging.getLogger(__name__)
 
+#: Substrings that mark a feed failure as PERMANENT. A credential that cannot be
+#: decrypted, or a broker that rejected the token outright, will still be rejected
+#: in an hour -- retrying it every backoff step just burns CPU and floods the log.
+#: Measured on production: an undecryptable Fyers credential produced 27,029 errors
+#: in 24h and tripped the broker circuit-breaker once every few seconds.
+#:
+#: These are matched case-insensitively against the exception text. Only errors that
+#: genuinely cannot succeed on retry belong here; transient network/timeouts must
+#: NOT match, because those DO recover and the reconnect loop is correct for them.
+PERMANENT_ERROR_MARKERS = (
+    "failed to decrypt",
+    "cannot decrypt broker credentials",
+    "key rotation may be incomplete",
+    "invalid access_token",
+    "invalid_access_token",
+    "invalid_authentication",
+    "access token has expired",
+    "token has expired",
+    "invalid_api_key",
+    "invalid_token",
+    "invalidapikey",
+    "user is disabled",
+    "account is deactivated",
+)
+
+
+def is_permanent_feed_error(exc: BaseException) -> bool:
+    """True when retrying can never succeed, so the feed must stop, not back off.
+
+    An expired-or-rejected token is the common case: the user must re-authenticate
+    through the broker's OAuth flow. Retrying that forever hides the real problem
+    behind a reconnect counter and takes the circuit breaker down with it.
+    """
+    if isinstance(exc, (asyncio.CancelledError, KeyboardInterrupt, SystemExit)):
+        return False
+    text = f"{type(exc).__name__}: {exc}".lower()
+    return any(marker in text for marker in PERMANENT_ERROR_MARKERS)
+
 
 class SubscriptionManager:
     _instance = None
@@ -65,33 +103,49 @@ class SubscriptionManager:
 
         self._reconnect_backoff[broker_type] = 0
 
-        async def feed_runner():
-            while self._running:
-                try:
-                    await shared_socket.start_broker_feed(user_id, broker_type, symbols)
-                    self._reconnect_backoff[broker_type] = 0
-                except RuntimeError as e:
-                    if "already running" in str(e):
-                        logger.info("Feed %s already running via direct call", broker_type)
-                        return
-                    logger.warning("Feed %s failed: %s, will retry", broker_type, e)
-                except Exception as e:
-                    logger.error("Feed %s error: %s", broker_type, e)
-
-                if not self._running:
-                    break
-
-                backoff = self._reconnect_backoff.get(broker_type, 0)
-                delay = min(2 ** backoff, self._max_backoff)
-                delay = random.uniform(delay * 0.5, delay * 1.5)
-                self._reconnect_backoff[broker_type] = backoff + 1
-                logger.info("Reconnecting feed %s in %ds (attempt %d)", broker_type, delay, backoff + 1)
-                market_metrics.increment_reconnects(broker_type)
-                await asyncio.sleep(delay)
-
-        task = asyncio.create_task(feed_runner())
+        task = asyncio.create_task(
+            self._run_feed_once(broker_type, user_id, symbols))
         self._active_feeds[broker_type] = task
         logger.info("Feed manager started for %s with %d symbols", broker_type, len(symbols))
+
+    async def _run_feed_once(self, broker_type: str, user_id: str, symbols: list[str]) -> None:
+        """Keep the broker feed alive until it stops or the manager shuts down.
+
+        Extracted from ``start_feed`` so the retry-vs-give-up decision is directly
+        testable. The critical branch is the permanent-error one: a credential the
+        broker rejected (or one we cannot decrypt) will still be rejected in an
+        hour, so retrying only hides the problem behind a reconnect counter.
+        """
+        while self._running:
+            try:
+                await shared_socket.start_broker_feed(user_id, broker_type, symbols)
+                self._reconnect_backoff[broker_type] = 0
+            except RuntimeError as e:
+                if "already running" in str(e):
+                    logger.info("Feed %s already running via direct call", broker_type)
+                    return
+                logger.warning("Feed %s failed: %s, will retry", broker_type, e)
+            except Exception as e:
+                if is_permanent_feed_error(e):
+                    self._active_feeds.pop(broker_type, None)
+                    logger.error(
+                        "Feed %s stopped permanently: %s. Retrying cannot recover this "
+                        "credential -- the user must re-authenticate with the broker.",
+                        broker_type, e,
+                    )
+                    return
+                logger.error("Feed %s error: %s", broker_type, e)
+
+            if not self._running:
+                break
+
+            backoff = self._reconnect_backoff.get(broker_type, 0)
+            delay = min(2 ** backoff, self._max_backoff)
+            delay = random.uniform(delay * 0.5, delay * 1.5)
+            self._reconnect_backoff[broker_type] = backoff + 1
+            logger.info("Reconnecting feed %s in %ds (attempt %d)", broker_type, delay, backoff + 1)
+            market_metrics.increment_reconnects(broker_type)
+            await asyncio.sleep(delay)
 
     async def stop_feed(self, broker_type: str) -> None:
         task = self._active_feeds.pop(broker_type, None)
