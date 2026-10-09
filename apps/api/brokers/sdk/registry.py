@@ -42,6 +42,12 @@ class BrokerSpec:
     #: broken, and the UI withholds the Connect button with a reason.
     #: See the note on ``to_metadata()["auth_verified"]``.
     auth_verified: bool | None = None
+    #: Which connect flow the UI should render. "oauth" (the default) means the generic
+    #: ``GET /{broker}/auth-url`` endpoint; other values name a broker-specific flow,
+    #: e.g. Zerodha's two-legged Kite request_token exchange. The UI reads this instead of
+    #: inferring the flow from ``oauth_available``, which only says whether the generic
+    #: endpoint applies.
+    connect_flow: str = "oauth"
     meta: dict[str, Any] = field(default_factory=dict)
 
     def to_metadata(self) -> dict[str, Any]:
@@ -77,6 +83,7 @@ class BrokerSpec:
             # available so an older API or a newly-added broker is never hidden. Only a
             # broker explicitly recorded as broken is withheld.
             "auth_verified": self.auth_verified,
+            "connect_flow": self.connect_flow,
             **({"additional_params_fields": self.additional_params_fields} if self.has_additional_params else {}),
         }
 

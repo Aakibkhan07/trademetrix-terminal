@@ -57,6 +57,10 @@ def _register_spec(name: str, cls: type[BaseBroker]) -> None:
             #: means "visible". That failure is invisible: the broker stays on screen
             #: and nobody notices the value was dropped.
             auth_verified=meta.get("auth_verified"),
+            #: Which connect flow the UI renders. Forwarded for the same reason as
+            #: auth_verified above -- a field added to BrokerSpec but not listed here
+            #: silently arrives as the default and the UI renders the wrong button.
+            connect_flow=meta.get("connect_flow", "oauth"),
             adapter_class=cls,
         )
     )

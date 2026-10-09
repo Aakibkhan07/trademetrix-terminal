@@ -102,16 +102,33 @@ export default function BrokerConnect() {
       await api.brokers.saveCredentials(payload);
 
       const meta = brokers.find(b => b.broker === form.broker);
-      if (meta?.oauth_available) {
+      // Which connect flow to run comes from the backend, not from
+      // `oauth_available`. Zerodha's Kite Connect is a two-legged request_token
+      // exchange served by its own endpoints, NOT the generic OAuth one — sending it
+      // down the OAuth branch called `GET /{broker}/auth-url`, which has no provider
+      // for Zerodha and raised "No OAuth provider for broker: zerodha" for every user
+      // who pressed the button.
+      const flow = (meta as { connect_flow?: string } | undefined)?.connect_flow ?? 'oauth';
+      const label = LABELS[form.broker] ?? form.broker;
+
+      if (flow === 'kite_request_token') {
+        const { login_url } = await api.brokers.zerodhaLoginUrl() as { login_url: string };
+        if (login_url) {
+          window.open(login_url, '_blank');
+          setSuccess(`${label} saved! Kite Connect link opened — approve it in the new tab.`);
+        } else {
+          setSuccess(`${label} credentials saved.`);
+        }
+      } else if (meta?.oauth_available) {
         const { auth_url } = await api.brokers.authUrl(form.broker) as { auth_url: string };
         if (auth_url) {
           window.open(auth_url, "_blank");
-          setSuccess(`${LABELS[form.broker] ?? form.broker} saved! OAuth link opened.`);
+          setSuccess(`${label} saved! OAuth link opened.`);
         } else {
-          setSuccess(`${LABELS[form.broker] ?? form.broker} connected successfully.`);
+          setSuccess(`${label} connected successfully.`);
         }
       } else {
-        setSuccess(`${LABELS[form.broker] ?? form.broker} credentials saved!`);
+        setSuccess(`${label} credentials saved!`);
       }
       setTimeout(() => setSuccess(null), 4000);
       setForm((f) => ({ ...f, broker: null, busy: false }));

@@ -18,15 +18,33 @@ _register_broker_meta("fyers", {
 
 _register_broker_meta("zerodha", {
     "display_name": "Zerodha (Kite)",
-    "auth_type": "oauth",
-    "description": "Connect your Zerodha Kite account via OAuth",
+    "auth_type": "credentials",
+    "description": "Connect your Zerodha Kite account",
     "fields": [
         {"key": "client_id", "label": "API Key", "placeholder": "Your Kite API Key", "required": True},
         {"key": "secret_key", "label": "API Secret", "type": "password", "placeholder": "Your Kite API Secret", "required": True},
     ],
     "has_additional_params": False,
-    "instructions": "1. Go to console.zerodha.com\n2. Create a Kite API App\n3. Copy API Key & Secret here\n4. Click Authorize to complete OAuth",
-    "oauth_available": True,
+    "instructions": "1. Go to console.zerodha.com\n2. Create a Kite API App\n3. Copy API Key & Secret here\n4. Click Authorize to complete the Kite Connect flow",
+    # Kite Connect is NOT OAuth. It is a two-legged request_token flow:
+    #   GET  /brokers/zerodha/login-url               -> kite.trade/connect/login
+    #   POST /brokers/zerodha/exchange-request-token  -> api.kite.trade/session/token
+    #   GET  /brokers/zerodha/callback                 -> back to the web app
+    # There is no `BrokerOAuthProvider` for Zerodha, so the generic
+    # `GET /{broker}/auth-url` the UI calls when `oauth_available` is true raised
+    # `ValueError: No OAuth provider for broker: zerodha`. Measured on production:
+    # 6 of 6 Zerodha credentials could not obtain an auth URL, so every one of
+    # those users saw a failing "Authorize" button.
+    #
+    # `oauth_available` therefore means "the generic OAuth URL endpoint serves this
+    # broker" and must stay False here. The three brokers that DO have providers are
+    # fyers, dhan and upstox -- the keys of `_oauth_providers` in
+    # `infrastructure/oauth_providers.py`. A test asserts those two sets stay equal.
+    "oauth_available": False,
+    #: Zerodha authenticates through its own endpoints rather than the generic OAuth one,
+    #: so the UI needs a distinct button label rather than "Authorize".
+    "connect_flow": "kite_request_token",
+    "auth_verified": True,
 })
 
 _register_broker_meta("angelone", {
