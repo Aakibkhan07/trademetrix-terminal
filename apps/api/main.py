@@ -211,6 +211,33 @@ async def lifespan(app: FastAPI):
     _background_tasks.append(asyncio.ensure_future(_start_telegram()))
     from market.symbol_master import symbol_master
     await symbol_master.start_auto_sync()
+    # Warm the Dhan instrument master BEFORE the OMS worker starts.
+    #
+    # `DhanInstrumentProvider._require_dataset` raises when the dataset is absent; there is
+    # no lazy load. `DhanAdapter.place_order` resolves the contract through that registry
+    # and refuses to send when it cannot -- which is the correct fail-closed behaviour, but it
+    # means every Dhan order in a process that never loaded the master is blocked before it
+    # reaches the broker. Measured: with the master absent the resolver returned None for a
+    # contract that resolves correctly once loaded, and a live order stopped with
+    # "ORDER BLOCKED - Unable to resolve authoritative instrument metadata".
+    #
+    # This is deliberately a warm-up and not a fallback: if the master cannot be loaded the
+    # worker still starts, and the resolver still refuses. Nothing here substitutes metadata.
+    _instrument_master_ready = False
+    try:
+        from market.dhan_instruments import dhan_instrument_provider
+
+        handle = await dhan_instrument_provider.refresh()
+        _instrument_master_ready = True
+        logger.info(
+            "Dhan instrument master warmed: %s contracts (status=%s)",
+            handle.row_count, handle.validation_status,
+        )
+    except Exception as _exc:  # noqa: BLE001 - a cold master must not stop the app
+        logger.error(
+            "Could not warm the Dhan instrument master (%s: %s). Dhan orders will be "
+            "refused before reaching the broker until it loads.", type(_exc).__name__, _exc,
+        )
     from oms.manager import order_manager
     await order_manager.start()
     try:
