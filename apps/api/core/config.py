@@ -163,6 +163,18 @@ class Settings(BaseSettings):
             logger.info("REDIS_URL using default — caching will use local Redis")
         return self
 
+    # ── Dhan instrument master storage backend ──────────────────────────────
+    # The master is 138,106 contracts: ~198 MB as Python objects, ~97 MB mapped from
+    # an 11 MB directory. Both backends serve the identical API (see _Dataset), so
+    # this only picks which one a refresh installs.
+    #
+    # Default OFF deliberately. The mapped path is verified against the real master,
+    # but until it has run in production the object path stays the default, so an
+    # unconfigured deploy cannot be the first place it is exercised.
+    dhan_master_use_mmap: bool = False
+    #: Where the mapped store lives. Only read when the flag above is on.
+    dhan_master_store_dir: str = "/app/data/dhan_instruments"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 

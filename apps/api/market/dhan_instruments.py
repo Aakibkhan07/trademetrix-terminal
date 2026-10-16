@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import hashlib
 import io
 import logging
 import math
@@ -50,8 +51,9 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 
+from core.config import settings
 from market.instruments import Instrument, InstrumentResolutionError, instrument_resolver
-from market.instrument_store import ReopenRejectedError
+from market.instrument_store import MmapInstrumentStore, ReopenRejectedError
 
 logger = logging.getLogger(__name__)
 
@@ -444,17 +446,26 @@ class _Dataset:
         mapping fails, because a miss must not mean "not found": identity rules here are
         stricter than the raw file in at least one respect, and a wrong None would block
         a trade that is actually valid.
+
+        The object path is that same scan. It used to `return None` unconditionally,
+        which was not a performance shortcut but a stub: the only caller,
+        `resolve_option`, has its own scan fallback, so nothing was visibly wrong while
+        production ran this backend -- but `find_option` answered "no such contract" for
+        every option in the master. Measured on the real master: 137,840 misses against
+        the mapped path's answers. A method named `find_*` that always returns None is a
+        lie, and the next caller that trusts it would silently stop resolving options.
         """
-        if self.mmap is None:
-            return None
-        try:
-            slot = self.mmap.slot_for_option(
-                underlying, expiry, int(round(float(strike) * 100)), option_type)
-        except ReopenRejectedError:
-            slot = None
-        if slot is not None:
-            return _contract_from_fields(self.mmap.fields(slot), self.installed_at)
         families = {INDEX_OPTION, STOCK_OPTION, FUT_OPTION, CURRENCY_OPTION}
+        if self.mmap is not None:
+            try:
+                slot = self.mmap.slot_for_option(
+                    underlying, expiry, int(round(float(strike) * 100)), option_type)
+            except ReopenRejectedError:
+                slot = None
+            if slot is not None:
+                found = _contract_from_fields(self.mmap.fields(slot), self.installed_at)
+                if found.instrument_family in families:
+                    return found
         for contract in self.rows_for_underlying(underlying):
             if (contract.instrument_family in families
                     and contract.option_type == option_type
@@ -734,6 +745,50 @@ class DhanInstrumentProvider:
             source_url=self._url,
         )
 
+    def _encode_as_mmap(self, candidate: _Dataset) -> _Dataset:
+        """Re-encode an object dataset into the mapped store.
+
+        The CSV is parsed exactly once either way -- `parse` above is unchanged -- so
+        enabling the flag cannot alter which contracts are accepted or rejected. Only
+        where they are held afterwards differs.
+
+        Version naming is content-derived, not a clock: two refreshes of the same
+        master produce the same directory, so a retry reuses (and revalidates) what is
+        already on disk rather than filling it with near-duplicates.
+        """
+        from market.instrument_writer import build_from_contracts
+
+        contracts = list(candidate.contracts.values())
+        # Version names must satisfy is_version_name() -- "v" then digits only -- so the
+        # digest is rendered in decimal rather than hex. The first 15 decimal digits keep
+        # well inside float precision, which matters because the version sorts as a
+        # number when the store walks its directory.
+        digest = hashlib.sha256(
+            "".join(f"{k[0]}|{k[1]}|{k[2]}" for k in sorted(candidate.contracts))
+            .encode("utf-8")
+        ).hexdigest()
+        version = "v" + str(int(digest[:16], 16) % (10 ** 15))
+
+        source = {"url": candidate.source_url, "built_at": candidate.installed_at}
+        store = MmapInstrumentStore(settings.dhan_master_store_dir)
+        if (store.root / version).exists():
+            # Content-derived naming means a retry of the same master lands here. The
+            # directory already holds exactly these contracts, so re-encoding it would
+            # raise "version already exists" -- turning a retry into a hard failure.
+            # Revalidate what is on disk and serve it: validation is what would catch a
+            # truncated write, and it is cheaper than rebuilding from the CSV.
+            store.activate(version)
+        else:
+            store = build_from_contracts(
+                settings.dhan_master_store_dir, version, contracts, source=source,
+            )
+        reader = store.open_active()
+        return _Dataset(
+            installed_at=candidate.installed_at,
+            source_url=candidate.source_url,
+            mmap=reader,
+        )
+
     # ── atomic install ────────────────────────────────────────────────────────
 
     def install(self, candidate: _Dataset) -> None:
@@ -875,6 +930,12 @@ class DhanInstrumentProvider:
             # for the "never destroy the last known good" guarantee. That overlap was
             # 165MB of avoidable peak on a refresh.
             del text
+            # Backend selection happens here, after the CSV body is released: the
+            # encoding pass walks the parsed contracts, so doing it before `del text`
+            # would hold both the 74MB body and the full object dataset at once -- the
+            # exact overlap the delete above exists to avoid.
+            if settings.dhan_master_use_mmap and not candidate.is_mmap:
+                candidate = self._encode_as_mmap(candidate)
             self.install(candidate)
             # `candidate` is now the installed dataset; dropping the local name means the
             # only reference left is the provider's, so a later refresh cannot pin it.
