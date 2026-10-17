@@ -57,6 +57,21 @@ services:
       CORS_ORIGINS: https://ai.trademetrix.tech
       COOKIE_DOMAIN: .trademetrix.tech
       LOG_LEVEL: INFO
+      # Dhan instrument master: serve from the mmap'd store instead of Python objects.
+      # Measured on the real master (140,271 contracts): ~198 MB resident as objects vs
+      # ~97 MB mapped from an ~11 MB directory, in a 768 MB container. With the object
+      # backend the API sat at 86% and still climbing ~3 MB/min.
+      #
+      # The flag defaults OFF in Settings; it is set here explicitly so the choice is
+      # visible in the deployment rather than inferred. Both backends serve the same API,
+      # and a refresh of identical content reuses the existing version directory rather
+      # than writing a new one.
+      DHAN_MASTER_USE_MMAP: "true"
+      DHAN_MASTER_STORE_DIR: /app/data/dhan_instruments
+    volumes:
+      # The store must survive a container recreate, or every restart re-encodes the
+      # master (a ~35 MB download plus a full encode) before it can serve anything.
+      - api_data:/app/data
     depends_on:
       redis:
         condition: service_healthy
@@ -236,3 +251,6 @@ volumes:
   caddy-config:
   prometheus-data:
   grafana-data:
+  # The mmap'd Dhan instrument store. Without this the mapped files die with the
+  # container and each recreate re-encodes the master from a fresh download.
+  api_data:
