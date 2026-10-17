@@ -10,6 +10,7 @@ import { PositionActions } from '@/components/positions/position-actions'
 import { positionPnlPct } from '@/lib/positions'
 import { fmtPct } from '@/lib/format'
 import type { ActionKind, TrailState } from '@/components/positions/position-actions'
+import { orderIssue } from '@/components/trade/types'
 import type { OrderRow, PositionRow } from '@/components/trade/types'
 
 function downloadCSV(rows: string[][], filename: string) {
@@ -397,6 +398,7 @@ export default function PositionsPage() {
                   <th className="t-num">Filled</th>
                   <th className="t-num">Avg</th>
                   <th>Status</th>
+                  <th>Reason</th>
                   <th>Time</th>
                   <th></th>
                 </tr>
@@ -423,6 +425,18 @@ export default function PositionsPage() {
                         <span className={`t-badge ${o.status === 'FILLED' ? 't-badge-green' : o.status === 'OPEN' ? 't-badge-cyan' : o.status === 'REJECTED' ? 't-badge-red' : 't-badge-violet'}`}>
                           {o.status}
                         </span>
+                      </td>
+                      <td className="t-faint" style={{ fontSize: 12, maxWidth: 260 }}>
+                        {/* The status badge alone told the user nothing about WHY an
+                            order was rejected. The backend already stores this -- OMS
+                            writes it to `orders.message` (`_mirror_audit_status`) and
+                            `/engine/orders` returns it -- but no column rendered it, so
+                            "REJECTED" arrived with no explanation. Both fields are read:
+                            `reason` is written by the risk/validation path, `message` by
+                            the OMS path, and only one of them is populated per rejection. */}
+                        {(o.status === 'REJECTED' || o.status === 'CANCELLED' || o.status === 'EXPIRED')
+                          ? (orderIssue(o) || '-')
+                          : ''}
                       </td>
                       <td className="t-faint t-num" style={{ fontSize: 12 }}>
                         {o.created_at ? new Date(o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '-'}

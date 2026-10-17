@@ -64,6 +64,21 @@ export interface OrderRow {
   expiry_date?: string
   option_type?: string
   product?: string
+  /**
+   * Why the order ended the way it did.
+   *
+   * Both columns exist on `orders` and only one is populated per rejection: the risk and
+   * validation paths write `reason`, the OMS path writes `message`
+   * (`_mirror_audit_status`). Reading only one of them is how a rejected order ends up
+   * displaying with no explanation at all.
+   */
+  reason?: string
+  message?: string
+}
+
+/** The human-readable cause of a non-filled order, whichever column carries it. */
+export function orderIssue(o: OrderRow): string {
+  return (o.reason || '').trim() || (o.message || '').trim()
 }
 
 /** Shared selection state for the trader workspace. */
