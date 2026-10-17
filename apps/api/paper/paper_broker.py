@@ -45,6 +45,9 @@ class PaperBroker:
         self._authenticated = False
         self._connected = False
         self._order_counter = 0
+        #: Guards `_positions`, `_orders` and the account margin against the rebuild in
+        #: `_restore_positions`, which replaces all three. See that method.
+        self._positions_lock = asyncio.Lock()
 
     async def _ensure_quote(self, symbol: str) -> None:
         try:
@@ -99,15 +102,107 @@ class PaperBroker:
     async def connect(self) -> bool:
         self._authenticated = True
         self._connected = True
-        self._account.initial_capital = self._config.initial_capital
-        self._account.total_margin = self._config.initial_capital
-        self._account.available_margin = self._config.initial_capital
-        self._account.current_value = self._config.initial_capital
+        self._reset_account()
         await self._restore_positions()
         logger.info("PaperBroker connected for user %s (capital: %.2f)", self.user_id, self._config.initial_capital)
         return True
 
+    def _reset_account(self) -> None:
+        """Put the account back to freshly-funded capital.
+
+        `used_margin` was the field this never touched, so it only ever grew. `_update_account`
+        adds every fill's gross to it and then recomputes
+        `available_margin = total_margin - used_margin` -- and `total_margin` *is* reset here,
+        to the full starting capital. Every reconnect therefore re-applied the whole historical
+        book of fills against a full tank of capital, and the account walked toward negative.
+
+        Measured, not reasoned: 4 FILLED 1-lot NIFTY rows, restoring 9 times, gives
+        `used_margin` 828,000 against a 500,000 account, `available_margin` -328,000, and from
+        then on `_check_margin` rejects every paper order with "Insufficient margin" -- the
+        account is over-committed by 2,000 lots it never traded.
+
+        Reconnects are routine, not rare. `execution/recovery.py:reconcile_pending_orders()`
+        calls `connect()` once per pending order at startup, `reconciliation.py` once per
+        stored credential, and `BrokerExecutionAdapter._handle_token_expiry_and_retry` calls it
+        again mid-order whenever a token looks expired.
+        """
+        self._account = PaperAccount(
+            user_id=self.user_id,
+            initial_capital=self._config.initial_capital,
+            total_margin=self._config.initial_capital,
+            available_margin=self._config.initial_capital,
+            current_value=self._config.initial_capital,
+        )
+
     async def _restore_positions(self) -> None:
+        """Rebuild positions, orders and account from the persisted FILLED orders.
+
+        Everything this method replays is reset first -- `self._positions`, `self._orders` and
+        the margin the replay accumulates (`_reset_account`). A restore that only replaced
+        positions while *adding* to the account is not idempotent, and idempotence is the whole
+        requirement here: `connect()` reaches this method many times per process, and a second
+        pass must produce the same account as the first, not a larger one.
+
+        The lock serialises restores against each other *and* against live fills. It is held by
+        `place_order` around its position mutation too, because the rebuild rebinds
+        `self._positions`: a fill that landed on the outgoing dict while a restore was awaiting
+        its query would otherwise be discarded, and the user would watch a position they could
+        see in their order history vanish.
+
+        What this lock does *not* do is prevent a double restore. There is no suspension point
+        between the rebind and the end of the replay loop, so two restores cannot interleave
+        inside it; `scripts/probe_restore_interleaving.py` measures the locked and unlocked
+        paths as identical. An earlier version of this method claimed otherwise -- that two
+        concurrent restores doubled every holding -- and the claim was never reproduced. The
+        "two restores in the same second" in the startup log is `reconcile_pending_orders()`
+        calling `connect()` once per pending order, not a race.
+        """
+        async with self._positions_lock:
+            await self._restore_positions_locked()
+
+    @staticmethod
+    def _one_row_per_fill(rows: list[dict]) -> list[dict]:
+        """Collapse duplicate audit rows for a single fill.
+
+        The restore sums `filled_quantity` over whatever rows it finds, so two rows describing
+        one fill replay as two fills and the holding comes back twice the audit trail. `orders`
+        has more than one writer -- the paper broker's `_persist_order` and
+        `execution/manager._insert_order_atomic` both write it -- and it has carried partial
+        unique indexes that cannot be used as an ON CONFLICT target, so a writer landing
+        outside that delete-then-insert sequence is a matter of when, not whether.
+
+        **Not the measured cause of a doubling.** Driven end to end, three paper fills through
+        the real `ExecutionManager.place_order` produce three rows, one per `broker_order_id`:
+        `place_order` sets `req.execution_request_id` before building the order, so both
+        writers use the same `client_order_id` and `_persist_order`'s delete collapses them.
+        An earlier claim that this was the doubling was wrong, and came from a probe that built
+        `NormalizedOrder` by hand with `client_order_id=""` -- a state the real path does not
+        reach. This stays as a guard on a multi-writer table, not as a fix for a measurement.
+
+        The key is the one `execution_engine/trades.py` already uses, so both ledgers agree on
+        what counts as one fill: identical broker order id, quantity and price. Two genuine
+        partial fills of the same order differ in quantity or price and are both kept.
+        """
+        seen: set[tuple] = set()
+        unique: list[dict] = []
+        for row in rows:
+            key = (
+                row.get("broker_order_id", ""),
+                row.get("filled_quantity", row.get("quantity", 0)),
+                row.get("average_price", 0.0),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(row)
+        if len(unique) != len(rows):
+            logger.warning(
+                "Paper restore: collapsed %d duplicate audit rows to %d distinct fills",
+                len(rows) - len(unique), len(unique),
+            )
+        return unique
+
+    async def _restore_positions_locked(self) -> None:
         try:
             from core.db import get_supabase
             from core.safe_query import async_safe_execute
@@ -122,9 +217,11 @@ class PaperBroker:
             )
             if not rows:
                 return
+            rows = self._one_row_per_fill(rows)
 
             self._positions = {}
             self._orders = {}
+            self._reset_account()
 
             for row in rows:
                 order = NormalizedOrder(
@@ -227,19 +324,31 @@ class PaperBroker:
             )
 
         is_partial = fill.filled_quantity < order.quantity
-        self._update_position(order, fill)
-        self._update_account(order, fill)
-        self._orders[order_id] = {
-            "order": order, "status": PaperOrderStatus.FILLED, "fills": [fill],
-            "created_at": datetime.now(UTC),
-        }
-
         order.status = OrderStatus.PARTIALLY_FILLED if is_partial else OrderStatus.FILLED
         order.filled_quantity = fill.filled_quantity
         order.average_price = fill.filled_price
         order.filled_at = datetime.now(UTC)
 
-        self._persist_order(order, fill)
+        # One critical section, and `_persist_order` is inside it on purpose. The restore
+        # rebuilds from the database, so a fill is only safe from a rebuild that has already
+        # written its row -- otherwise the restore cannot see it and the position it rebuilds
+        # has no unit that the user can find in their order history. Holding the lock across
+        # the write makes the two orders total:
+        #
+        #   restore first -> rebuild, then the fill applies on top  (fill wins)
+        #   fill first    -> row persisted, then the rebuild reads it (restore wins)
+        #
+        # With the write outside the lock there is a third outcome: the fill lands in memory,
+        # the rebuild then rebinds `self._positions`, and the unit goes with the old dict.
+        async with self._positions_lock:
+            self._update_position(order, fill)
+            self._update_account(order, fill)
+            self._orders[order_id] = {
+                "order": order, "status": PaperOrderStatus.FILLED, "fills": [fill],
+                "created_at": datetime.now(UTC),
+            }
+            self._persist_order(order, fill)
+
         paper_metrics.record_fill()
 
         elapsed_ms = (time.monotonic() - start) * 1000
@@ -332,10 +441,7 @@ class PaperBroker:
     def update_config(self, config: PaperConfig) -> None:
         self._config = config
         self._fill_engine = FillEngine(config)
-        self._account.initial_capital = config.initial_capital
-        self._account.total_margin = config.initial_capital
-        self._account.available_margin = config.initial_capital
-        self._account.current_value = config.initial_capital
+        self._reset_account()
 
     def get_config(self) -> PaperConfig:
         return self._config
