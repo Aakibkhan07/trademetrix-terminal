@@ -26,6 +26,7 @@ import ast
 import gc
 import sys
 import tracemalloc
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -52,6 +53,24 @@ HEADER = [
 ]
 
 
+#: Expiry dates for the synthetic master, derived from today rather than written as literals.
+#:
+#: `DhanInstrumentProvider.expiries()` filters on `expiry_date >= date.today()`, which is correct
+#: -- a master should not offer a contract that expired this morning. But it means a fixture
+#: pinned to a fixed date stops working the day that date passes, and this file's did:
+#: `test_expiry_and_strike_listings_stay_consistent` began failing on 2026-10-13 when NIFTY's
+#: 2026-10-06 expiry went into the past, with the fixture unchanged and no code change.
+#:
+#: Offsets rather than dates, so the fixture stays a month or more of valid contracts ahead and
+#: the assertions below test the *filter* rather than the calendar. The two NIFTY expiries are
+#: deliberately different offsets -- `test_expiry_and_strike_listings_stay_consistent` asserts
+#: a strike exists at one and not the other.
+_NEAR = (date.today() + timedelta(days=9)).isoformat()    # was 2026-10-06
+_FAR = (date.today() + timedelta(days=16)).isoformat()    # was 2026-10-13
+_SENSEX_EXP = (date.today() + timedelta(days=11)).isoformat()  # was 2026-10-08
+_STOCK_EXP = (date.today() + timedelta(days=32)).isoformat()   # was 2026-10-29
+
+
 def _row(**over) -> str:
     import csv as _csv
     import io as _io
@@ -59,9 +78,9 @@ def _row(**over) -> str:
     base = {
         "EXCH_ID": "NSE", "SEGMENT": "D", "SECURITY_ID": "1", "ISIN": "NA",
         "INSTRUMENT": "OPTIDX", "UNDERLYING_SECURITY_ID": "26009",
-        "UNDERLYING_SYMBOL": "NIFTY", "SYMBOL_NAME": "NIFTY-Oct2026-22400-CE",
+        "UNDERLYING_SYMBOL": "NIFTY", "SYMBOL_NAME": "NIFTY-Fut-22400-CE",
         "DISPLAY_NAME": "NIFTY 22400 CALL", "INSTRUMENT_TYPE": "OP", "SERIES": "NA",
-        "LOT_SIZE": "65.0", "SM_EXPIRY_DATE": "2026-10-06", "STRIKE_PRICE": "22400.00000",
+        "LOT_SIZE": "65.0", "SM_EXPIRY_DATE": _NEAR, "STRIKE_PRICE": "22400.00000",
         "OPTION_TYPE": "CE", "TICK_SIZE": "5.0000", "EXPIRY_FLAG": "M",
         "BRACKET_FLAG": "N", "COVER_FLAG": "N",
     }
@@ -97,38 +116,38 @@ def _csv_header_line() -> str:
 
 ROWS = [
     _row(SECURITY_ID="40687"),
-    _row(SECURITY_ID="40688", OPTION_TYPE="PE", SYMBOL_NAME="NIFTY-Oct2026-22400-PE",
+    _row(SECURITY_ID="40688", OPTION_TYPE="PE", SYMBOL_NAME="NIFTY-Fut-22400-PE",
          DISPLAY_NAME="NIFTY 22400 PUT"),
     _row(SECURITY_ID="40689", STRIKE_PRICE="22600.00000",
-         SYMBOL_NAME="NIFTY-Oct2026-22600-CE", DISPLAY_NAME="NIFTY 22600 CALL"),
+         SYMBOL_NAME="NIFTY-Fut-22600-CE", DISPLAY_NAME="NIFTY 22600 CALL"),
     _row(SECURITY_ID="40690", STRIKE_PRICE="22600.00000", OPTION_TYPE="PE",
-         SYMBOL_NAME="NIFTY-Oct2026-22600-PE", DISPLAY_NAME="NIFTY 22600 PUT"),
-    _row(SECURITY_ID="40701", SM_EXPIRY_DATE="2026-10-13",
-         SYMBOL_NAME="NIFTY-Oct2026-22400-CE", DISPLAY_NAME="NIFTY 22400 CALL"),
-    _row(SECURITY_ID="40702", SM_EXPIRY_DATE="2026-10-13", OPTION_TYPE="PE",
-         SYMBOL_NAME="NIFTY-Oct2026-22400-PE", DISPLAY_NAME="NIFTY 22400 PUT"),
+         SYMBOL_NAME="NIFTY-Fut-22600-PE", DISPLAY_NAME="NIFTY 22600 PUT"),
+    _row(SECURITY_ID="40701", SM_EXPIRY_DATE=_FAR,
+         SYMBOL_NAME="NIFTY-Fut2-22400-CE", DISPLAY_NAME="NIFTY 22400 CALL"),
+    _row(SECURITY_ID="40702", SM_EXPIRY_DATE=_FAR, OPTION_TYPE="PE",
+         SYMBOL_NAME="NIFTY-Fut2-22400-PE", DISPLAY_NAME="NIFTY 22400 PUT"),
     # SENSEX on BSE -- the other index family that must keep working
     _row(EXCH_ID="BSE", SECURITY_ID="888990", UNDERLYING_SECURITY_ID="181",
          UNDERLYING_SYMBOL="SENSEX", LOT_SIZE="20.0", TICK_SIZE="10.0000",
-         STRIKE_PRICE="80000.00000", SM_EXPIRY_DATE="2026-10-08",
-         SYMBOL_NAME="SENSEX-Oct2026-80000-CE", DISPLAY_NAME="SENSEX 80000 CALL"),
+         STRIKE_PRICE="80000.00000", SM_EXPIRY_DATE=_SENSEX_EXP,
+         SYMBOL_NAME="SENSEX-Fut-80000-CE", DISPLAY_NAME="SENSEX 80000 CALL"),
     _row(EXCH_ID="BSE", SECURITY_ID="888991", UNDERLYING_SECURITY_ID="181",
          UNDERLYING_SYMBOL="SENSEX", LOT_SIZE="20.0", TICK_SIZE="10.0000",
-         STRIKE_PRICE="80000.00000", SM_EXPIRY_DATE="2026-10-08", OPTION_TYPE="PE",
-         SYMBOL_NAME="SENSEX-Oct2026-80000-PE", DISPLAY_NAME="SENSEX 80000 PUT"),
+         STRIKE_PRICE="80000.00000", SM_EXPIRY_DATE=_SENSEX_EXP, OPTION_TYPE="PE",
+         SYMBOL_NAME="SENSEX-Fut-80000-PE", DISPLAY_NAME="SENSEX 80000 PUT"),
     # F&O stock options -- proves stock options are not index-only
     _row(SECURITY_ID="51501", UNDERLYING_SECURITY_ID="2885", UNDERLYING_SYMBOL="RELIANCE",
          LOT_SIZE="1000.0", TICK_SIZE="2.5000", STRIKE_PRICE="700.00000",
-         SM_EXPIRY_DATE="2026-10-29", SYMBOL_NAME="RELIANCE-Oct2026-700-CE",
+         SM_EXPIRY_DATE=_STOCK_EXP, SYMBOL_NAME="RELIANCE-Fut-700-CE",
          DISPLAY_NAME="RELIANCE 700 CALL"),
     _row(SECURITY_ID="51502", UNDERLYING_SECURITY_ID="2885", UNDERLYING_SYMBOL="RELIANCE",
          LOT_SIZE="1000.0", TICK_SIZE="2.5000", STRIKE_PRICE="700.00000",
-         SM_EXPIRY_DATE="2026-10-29", OPTION_TYPE="PE",
-         SYMBOL_NAME="RELIANCE-Oct2026-700-PE", DISPLAY_NAME="RELIANCE 700 PUT"),
+         SM_EXPIRY_DATE=_STOCK_EXP, OPTION_TYPE="PE",
+         SYMBOL_NAME="RELIANCE-Fut-700-PE", DISPLAY_NAME="RELIANCE 700 PUT"),
     # a future and an equity, so the non-option paths are covered too
     _row(SECURITY_ID="51301", INSTRUMENT="FUTIDX", INSTRUMENT_TYPE="FUT",
-         SYMBOL_NAME="NIFTY-Oct2026-FUT", DISPLAY_NAME="NIFTY FUTURE",
-         SM_EXPIRY_DATE="2026-10-29", STRIKE_PRICE="0.00000", OPTION_TYPE="",
+         SYMBOL_NAME="NIFTY-Future", DISPLAY_NAME="NIFTY FUTURE",
+         SM_EXPIRY_DATE=_STOCK_EXP, STRIKE_PRICE="0.00000", OPTION_TYPE="",
          LOT_SIZE="75.0", TICK_SIZE="0.0500", EXPIRY_FLAG="M"),
     _row(EXCH_ID="NSE", SEGMENT="E", SECURITY_ID="11201", INSTRUMENT="EQ",
          INSTRUMENT_TYPE="EQ", UNDERLYING_SECURITY_ID="2885",
@@ -139,7 +158,7 @@ ROWS = [
     # (exchange, segment, security_id) and not security id alone.
     _row(EXCH_ID="MCX", SECURITY_ID="40687", INSTRUMENT="OPTIDX",
          UNDERLYING_SECURITY_ID="900", UNDERLYING_SYMBOL="GOLD", LOT_SIZE="1.0",
-         TICK_SIZE="1.0000", SYMBOL_NAME="GOLD-Oct2026-22400-CE",
+         TICK_SIZE="1.0000", SYMBOL_NAME="GOLD-Fut-22400-CE",
          DISPLAY_NAME="GOLD 22400 CALL"),
 ]
 CSV = _csv_of(ROWS)
@@ -181,8 +200,8 @@ async def test_repeated_resolution_does_not_reload_or_duplicate() -> None:
     before_objs = id(p.dataset.contracts)
     for _ in range(200):
         p.resolve_by_security_id("40687", exchange_segment="NSE_FNO")
-        p.resolve_option("NIFTY", expiry="2026-10-06", strike=22400, option_type="CE")
-        p.strikes("NIFTY", "2026-10-06", option_type="CE")
+        p.resolve_option("NIFTY", expiry=_NEAR, strike=22400, option_type="CE")
+        p.strikes("NIFTY", _NEAR, option_type="CE")
         p.expiries("NIFTY")
     assert p._test_download_count["n"] == 1  # type: ignore[attr-defined]
     assert len(p.dataset.contracts) == before_rows  # type: ignore[union-attr]
@@ -228,14 +247,14 @@ async def test_exact_security_id_lookup_is_segment_scoped() -> None:
 @pytest.mark.parametrize(
     "underlying,expiry,strike,option_type,lot",
     [
-        ("NIFTY", "2026-10-06", 22400, "CE", 65),
-        ("NIFTY", "2026-10-06", 22400, "PE", 65),
-        ("NIFTY", "2026-10-06", 22600, "CE", 65),
-        ("NIFTY", "2026-10-13", 22400, "CE", 65),   # second expiry
-        ("SENSEX", "2026-10-08", 80000, "CE", 20),  # BSE index
-        ("SENSEX", "2026-10-08", 80000, "PE", 20),
-        ("RELIANCE", "2026-10-29", 700, "CE", 1000),  # F&O stock option
-        ("RELIANCE", "2026-10-29", 700, "PE", 1000),
+        ("NIFTY", _NEAR, 22400, "CE", 65),
+        ("NIFTY", _NEAR, 22400, "PE", 65),
+        ("NIFTY", _NEAR, 22600, "CE", 65),
+        ("NIFTY", _FAR, 22400, "CE", 65),   # second expiry
+        ("SENSEX", _SENSEX_EXP, 80000, "CE", 20),  # BSE index
+        ("SENSEX", _SENSEX_EXP, 80000, "PE", 20),
+        ("RELIANCE", _STOCK_EXP, 700, "CE", 1000),  # F&O stock option
+        ("RELIANCE", _STOCK_EXP, 700, "PE", 1000),
     ],
 )
 async def test_option_identity_resolution_across_families(
@@ -255,9 +274,9 @@ async def test_lot_size_is_distinct_per_contract_and_never_defaulted() -> None:
     """Three different lot sizes in one master -- a hardcoded fallback cannot pass this."""
     p = await loaded()
     lots = {
-        p.resolve_option("NIFTY", expiry="2026-10-06", strike=22400, option_type="CE").lot_size,
-        p.resolve_option("SENSEX", expiry="2026-10-08", strike=80000, option_type="CE").lot_size,
-        p.resolve_option("RELIANCE", expiry="2026-10-29", strike=700, option_type="CE").lot_size,
+        p.resolve_option("NIFTY", expiry=_NEAR, strike=22400, option_type="CE").lot_size,
+        p.resolve_option("SENSEX", expiry=_SENSEX_EXP, strike=80000, option_type="CE").lot_size,
+        p.resolve_option("RELIANCE", expiry=_STOCK_EXP, strike=700, option_type="CE").lot_size,
     }
     assert lots == {65, 20, 1000}
 
@@ -265,20 +284,20 @@ async def test_lot_size_is_distinct_per_contract_and_never_defaulted() -> None:
 @pytest.mark.asyncio
 async def test_expiry_and_strike_listings_stay_consistent() -> None:
     p = await loaded()
-    assert "2026-10-06" in p.expiries("NIFTY")
-    assert "2026-10-13" in p.expiries("NIFTY")
-    assert 22400 in p.strikes("NIFTY", "2026-10-06", option_type="CE")
-    assert 22600 in p.strikes("NIFTY", "2026-10-06", option_type="CE")
+    assert _NEAR in p.expiries("NIFTY")
+    assert _FAR in p.expiries("NIFTY")
+    assert 22400 in p.strikes("NIFTY", _NEAR, option_type="CE")
+    assert 22600 in p.strikes("NIFTY", _NEAR, option_type="CE")
     # a strike that exists only as a PUT must not appear in the CE listing
-    assert 22600 not in p.strikes("NIFTY", "2026-10-13", option_type="CE")
-    assert 22400 in p.strikes("NIFTY", "2026-10-13", option_type="PE")
+    assert 22600 not in p.strikes("NIFTY", _FAR, option_type="CE")
+    assert 22400 in p.strikes("NIFTY", _FAR, option_type="PE")
 
 
 @pytest.mark.asyncio
 async def test_an_unresolvable_contract_resolves_to_nothing_rather_than_a_default() -> None:
     p = await loaded()
-    assert p.resolve_option("NIFTY", expiry="2026-10-06", strike=99999, option_type="CE") is None
-    assert p.resolve_option("NOSUCH", expiry="2026-10-06", strike=100, option_type="CE") is None
+    assert p.resolve_option("NIFTY", expiry=_NEAR, strike=99999, option_type="CE") is None
+    assert p.resolve_option("NOSUCH", expiry=_NEAR, strike=100, option_type="CE") is None
     assert p.resolve_by_security_id("000000", exchange_segment="NSE_FNO") is None
 
 
@@ -405,7 +424,7 @@ def test_the_resolver_reports_absence_instead_of_inventing_metadata() -> None:
     cold = DhanInstrumentProvider(fetch=lambda u, t: CSV)
     assert cold.is_loaded() is False
     with pytest.raises(InstrumentResolutionError) as exc:
-        cold.resolve_option("NIFTY", expiry="2026-10-06", strike=22400, option_type="CE")
+        cold.resolve_option("NIFTY", expiry=_NEAR, strike=22400, option_type="CE")
     assert "never been loaded" in str(exc.value)
 
 
@@ -486,7 +505,7 @@ def test_per_contract_payload_cost_is_bounded() -> None:
         provider="dhan", exchange="NSE", exchange_segment="NSE_FNO", security_id="1",
         trading_symbol="X", display_symbol="Y", instrument_type="OPT",
         instrument_family="OPT", underlying_symbol="NIFTY", underlying_security_id="0",
-        expiry_date="2026-10-06", strike_price=1.0, option_type="CE", lot_size=1,
+        expiry_date=_NEAR, strike_price=1.0, option_type="CE", lot_size=1,
         tick_size=0.05, instrument_status="ACTIVE", source="dhan", source_updated_at="",
     ), "__dict__"), (
         "DhanContract must stay slotted: without __slots__ every one of the 134,335 "
@@ -498,7 +517,7 @@ def test_measured_dataset_footprint_does_not_grow_on_repeated_resolution() -> No
     """A read-heavy loop must not accumulate memory -- this is the per-request scan guard."""
     async def run() -> None:
         p = await loaded()
-        p.resolve_option("NIFTY", expiry="2026-10-06", strike=22400, option_type="CE")
+        p.resolve_option("NIFTY", expiry=_NEAR, strike=22400, option_type="CE")
         p.dataset  # keep it referenced
 
     gc.collect()
