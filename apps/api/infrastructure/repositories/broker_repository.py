@@ -133,6 +133,13 @@ class SupabaseBrokerRepository(BrokerRepository):
         credential. Narrowing is opt-in so that adding a market-data row shows up in the
         existing `/brokers` page rather than silently disappearing from it — a page that
         lists fewer brokers than the tenant configured is its own bug report.
+
+        `token_status` is reconciled with `token_expires_at` on the way out, for the same
+        reason `get_token_status` does it: the column records what the token was when it was
+        saved and is never rewritten, so on its own it reports the past. Measured in
+        production — a Fyers credential read `valid` while its expiry was 25 days behind.
+        `stored_token_status` keeps the original alongside, so a caller that genuinely wants
+        what was recorded can still have it.
         """
         query = (
             get_supabase().table("broker_credentials")
@@ -141,8 +148,20 @@ class SupabaseBrokerRepository(BrokerRepository):
         )
         if role is not None:
             query = query.eq("role", _check_role(role))
-        rows = await async_safe_execute(query)
-        return rows or []
+        rows = await async_safe_execute(query) or []
+
+        from engine.token_refresh import effective_token_status
+
+        out: list[dict] = []
+        for row in rows:
+            status, expired = effective_token_status(row)
+            enriched = dict(row)
+            if status != enriched.get("token_status"):
+                enriched["stored_token_status"] = enriched.get("token_status")
+                enriched["token_status"] = status
+            enriched["expired"] = expired
+            out.append(enriched)
+        return out
 
     async def activate_broker(self, user_id: str, broker: str, *, role: str = EXECUTION) -> bool:
         _check_role(role)
