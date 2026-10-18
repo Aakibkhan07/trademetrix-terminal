@@ -104,14 +104,42 @@ fi
 # ------------------------------------------------------------
 # 4. DNS check (advisory)
 # ------------------------------------------------------------
-VPS_IP=$(curl -s --max-time 10 ifconfig.me || echo "")
-if [ -n "$VPS_IP" ] && command -v getent &>/dev/null; then
+# Both families are compared, because a single-address comparison is wrong on any host that is
+# not IPv4-only.
+#
+# `ifconfig.me` answers with whichever family the connecting socket used, so on the previous
+# IPv6-only VPS it returned `2a02:4780:12:dae1::1` while `getent hosts` handed back the A
+# record. The two never matched and every deploy printed:
+#
+#     [ERR] ai.trademetrix.tech does not point to 2a02:4780:12:dae1::1 (got: 140.x.x.x)
+#
+# ...on a host whose DNS was entirely correct. The replacement VPS is IPv4-only and hit the
+# mirror-image failure. Correct DNS was reported as broken in both directions, which is the
+# worst kind of advisory: it trains the reader to ignore it.
+#
+# So: collect this host's own public v4 and v6, resolve each domain's A and AAAA, and call it a
+# match when the two sets overlap. A dual-stack host answering on both is a legitimate pass.
+VPS_IPV4=$(curl -s -4 --max-time 10 ifconfig.me 2>/dev/null || echo "")
+VPS_IPV6=$(curl -s -6 --max-time 10 ifconfig.me 2>/dev/null || echo "")
+VPS_IPS="$VPS_IPV4 $VPS_IPV6"
+
+if [ -n "$(echo "$VPS_IPS" | tr -d ' ')" ] && command -v getent &>/dev/null; then
+  info "This host: v4=${VPS_IPV4:-none} v6=${VPS_IPV6:-none}"
   for sub in "$DOMAIN" "$API_DOMAIN"; do
-    RESOLVED=$(getent hosts "$sub" | awk '{print $1}' | head -1 || echo "")
-    if [ "$RESOLVED" = "$VPS_IP" ]; then
-      ok "$sub -> $RESOLVED"
+    # Every address the domain resolves to, across both families -- not just the first.
+    RESOLVED=$( { getent ahostsv4 "$sub" 2>/dev/null | awk '{print $1}'
+                  getent ahostsv6 "$sub" 2>/dev/null | awk '{print $1}'; } \
+                | sort -u | tr '\n' ' ')
+    MATCHED=""
+    for addr in $VPS_IPS; do
+      case " $RESOLVED " in
+        *" $addr "*) MATCHED="$addr"; break ;;
+      esac
+    done
+    if [ -n "$MATCHED" ]; then
+      ok "$sub -> $MATCHED  (resolves to: ${RESOLVED:-none})"
     else
-      err "$sub does not point to $VPS_IP (got: ${RESOLVED:-not resolved}) — TLS may fail"
+      err "$sub does not point to this host (got: ${RESOLVED:-not resolved}; this host: ${VPS_IPV4:-no v4} / ${VPS_IPV6:-no v6}) — TLS may fail"
     fi
   done
 else
